@@ -83,8 +83,16 @@
     <button onclick="openDevicePopup()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">
       🔧 <span id="deviceSummary">Тоног</span>
     </button>
-    <button onmousedown="event.preventDefault();decreaseDecimal()" title="Аравтын орон хасах" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">←.0</button>
-    <button onmousedown="event.preventDefault();increaseDecimal()" title="Аравтын орон нэмэх" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">.00→</button>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <div style="display:flex;gap:2px">
+        <button onmousedown="event.preventDefault();decreaseDecimal()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:4px;color:#fff;font-size:10px;padding:2px 6px;cursor:pointer">←.0</button>
+        <button onmousedown="event.preventDefault();increaseDecimal()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:4px;color:#fff;font-size:10px;padding:2px 6px;cursor:pointer">.00</button>
+      </div>
+      <div style="display:flex;gap:2px">
+        <button onmousedown="event.preventDefault();increaseDecimal()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:4px;color:#fff;font-size:10px;padding:2px 6px;cursor:pointer">.00</button>
+        <button onmousedown="event.preventDefault();decreaseDecimal()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:4px;color:#fff;font-size:10px;padding:2px 6px;cursor:pointer">→.0</button>
+      </div>
+    </div>
     <span class="save-dot" id="saveDot"></span>
     <span id="saveStatus" style="font-size:11px;color:#93a8d4">Хадгалагдсан</span>
   </div>
