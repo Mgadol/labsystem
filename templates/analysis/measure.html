@@ -62,12 +62,6 @@
 .col-bar{padding:5px 14px;background:#1a3a2a;display:flex;gap:14px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #2d5a3a}
 .col-bar label{display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:#a8d4b8;user-select:none}
 
-/* Decimal товч */
-.decimal-ctrl{display:inline-flex;flex-direction:column;position:absolute;right:1px;top:50%;transform:translateY(-50%);gap:1px}
-.decimal-ctrl button{width:10px;height:9px;padding:0;border:none;background:#d0d0cc;color:#444;font-size:8px;line-height:1;cursor:pointer;border-radius:1px}
-.decimal-ctrl button:hover{background:#a0a09a}
-.tbl td{position:relative}
-
 /* Нуугдах багана */
 .cg-ff.hide,.cg-mt.hide,.cg-dc.hide,.cg-un.hide,
 .cg-db.hide,.cg-gi.hide,.cg-st.hide,.cg-il.hide,.cg-fsi.hide{display:none}
@@ -89,6 +83,8 @@
     <button onclick="openDevicePopup()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">
       🔧 <span id="deviceSummary">Тоног</span>
     </button>
+    <button onclick="decreaseDecimal()" title="Аравтын орон хасах" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">←.0</button>
+    <button onclick="increaseDecimal()" title="Аравтын орон нэмэх" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">.00→</button>
     <span class="save-dot" id="saveDot"></span>
     <span id="saveStatus" style="font-size:11px;color:#93a8d4">Хадгалагдсан</span>
   </div>
@@ -518,21 +514,19 @@ document.querySelectorAll('.tbl input').forEach(function(i){
   });
 });
 
-document.querySelectorAll('.tbl input[type=number]').forEach(function(inp){
-  var span=document.createElement('span');
-  span.className='decimal-ctrl';
-  span.innerHTML='<button onclick="changeDecimal(this,-1)">-</button><button onclick="changeDecimal(this,1)">+</button>';
-  inp.parentNode.insertBefore(span,inp.nextSibling);
-});
-
-function changeDecimal(btn,dir){
-  var inp=btn.closest('td').querySelector('input');
-  if(!inp||!inp.value) return;
-  var val=parseFloat(inp.value);
+function decreaseDecimal(){
+  var inp=document.activeElement;
+  if(!inp||!inp.matches('.tbl input')) return;
+  if(!inp.value) return;
   var decimals=(inp.value.split('.')[1]||'').length;
-  var newDec=Math.max(0,decimals+dir);
-  inp.value=val.toFixed(newDec);
-  inp.dispatchEvent(new Event('blur'));
+  if(decimals>0) inp.value=parseFloat(inp.value).toFixed(decimals-1);
+}
+function increaseDecimal(){
+  var inp=document.activeElement;
+  if(!inp||!inp.matches('.tbl input')) return;
+  if(!inp.value) return;
+  var decimals=(inp.value.split('.')[1]||'').length;
+  inp.value=parseFloat(inp.value).toFixed(decimals+1);
 }
 
 
