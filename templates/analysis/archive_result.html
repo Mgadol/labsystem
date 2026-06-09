@@ -1,0 +1,210 @@
+{% extends "partial/base.html" %}
+{% block title %}Архив — {{ receipt['lab_number'] }}{% endblock %}
+{% block content %}
+<style>
+.result-wrap{overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto}
+.result-table{width:100%;border-collapse:collapse;font-size:12px}
+.result-table th,.result-table td{border:1px solid #d8d8d0;padding:4px 8px;text-align:center;white-space:nowrap}
+.result-table thead th{position:sticky;top:0;z-index:2}
+.result-table thead tr.h1 th{background:#3c3489;color:#fff;font-size:11px;height:24px}
+.result-table thead tr.h2 th{background:#4f46a3;color:#c7d2fe;font-size:10px;border-bottom:3px solid #818cf8}
+.result-table tbody tr:hover td{background:#f8f9ff}
+.result-table tbody tr.dup-row td{background:#f0f6ff}
+.result-table tbody tr.detail-row td{background:#fafaf7;font-size:11px}
+.val{font-family:monospace;font-weight:600;color:#1a2744}
+.val-empty{color:#ccc;font-style:italic;font-size:11px}
+.st-approved{color:#0f6e56;font-size:11px;font-weight:600}
+.st-done{color:#854f0b;font-size:11px;font-weight:600}
+.toggle-btn{background:none;border:1px solid #c7d2fe;border-radius:4px;cursor:pointer;font-size:11px;padding:1px 5px;color:#3c3489}
+.toggle-btn:hover{background:#eeedfe}
+.detail-label{color:#888;font-size:10px}
+</style>
+
+<!-- Мэдээлэл -->
+<div style="padding:7px 14px;background:#3c3489;color:#fff;display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12px;border-bottom:2px solid #818cf8">
+  <div>
+    <div style="font-size:9px;color:#c7d2fe">Ажлын дугаар</div>
+    <div style="font-size:15px;font-weight:700;font-family:monospace;color:#a5b4fc">{{ receipt['lab_number'] }}</div>
+  </div>
+  <div style="width:1px;background:rgba(255,255,255,.15);height:30px"></div>
+  <div><div style="font-size:9px;color:#c7d2fe">Дээжний нэр</div><div style="font-weight:600">{{ receipt['sample_name'] }}</div></div>
+  <div><div style="font-size:9px;color:#c7d2fe">Төрөл</div><div style="font-weight:600;color:#fbbf24">{{ receipt['sample_type'] }}</div></div>
+  <div><div style="font-size:9px;color:#c7d2fe">Нийт</div><div style="font-weight:600">{{ receipt['quantity'] }} дээж</div></div>
+  <div><div style="font-size:9px;color:#c7d2fe">Огноо</div><div>{{ receipt['collected_date'] }}</div></div>
+  <div style="width:1px;background:rgba(255,255,255,.15);height:30px"></div>
+  <div><div style="font-size:9px;color:#c7d2fe">Геологи</div><div>{{ receipt['geo_name'] or '—' }}</div></div>
+  <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+    {% if role in ('admin','senior') %}
+    <form method="POST" action="{{ url_for('archive_reopen', receipt_id=receipt['id']) }}"
+          onsubmit="return confirm('Энэ ажлыг шинжилгээнд буцаах уу? Баталгаажуулалт цуцлагдана.')">
+      <button type="submit" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">↩️ Шинжилгээнд буцаах</button>
+    </form>
+    {% endif %}
+    <a href="{{ url_for('analysis_export', receipt_id=receipt['id']) }}" class="btn btn-sm" style="background:#eeedfe;color:#3c3489;border:1px solid #c7d2fe">📥 Excel татах</a>
+    <a href="{{ url_for('archive') }}" class="btn btn-ghost btn-sm">← Архив</a>
+  </div>
+</div>
+
+<!-- Явц -->
+{% set total = receipt['quantity'] %}
+{% set approved_entries = entries|selectattr('row_status','equalto','approved')|selectattr('is_duplicate','equalto',0)|list %}
+{% set approved_count = approved_entries|length %}
+<div style="padding:8px 14px;background:#f7f7f5;border-bottom:1px solid #e5e4e0;display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+  <span style="font-size:12px;color:#555">Баталгаажсан:</span>
+  <span style="font-size:13px;font-weight:600;color:#0f6e56">{{ approved_count }}/{{ total }}</span>
+  <span style="font-size:11px;color:#3c3489;background:#eeedfe;padding:2px 8px;border-radius:10px">📦 Архивласан</span>
+</div>
+
+<!-- Үр дүнгийн хүснэгт -->
+<div class="result-wrap">
+<table class="result-table">
+  <thead>
+    <tr class="h1">
+      <th rowspan="2" style="width:28px"></th>
+      <th rowspan="2">No.</th>
+      <th rowspan="2">Дээжний нэр</th>
+      <th rowspan="2">Mt %</th>
+      <th rowspan="2">Mad %</th>
+      <th rowspan="2">Aad %</th>
+      <th rowspan="2">Vad %</th>
+      <th rowspan="2">FCad %</th>
+      <th rowspan="2">Sad %</th>
+      <th rowspan="2">Qb,ad J/g</th>
+      <th rowspan="2">G</th>
+      <th rowspan="2">CSN</th>
+      <th rowspan="2">Статус</th>
+    </tr>
+    <tr class="h2"></tr>
+  </thead>
+  <tbody>
+  {% for i in range(total) %}
+  {% set ri = i+1 %}
+  {% set e = entries|selectattr('row_num','equalto',ri)|selectattr('is_duplicate','equalto',0)|first %}
+  {% set de = entries|selectattr('row_num','equalto',ri)|selectattr('is_duplicate','equalto',1)|first %}
+  {% set is_done = e and e['row_status'] in ('done','approved') %}
+  <tr>
+    <td>
+      {% if e %}
+      <button class="toggle-btn" onclick="toggleDetail({{ ri }})" title="Хэмжилтийн өгөгдөл">+</button>
+      {% endif %}
+    </td>
+    <td style="color:#666;font-size:11px">{{ ri }}</td>
+    <td style="text-align:left;font-weight:500;padding-left:8px">{{ e.sample_name if e and e.sample_name else '—' }}</td>
+    {% if is_done %}
+    <td class="val">{{ '%.2f'|format(e['mad']) if e['mad'] else '—' }}</td>
+    <td class="val">{{ '%.4f'|format(e['mad']) if e['mad'] else '—' }}</td>
+    <td class="val">{{ '%.4f'|format(e['aad']) if e['aad'] else '—' }}</td>
+    <td class="val">{{ '%.4f'|format(e['vad']) if e['vad'] else '—' }}</td>
+    <td class="val">{{ '%.4f'|format(e['fc']) if e['fc'] else '—' }}</td>
+    <td class="val">{{ '%.3f'|format(e['sulfur']) if e['sulfur'] else '—' }}</td>
+    <td class="val">{{ '%.1f'|format(e['cal_value']) if e['cal_value'] else '—' }}</td>
+    <td class="val">—</td>
+    <td class="val">{{ '%.1f'|format(e['fsi']) if e['fsi'] else '—' }}</td>
+    {% else %}
+    <td colspan="9" class="val-empty">Өгөгдөл байхгүй</td>
+    {% endif %}
+    <td>
+      {% if e and e['row_status'] == 'approved' %}
+      <span class="st-approved">🟢 Баталгаажсан</span>
+      {% elif e and e['row_status'] == 'done' %}
+      <span class="st-done">🟠 Урьдчилсан</span>
+      {% else %}
+      <span style="color:#ccc;font-size:11px">—</span>
+      {% endif %}
+    </td>
+  </tr>
+
+  <!-- Хэмжилтийн дэлгэрэнгүй -->
+  {% if e %}
+  <tr class="detail-row" id="detail-{{ ri }}" style="display:none">
+    <td colspan="13" style="text-align:left;padding:8px 16px">
+      <div style="display:flex;flex-wrap:wrap;gap:16px;font-size:11px">
+        <div>
+          <div style="font-weight:600;color:#3c3489;margin-bottom:4px">💧 Дотоод чийг</div>
+          <div><span class="detail-label">Бухын №:</span> {{ e['dc_bux'] or '—' }}</div>
+          <div><span class="detail-label">Тэвш:</span> {{ e['dc_tare'] or '—' }} г</div>
+          <div><span class="detail-label">Дээж:</span> {{ e['dc_sample'] or '—' }} г</div>
+          <div><span class="detail-label">Хатаасан:</span> {{ e['dc_dried'] or '—' }} г</div>
+        </div>
+        <div>
+          <div style="font-weight:600;color:#3c3489;margin-bottom:4px">🔥 Үнс</div>
+          <div><span class="detail-label">Тавиур:</span> {{ e['ash_tav'] or '—' }}</div>
+          <div><span class="detail-label">Тэвш:</span> {{ e['ash_tare'] or '—' }} г</div>
+          <div><span class="detail-label">Дээж:</span> {{ e['ash_sample'] or '—' }} г</div>
+          <div><span class="detail-label">Шатаасан:</span> {{ e['ash_burned'] or '—' }} г</div>
+        </div>
+        <div>
+          <div style="font-weight:600;color:#3c3489;margin-bottom:4px">💨 Дэгдэмхий</div>
+          <div><span class="detail-label">Тигель:</span> {{ e['vol_tig'] or '—' }}</div>
+          <div><span class="detail-label">Тэвш:</span> {{ e['vol_tare'] or '—' }} г</div>
+          <div><span class="detail-label">Дээж:</span> {{ e['vol_sample'] or '—' }} г</div>
+          <div><span class="detail-label">Шатаасан:</span> {{ e['vol_burned'] or '—' }} г</div>
+        </div>
+        <div>
+          <div style="font-weight:600;color:#3c3489;margin-bottom:4px">⚖️ Нийт чийг</div>
+          <div><span class="detail-label">Бухын №:</span> {{ e['mt_bux'] or '—' }}</div>
+          <div><span class="detail-label">Тэвш:</span> {{ e['mt_tare'] or '—' }} г</div>
+          <div><span class="detail-label">Дээж:</span> {{ e['mt_sample'] or '—' }} г</div>
+          <div><span class="detail-label">Хатаасан:</span> {{ e['mt_dried'] or '—' }} г</div>
+        </div>
+        <div>
+          <div style="font-weight:600;color:#3c3489;margin-bottom:4px">🔬 G индекс</div>
+          <div><span class="detail-label">Тигель:</span> {{ e['g_tig'] or '—' }}</div>
+          <div><span class="detail-label">Тэвш:</span> {{ e['g_tare'] or '—' }} г</div>
+          <div><span class="detail-label">Кокс:</span> {{ e['g_coke'] or '—' }} г</div>
+          <div><span class="detail-label">Шигшүүр 1/2:</span> {{ e['g_sieve1'] or '—' }} / {{ e['g_sieve2'] or '—' }}</div>
+        </div>
+        <div>
+          <div style="font-weight:600;color:#3c3489;margin-bottom:4px">📋 Мета</div>
+          <div><span class="detail-label">Хийсэн:</span> {{ e['done_name'] or '—' }}</div>
+          <div><span class="detail-label">Огноо:</span> {{ (e['done_at'] or '')[:16] or '—' }}</div>
+          <div><span class="detail-label">Баталгаажуулсан:</span> {{ e['approved_name'] or '—' }}</div>
+          <div><span class="detail-label">Огноо:</span> {{ (e['approved_at'] or '')[:16] or '—' }}</div>
+        </div>
+      </div>
+    </td>
+  </tr>
+  {% endif %}
+
+  <!-- Зэрэгцээ дээж -->
+  {% if de and de['row_status'] in ('done','approved') %}
+  <tr class="dup-row">
+    <td></td>
+    <td style="color:#185fa5;font-size:10px">↳</td>
+    <td style="color:#185fa5;font-size:10px;font-style:italic;text-align:left;padding-left:8px">зэрэгцээ</td>
+    <td class="val" style="color:#185fa5">—</td>
+    <td class="val" style="color:#185fa5">{{ '%.4f'|format(de['mad']) if de['mad'] else '—' }}</td>
+    <td class="val" style="color:#185fa5">{{ '%.4f'|format(de['aad']) if de['aad'] else '—' }}</td>
+    <td class="val" style="color:#185fa5">{{ '%.4f'|format(de['vad']) if de['vad'] else '—' }}</td>
+    <td class="val" style="color:#185fa5">{{ '%.4f'|format(de['fc']) if de['fc'] else '—' }}</td>
+    <td class="val" style="color:#185fa5">{{ '%.3f'|format(de['sulfur']) if de['sulfur'] else '—' }}</td>
+    <td class="val" style="color:#185fa5">{{ '%.1f'|format(de['cal_value']) if de['cal_value'] else '—' }}</td>
+    <td></td><td></td>
+    <td>
+      {% if de['row_status']=='approved' %}<span class="st-approved">🟢 Баталгаажсан</span>
+      {% else %}<span class="st-done">🟠 Урьдчилсан</span>{% endif %}
+    </td>
+  </tr>
+  {% endif %}
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function toggleDetail(ri){
+  var row = document.getElementById('detail-'+ri);
+  var btn = event.target;
+  if(row.style.display==='none'){
+    row.style.display='';
+    btn.textContent='−';
+    btn.style.background='#eeedfe';
+  } else {
+    row.style.display='none';
+    btn.textContent='+';
+    btn.style.background='';
+  }
+}
+</script>
+{% endblock %}
