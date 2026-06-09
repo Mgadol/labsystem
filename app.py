@@ -958,7 +958,7 @@ def analysis():
             FROM geo_samples g
             LEFT JOIN users u ON u.id=g.registered_by
             LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
-            WHERE g.registered_by=? ORDER BY g.created_at DESC LIMIT 50
+            WHERE g.registered_by=? AND g.status != 'done' ORDER BY g.created_at DESC LIMIT 50
         """, (uid,)).fetchall()
     else:
         samples = conn.execute("""
@@ -967,7 +967,7 @@ def analysis():
             FROM geo_samples g
             LEFT JOIN users u ON u.id=g.registered_by
             LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
-            ORDER BY g.created_at DESC LIMIT 200
+            WHERE g.status != 'done' ORDER BY g.created_at DESC LIMIT 200
         """).fetchall()
     conn.close()
     conn.close()
