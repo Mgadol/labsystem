@@ -509,8 +509,7 @@ document.addEventListener('keydown',function(e){
 
 document.querySelectorAll('.tbl input').forEach(function(i){
   i.addEventListener('focus',function(){this.select();});
-  i.addEventListener('mousedown',function(e){
-    e.preventDefault();
+  i.addEventListener('mousedown', function(e){
     this.focus();
     this.select();
   });
