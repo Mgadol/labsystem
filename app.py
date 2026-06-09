@@ -1753,13 +1753,29 @@ def lab_settings():
 
         elif action == 'qc_settings':
             for q in qc_settings_list:
-                key = f"tol_{q['parameter']}"
-                val = request.form.get(key)
-                if val:
-                    conn.execute("UPDATE qc_settings SET tolerance=?, updated_by=? WHERE parameter=?",
-                                (float(val), session['user_id'], q['parameter']))
+                tol = request.form.get(f"tol_{q['parameter']}")
+                std = request.form.get(f"std_{q['parameter']}")
+                if tol:
+                    conn.execute("UPDATE qc_settings SET tolerance=?, standard=?, updated_by=? WHERE parameter=?",
+                                (float(tol), std or q['standard'], session['user_id'], q['parameter']))
             conn.commit()
             flash('QC тохиргоо хадгалагдлаа!', 'success')
+
+        elif action == 'qc_add':
+            new_param = request.form.get('new_parameter', '').strip()
+            new_tol = request.form.get('new_tolerance', '').strip()
+            new_std = request.form.get('new_standard', '').strip()
+            if new_param and new_tol:
+                try:
+                    conn.execute("INSERT INTO qc_settings(parameter, tolerance, standard, updated_by) VALUES(?,?,?,?)",
+                                (new_param, float(new_tol), new_std or None, session['user_id']))
+                    conn.commit()
+                    flash(f'{new_param} параметр нэмэгдлээ!', 'success')
+                except Exception:
+                    conn.rollback()
+                    flash(f'{new_param} параметр аль хэдийн байна!', 'error')
+            else:
+                flash('Параметр болон зөрүүг оруулна уу!', 'error')
 
         elif action == 'update_profile':
             photo = save_file(request.files.get('photo'), 'staff')
