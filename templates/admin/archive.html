@@ -17,6 +17,7 @@
     </button>
     <button class="tab-btn" data-tab="tab-analysis" onclick="switchTab(this,'tab-analysis')">
       🧪 {{ 'Шинжилгээ' if lang=='mn' else 'Analysis' }}
+      <span style="background:#eee;color:#888;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px">{{ done_samples|length }}</span>
     </button>
     <button class="tab-btn" data-tab="tab-repair" onclick="switchTab(this,'tab-repair')">
       🔧 {{ 'Засвар' if lang=='mn' else 'Repairs' }}
@@ -139,12 +140,41 @@
     </div>
   </div>
 
-  <!-- Шинжилгээ — дараа нэмэгдэнэ -->
+  <!-- Шинжилгээ -->
   <div id="tab-analysis" class="tab-pane">
-    <div class="card" style="text-align:center;padding:40px;color:var(--text-muted)">
-      <div style="font-size:32px;margin-bottom:10px">🧪</div>
-      <div style="font-size:14px;font-weight:500;margin-bottom:6px">{{ 'Шинжилгээний архив' if lang=='mn' else 'Analysis Archive' }}</div>
-      <div style="font-size:13px">{{ 'Шинжилгээний модуль нэмэгдсэний дараа энд харагдана' if lang=='mn' else 'Will be available after analysis module is added' }}</div>
+    <div class="card">
+      {% if done_samples %}
+      <table class="table">
+        <thead><tr>
+          <th>{{ 'Дээжийн нэр' if lang=='mn' else 'Sample Name' }}</th>
+          <th>{{ 'Лабораторийн №' if lang=='mn' else 'Lab Number' }}</th>
+          <th>{{ 'Байршил' if lang=='mn' else 'Location' }}</th>
+          <th>{{ 'Бүртгэсэн' if lang=='mn' else 'Registered by' }}</th>
+          <th>{{ 'Хүлээн авсан огноо' if lang=='mn' else 'Received Date' }}</th>
+          <th></th>
+        </tr></thead>
+        <tbody>
+        {% for s in done_samples %}
+        <tr>
+          <td style="font-weight:500">{{ s['sample_name'] or '—' }}</td>
+          <td style="color:var(--text-muted)">{{ s['lab_number'] or '—' }}</td>
+          <td>{{ s['location'] or '—' }}</td>
+          <td>{{ s['reg_name'] or '—' }}</td>
+          <td>{{ s['received_date'] or '—' }}</td>
+          <td>
+            {% if s['receipt_id'] %}
+            <a href="{{ url_for('analysis_result', receipt_id=s['receipt_id']) }}" class="btn btn-ghost btn-sm">{{ 'Харах' if lang=='mn' else 'View' }}</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px">
+        🧪 {{ 'Дууссан шинжилгээ байхгүй байна' if lang=='mn' else 'No completed analyses' }}
+      </div>
+      {% endif %}
     </div>
   </div>
 

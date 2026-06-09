@@ -471,11 +471,21 @@ def archive():
         WHERE r.status IN ('done','replaced')
         ORDER BY r.reported_date DESC
     """).fetchall()
+    done_samples = conn.execute("""
+        SELECT g.*, u.name as reg_name,
+               sr.lab_number, sr.received_date, sr.id as receipt_id
+        FROM geo_samples g
+        LEFT JOIN users u ON u.id=g.registered_by
+        LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
+        WHERE g.status='done'
+        ORDER BY g.created_at DESC
+    """).fetchall()
     conn.close()
     return render_template('admin/archive.html',
         archived_devices=archived_devices,
         archived_staff=archived_staff,
         completed_repairs=completed_repairs,
+        done_samples=done_samples,
         lang=lang)
 
 # ── STAFF EDIT (admin/senior) ───────────────────────────
