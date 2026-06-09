@@ -123,8 +123,8 @@ textarea.form-input{resize:vertical;min-height:80px}
   </div>
   <div class="topbar-right">
     <div class="lang-btns">
-      <a href="{{ url_for('set_lang', lang='mn') }}?next={{ request.path }}{{ ('?' + request.query_string.decode()) if request.query_string else '' }}" class="lang-btn {% if session.get('lang','mn')=='mn' %}active{% endif %}">МОН</a>
-      <a href="{{ url_for('set_lang', lang='en') }}?next={{ request.path }}{{ ('?' + request.query_string.decode()) if request.query_string else '' }}" class="lang-btn {% if session.get('lang')=='en' %}active{% endif %}">ENG</a>
+      <a onclick="setLang('mn')" class="lang-btn {% if session.get('lang','mn')=='mn' %}active{% endif %}" style="cursor:pointer">МОН</a>
+      <a onclick="setLang('en')" class="lang-btn {% if session.get('lang')=='en' %}active{% endif %}" style="cursor:pointer">ENG</a>
     </div>
     {% if cur %}
     <div class="user-chip">
@@ -181,5 +181,10 @@ function initTabs(){
 document.addEventListener('DOMContentLoaded',initTabs);
 </script>
 {% block scripts %}{% endblock %}
+<script>
+function setLang(lang){
+  window.location.href = '/lang/' + lang + '?next=' + encodeURIComponent(window.location.pathname + window.location.search);
+}
+</script>
 </body>
 </html>
