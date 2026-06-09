@@ -540,7 +540,7 @@ document.addEventListener('DOMContentLoaded',function(){
     document.querySelectorAll('.cg-'+g).forEach(function(el){el.classList.add('hide');});
   });
   loadData();
-  document.getElementById('mainTbl').addEventListener('mousemove', function(e){
+  document.getElementById('sheetWrap').addEventListener('mousemove', function(e){
     if(e.buttons !== 1) return;
     var td = e.target.closest('td');
     if(!td) return;
