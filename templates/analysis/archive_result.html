@@ -10,14 +10,16 @@
 .result-table thead tr.h2 th{background:#4f46a3;color:#c7d2fe;font-size:10px;border-bottom:3px solid #818cf8}
 .result-table tbody tr:hover td{background:#f8f9ff}
 .result-table tbody tr.dup-row td{background:#f0f6ff}
-.result-table tbody tr.detail-row td{background:#fafaf7;font-size:11px}
+.result-table tbody tr.detail-row td{background:#f3f2fa;font-size:11px;white-space:normal}
 .val{font-family:monospace;font-weight:600;color:#1a2744}
 .val-empty{color:#ccc;font-style:italic;font-size:11px}
 .st-approved{color:#0f6e56;font-size:11px;font-weight:600}
 .st-done{color:#854f0b;font-size:11px;font-weight:600}
-.toggle-btn{background:none;border:1px solid #c7d2fe;border-radius:4px;cursor:pointer;font-size:11px;padding:1px 5px;color:#3c3489}
+.toggle-btn{background:none;border:1px solid #c7d2fe;border-radius:4px;cursor:pointer;font-size:13px;font-weight:600;padding:0 5px;color:#3c3489;line-height:1.4}
 .toggle-btn:hover{background:#eeedfe}
-.detail-label{color:#888;font-size:10px}
+.detail-label{color:#888;font-size:10px;margin-right:2px}
+.detail-group{min-width:130px}
+.detail-group-title{font-weight:600;color:#3c3489;margin-bottom:4px;font-size:11px}
 </style>
 
 <!-- Мэдээлэл -->
@@ -60,7 +62,7 @@
 <table class="result-table">
   <thead>
     <tr class="h1">
-      <th rowspan="2" style="width:28px"></th>
+      <th rowspan="2" style="width:30px"></th>
       <th rowspan="2">No.</th>
       <th rowspan="2">Дээжний нэр</th>
       <th rowspan="2">Mt %</th>
@@ -82,14 +84,16 @@
   {% set e = entries|selectattr('row_num','equalto',ri)|selectattr('is_duplicate','equalto',0)|first %}
   {% set de = entries|selectattr('row_num','equalto',ri)|selectattr('is_duplicate','equalto',1)|first %}
   {% set is_done = e and e['row_status'] in ('done','approved') %}
+
+  <!-- Үндсэн мөр -->
   <tr>
     <td>
       {% if e %}
-      <button class="toggle-btn" onclick="toggleDetail(this, {{ ri }})" title="Хэмжилтийн өгөгдөл">+</button>
+      <button class="toggle-btn" onclick="toggleDetail(this,'detail-{{ ri }}')" title="Хэмжилтийн өгөгдөл">+</button>
       {% endif %}
     </td>
     <td style="color:#666;font-size:11px">{{ ri }}</td>
-    <td style="text-align:left;font-weight:500;padding-left:8px">{{ e.sample_name if e and e.sample_name else '—' }}</td>
+    <td style="text-align:left;font-weight:500;padding-left:8px">{{ e['sample_name'] if e and e['sample_name'] else '—' }}</td>
     {% if is_done %}
     <td class="val">{{ '%.2f'|format(e['mad']) if e['mad'] else '—' }}</td>
     <td class="val">{{ '%.4f'|format(e['mad']) if e['mad'] else '—' }}</td>
@@ -104,67 +108,11 @@
     <td colspan="9" class="val-empty">Өгөгдөл байхгүй</td>
     {% endif %}
     <td>
-      {% if e and e['row_status'] == 'approved' %}
-      <span class="st-approved">🟢 Баталгаажсан</span>
-      {% elif e and e['row_status'] == 'done' %}
-      <span class="st-done">🟠 Урьдчилсан</span>
-      {% else %}
-      <span style="color:#ccc;font-size:11px">—</span>
-      {% endif %}
+      {% if e and e['row_status'] == 'approved' %}<span class="st-approved">🟢 Баталгаажсан</span>
+      {% elif e and e['row_status'] == 'done' %}<span class="st-done">🟠 Урьдчилсан</span>
+      {% else %}<span style="color:#ccc;font-size:11px">—</span>{% endif %}
     </td>
   </tr>
-
-  <!-- Хэмжилтийн дэлгэрэнгүй -->
-  {% if e %}
-  <tr class="detail-row" id="detail-{{ ri }}" style="display:none">
-    <td colspan="13" style="text-align:left;padding:8px 16px">
-      <div style="display:flex;flex-wrap:wrap;gap:16px;font-size:11px">
-        <div>
-          <div style="font-weight:600;color:#3c3489;margin-bottom:4px">💧 Дотоод чийг</div>
-          <div><span class="detail-label">Бухын №:</span> {{ e['dc_bux'] or '—' }}</div>
-          <div><span class="detail-label">Тэвш:</span> {{ e['dc_tare'] or '—' }} г</div>
-          <div><span class="detail-label">Дээж:</span> {{ e['dc_sample'] or '—' }} г</div>
-          <div><span class="detail-label">Хатаасан:</span> {{ e['dc_dried'] or '—' }} г</div>
-        </div>
-        <div>
-          <div style="font-weight:600;color:#3c3489;margin-bottom:4px">🔥 Үнс</div>
-          <div><span class="detail-label">Тавиур:</span> {{ e['ash_tav'] or '—' }}</div>
-          <div><span class="detail-label">Тэвш:</span> {{ e['ash_tare'] or '—' }} г</div>
-          <div><span class="detail-label">Дээж:</span> {{ e['ash_sample'] or '—' }} г</div>
-          <div><span class="detail-label">Шатаасан:</span> {{ e['ash_burned'] or '—' }} г</div>
-        </div>
-        <div>
-          <div style="font-weight:600;color:#3c3489;margin-bottom:4px">💨 Дэгдэмхий</div>
-          <div><span class="detail-label">Тигель:</span> {{ e['vol_tig'] or '—' }}</div>
-          <div><span class="detail-label">Тэвш:</span> {{ e['vol_tare'] or '—' }} г</div>
-          <div><span class="detail-label">Дээж:</span> {{ e['vol_sample'] or '—' }} г</div>
-          <div><span class="detail-label">Шатаасан:</span> {{ e['vol_burned'] or '—' }} г</div>
-        </div>
-        <div>
-          <div style="font-weight:600;color:#3c3489;margin-bottom:4px">⚖️ Нийт чийг</div>
-          <div><span class="detail-label">Бухын №:</span> {{ e['mt_bux'] or '—' }}</div>
-          <div><span class="detail-label">Тэвш:</span> {{ e['mt_tare'] or '—' }} г</div>
-          <div><span class="detail-label">Дээж:</span> {{ e['mt_sample'] or '—' }} г</div>
-          <div><span class="detail-label">Хатаасан:</span> {{ e['mt_dried'] or '—' }} г</div>
-        </div>
-        <div>
-          <div style="font-weight:600;color:#3c3489;margin-bottom:4px">🔬 G индекс</div>
-          <div><span class="detail-label">Тигель:</span> {{ e['g_tig'] or '—' }}</div>
-          <div><span class="detail-label">Тэвш:</span> {{ e['g_tare'] or '—' }} г</div>
-          <div><span class="detail-label">Кокс:</span> {{ e['g_coke'] or '—' }} г</div>
-          <div><span class="detail-label">Шигшүүр 1/2:</span> {{ e['g_sieve1'] or '—' }} / {{ e['g_sieve2'] or '—' }}</div>
-        </div>
-        <div>
-          <div style="font-weight:600;color:#3c3489;margin-bottom:4px">📋 Мета</div>
-          <div><span class="detail-label">Хийсэн:</span> {{ e['done_name'] or '—' }}</div>
-          <div><span class="detail-label">Огноо:</span> {{ (e['done_at'] or '')[:16] or '—' }}</div>
-          <div><span class="detail-label">Баталгаажуулсан:</span> {{ e['approved_name'] or '—' }}</div>
-          <div><span class="detail-label">Огноо:</span> {{ (e['approved_at'] or '')[:16] or '—' }}</div>
-        </div>
-      </div>
-    </td>
-  </tr>
-  {% endif %}
 
   <!-- Зэрэгцээ дээж -->
   {% if de and de['row_status'] in ('done','approved') %}
@@ -186,6 +134,58 @@
     </td>
   </tr>
   {% endif %}
+
+  <!-- Хэмжилтийн дэлгэрэнгүй (+ дарахад харагдана) -->
+  {% if e %}
+  <tr class="detail-row" id="detail-{{ ri }}" style="display:none">
+    <td colspan="13" style="padding:10px 20px;text-align:left;border-top:2px solid #c7d2fe">
+      <div style="display:flex;flex-wrap:wrap;gap:20px">
+        <div class="detail-group">
+          <div class="detail-group-title">💧 Дотоод чийг</div>
+          <div><span class="detail-label">Бухын №:</span>{{ e['dc_bux'] or '—' }}</div>
+          <div><span class="detail-label">Тэвш:</span>{{ e['dc_tare'] or '—' }} г</div>
+          <div><span class="detail-label">Дээж:</span>{{ e['dc_sample'] or '—' }} г</div>
+          <div><span class="detail-label">Хатаасан:</span>{{ e['dc_dried'] or '—' }} г</div>
+        </div>
+        <div class="detail-group">
+          <div class="detail-group-title">🔥 Үнс</div>
+          <div><span class="detail-label">Тавиур:</span>{{ e['ash_tav'] or '—' }}</div>
+          <div><span class="detail-label">Тэвш:</span>{{ e['ash_tare'] or '—' }} г</div>
+          <div><span class="detail-label">Дээж:</span>{{ e['ash_sample'] or '—' }} г</div>
+          <div><span class="detail-label">Шатаасан:</span>{{ e['ash_burned'] or '—' }} г</div>
+        </div>
+        <div class="detail-group">
+          <div class="detail-group-title">💨 Дэгдэмхий</div>
+          <div><span class="detail-label">Тигель:</span>{{ e['vol_tig'] or '—' }}</div>
+          <div><span class="detail-label">Тэвш:</span>{{ e['vol_tare'] or '—' }} г</div>
+          <div><span class="detail-label">Дээж:</span>{{ e['vol_sample'] or '—' }} г</div>
+          <div><span class="detail-label">Шатаасан:</span>{{ e['vol_burned'] or '—' }} г</div>
+        </div>
+        <div class="detail-group">
+          <div class="detail-group-title">⚖️ Нийт чийг</div>
+          <div><span class="detail-label">Бухын №:</span>{{ e['mt_bux'] or '—' }}</div>
+          <div><span class="detail-label">Тэвш:</span>{{ e['mt_tare'] or '—' }} г</div>
+          <div><span class="detail-label">Дээж:</span>{{ e['mt_sample'] or '—' }} г</div>
+          <div><span class="detail-label">Хатаасан:</span>{{ e['mt_dried'] or '—' }} г</div>
+        </div>
+        <div class="detail-group">
+          <div class="detail-group-title">🔬 G индекс</div>
+          <div><span class="detail-label">Тигель:</span>{{ e['g_tig'] or '—' }}</div>
+          <div><span class="detail-label">Тэвш:</span>{{ e['g_tare'] or '—' }} г</div>
+          <div><span class="detail-label">Кокс:</span>{{ e['g_coke'] or '—' }} г</div>
+          <div><span class="detail-label">Шигшүүр 1/2:</span>{{ e['g_sieve1'] or '—' }} / {{ e['g_sieve2'] or '—' }}</div>
+        </div>
+        <div class="detail-group">
+          <div class="detail-group-title">📋 Мета</div>
+          <div><span class="detail-label">Хийсэн:</span>{{ e['done_name'] or '—' }}</div>
+          <div><span class="detail-label">Огноо:</span>{{ (e['done_at'] or '')[:16] or '—' }}</div>
+          <div><span class="detail-label">Баталгаажуулсан:</span>{{ e['approved_name'] or '—' }}</div>
+          <div><span class="detail-label">Огноо:</span>{{ (e['approved_at'] or '')[:16] or '—' }}</div>
+        </div>
+      </div>
+    </td>
+  </tr>
+  {% endif %}
   {% endfor %}
   </tbody>
 </table>
@@ -193,16 +193,17 @@
 {% endblock %}
 {% block scripts %}
 <script>
-function toggleDetail(btn, ri){
-  var row = document.getElementById('detail-'+ri);
-  if(row.style.display==='none'){
-    row.style.display='';
-    btn.textContent='−';
-    btn.style.background='#eeedfe';
+function toggleDetail(btn, detailId){
+  var row = document.getElementById(detailId);
+  if(!row) return;
+  if(row.style.display === 'none'){
+    row.style.display = '';
+    btn.textContent = '−';
+    btn.style.background = '#eeedfe';
   } else {
-    row.style.display='none';
-    btn.textContent='+';
-    btn.style.background='';
+    row.style.display = 'none';
+    btn.textContent = '+';
+    btn.style.background = '';
   }
 }
 </script>
