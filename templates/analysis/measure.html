@@ -472,8 +472,12 @@ document.addEventListener('keydown',function(e){
     var nx=e.shiftKey?vis[idx-1]:vis[idx+1];
     if(nx){nx.focus();nx.select();}
   } else if(e.key==='ArrowRight'){
-    e.preventDefault();
-    if(vis[idx+1]){vis[idx+1].focus();vis[idx+1].select();}
+    if(vis[idx+1]){
+      e.preventDefault();
+      e.stopPropagation();
+      vis[idx+1].focus();
+      vis[idx+1].select();
+    }
   } else if(e.key==='ArrowLeft'){
     e.preventDefault();
     if(inp.selectionStart <= 0){
