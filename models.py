@@ -238,7 +238,7 @@ def init_analysis_db():
     -- QC тохиргоо (админ тохируулна)
     CREATE TABLE IF NOT EXISTS qc_settings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        parameter TEXT NOT NULL,   -- Mad, Aad, Vad, Stad, Qb_ad, G, FSI
+        parameter TEXT NOT NULL UNIQUE,   -- Mad, Aad, Vad, Stad, Qb_ad, G, FSI
         tolerance REAL NOT NULL,   -- Зөвшөөрөгдөх зөрүү
         standard TEXT,             -- GB/T 212 гэх мэт
         updated_by INTEGER REFERENCES users(id),
