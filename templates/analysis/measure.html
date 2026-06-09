@@ -539,6 +539,14 @@ document.addEventListener('DOMContentLoaded',function(){
     document.querySelectorAll('.cg-'+g).forEach(function(el){el.classList.add('hide');});
   });
   loadData();
+  document.querySelectorAll('.tbl input').forEach(function(inp){
+    inp.addEventListener('mouseover', function(e){
+      if(e.buttons === 1){
+        this.focus();
+        this.select();
+      }
+    });
+  });
 });
 </script>
 {% endblock %}
