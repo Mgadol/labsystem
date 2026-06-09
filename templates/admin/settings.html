@@ -326,7 +326,7 @@ function loadTypes(){
       html += '<td><div style="display:flex;gap:4px">';
       html += '<form method="POST" action="/sample-types" style="display:inline"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="'+t.id+'"><button class="btn btn-ghost btn-sm">'+(t.is_active?'Идэвхгүй':'Идэвхтэй')+'</button></form>';
       if(!['PIT','STOCKPILE','EXPORT','CONTROL','EQ_CONTROL','DP'].includes(t.code)){
-        html += '<form method="POST" action="/sample-types" style="display:inline" onsubmit="return confirm('Устгах уу?')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="'+t.id+'"><button class="btn btn-sm" style="background:#faece7;color:#993c1d">Устгах</button></form>';
+        html += '<form method="POST" action="/sample-types" style="display:inline" onsubmit="return confirm(\'Delete?\')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="'+t.id+'"><button class="btn btn-sm" style="background:#faece7;color:#993c1d">Устгах</button></form>';
       }
       html += '</div></td></tr>';
     });
