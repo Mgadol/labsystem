@@ -36,11 +36,8 @@
 
 /* Input */
 .tbl input{width:100%;height:100%;border:none;background:transparent;font-size:11px;text-align:center;font-family:monospace;padding:0;outline:none}
-.tbl input[type=number]{-moz-appearance:textfield}
-.tbl input[type=number]::-webkit-inner-spin-button,
-.tbl input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .tbl input:focus{background:#fffde7;outline:2px solid #1a73e8;outline-offset:-2px;position:relative;z-index:1}
-.tbl input[type=text]{text-align:left;padding-left:3px}
+.tbl input[data-field$="_bux"],.tbl input[data-field="ash_tav"],.tbl input[data-field="vol_tig"],.tbl input[data-field="g_tig"]{text-align:left;padding-left:3px}
 
 /* + товч */
 .dup-btn{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;background:#3b5ea6;border:none;border-radius:2px;color:#fff;font-size:10px;font-weight:700;cursor:pointer;margin-right:2px}
@@ -180,44 +177,44 @@
       {% elif stype=='EQ_CONTROL' %}#993c1d{% else %}#555{% endif %}">{{ stype }}</td>
     <td class="f2" style="font-family:monospace;font-size:10px;color:#555">{{ receipt['lab_number'] }}</td>
     <td class="f3"><div class="name-cell"><input class="name-inp" type="text" id="n{{ ri }}" data-field="sample_name" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></div></td>
-    <td class="f4"><input type="number" step="0.01" data-field="mass_kg" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></td>
+    <td class="f4"><input type="text" data-field="mass_kg" data-row="{{ ri }}" data-dup="0" oninput="numValidate(this)" onblur="autoSave(this)"></td>
     <td class="f5" style="padding:2px"><button class="done-btn" id="dnbtn{{ ri }}_0" onclick="markDone({{ ri }},0)" title="Дууслаа">○</button></td>
     <!-- ЧЧ -->
-    <td class="cg-ff gs"><input type="number" step="0.0001" data-field="ff_sample" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-ff ge"><input type="number" step="0.0001" data-field="ff_dried" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-ff gs"><input type="text" data-field="ff_sample" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},0)"></td>
+    <td class="cg-ff ge"><input type="text" data-field="ff_dried" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},0)"></td>
     <!-- НЧ -->
     <td class="cg-mt gs"><input type="text" data-field="mt_bux" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></td>
-    <td class="cg-mt"><input type="number" step="0.0001" data-field="mt_tare" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-mt"><input type="number" step="0.0001" data-field="mt_sample" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-mt ge"><input type="number" step="0.0001" data-field="mt_dried" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-mt"><input type="text" data-field="mt_tare" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},0)"></td>
+    <td class="cg-mt"><input type="text" data-field="mt_sample" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},0)"></td>
+    <td class="cg-mt ge"><input type="text" data-field="mt_dried" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},0)"></td>
     <!-- ДЧ -->
     <td class="cg-dc gs"><input type="text" data-field="dc_bux" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></td>
-    <td class="cg-dc"><input type="number" step="0.0001" data-field="dc_tare" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-dc"><input type="number" step="0.0001" data-field="dc_sample" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-dc ge"><input type="number" step="0.0001" data-field="dc_dried" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-dc"><input type="text" data-field="dc_tare" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},0)"></td>
+    <td class="cg-dc"><input type="text" data-field="dc_sample" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},0)"></td>
+    <td class="cg-dc ge"><input type="text" data-field="dc_dried" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},0)"></td>
     <!-- Үнс -->
     <td class="cg-un gs"><input type="text" data-field="ash_tav" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></td>
-    <td class="cg-un"><input type="number" step="0.0001" data-field="ash_tare" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-un"><input type="number" step="0.0001" data-field="ash_sample" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-un ge"><input type="number" step="0.0001" data-field="ash_burned" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-un"><input type="text" data-field="ash_tare" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},0)"></td>
+    <td class="cg-un"><input type="text" data-field="ash_sample" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},0)"></td>
+    <td class="cg-un ge"><input type="text" data-field="ash_burned" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},0)"></td>
     <!-- ДБ -->
     <td class="cg-db gs"><input type="text" data-field="vol_tig" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></td>
-    <td class="cg-db"><input type="number" step="0.0001" data-field="vol_tare" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-db"><input type="number" step="0.0001" data-field="vol_sample" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-db ge"><input type="number" step="0.0001" data-field="vol_burned" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-db"><input type="text" data-field="vol_tare" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},0)"></td>
+    <td class="cg-db"><input type="text" data-field="vol_sample" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},0)"></td>
+    <td class="cg-db ge"><input type="text" data-field="vol_burned" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},0)"></td>
     <!-- G -->
     <td class="cg-gi gs"><input type="text" data-field="g_tig" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></td>
-    <td class="cg-gi"><input type="number" step="0.0001" data-field="g_tare" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-gi"><input type="number" step="0.0001" data-field="g_coke" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-gi"><input type="number" step="0.0001" data-field="g_sieve1" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-gi ge"><input type="number" step="0.0001" data-field="g_sieve2" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-gi"><input type="text" data-field="g_tare" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},0)"></td>
+    <td class="cg-gi"><input type="text" data-field="g_coke" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},0)"></td>
+    <td class="cg-gi"><input type="text" data-field="g_sieve1" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},0)"></td>
+    <td class="cg-gi ge"><input type="text" data-field="g_sieve2" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},0)"></td>
     <!-- St -->
-    <td class="cg-st gs ge"><input type="number" step="0.001" data-field="sulfur" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calcQC({{ ri }})"></td>
+    <td class="cg-st gs ge"><input type="text" data-field="sulfur" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="numValidate(this);calcQC({{ ri }})"></td>
     <!-- Илчлэг -->
-    <td class="cg-il gs"><input type="number" step="0.01" data-field="cal_value" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></td>
-    <td class="cg-il ge"><input type="number" step="0.1" data-field="cal_temp" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></td>
+    <td class="cg-il gs"><input type="text" data-field="cal_value" data-row="{{ ri }}" data-dup="0" oninput="numValidate(this)" onblur="autoSave(this)"></td>
+    <td class="cg-il ge"><input type="text" data-field="cal_temp" data-row="{{ ri }}" data-dup="0" oninput="numValidate(this)" onblur="autoSave(this)"></td>
     <!-- FSI -->
-    <td class="cg-fsi gs ge"><input type="number" step="0.5" data-field="fsi" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calcQC({{ ri }})"></td>
+    <td class="cg-fsi gs ge"><input type="text" data-field="fsi" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="numValidate(this);calcQC({{ ri }})"></td>
     <!-- Тооцоо -->
     <td class="calc-cell gs" id="r{{ ri }}_mad">—</td>
     <td class="calc-cell" id="r{{ ri }}_aad">—</td>
@@ -238,32 +235,32 @@
     <td class="cg-mt gs" style="background:#eef5ff"></td><td class="cg-mt" style="background:#eef5ff"></td><td class="cg-mt" style="background:#eef5ff"></td><td class="cg-mt ge" style="background:#eef5ff"></td>
     <!-- ДЧ -->
     <td class="cg-dc gs"><input type="text" data-field="dc_bux" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)"></td>
-    <td class="cg-dc"><input type="number" step="0.0001" data-field="dc_tare" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
-    <td class="cg-dc"><input type="number" step="0.0001" data-field="dc_sample" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
-    <td class="cg-dc ge"><input type="number" step="0.0001" data-field="dc_dried" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
+    <td class="cg-dc"><input type="text" data-field="dc_tare" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},1)"></td>
+    <td class="cg-dc"><input type="text" data-field="dc_sample" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},1)"></td>
+    <td class="cg-dc ge"><input type="text" data-field="dc_dried" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},1)"></td>
     <!-- Үнс -->
     <td class="cg-un gs"><input type="text" data-field="ash_tav" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)"></td>
-    <td class="cg-un"><input type="number" step="0.0001" data-field="ash_tare" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
-    <td class="cg-un"><input type="number" step="0.0001" data-field="ash_sample" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
-    <td class="cg-un ge"><input type="number" step="0.0001" data-field="ash_burned" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
+    <td class="cg-un"><input type="text" data-field="ash_tare" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},1)"></td>
+    <td class="cg-un"><input type="text" data-field="ash_sample" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},1)"></td>
+    <td class="cg-un ge"><input type="text" data-field="ash_burned" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},1)"></td>
     <!-- ДБ -->
     <td class="cg-db gs"><input type="text" data-field="vol_tig" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)"></td>
-    <td class="cg-db"><input type="number" step="0.0001" data-field="vol_tare" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
-    <td class="cg-db"><input type="number" step="0.0001" data-field="vol_sample" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
-    <td class="cg-db ge"><input type="number" step="0.0001" data-field="vol_burned" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
+    <td class="cg-db"><input type="text" data-field="vol_tare" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},1)"></td>
+    <td class="cg-db"><input type="text" data-field="vol_sample" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},1)"></td>
+    <td class="cg-db ge"><input type="text" data-field="vol_burned" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},1)"></td>
     <!-- G -->
     <td class="cg-gi gs"><input type="text" data-field="g_tig" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)"></td>
-    <td class="cg-gi"><input type="number" step="0.0001" data-field="g_tare" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
-    <td class="cg-gi"><input type="number" step="0.0001" data-field="g_coke" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
-    <td class="cg-gi"><input type="number" step="0.0001" data-field="g_sieve1" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
-    <td class="cg-gi ge"><input type="number" step="0.0001" data-field="g_sieve2" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
+    <td class="cg-gi"><input type="text" data-field="g_tare" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},1)"></td>
+    <td class="cg-gi"><input type="text" data-field="g_coke" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},1)"></td>
+    <td class="cg-gi"><input type="text" data-field="g_sieve1" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},1)"></td>
+    <td class="cg-gi ge"><input type="text" data-field="g_sieve2" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="numValidate(this);calc({{ ri }},1)"></td>
     <!-- St -->
-    <td class="cg-st gs ge"><input type="number" step="0.001" data-field="sulfur" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calcQC({{ ri }})"></td>
+    <td class="cg-st gs ge"><input type="text" data-field="sulfur" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="numValidate(this);calcQC({{ ri }})"></td>
     <!-- Илчлэг -->
-    <td class="cg-il gs"><input type="number" step="0.01" data-field="cal_value" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)"></td>
+    <td class="cg-il gs"><input type="text" data-field="cal_value" data-row="{{ ri }}" data-dup="1" oninput="numValidate(this)" onblur="autoSave(this)"></td>
     <td class="cg-il ge"></td>
     <!-- FSI -->
-    <td class="cg-fsi gs ge"><input type="number" step="0.5" data-field="fsi" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calcQC({{ ri }})"></td>
+    <td class="cg-fsi gs ge"><input type="text" data-field="fsi" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="numValidate(this);calcQC({{ ri }})"></td>
     <!-- Тооцоо -->
     <td class="calc-cell gs" id="r{{ ri }}d_mad">—</td>
     <td class="calc-cell" id="r{{ ri }}d_aad">—</td>
@@ -325,6 +322,14 @@ function setSave(st){
   var txt=document.getElementById('saveStatus');
   dot.className='save-dot'+(st==='pending'?' pending':'');
   txt.textContent=st==='pending'?'Хадгалж байна...':st==='err'?'Алдаа':'Хадгалагдсан';
+}
+var TEXT_FIELDS=['mt_bux','dc_bux','ash_tav','vol_tig','g_tig','sample_name'];
+function numValidate(inp){
+  if(TEXT_FIELDS.indexOf(inp.dataset.field)!==-1) return;
+  var v=inp.value.replace(/[^\d.\-]/g,'');
+  var parts=v.split('.');
+  if(parts.length>2) v=parts[0]+'.'+parts.slice(1).join('');
+  if(inp.value!==v) inp.value=v;
 }
 function autoSave(inp){
   if(!inp.value) return;
