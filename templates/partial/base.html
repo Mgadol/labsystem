@@ -159,22 +159,6 @@ textarea.form-input{resize:vertical;min-height:80px}
 {% endwith %}
 {% block content %}{% endblock %}
 </main>
-<script>
-function initTabs(){
-  document.querySelectorAll('.tab-nav').forEach(nav=>{
-    nav.querySelectorAll('.tab-btn').forEach(btn=>{
-      btn.addEventListener('click',()=>{
-        const target=btn.dataset.tab;
-        nav.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-        btn.classList.add('active');
-        document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
-        document.getElementById(target)?.classList.add('active');
-      });
-    });
-  });
-}
-document.addEventListener('DOMContentLoaded',initTabs);
-</script>
 {% block scripts %}{% endblock %}
 <script>
 function setLang(lang){
