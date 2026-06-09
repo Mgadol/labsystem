@@ -123,8 +123,8 @@ textarea.form-input{resize:vertical;min-height:80px}
   </div>
   <div class="topbar-right">
     <div class="lang-btns">
-      <a href="{{ url_for('set_lang', lang='mn') }}" class="lang-btn {% if session.get('lang','mn')=='mn' %}active{% endif %}">МОН</a>
-      <a href="{{ url_for('set_lang', lang='en') }}" class="lang-btn {% if session.get('lang')=='en' %}active{% endif %}">ENG</a>
+      <a href="{{ url_for('set_lang', lang='mn') }}?next={{ request.path }}{{ ('?' + request.query_string.decode()) if request.query_string else '' }}" class="lang-btn {% if session.get('lang','mn')=='mn' %}active{% endif %}">МОН</a>
+      <a href="{{ url_for('set_lang', lang='en') }}?next={{ request.path }}{{ ('?' + request.query_string.decode()) if request.query_string else '' }}" class="lang-btn {% if session.get('lang')=='en' %}active{% endif %}">ENG</a>
     </div>
     {% if cur %}
     <div class="user-chip">

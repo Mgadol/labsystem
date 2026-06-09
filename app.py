@@ -131,8 +131,8 @@ def logout():
 @app.route('/lang/<lang>')
 def set_lang(lang):
     session['lang'] = lang if lang in ('mn','en') else 'mn'
-    ref = request.referrer
-    return redirect(ref if ref else url_for('dashboard'))
+    next_url = request.args.get('next')
+    return redirect(next_url if next_url else (request.referrer or url_for('dashboard')))
 
 # ── DASHBOARD ───────────────────────────────────────────
 @app.route('/dashboard')
