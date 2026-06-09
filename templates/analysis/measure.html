@@ -473,10 +473,7 @@ document.addEventListener('keydown',function(e){
     if(nx){nx.focus();nx.select();}
   } else if(e.key==='ArrowRight'){
     e.preventDefault();
-    // Нэг нүдний дотор cursor байвал шилжих
-    if(inp.selectionEnd >= inp.value.length){
-      if(vis[idx+1]){vis[idx+1].focus();vis[idx+1].select();}
-    }
+    if(vis[idx+1]){vis[idx+1].focus();vis[idx+1].select();}
   } else if(e.key==='ArrowLeft'){
     e.preventDefault();
     if(inp.selectionStart <= 0){
