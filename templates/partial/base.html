@@ -122,11 +122,7 @@ textarea.form-input{resize:vertical;min-height:80px}
     </div>
   </div>
   <div class="topbar-right">
-    <div class="lang-btns">
-      <a onclick="setLang('mn')" class="lang-btn {% if session.get('lang','mn')=='mn' %}active{% endif %}" style="cursor:pointer">МОН</a>
-      <a onclick="setLang('en')" class="lang-btn {% if session.get('lang')=='en' %}active{% endif %}" style="cursor:pointer">ENG</a>
-    </div>
-    {% if cur %}
+{% if cur %}
     <div class="user-chip">
       {% if cur['photo'] %}
       <img src="{{ url_for('static',filename='uploads/'+cur['photo']) }}" class="avatar-sm" style="border-radius:50%">
