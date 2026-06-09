@@ -269,10 +269,7 @@ function switchTab(btn, tabId){
   document.getElementById(tabId).classList.add('active');
   if(tabId==='tab-types') loadTypes();
   if(tabId==='tab-device-map') loadDeviceMap();
-  // URL-д tab хадгалах
-  var url = new URL(window.location);
-  url.searchParams.set('tab', tabId.replace('tab-',''));
-  window.history.replaceState({}, '', url);
+  history.pushState(null, '', '/lab-settings?tab=' + tabId.replace('tab-',''));
 }
 
 var ANALYSIS_TYPES = [
