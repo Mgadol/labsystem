@@ -1,0 +1,410 @@
+{% extends "partial/base.html" %}
+{% block title %}Шинжилгээ{% endblock %}
+{% block content %}
+<style>
+*{box-sizing:border-box}
+.sheet-wrap{width:100%;overflow:auto;max-height:calc(100vh - 140px);position:relative}
+.tbl{border-collapse:separate;border-spacing:0;white-space:nowrap;font-size:11.5px;font-family:'Segoe UI',sans-serif;width:max-content;min-width:100%}
+.tbl th,.tbl td{border-right:1px solid #d8d8d0;border-bottom:1px solid #d8d8d0;height:22px;text-align:center;vertical-align:middle;padding:0 5px}
+.tbl tr th:first-child,.tbl tr td:first-child{border-left:1px solid #d8d8d0}
+.tbl thead tr:first-child th{border-top:1px solid #d8d8d0}
+.tbl thead tr.h1 th{position:sticky;top:0;z-index:4;background:#1e3a5f;color:#fff;font-size:11px;font-weight:600;height:32px}
+.tbl thead tr.h2 th{position:sticky;top:32px;z-index:4;background:#2d5282;color:#bee3f8;font-size:10px;font-weight:400;padding:2px 4px;white-space:normal;line-height:1.3;border-bottom:3px solid #4a9eff;height:23px}
+.main-row td{background:#fff}
+.main-row:hover td{background:#f8f9ff}
+.dup-row{display:none}
+.dup-row.show{display:table-row}
+.dup-row td{background:#eef5ff}
+/* Lot ялгах зураас */
+.lot-sep td{background:#1e3a5f!important;height:4px!important;padding:0!important;border:none!important}
+.lot-label td{background:#1e3a5f!important;font-weight:600;font-size:12px;color:#4ade80}
+.gs{border-left:2.5px double #888!important}
+.ge{border-right:2.5px double #888!important}
+.calc-cell{font-weight:600;font-family:monospace;color:#0a6e3f;background:#e8faf4!important}
+.qc-ok{background:#bbf7d0!important;color:#065f46}
+.qc-warn{background:#fecaca!important;color:#7f1d1d}
+.tbl input{width:100%;height:100%;border:none;background:transparent;font-size:11px;text-align:center;font-family:monospace;padding:0;outline:none}
+.tbl input[type=number]{-moz-appearance:textfield}
+.tbl input[type=number]::-webkit-inner-spin-button,
+.tbl input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.tbl input:focus{background:#fffde7;outline:2px solid #1a73e8;outline-offset:-2px;position:relative;z-index:1}
+.tbl input[type=text]{text-align:left;padding-left:3px}
+.dup-btn{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;background:#3b5ea6;border:none;border-radius:2px;color:#fff;font-size:10px;font-weight:700;cursor:pointer;margin-right:2px}
+.dup-btn:hover{background:#1a2744}
+.name-cell{display:flex;align-items:center;padding:0 3px}
+.name-inp{flex:1;text-align:left!important}
+.done-btn{width:20px;height:20px;border-radius:50%;border:2px solid #ccc;background:transparent;cursor:pointer;font-size:11px;color:#ccc;transition:.15s;display:inline-flex;align-items:center;justify-content:center}
+.done-btn:hover{border-color:#0f6e56;color:#0f6e56}
+.done-btn.done{background:#0f6e56;border-color:#0f6e56;color:#fff}
+.save-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;margin-right:4px}
+.save-dot.pending{background:#f59e0b;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.cg-ff.hide,.cg-mt.hide,.cg-dc.hide,.cg-un.hide,.cg-db.hide,.cg-gi.hide,.cg-st.hide,.cg-il.hide,.cg-fsi.hide{display:none}
+.col-bar{padding:5px 14px;background:#1a3a2a;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.col-bar label{display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:#a8d4b8;user-select:none}
+</style>
+
+<!-- Мэдээллийн баар -->
+<div style="padding:6px 14px;background:#1a2744;color:#fff;display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:12px;border-bottom:2px solid #4ade80">
+  <div style="font-size:9px;color:#93a8d4">Ажлын дугаарууд:</div>
+  {% for r in receipts %}
+  <span style="font-family:monospace;font-weight:600;color:#4ade80;font-size:13px">{{ r['lab_number'] }}</span>
+  {% if not loop.last %}<span style="color:#555">|</span>{% endif %}
+  {% endfor %}
+  <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+    <span class="save-dot" id="saveDot"></span>
+    <span id="saveStatus" style="font-size:11px;color:#93a8d4">Хадгалагдсан</span>
+  </div>
+</div>
+
+<!-- Checkbox баар -->
+<div class="col-bar">
+  <span style="font-size:11px;color:#6aaa82;font-weight:600">Харуулах:</span>
+  <label><input type="checkbox" class="ct" data-g="ff" checked onchange="toggleG(this,'ff')"> ЧЧ</label>
+  <label><input type="checkbox" class="ct" data-g="mt" checked onchange="toggleG(this,'mt')"> НЧ</label>
+  <label><input type="checkbox" class="ct" data-g="dc" checked onchange="toggleG(this,'dc')"> ДЧ</label>
+  <label><input type="checkbox" class="ct" data-g="un" checked onchange="toggleG(this,'un')"> Үнс</label>
+  <label><input type="checkbox" class="ct" data-g="db" checked onchange="toggleG(this,'db')"> ДБ</label>
+  <label><input type="checkbox" class="ct" data-g="gi" onchange="toggleG(this,'gi')"> G индекс</label>
+  <label><input type="checkbox" class="ct" data-g="st" onchange="toggleG(this,'st')"> Нийт хүхэр</label>
+  <label><input type="checkbox" class="ct" data-g="il" onchange="toggleG(this,'il')"> Илчлэг</label>
+  <label><input type="checkbox" class="ct" data-g="fsi" onchange="toggleG(this,'fsi')"> FSI</label>
+</div>
+
+<!-- ХҮСНЭГТ -->
+<div class="sheet-wrap" id="sheetWrap">
+<table class="tbl" id="mainTbl">
+  <colgroup>
+    <col style="width:26px"><col style="width:52px"><col style="width:106px"><col style="width:92px"><col style="width:48px"><col style="width:32px">
+    <col class="cg-ff" style="width:58px"><col class="cg-ff" style="width:58px">
+    <col class="cg-mt" style="width:38px"><col class="cg-mt" style="width:58px"><col class="cg-mt" style="width:55px"><col class="cg-mt" style="width:58px">
+    <col class="cg-dc" style="width:38px"><col class="cg-dc" style="width:58px"><col class="cg-dc" style="width:55px"><col class="cg-dc" style="width:58px">
+    <col class="cg-un" style="width:38px"><col class="cg-un" style="width:58px"><col class="cg-un" style="width:55px"><col class="cg-un" style="width:58px">
+    <col class="cg-db" style="width:38px"><col class="cg-db" style="width:58px"><col class="cg-db" style="width:55px"><col class="cg-db" style="width:58px">
+    <col class="cg-gi" style="width:38px"><col class="cg-gi" style="width:58px"><col class="cg-gi" style="width:55px"><col class="cg-gi" style="width:58px"><col class="cg-gi" style="width:58px">
+    <col class="cg-st" style="width:50px">
+    <col class="cg-il" style="width:65px"><col class="cg-il" style="width:40px">
+    <col class="cg-fsi" style="width:40px">
+    <col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px">
+  </colgroup>
+  <thead>
+    <tr class="h1">
+      <th rowspan="2">No.</th><th rowspan="2">Төрөл</th><th rowspan="2">Лаб.Дугаар</th>
+      <th rowspan="2">Дээжний<br>дугаар</th><th rowspan="2">Дээжний<br>масс [кг]</th><th rowspan="2">Ст.</th>
+      <th colspan="2" class="cg-ff">Чөлөөт чийг</th>
+      <th colspan="4" class="cg-mt">Нийт чийг</th>
+      <th colspan="4" class="cg-dc">Дотоод Чийг</th>
+      <th colspan="4" class="cg-un">Үнс</th>
+      <th colspan="4" class="cg-db">Дэгдэмхий Бодис</th>
+      <th colspan="5" class="cg-gi">G-Индекс</th>
+      <th class="cg-st">Нийт хүхэр</th>
+      <th colspan="2" class="cg-il">Илчлэгийн утга</th>
+      <th class="cg-fsi">Чөлөөт<br>хөөлт</th>
+      <th colspan="4">Тооцоо</th>
+    </tr>
+    <tr class="h2">
+      <th class="cg-ff gs">Дээжний масс<br>[гр]</th><th class="cg-ff ge">Хатаасан масс<br>[гр]</th>
+      <th class="cg-mt gs">Бюкс №</th><th class="cg-mt">Хоосон бюкс<br>[гр]</th><th class="cg-mt">Дээж масс<br>[гр]</th><th class="cg-mt ge">Хатаалтын дараах масс<br>[гр]</th>
+      <th class="cg-dc gs">Бюкс №</th><th class="cg-dc">Хоосон бюкс<br>[гр]</th><th class="cg-dc">Дээж масс<br>[гр]</th><th class="cg-dc ge">Хатаалтын дараах масс<br>[гр]</th>
+      <th class="cg-un gs">Тэвш №</th><th class="cg-un">Хоосон бюкс<br>[гр]</th><th class="cg-un">Дээж масс<br>[гр]</th><th class="cg-un ge">Шатаалтын дараах масс<br>[гр]</th>
+      <th class="cg-db gs">Тигель №</th><th class="cg-db">Хоосон тигель<br>[гр]</th><th class="cg-db">Дээж масс<br>[гр]</th><th class="cg-db ge">Шатаалтын дараах масс<br>[гр]</th>
+      <th class="cg-gi gs">Тигель №</th><th class="cg-gi">Хоосон тигель<br>[гр]</th><th class="cg-gi">Нийт кокс<br>[гр]</th><th class="cg-gi">1-дэх шигшүүрийн масс [гр]</th><th class="cg-gi ge">2-дох шигшүүрийн масс [гр]</th>
+      <th class="cg-st gs ge">Sad [%]</th>
+      <th class="cg-il gs">Qb,ad [J/g]</th><th class="cg-il ge">Өрөө ⁰C</th>
+      <th class="cg-fsi gs ge">CSN</th>
+      <th class="gs">Mad%</th><th>Aad%</th><th>Vad%</th><th>FCad%</th>
+    </tr>
+  </thead>
+  <tbody id="tbody">
+  {% set row_num = namespace(val=0) %}
+  {% for receipt in receipts %}
+  <!-- Lot ялгах label -->
+  <tr class="lot-label">
+    <td colspan="40" style="text-align:left;padding-left:10px;background:#1e3a5f;color:#4ade80;font-family:monospace;font-size:12px;height:28px">
+      📋 {{ receipt['lab_number'] }} — {{ receipt['sample_name'] }} &nbsp;·&nbsp; <span style="color:#fbbf24">{{ receipt['sample_type'] }}</span> &nbsp;·&nbsp; {{ receipt['quantity'] }} дээж
+    </td>
+  </tr>
+  {% set rid = receipt['id'] %}
+  {% set stype = receipt['sample_type'] %}
+  {% set sname = receipt['sample_name'] %}
+  {% for i in range(receipt['quantity'] or 1) %}
+  {% set row_num.val = row_num.val + 1 %}
+  {% set ri = i+1 %}
+  {% set uid = rid|string + '_' + ri|string %}
+  <tr class="main-row" id="mr{{ uid }}">
+    <td style="font-size:10px;color:#666;padding:0 2px">
+      <button class="dup-btn" id="db{{ uid }}" onclick="toggleDup('{{ uid }}')">+</button>
+    </td>
+    <td style="font-size:10px;font-weight:600;color:
+      {% if stype=='PIT' %}#0f6e56{% elif stype=='STOCKPILE' %}#185fa5
+      {% elif stype=='EXPORT' %}#3c3489{% elif stype=='CONTROL' %}#854f0b
+      {% elif stype=='EQ_CONTROL' %}#993c1d{% else %}#555{% endif %}">{{ stype }}</td>
+    <td style="font-family:monospace;font-size:10px;color:#555">{{ receipt['lab_number'] }}</td>
+    <td><div class="name-cell"><input class="name-inp" type="text" id="n{{ uid }}" data-field="sample_name" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></div></td>
+    <td><input type="number" step="0.01" data-field="mass_kg" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td style="padding:2px"><button class="done-btn" id="dnbtn{{ uid }}_0" onclick="markDone('{{ rid }}','{{ ri }}',0)" title="Дууслаа">○</button></td>
+    <td class="cg-ff gs"><input type="number" step="0.0001" data-field="ff_sample" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-ff ge"><input type="number" step="0.0001" data-field="ff_dried" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-mt gs"><input type="text" data-field="mt_bux" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-mt"><input type="number" step="0.0001" data-field="mt_tare" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-mt"><input type="number" step="0.0001" data-field="mt_sample" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-mt ge"><input type="number" step="0.0001" data-field="mt_dried" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-dc gs"><input type="text" data-field="dc_bux" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-dc"><input type="number" step="0.0001" data-field="dc_tare" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-dc"><input type="number" step="0.0001" data-field="dc_sample" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-dc ge"><input type="number" step="0.0001" data-field="dc_dried" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-un gs"><input type="text" data-field="ash_tav" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-un"><input type="number" step="0.0001" data-field="ash_tare" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-un"><input type="number" step="0.0001" data-field="ash_sample" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-un ge"><input type="number" step="0.0001" data-field="ash_burned" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-db gs"><input type="text" data-field="vol_tig" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-db"><input type="number" step="0.0001" data-field="vol_tare" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-db"><input type="number" step="0.0001" data-field="vol_sample" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-db ge"><input type="number" step="0.0001" data-field="vol_burned" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-gi gs"><input type="text" data-field="g_tig" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-gi"><input type="number" step="0.0001" data-field="g_tare" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-gi"><input type="number" step="0.0001" data-field="g_coke" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-gi"><input type="number" step="0.0001" data-field="g_sieve1" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-gi ge"><input type="number" step="0.0001" data-field="g_sieve2" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-st gs ge"><input type="number" step="0.001" data-field="sulfur" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-il gs"><input type="number" step="0.01" data-field="cal_value" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-il ge"><input type="number" step="0.1" data-field="cal_temp" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-fsi gs ge"><input type="number" step="0.5" data-field="fsi" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="calc-cell gs" id="r{{ uid }}_mad">—</td>
+    <td class="calc-cell" id="r{{ uid }}_aad">—</td>
+    <td class="calc-cell" id="r{{ uid }}_vad">—</td>
+    <td class="calc-cell" id="r{{ uid }}_fc">—</td>
+  </tr>
+  <!-- Зэрэгцээ мөр -->
+  <tr class="dup-row" id="dr{{ uid }}">
+    <td style="background:#c8dfff;color:#185fa5;font-size:10px;text-align:center">↳</td>
+    <td style="background:#dbeafe"></td>
+    <td style="background:#dbeafe;font-family:monospace;font-size:10px;color:#888">{{ receipt['lab_number'] }}</td>
+    <td style="background:#dbeafe;font-size:10px;color:#185fa5;font-style:italic;padding-left:6px">зэрэгцээ</td>
+    <td style="background:#dbeafe"></td>
+    <td style="background:#dbeafe;padding:2px"><button class="done-btn" id="dnbtn{{ uid }}_1" onclick="markDone('{{ rid }}','{{ ri }}',1)">○</button></td>
+    <td class="cg-ff gs" style="background:#eef5ff"></td><td class="cg-ff ge" style="background:#eef5ff"></td>
+    <td class="cg-mt gs" style="background:#eef5ff"></td><td class="cg-mt" style="background:#eef5ff"></td><td class="cg-mt" style="background:#eef5ff"></td><td class="cg-mt ge" style="background:#eef5ff"></td>
+    <td class="cg-dc gs"><input type="text" data-field="dc_bux" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-dc"><input type="number" step="0.0001" data-field="dc_tare" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-dc"><input type="number" step="0.0001" data-field="dc_sample" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-dc ge"><input type="number" step="0.0001" data-field="dc_dried" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-un gs"><input type="text" data-field="ash_tav" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-un"><input type="number" step="0.0001" data-field="ash_tare" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-un"><input type="number" step="0.0001" data-field="ash_sample" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-un ge"><input type="number" step="0.0001" data-field="ash_burned" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-db gs"><input type="text" data-field="vol_tig" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-db"><input type="number" step="0.0001" data-field="vol_tare" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-db"><input type="number" step="0.0001" data-field="vol_sample" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-db ge"><input type="number" step="0.0001" data-field="vol_burned" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-gi gs"><input type="text" data-field="g_tig" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-gi"><input type="number" step="0.0001" data-field="g_tare" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-gi"><input type="number" step="0.0001" data-field="g_coke" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-gi"><input type="number" step="0.0001" data-field="g_sieve1" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-gi ge"><input type="number" step="0.0001" data-field="g_sieve2" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-st gs ge"><input type="number" step="0.001" data-field="sulfur" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-il gs"><input type="number" step="0.01" data-field="cal_value" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-il ge"></td>
+    <td class="cg-fsi gs ge"><input type="number" step="0.5" data-field="fsi" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="calc-cell gs" id="r{{ uid }}d_mad">—</td>
+    <td class="calc-cell" id="r{{ uid }}d_aad">—</td>
+    <td class="calc-cell" id="r{{ uid }}d_vad">—</td>
+    <td class="calc-cell" id="r{{ uid }}d_fc">—</td>
+  </tr>
+  {% endfor %}
+  <!-- Lot хоорондын зураас -->
+  <tr style="height:6px">
+    <td colspan="40" style="background:#1e3a5f;border:none;padding:0"></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<!-- Доод баар -->
+<div style="padding:7px 14px;background:#f0ede8;border-top:1px solid #e0ddd8;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#888">
+  <span>↑↓←→ / Tab / Enter — шилжих &nbsp;|&nbsp; Нүдийг орхиход автоматаар хадгална</span>
+  <a href="{{ url_for('analysis') }}" class="btn btn-ghost btn-sm">← Буцах</a>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+var QC = {mad:0.20, aad:0.30, vad:0.30};
+
+// Дээжний нэр автомат
+function autoNames(){
+  {% for receipt in receipts %}
+  {% set rid = receipt['id'] %}
+  {% set sname = receipt['sample_name'] %}
+  var nm{{ rid }} = "{{ sname }}";
+  var m1_{{ rid }} = nm{{ rid }}.match(/^(.*?)(\d+)\s*[-–]\s*(\d+)\s*$/);
+  var m2_{{ rid }} = nm{{ rid }}.match(/^(.*?)(\d+)$/);
+  for(var i=1;i<={{ receipt['quantity'] or 1 }};i++){
+    var uid = '{{ rid }}_' + i;
+    var inp = document.getElementById('n'+uid);
+    if(!inp||inp.value) continue;
+    if(m1_{{ rid }}) inp.value = m1_{{ rid }}[1]+(parseInt(m1_{{ rid }}[2])+i-1);
+    else if(m2_{{ rid }}) inp.value = m2_{{ rid }}[1]+(parseInt(m2_{{ rid }}[2])+i-1);
+    else inp.value = nm{{ rid }}+'-'+i;
+  }
+  {% endfor %}
+}
+
+// Auto-save — data-rid ашиглана
+function setSave(st){
+  var dot=document.getElementById('saveDot');
+  var txt=document.getElementById('saveStatus');
+  dot.className='save-dot'+(st==='pending'?' pending':'');
+  txt.textContent=st==='pending'?'Хадгалж байна...':st==='err'?'Алдаа':'Хадгалагдсан';
+}
+function autoSave(inp){
+  if(!inp.value) return;
+  var rid = inp.dataset.rid;
+  var row = inp.dataset.row;
+  var dup = inp.dataset.dup;
+  setSave('pending');
+  fetch('/analysis/autosave',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({receipt_id:parseInt(rid),row_num:parseInt(row),is_duplicate:parseInt(dup),field:inp.dataset.field,value:inp.value})
+  }).then(r=>r.json()).then(d=>setSave(d.ok?'ok':'err')).catch(()=>setSave('err'));
+}
+
+// Тооцоолол
+function gvr(rid,row,dup,field){
+  var inp=document.querySelector('[data-rid="'+rid+'"][data-row="'+row+'"][data-dup="'+dup+'"][data-field="'+field+'"]');
+  return inp&&inp.value!==''?parseFloat(inp.value):null;
+}
+function calc(uid,dup,rid,ri){
+  var id=dup?uid+'d':uid+'';
+  var t=gvr(rid,ri,dup,'dc_tare'),s=gvr(rid,ri,dup,'dc_sample'),d=gvr(rid,ri,dup,'dc_dried');
+  var mad=(t!=null&&s&&s>0&&d!=null)?(t+s-d)/s*100:null;
+  var pt=gvr(rid,ri,dup,'ash_tare'),ps=gvr(rid,ri,dup,'ash_sample'),pb=gvr(rid,ri,dup,'ash_burned');
+  var aad=(pt!=null&&ps&&ps>0&&pb!=null)?(pb-pt)/ps*100:null;
+  var vt=gvr(rid,ri,dup,'vol_tare'),vs=gvr(rid,ri,dup,'vol_sample'),vb=gvr(rid,ri,dup,'vol_burned');
+  var vad=(vt!=null&&vs&&vs>0&&vb!=null&&mad!=null)?(vt+vs-vb)/vs*100-mad:null;
+  var fc=(mad!=null&&aad!=null&&vad!=null)?100-mad-aad-vad:null;
+  setC('r'+id+'_mad',mad,4);setC('r'+id+'_aad',aad,4);
+  setC('r'+id+'_vad',vad,4);setC('r'+id+'_fc',fc,4);
+  if(dup) checkQC(uid,rid,ri);
+  if(mad!=null||aad!=null)
+    fetch('/analysis/autosave/calc',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({receipt_id:parseInt(rid),row_num:parseInt(ri),is_duplicate:dup,mad:mad,aad:aad,vad:vad,fc:fc})});
+}
+function setC(id,v,d){var e=document.getElementById(id);if(e){e.textContent=v!=null?v.toFixed(d):'—';e.className='calc-cell'+(id.includes('_mad')?' gs':'');}}
+function checkQC(uid,rid,ri){
+  [['mad',QC.mad],['aad',QC.aad],['vad',QC.vad]].forEach(function(p){
+    var v1=getN('r'+uid+'_'+p[0]),v2=getN('r'+uid+'d_'+p[0]);
+    if(v1!=null&&v2!=null){var ok=Math.abs(v1-v2)<=p[1];cqc('r'+uid+'_'+p[0],ok);cqc('r'+uid+'d_'+p[0],ok);}
+  });
+}
+function getN(id){var e=document.getElementById(id);return e&&e.textContent!='—'?parseFloat(e.textContent):null;}
+function cqc(id,ok){var e=document.getElementById(id);if(e)e.className='calc-cell '+(ok?'qc-ok':'qc-warn');}
+
+// Зэрэгцээ мөр
+function toggleDup(uid){
+  var dr=document.getElementById('dr'+uid);
+  var btn=document.getElementById('db'+uid);
+  var show=!dr.classList.contains('show');
+  dr.classList.toggle('show',show);
+  btn.textContent=show?'−':'+';
+  if(show){var first=dr.querySelector('input');if(first)setTimeout(function(){first.focus();first.select();},30);}
+}
+
+// Дууслаа товч
+function markDone(rid,ri,dup){
+  var uid=rid+'_'+ri;
+  var btn=document.getElementById('dnbtn'+uid+'_'+dup);
+  var isDone=btn.classList.contains('done');
+  fetch('/analysis/row/done',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({receipt_id:parseInt(rid),row_num:parseInt(ri),is_duplicate:dup})
+  }).then(r=>r.json()).then(function(d){
+    if(d.ok){btn.classList.toggle('done',!isDone);btn.textContent=!isDone?'✓':'○';}
+  });
+}
+
+// Багана нуух
+function toggleG(cb,g){
+  var show=cb.checked;
+  document.querySelectorAll('.cg-'+g).forEach(function(el){
+    if(show) el.classList.remove('hide');
+    else el.classList.add('hide');
+  });
+}
+
+// Өгөгдөл ачаалах
+function loadAllData(){
+  {% for receipt in receipts %}
+  fetch('/analysis/load/{{ receipt["id"] }}').then(r=>r.json()).then(function(data){
+    Object.keys(data).forEach(function(key){
+      var p=key.split('_'),row=p[0],dup=p[1],e=data[key];
+      var uid='{{ receipt["id"] }}_'+row;
+      Object.keys(e).forEach(function(f){
+        if(['id','receipt_id','row_num','is_duplicate','created_at','updated_at','updated_by'].includes(f)) return;
+        var inp=document.querySelector('[data-rid="{{ receipt["id"] }}"][data-row="'+row+'"][data-dup="'+dup+'"][data-field="'+f+'"]');
+        if(inp&&e[f]!=null) inp.value=e[f];
+      });
+      calc(uid,parseInt(dup),'{{ receipt["id"] }}',row);
+      if(e.row_status==='done'){var btn=document.getElementById('dnbtn'+uid+'_'+dup);if(btn){btn.classList.add('done');btn.textContent='✓';}}
+      if(dup==='1'&&!document.getElementById('dr'+uid).classList.contains('show')) toggleDup(uid);
+    });
+  });
+  {% endfor %}
+  setSave('ok');
+}
+
+// Keyboard navigation
+document.addEventListener('keydown',function(e){
+  var inp=document.activeElement;
+  if(!inp||!inp.matches('.tbl input')) return;
+  var vis=Array.from(document.querySelectorAll('.tbl input')).filter(function(i){
+    var tr=i.closest('tr');
+    if(!tr) return false;
+    if(tr.classList.contains('dup-row')&&!tr.classList.contains('show')) return false;
+    if(tr.classList.contains('lot-label')||tr.classList.contains('lot-sep')) return false;
+    var td=i.closest('td');
+    return !(td&&td.classList.contains('hide'));
+  });
+  var idx=vis.indexOf(inp);
+  if(e.key==='Tab'||e.key==='Enter'){
+    e.preventDefault();
+    var nx=e.shiftKey?vis[idx-1]:vis[idx+1];
+    if(nx){nx.focus();nx.select();}
+  } else if(e.key==='ArrowRight'){
+    e.preventDefault();
+    if(inp.selectionEnd>=inp.value.length&&vis[idx+1]){vis[idx+1].focus();vis[idx+1].select();}
+  } else if(e.key==='ArrowLeft'){
+    e.preventDefault();
+    if(inp.selectionStart<=0&&vis[idx-1]){vis[idx-1].focus();vis[idx-1].select();}
+  } else if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+    e.preventDefault();
+    var row=inp.closest('tr');
+    var cells=Array.from(row.querySelectorAll('td'));
+    var ci=cells.findIndex(function(c){return c.contains(inp);});
+    var allRows=Array.from(document.querySelectorAll('#tbody tr')).filter(function(r){
+      if(r.classList.contains('lot-label')||r.classList.contains('lot-sep')) return false;
+      return !(r.classList.contains('dup-row')&&!r.classList.contains('show'));
+    });
+    var ri2=allRows.indexOf(row);
+    var step=e.key==='ArrowDown'?1:-1;
+    for(var r=ri2+step;r>=0&&r<allRows.length;r+=step){
+      var ntds=allRows[r].querySelectorAll('td');
+      var ntd=ntds[ci];
+      if(!ntd||ntd.classList.contains('hide')) continue;
+      var ni=ntd.querySelector('input');
+      if(ni){ni.focus();ni.select();break;}
+    }
+  }
+});
+
+document.querySelectorAll('.tbl input').forEach(function(i){i.addEventListener('focus',function(){this.select();});});
+
+document.addEventListener('DOMContentLoaded',function(){
+  autoNames();
+  ['gi','st','il','fsi'].forEach(function(g){
+    document.querySelectorAll('.cg-'+g).forEach(function(el){el.classList.add('hide');});
+  });
+  loadAllData();
+});
+</script>
+{% endblock %}

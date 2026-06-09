@@ -1,0 +1,229 @@
+{% extends "partial/base.html" %}
+{% block title %}Дээж бүртгэх{% endblock %}
+{% block content %}
+<style>
+.type-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.type-card{border:2px solid var(--border);border-radius:10px;padding:14px 16px;cursor:pointer;transition:.15s;text-align:center;background:#fff}
+.type-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.1)}
+.type-card.selected{border-width:2px;box-shadow:0 4px 16px rgba(0,0,0,.15)}
+.type-card .icon{font-size:26px;margin-bottom:6px}
+.type-card .name{font-weight:700;font-size:13px}
+.type-card .code{font-size:11px;color:var(--text-muted);margin-top:2px}
+.type-card .desc{font-size:11px;color:var(--text-muted);margin-top:4px}
+.form-section{display:none}
+.form-section.show{display:block;animation:fadeIn .2s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.preview-box{background:var(--gray);border-radius:8px;padding:10px 14px;font-size:12px;font-family:monospace;color:var(--text-muted);margin-top:6px;min-height:30px}
+</style>
+
+<div class="page" style="max-width:580px">
+  <div style="margin-bottom:16px">
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">
+      <a href="{{ url_for('analysis') }}">Шинжилгээ</a> /
+    </div>
+    <h1 class="page-title">🧪 Дээж бүртгэх</h1>
+    <p class="page-sub">Эхлээд дээжний төрлийг сонгоно уу</p>
+  </div>
+
+  <!-- Төрөл сонгох — DB-аас авна -->
+  <div class="type-grid">
+    {% for t in sample_types %}
+    <div class="type-card" onclick="selectType('{{ t.code }}')" id="tc-{{ t.code }}">
+      <div class="icon">{{ t.icon }}</div>
+      <div class="name" style="color:{{ t.color }}">{{ t.code }}</div>
+      <div class="code">{{ t.serial_from }}-{{ t.serial_to }}</div>
+      <div class="desc">{{ t.name_mn }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Форм -->
+  <div class="form-section" id="formSection">
+    <div class="card">
+      <div id="typeBadge" style="margin-bottom:16px;padding:10px 14px;border-radius:8px;display:flex;align-items:center;gap:10px;border-left:4px solid #185fa5">
+        <span id="typeIcon" style="font-size:22px"></span>
+        <div>
+          <div id="typeName" style="font-weight:700;font-size:14px"></div>
+          <div id="typeDesc" style="font-size:11px;color:var(--text-muted)"></div>
+        </div>
+      </div>
+
+      <form method="POST">
+        <input type="hidden" name="sample_type" id="sample_type">
+        <input type="hidden" name="sample_name" id="sample_name_hidden">
+        <input type="hidden" name="quantity" id="quantity_hidden">
+
+        <!-- PIT форм -->
+        <div id="pitForm" style="display:none">
+          <div class="section-title">PIT дугаарлалт</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Эхлэх дугаар *</label>
+              <input type="number" id="pit_from" class="form-input" placeholder="1" min="1" oninput="updatePitPreview()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Дуусах дугаар *</label>
+              <input type="number" id="pit_to" class="form-input" placeholder="100" min="1" oninput="updatePitPreview()">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Урьдчилан харах</label>
+            <div class="preview-box" id="pitPreview">—</div>
+          </div>
+        </div>
+
+        <!-- Бусад форм -->
+        <div id="otherForm" style="display:none">
+          <div class="section-title">Дээжний нэрлэлт</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Эхний дээжний нэр *</label>
+              <input type="text" id="first_name" class="form-input" placeholder="Ex-mzl-1" oninput="updateOtherPreview()">
+              <div style="font-size:11px;color:var(--text-muted);margin-top:3px">Сүүлийн тоо автоматаар нэмэгдэнэ</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Нийт тоо *</label>
+              <input type="number" id="other_count" class="form-input" placeholder="4" min="1" oninput="updateOtherPreview()">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Урьдчилан харах</label>
+            <div class="preview-box" id="otherPreview">—</div>
+          </div>
+        </div>
+
+        <!-- Нийтлэг талбарууд -->
+        <div class="form-grid" style="margin-top:8px">
+          <div class="form-group">
+            <label class="form-label">Авсан огноо *</label>
+            <input type="date" name="collected_date" class="form-input" value="{{ today }}" required>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:3px">Ажлын дугаарын огноо болно</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Байршил</label>
+            <input type="text" name="location" class="form-input" placeholder="Блок B, 17-р цэг">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Тэмдэглэл</label>
+          <textarea name="notes" class="form-input" rows="2"></textarea>
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <a href="{{ url_for('analysis') }}" class="btn btn-ghost">Буцах</a>
+          <button type="submit" class="btn btn-primary" id="submitBtn" onclick="return prepareSubmit()">✅ Бүртгэх</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+var TYPES = {
+  {% for t in sample_types %}
+  '{{ t.code }}': {
+    icon:'{{ t.icon }}', 
+    name:'{{ t.code }} — {{ t.name_mn }}',
+    desc:'{{ t.serial_from }}-{{ t.serial_to }} серийн дугаар',
+    color:'{{ t.color }}',
+    bg:'{{ t.color }}22',
+    pit:{{ 'true' if t.is_pit else 'false' }}
+  },
+  {% endfor %}
+};
+
+var curType = null;
+
+function selectType(type){
+  if(curType) document.getElementById('tc-'+curType).classList.remove('selected');
+  curType = type;
+  var t = TYPES[type];
+  var card = document.getElementById('tc-'+type);
+  card.classList.add('selected');
+  card.style.borderColor = t.color;
+  card.style.background = t.bg;
+
+  document.getElementById('sample_type').value = type;
+  document.getElementById('typeBadge').style.borderLeftColor = t.color;
+  document.getElementById('typeBadge').style.background = t.bg;
+  document.getElementById('typeIcon').textContent = t.icon;
+  document.getElementById('typeName').textContent = t.name;
+  document.getElementById('typeName').style.color = t.color;
+  document.getElementById('typeDesc').textContent = t.desc;
+
+  // PIT эсвэл бусад
+  document.getElementById('pitForm').style.display = t.pit ? 'block' : 'none';
+  document.getElementById('otherForm').style.display = t.pit ? 'none' : 'block';
+
+  if(t.pit){
+    document.getElementById('pit_from').focus();
+  } else {
+    document.getElementById('first_name').focus();
+  }
+
+  document.getElementById('formSection').classList.add('show');
+}
+
+// PIT урьдчилан харах
+function updatePitPreview(){
+  var from = parseInt(document.getElementById('pit_from').value);
+  var to   = parseInt(document.getElementById('pit_to').value);
+  if(!from||!to||from>to){ document.getElementById('pitPreview').textContent='—'; return; }
+  var count = to - from + 1;
+  var preview = '';
+  if(count <= 6){
+    for(var i=from;i<=to;i++) preview += i + (i<to?', ':'');
+  } else {
+    preview = from+', '+(from+1)+', '+(from+2)+' ... '+(to-1)+', '+to;
+  }
+  preview += '  (нийт '+count+' дээж)';
+  document.getElementById('pitPreview').textContent = preview;
+}
+
+// Бусад урьдчилан харах
+function updateOtherPreview(){
+  var first = document.getElementById('first_name').value.trim();
+  var count = parseInt(document.getElementById('other_count').value);
+  if(!first||!count){ document.getElementById('otherPreview').textContent='—'; return; }
+
+  // Угтвар болон тоог олох
+  var m = first.match(/^(.*?)(\d+)([^0-9]*)$/);
+  var preview = '';
+  if(m){
+    var prefix = m[1];
+    var num    = parseInt(m[2]);
+    var suffix = m[3];
+    var items  = [];
+    for(var i=0;i<Math.min(count,4);i++) items.push(prefix+(num+i)+suffix);
+    if(count > 4) items.push('... '+prefix+(num+count-1)+suffix);
+    preview = items.join(', ') + '  (нийт '+count+' дээж)';
+  } else {
+    preview = first+'-1, '+first+'-2 ... '+first+'-'+count+'  (нийт '+count+' дээж)';
+  }
+  document.getElementById('otherPreview').textContent = preview;
+}
+
+// Submit-д утгуудыг hidden field-үүдэд оруулах
+function prepareSubmit(){
+  var t = TYPES[curType];
+  if(!curType){ alert('Төрлөө сонгоно уу!'); return false; }
+
+  if(t.pit){
+    var from = parseInt(document.getElementById('pit_from').value);
+    var to   = parseInt(document.getElementById('pit_to').value);
+    if(!from||!to){ alert('Дугаар оруулна уу!'); return false; }
+    if(from>to){ alert('Эхлэх дугаар дуусах дугаараас их байна!'); return false; }
+    document.getElementById('sample_name_hidden').value = from+'-'+to;
+    document.getElementById('quantity_hidden').value = to-from+1;
+  } else {
+    var first = document.getElementById('first_name').value.trim();
+    var count = parseInt(document.getElementById('other_count').value);
+    if(!first||!count){ alert('Дээжний нэр болон тоо оруулна уу!'); return false; }
+    document.getElementById('sample_name_hidden').value = first;
+    document.getElementById('quantity_hidden').value = count;
+  }
+  return true;
+}
+</script>
+{% endblock %}

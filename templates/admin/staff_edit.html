@@ -1,0 +1,110 @@
+{% extends "partial/base.html" %}
+{% block title %}{{ target['name'] }} — Засах{% endblock %}
+{% block content %}
+<div class="page" style="max-width:700px">
+  <div style="margin-bottom:16px">
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">
+      <a href="{{ url_for('staff_list') }}">Ажилтнууд</a> /
+      <a href="{{ url_for('staff_detail', uid=target['id']) }}">{{ target['name'] }}</a> /
+    </div>
+    <h1 class="page-title">Мэдээлэл засах</h1>
+  </div>
+
+  <!-- Үндсэн мэдээлэл -->
+  <div class="card" style="margin-bottom:12px">
+    <div class="section-title">Үндсэн мэдээлэл</div>
+    <form method="POST" enctype="multipart/form-data">
+      <input type="hidden" name="action" value="update_info">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Овог нэр *</label>
+          <input type="text" name="name" class="form-input" value="{{ target['name'] }}" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ажилтны ID</label>
+          <input type="text" class="form-input" value="{{ target['employee_id'] }}" disabled style="background:var(--gray);color:var(--text-muted)">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Албан тушаал</label>
+          <input type="text" name="position" class="form-input" value="{{ target['position'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Утас</label>
+          <input type="text" name="phone" class="form-input" value="{{ target['phone'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Имэйл</label>
+          <input type="email" name="email" class="form-input" value="{{ target['email'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ажилд орсон огноо</label>
+          <input type="date" name="joined_date" class="form-input" value="{{ target['joined_date'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Эрх</label>
+          <select name="role" class="form-input">
+            <option value="staff" {{ 'selected' if target['role']=='staff' }}>Химич</option>
+            <option value="preparer" {{ 'selected' if target['role']=='preparer' }}>Дээж бэлтгэгч</option>
+            <option value="geologist" {{ 'selected' if target['role']=='geologist' }}>Геологи</option>
+            <option value="senior" {{ 'selected' if target['role']=='senior' }} {% if current_user['role']=='senior' %}disabled{% endif %}>Ахлах химич</option>
+            {% if current_user['role']=='admin' %}
+            <option value="admin" {{ 'selected' if target['role']=='admin' }}>Админ</option>
+            {% endif %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Профайл зураг</label>
+          <input type="file" name="photo" class="form-input" accept=".jpg,.jpeg,.png,.webp">
+        </div>
+      </div>
+
+      <div class="section-title" style="margin-top:8px">Ашиглах эрхтэй төхөөрөмж</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">
+        {% for d in devices %}
+        <label style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--gray);border-radius:6px;cursor:pointer;font-size:13px">
+          <input type="checkbox" name="device_permissions" value="{{ d['id'] }}" {{ 'checked' if d['id'] in perms }}>
+          {{ d['name'] }}
+        </label>
+        {% endfor %}
+      </div>
+
+      <div style="display:flex;gap:8px">
+        <a href="{{ url_for('staff_list') }}" class="btn btn-ghost">Буцах</a>
+        <button type="submit" name="next" value="list" class="btn btn-ghost">Хадгалаад жагсаалт руу</button>
+        <button type="submit" name="next" value="stay" class="btn btn-primary">Хадгалах</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Нууц үг шинэчлэх -->
+  <div class="card">
+    <div class="section-title">Нууц үг шинэчлэх</div>
+    <form method="POST">
+      <input type="hidden" name="action" value="reset_password">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Шинэ нууц үг</label>
+          <div style="position:relative">
+            <input type="password" name="new_password" id="new_pw" class="form-input" placeholder="••••••••" minlength="6" required style="padding-right:40px">
+            <button type="button" onclick="togglePw('new_pw','eye1')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px" id="eye1">👁</button>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Хамгийн багадаа 6 тэмдэгт</div>
+        </div>
+        <button type="submit" class="btn btn-danger" style="margin-bottom:18px">🔑 Нууц үг шинэчлэх</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px;padding:8px 12px;background:var(--amber-light);border-radius:6px">
+        ⚠️ Шинэ нууц үгийг ажилтанд заавал мэдэгдэнэ үү
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function togglePw(inputId, btnId){
+  var inp = document.getElementById(inputId);
+  inp.type = inp.type==='password' ? 'text' : 'password';
+  document.getElementById(btnId).textContent = inp.type==='password' ? '👁' : '🙈';
+}
+</script>
+{% endblock %}

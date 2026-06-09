@@ -1,0 +1,246 @@
+{% extends "partial/base.html" %}
+{% block title %}Шинжилгээ{% endblock %}
+{% block content %}
+<div class="page">
+  <div class="flex justify-between gap-12" style="margin-bottom:20px;flex-wrap:wrap">
+    <div>
+      <h1 class="page-title">🧪 Шинжилгээ</h1>
+      <p class="page-sub">Дээжний бүртгэл, хүлээн авалт, шинжилгээ</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <!-- Огноо шүүлтүүр -->
+      <input type="date" id="filter-date" class="form-input"
+        style="width:150px;font-size:13px;padding:6px 10px"
+        value="{{ today }}" onchange="filterDate()">
+      <a href="{{ url_for('analysis_register') }}" class="btn btn-primary">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Дээж бүртгэх
+      </a>
+      {% if current_user['role'] in ('admin','senior','staff') %}
+      <button onclick="startMulti()" class="btn btn-teal" id="multiBtn" disabled style="opacity:.4;cursor:not-allowed">
+        🧪 Шинжилгээ эхлэх
+      </button>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Статус тоолуур -->
+  <div class="stat-grid" style="margin-bottom:16px">
+    {% set pending = samples|selectattr('status','eq','pending')|list|length %}
+    {% set prepared = samples|selectattr('status','eq','prepared')|list|length %}
+    {% set done = samples|selectattr('status','eq','done')|list|length %}
+    <div class="stat-card" onclick="filterStatus('pending')" style="cursor:pointer">
+      <div class="stat-val" style="color:var(--amber)">{{ pending }}</div>
+      <div class="stat-lbl">🟡 Хүлээгдэж байна</div>
+    </div>
+    <div class="stat-card" onclick="filterStatus('prepared')" style="cursor:pointer">
+      <div class="stat-val" style="color:#185FA5">{{ prepared }}</div>
+      <div class="stat-lbl">🔵 Хүлээн авсан</div>
+    </div>
+    <div class="stat-card" onclick="filterStatus('analysing')" style="cursor:pointer">
+      <div class="stat-val" style="color:var(--coral)">
+        {{ samples|selectattr('status','eq','analysing')|list|length }}
+      </div>
+      <div class="stat-lbl">🔴 Шинжилгээнд</div>
+    </div>
+    <div class="stat-card" onclick="filterStatus('done')" style="cursor:pointer">
+      <div class="stat-val" style="color:var(--teal)">{{ done }}</div>
+      <div class="stat-lbl">🟢 Дууссан</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <table class="table" id="sample-table">
+      <thead>
+        <tr>
+          <th style="width:36px"><input type="checkbox" id="checkAll" onchange="toggleAll(this)" title="Бүгдийг сонгох"></th>
+          <th>Ажлын дугаар</th>
+          <th>Дээжний нэр</th>
+          <th>Төрөл</th>
+          <th>Тоо</th>
+          <th>Байршил</th>
+          <th>Огноо</th>
+          <th>Статус</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for s in samples %}
+      {% set ps2 = s['prep_status'] or '' %}
+      {% set st2 = s['status'] or '' %}
+      {% set is_ready = ps2=='ready' or st2=='ready' %}
+      <tr class="sample-row" data-status="{{ s['status'] }}" data-date="{{ s['collected_date'] or '' }}" data-rid="{{ s['receipt_id'] or '' }}">
+        <td style="width:36px;text-align:center">
+          {% if is_ready and s['receipt_id'] and current_user['role'] in ('admin','senior','staff') %}
+          <input type="checkbox" class="lot-cb" value="{{ s['receipt_id'] }}" onchange="updateMultiBtn()" style="width:15px;height:15px;cursor:pointer">
+          {% endif %}
+        </td>
+        <td>
+          {% if s['lab_number'] %}
+          <strong style="color:var(--navy);font-family:monospace">{{ s['lab_number'] }}</strong>
+          {% else %}
+          <span style="color:var(--text-muted);font-size:12px">— дугаар аваагүй</span>
+          {% endif %}
+        </td>
+        <td>
+          <div style="font-weight:500">{{ s['sample_name'] }}</div>
+          {% if s['quantity'] and s['quantity'] > 1 %}
+          <div style="font-size:11px;color:var(--text-muted)">{{ s['quantity'] }} дээж</div>
+          {% endif %}
+        </td>
+        <td>
+          {% set tc = {'PIT':'#0F6E56','STOCKPILE':'#185FA5','EXPORT':'#3C3489','CONTROL':'#854F0B','EQ_CONTROL':'#993C1D','DP':'#555'} %}
+          <span class="badge" style="background:var(--gray);color:{{ tc.get(s['sample_type'],'#555') }}">
+            {{ s['sample_type'] }}
+          </span>
+        </td>
+        <td style="text-align:center">{{ s['quantity'] or 1 }}</td>
+        <td style="color:var(--text-muted);font-size:12px">{{ s['location'] or '—' }}</td>
+        <td style="font-size:12px">{{ s['collected_date'] or '—' }}</td>
+        <td>
+          {% set ps = s['prep_status'] or '' %}
+          {% set st = s['status'] or '' %}
+          {% if st == 'pending' %}
+            <span class="badge" style="background:#faeeda;color:#854f0b">🟡 Хүлээгдэж байна</span>
+          {% elif ps == 'received' or st == 'prepared' %}
+            <span class="badge" style="background:#e6f1fb;color:#185fa5">🔵 Хүлээн авсан</span>
+          {% elif ps == 'preparing' %}
+            <span class="badge" style="background:#fff0e0;color:#c05000">🟠 Бэлтгэгдэж байна</span>
+          {% elif ps == 'ready' or st == 'ready' %}
+            <span class="badge" style="background:#f0e6ff;color:#6020a0">🟣 Шинжилгээнд бэлэн</span>
+          {% elif st == 'analysing' %}
+            <span class="badge badge-repair">🔴 Шинжилгээнд</span>
+          {% elif st == 'done' %}
+            <span class="badge badge-active">🟢 Дууссан</span>
+          {% endif %}
+        </td>
+        <td>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            {% set ps = s['prep_status'] or '' %}
+            {% set st = s['status'] or '' %}
+            {% set rid = s['receipt_id'] %}
+            {% set role = current_user['role'] %}
+            {# prepared = хүлээн авсан хуучин статус #}
+            {% set ps = 'received' if (st == 'prepared' and ps == '') else ps %}
+            {% set ps = 'ready' if (st == 'ready' and ps == '') else ps %}
+
+            {% if st == 'pending' %}
+              {% if role in ('admin','senior','staff','preparer') %}
+              <a href="{{ url_for('analysis_receive', geo_id=s['id']) }}"
+                 class="btn btn-sm" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">
+                📥 Хүлээн авах
+              </a>
+              {% endif %}
+
+            {% elif ps in ('received', 'preparing') %}
+              {% if role in ('admin','senior','preparer') %}
+              <button onclick="showDoneModal({{ rid }})"
+                 class="btn btn-sm" style="background:#f0e6ff;color:#6020a0;border:1px solid #c090e0">
+                ✅ Бэлтгэж дууслаа
+              </button>
+              {% endif %}
+
+            {% elif ps == 'ready' %}
+              {% if role in ('admin','senior','staff') %}
+              <a href="{{ url_for('analysis_measure', receipt_id=rid) }}"
+                 class="btn btn-sm" style="background:#faeeda;color:#854f0b;border:1px solid #f5d48a">
+                🧪 Шинжилгээ хийх
+              </a>
+              {% endif %}
+              <a href="{{ url_for('analysis_result', receipt_id=rid) }}"
+                 class="btn btn-ghost btn-sm">📊 Үр дүн</a>
+
+            {% elif st == 'done' or ps == 'done' %}
+              <a href="{{ url_for('analysis_result', receipt_id=rid) }}"
+                 class="btn btn-ghost btn-sm">📊 Үр дүн</a>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)">
+          <div style="font-size:32px;margin-bottom:8px">🧪</div>
+          Дээж байхгүй байна
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+
+{% block scripts %}
+<!-- Бэлтгэж дууслаа modal -->
+<div id="doneModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:10px;padding:24px;max-width:400px;width:90%">
+    <h3 style="margin-bottom:16px">✅ Дээж бэлтгэж дууслаа</h3>
+    <form id="doneForm" method="POST">
+      <div class="form-group">
+        <label class="form-label">Тэмдэглэл (заавал биш)</label>
+        <textarea name="notes" class="form-input" rows="2" placeholder="Аналитик дээж бэлэн..."></textarea>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button type="button" onclick="document.getElementById('doneModal').style.display='none'" class="btn btn-ghost">Буцах</button>
+        <button type="submit" class="btn btn-primary">✅ Химичид шилжүүлэх</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+function showDoneModal(rid){
+  document.getElementById('doneForm').action='/analysis/prep/done/'+rid;
+  document.getElementById('doneModal').style.display='flex';
+}
+</script>
+<script>
+function filterStatus(status){
+  document.querySelectorAll('.sample-row').forEach(function(r){
+    r.style.display = (status==='all' || r.dataset.status===status) ? '' : 'none';
+  });
+}
+function filterDate(){
+  var d = document.getElementById('filter-date').value;
+  document.querySelectorAll('.sample-row').forEach(function(r){
+    r.style.display = (!d || r.dataset.date===d) ? '' : 'none';
+  });
+}
+
+function updateMultiBtn(){
+  var checked = document.querySelectorAll('.lot-cb:checked').length;
+  var btn = document.getElementById('multiBtn');
+  if(!btn) return;
+  if(checked > 0){
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+    btn.textContent = '🧪 Шинжилгээ эхлэх (' + checked + ')';
+  } else {
+    btn.disabled = true;
+    btn.style.opacity = '.4';
+    btn.style.cursor = 'not-allowed';
+    btn.textContent = '🧪 Шинжилгээ эхлэх';
+  }
+}
+
+function toggleAll(cb){
+  document.querySelectorAll('.lot-cb').forEach(function(c){ c.checked = cb.checked; });
+  updateMultiBtn();
+}
+
+function startMulti(){
+  var ids = [];
+  document.querySelectorAll('.lot-cb:checked').forEach(function(cb){ ids.push(cb.value); });
+  if(!ids.length){ alert('Дор хаяж нэг ажлын дугаар сонгоно уу!'); return; }
+  if(ids.length === 1){
+    window.location.href = '/analysis/measure/' + ids[0];
+  } else {
+    window.location.href = '/analysis/measure/multi?ids=' + ids.join(',');
+  }
+}
+</script>
+{% endblock %}

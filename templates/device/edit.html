@@ -1,0 +1,80 @@
+{% extends "partial/base.html" %}
+{% block title %}{{ 'Засах' if lang=='mn' else 'Edit' }}{% endblock %}
+{% block content %}
+<div class="page" style="max-width:700px">
+  <div style="margin-bottom:16px">
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">
+      <a href="{{ url_for('devices') }}">{{ 'Төхөөрөмжүүд' if lang=='mn' else 'Devices' }}</a> /
+      <a href="{{ url_for('device_detail', did=device['id']) }}">{{ device['name'] }}</a> /
+    </div>
+    <h1 class="page-title">{{ 'Мэдээлэл засах' if lang=='mn' else 'Edit Device' }}</h1>
+  </div>
+  <div class="card">
+    <form method="POST" enctype="multipart/form-data">
+      <div class="form-group">
+        <label class="form-label">{{ 'Нэр' if lang=='mn' else 'Name' }} *</label>
+        <input type="text" name="name" class="form-input" value="{{ device['name'] }}" required>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Serial {{ 'дугаар' if lang=='mn' else 'Number' }}</label>
+          <input type="text" name="serial_number" class="form-input" value="{{ device['serial_number'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">{{ 'Байршил' if lang=='mn' else 'Location' }}</label>
+          <input type="text" name="location" class="form-input" value="{{ device['location'] or '' }}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mark</label>
+        <select name="mark_id" class="form-input">
+          <option value="">—</option>
+          {% for m in marks %}
+          <option value="{{ m['id'] }}" {{ 'selected' if device['mark_id']==m['id'] }}>{{ m['manufacturer'] }} {{ m['model'] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">{{ 'Худалдан авсан огноо' if lang=='mn' else 'Purchase Date' }}</label>
+          <input type="date" name="purchase_date" class="form-input" value="{{ device['purchase_date'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">{{ 'Баталгааны хугацаа' if lang=='mn' else 'Warranty Expiry' }}</label>
+          <input type="date" name="warranty_expiry" class="form-input" value="{{ device['warranty_expiry'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">{{ 'Calibration (өдөр)' if lang=='mn' else 'Calibration (days)' }}</label>
+          <input type="number" name="calibration_interval" class="form-input" value="{{ device['calibration_interval'] or 90 }}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">{{ 'Статус' if lang=='mn' else 'Status' }}</label>
+        <select name="status" class="form-input">
+          <option value="active" {{ 'selected' if device['status']=='active' }}>{{ 'Идэвхтэй' if lang=='mn' else 'Active' }}</option>
+          <option value="repair" {{ 'selected' if device['status']=='repair' }}>{{ 'Засварт' if lang=='mn' else 'In Repair' }}</option>
+          <option value="standby" {{ 'selected' if device['status']=='standby' }}>{{ 'Хүлээгдэж байна' if lang=='mn' else 'Standby' }}</option>
+        </select>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">{{ 'Шинэ зураг (заавал биш)' if lang=='mn' else 'New Photo (optional)' }}</label>
+          <input type="file" name="photo" class="form-input" accept=".jpg,.jpeg,.png,.webp">
+        </div>
+        <div class="form-group">
+          <label class="form-label">{{ 'Шинэ PDF (заавал биш)' if lang=='mn' else 'New PDF (optional)' }}</label>
+          <input type="file" name="passport_pdf" class="form-input" accept=".pdf">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">{{ 'Тэмдэглэл' if lang=='mn' else 'Notes' }}</label>
+        <textarea name="notes" class="form-input" rows="3">{{ device['notes'] or '' }}</textarea>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <a href="{{ url_for('device_detail', did=device['id']) }}" class="btn btn-ghost">{{ 'Буцах' if lang=='mn' else 'Cancel' }}</a>
+        <button type="submit" class="btn btn-primary">{{ 'Хадгалах' if lang=='mn' else 'Save' }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

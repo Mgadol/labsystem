@@ -1,0 +1,314 @@
+{% extends "partial/base.html" %}
+{% block title %}{{ device.name }}{% endblock %}
+{% block content %}
+<div class="page">
+  <div class="flex justify-between gap-12" style="margin-bottom:16px;flex-wrap:wrap">
+    <div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">
+        <a href="{{ url_for('devices') }}">{{ 'Төхөөрөмжүүд' if lang=='mn' else 'Devices' }}</a> /
+      </div>
+      <h1 class="page-title">{{ device.name }}</h1>
+      <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
+        <span class="badge badge-{{ device.status }}">
+          {% if device.status=='active' %}{{ 'Идэвхтэй' if lang=='mn' else 'Active' }}
+          {% elif device.status=='repair' %}{{ 'Засварт' if lang=='mn' else 'In Repair' }}
+          {% else %}{{ 'Хүлээгдэж байна' if lang=='mn' else 'Standby' }}{% endif %}
+        </span>
+        {% if device.serial_number %}<span style="font-size:12px;color:var(--text-muted)">SN: {{ device.serial_number }}</span>{% endif %}
+      </div>
+    </div>
+    {% if get_current_user().role=='admin' %}
+    <div class="flex gap-8">
+      <a href="{{ url_for('device_edit', device_id=device.id) }}" class="btn btn-ghost btn-sm">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        {{ 'Засах' if lang=='mn' else 'Edit' }}
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  <div style="display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:start">
+    <!-- Left: Photo + quick info -->
+    <div>
+      <div class="card" style="padding:14px;text-align:center;margin-bottom:12px">
+        {% if device.photo %}
+        <img src="{{ url_for('static',filename='uploads/'+device.photo) }}" style="width:100%;height:160px;object-fit:cover;border-radius:8px;margin-bottom:10px">
+        {% else %}
+        <div style="width:100%;height:160px;background:var(--gray);border-radius:8px;margin-bottom:10px;display:flex;align-items:center;justify-content:center">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        </div>
+        {% endif %}
+        <div style="font-size:13px;font-weight:600">{{ device.name }}</div>
+        {% if device.mark %}
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px">{{ device.mark.manufacturer }} {{ device.mark.model }}</div>
+        {% endif %}
+      </div>
+      <div class="card-sm" style="margin-bottom:12px">
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">{{ 'Энэ сарын ашиглалт' if lang=='mn' else 'This Month' }}</div>
+        <div style="font-size:26px;font-weight:600;color:var(--navy)">{{ device.total_hours_this_month }}<span style="font-size:13px;font-weight:400;color:var(--text-muted)"> ц</span></div>
+      </div>
+      {% if device.passport_pdf %}
+      <a href="{{ url_for('static',filename='uploads/'+device.passport_pdf) }}" target="_blank" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M9 15h6M9 11h6M9 18h4"/></svg>
+        {{ 'Паспорт PDF' if lang=='mn' else 'Passport PDF' }}
+      </a>
+      {% endif %}
+    </div>
+
+    <!-- Right: Tabs -->
+    <div class="card" style="padding:0">
+      <div class="tab-nav" style="padding:0 20px">
+        <button class="tab-btn active" data-tab="tab-info">2.1 {{ 'Мэдээлэл' if lang=='mn' else 'Info' }}</button>
+        <button class="tab-btn" data-tab="tab-usage">2.4 {{ 'Ашиглалт' if lang=='mn' else 'Usage' }}</button>
+        <button class="tab-btn" data-tab="tab-cal">2.3 Calibration</button>
+        <button class="tab-btn" data-tab="tab-repair">2.2 {{ 'Засвар' if lang=='mn' else 'Repair' }}</button>
+      </div>
+
+      <!-- 2.1 INFO -->
+      <div id="tab-info" class="tab-pane active" style="padding:20px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          {% set info = [
+            ('Serial дугаар','serial_number'),('Байршил','location'),
+            ('Худалдан авсан огноо','purchase_date'),('Баталгааны хугацаа','warranty_expiry'),
+            ('Calibration давтамж','calibration_interval'),
+          ] %}
+          {% for lbl, attr in info %}
+          <div style="background:var(--gray);border-radius:7px;padding:10px 12px">
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">{{ lbl }}</div>
+            <div style="font-size:13px;font-weight:500">
+              {% set val = device[attr] if device is mapping else device.__dict__.get(attr) %}
+              {% if attr=='calibration_interval' %}{{ device.calibration_interval }} өдөр
+              {% elif attr=='purchase_date' %}{{ device.purchase_date.strftime('%Y.%m.%d') if device.purchase_date else '—' }}
+              {% elif attr=='warranty_expiry' %}{{ device.warranty_expiry.strftime('%Y.%m.%d') if device.warranty_expiry else '—' }}
+              {% elif attr=='serial_number' %}{{ device.serial_number or '—' }}
+              {% elif attr=='location' %}{{ device.location or '—' }}
+              {% else %}—{% endif %}
+            </div>
+          </div>
+          {% endfor %}
+          {% if device.mark %}
+          <div style="background:var(--gray);border-radius:7px;padding:10px 12px">
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Үйлдвэрлэгч / Загвар</div>
+            <div style="font-size:13px;font-weight:500">{{ device.mark.manufacturer }} {{ device.mark.model }}</div>
+          </div>
+          {% if device.mark.category %}
+          <div style="background:var(--gray);border-radius:7px;padding:10px 12px">
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Ангилал</div>
+            <div style="font-size:13px;font-weight:500">{{ device.mark.category }}</div>
+          </div>
+          {% endif %}
+          {% endif %}
+        </div>
+        {% if device.notes %}
+        <div style="margin-top:12px;padding:10px 12px;background:var(--gray);border-radius:7px">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Тэмдэглэл</div>
+          <div style="font-size:13px">{{ device.notes }}</div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- 2.4 USAGE -->
+      <div id="tab-usage" class="tab-pane" style="padding:20px">
+        {% if active_log and active_log.user_id == get_current_user().id %}
+        <div style="background:var(--teal-light);border:1px solid #9fe1cb;border-radius:8px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:12px;color:var(--teal);font-weight:500">Ажиллаж байна</div>
+            <div style="font-size:13px;color:var(--teal)">Эхэлсэн: {{ active_log.start_time.strftime('%H:%M') }}</div>
+          </div>
+          <button class="btn btn-stop btn-sm" onclick="stopUsage({{ active_log.id }})">STOP</button>
+        </div>
+        {% elif not active_log %}
+        <div style="margin-bottom:14px">
+          <button class="btn btn-start" onclick="startUsage({{ device.id }})">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            START
+          </button>
+        </div>
+        {% endif %}
+        <table class="table">
+          <thead><tr>
+            <th>{{ 'Огноо' if lang=='mn' else 'Date' }}</th>
+            <th>{{ 'Ажилтан' if lang=='mn' else 'Staff' }}</th>
+            <th>{{ 'Эхэлсэн' if lang=='mn' else 'Start' }}</th>
+            <th>{{ 'Гүйцэтгэсэн' if lang=='mn' else 'End' }}</th>
+            <th>{{ 'Цаг' if lang=='mn' else 'Hours' }}</th>
+          </tr></thead>
+          <tbody>
+          {% for log in usage_logs %}
+          <tr>
+            <td>{{ log.start_time.strftime('%Y.%m.%d') }}</td>
+            <td>{{ log.user.name if log.user else '—' }}</td>
+            <td>{{ log.start_time.strftime('%H:%M') }}</td>
+            <td>{{ log.end_time.strftime('%H:%M') if log.end_time else '—' }}</td>
+            <td><strong>{{ '%.2f'|format(log.duration_hours) if log.duration_hours else '...' }}</strong></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">{{ 'Бүртгэл байхгүй' if lang=='mn' else 'No records' }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 2.3 CALIBRATION -->
+      <div id="tab-cal" class="tab-pane" style="padding:20px">
+        <form method="POST" action="{{ url_for('calibration_add', device_id=device.id) }}" enctype="multipart/form-data" style="background:var(--gray);border-radius:8px;padding:14px;margin-bottom:16px">
+          <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em">{{ 'Шинэ calibration бүртгэх' if lang=='mn' else 'Add Calibration' }}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+            <div>
+              <label class="form-label">{{ 'Хийсэн огноо' if lang=='mn' else 'Date' }}</label>
+              <input type="date" name="calibration_date" class="form-input" value="{{ today }}" required>
+            </div>
+            <div>
+              <label class="form-label">{{ 'Дараагийн огноо' if lang=='mn' else 'Next Date' }}</label>
+              <input type="date" name="next_date" class="form-input">
+            </div>
+            <div>
+              <label class="form-label">{{ 'Үр дүн' if lang=='mn' else 'Result' }}</label>
+              <select name="result" class="form-input">
+                <option value="passed">{{ 'Тэнцсэн' if lang=='mn' else 'Passed' }}</option>
+                <option value="failed">{{ 'Тэнцээгүй' if lang=='mn' else 'Failed' }}</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+            <div>
+              <label class="form-label">{{ 'Баримт хавсаргах' if lang=='mn' else 'Attach Document' }}</label>
+              <input type="file" name="document" class="form-input" accept=".pdf,.jpg,.jpeg,.png">
+            </div>
+            <div>
+              <label class="form-label">{{ 'Тэмдэглэл' if lang=='mn' else 'Notes' }}</label>
+              <input type="text" name="notes" class="form-input" placeholder="...">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-teal btn-sm">{{ 'Бүртгэх' if lang=='mn' else 'Save' }}</button>
+        </form>
+        <table class="table">
+          <thead><tr>
+            <th>{{ 'Огноо' if lang=='mn' else 'Date' }}</th>
+            <th>{{ 'Дараагийн' if lang=='mn' else 'Next' }}</th>
+            <th>{{ 'Хийсэн' if lang=='mn' else 'By' }}</th>
+            <th>{{ 'Үр дүн' if lang=='mn' else 'Result' }}</th>
+            <th>{{ 'Баримт' if lang=='mn' else 'Doc' }}</th>
+          </tr></thead>
+          <tbody>
+          {% for cal in calibrations %}
+          <tr>
+            <td>{{ cal.calibration_date.strftime('%Y.%m.%d') }}</td>
+            <td>{{ cal.next_date.strftime('%Y.%m.%d') if cal.next_date else '—' }}</td>
+            <td>{{ cal.performed_by_user.name if cal.performed_by_user else '—' }}</td>
+            <td><span class="badge badge-{{ cal.result }}">{{ 'Тэнцсэн' if cal.result=='passed' else 'Тэнцээгүй' }}</span></td>
+            <td>{% if cal.document %}<a href="{{ url_for('static',filename='uploads/'+cal.document) }}" target="_blank" style="color:var(--navy);font-size:12px">↓ Татах</a>{% else %}—{% endif %}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">{{ 'Бүртгэл байхгүй' if lang=='mn' else 'No records' }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 2.2 REPAIR -->
+      <div id="tab-repair" class="tab-pane" style="padding:20px">
+        <form method="POST" action="{{ url_for('repair_add', device_id=device.id) }}" enctype="multipart/form-data" style="background:var(--gray);border-radius:8px;padding:14px;margin-bottom:16px">
+          <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em">{{ 'Шинэ засвар бүртгэх' if lang=='mn' else 'Add Repair' }}</div>
+          <div style="margin-bottom:10px">
+            <label class="form-label">{{ 'Эвдрэлийн тайлбар' if lang=='mn' else 'Description' }}</label>
+            <textarea name="description" class="form-input" rows="2" required></textarea>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+            <div>
+              <label class="form-label">{{ 'Илэрсэн огноо' if lang=='mn' else 'Reported Date' }}</label>
+              <input type="date" name="reported_date" class="form-input" value="{{ today }}" required>
+            </div>
+            <div>
+              <label class="form-label">{{ 'Засварын компани' if lang=='mn' else 'Company' }}</label>
+              <input type="text" name="company" class="form-input" placeholder="...">
+            </div>
+            <div>
+              <label class="form-label">{{ 'Засварын огноо' if lang=='mn' else 'Repair Date' }}</label>
+              <input type="date" name="repair_date" class="form-input">
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+            <div>
+              <label class="form-label">{{ 'Зардал (₮)' if lang=='mn' else 'Cost (₮)' }}</label>
+              <input type="number" name="cost" class="form-input" placeholder="0">
+            </div>
+            <div>
+              <label class="form-label">{{ 'Статус' if lang=='mn' else 'Status' }}</label>
+              <select name="status" class="form-input">
+                <option value="new">{{ 'Шинэ' if lang=='mn' else 'New' }}</option>
+                <option value="repair">{{ 'Засварт' if lang=='mn' else 'In Repair' }}</option>
+                <option value="done">{{ 'Гүйцэтгэсэн' if lang=='mn' else 'Completed' }}</option>
+                <option value="replaced">{{ 'Солигдсон' if lang=='mn' else 'Replaced' }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">{{ 'Зураг' if lang=='mn' else 'Photo' }}</label>
+              <input type="file" name="photo" class="form-input" accept=".jpg,.jpeg,.png">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-danger btn-sm">{{ 'Бүртгэх' if lang=='mn' else 'Save' }}</button>
+        </form>
+        <table class="table">
+          <thead><tr>
+            <th>{{ 'Огноо' if lang=='mn' else 'Date' }}</th>
+            <th>{{ 'Тайлбар' if lang=='mn' else 'Description' }}</th>
+            <th>{{ 'Компани' if lang=='mn' else 'Company' }}</th>
+            <th>{{ 'Зардал' if lang=='mn' else 'Cost' }}</th>
+            <th>{{ 'Статус' if lang=='mn' else 'Status' }}</th>
+          </tr></thead>
+          <tbody>
+          {% for rep in repairs %}
+          <tr>
+            <td>{{ rep.reported_date.strftime('%Y.%m.%d') }}</td>
+            <td style="max-width:200px">{{ rep.description[:60] }}{% if rep.description|length > 60 %}...{% endif %}</td>
+            <td>{{ rep.company or '—' }}</td>
+            <td>{{ '{:,.0f}'.format(rep.cost) if rep.cost else '—' }} ₮</td>
+            <td>
+              {% if rep.status=='new' %}
+                <span class="badge" style="background:#faece7;color:#993c1d">🔴 {{ 'Шинэ' if lang=='mn' else 'New' }}</span>
+              {% elif rep.status=='repair' %}
+                <span class="badge" style="background:#faeeda;color:#854f0b">🟡 {{ 'Засварт' if lang=='mn' else 'In Repair' }}</span>
+              {% elif rep.status=='done' %}
+                <span class="badge" style="background:#e1f5ee;color:#0f6e56">🟢 {{ 'Гүйцэтгэсэн' if lang=='mn' else 'Completed' }}</span>
+              {% elif rep.status=='replaced' %}
+                <span class="badge" style="background:#eeedfe;color:#3c3489">⚫ {{ 'Солигдсон' if lang=='mn' else 'Replaced' }}</span>
+              {% endif %}
+              {% if rep.status in ['new','repair'] %}
+              <button onclick="closeRepair({{ rep.id }})" style="font-size:11px;color:var(--teal);background:none;border:none;cursor:pointer;margin-left:4px">✓ {{ 'Гүйцэтгэсэн' if lang=='mn' else 'Complete' }}</button>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">{{ 'Бүртгэл байхгүй' if lang=='mn' else 'No records' }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function startUsage(deviceId){
+  const r = await fetch(`/usage/start/${deviceId}`,{method:'POST'});
+  const d = await r.json();
+  if(d.success) location.reload();
+  else alert(d.error);
+}
+async function stopUsage(logId){
+  const notes = prompt('{{ "Тэмдэглэл (заавал биш):" if lang=="mn" else "Notes (optional):" }}','');
+  const r = await fetch(`/usage/stop/${logId}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({notes:notes||''})});
+  const d = await r.json();
+  if(d.success) location.reload();
+  else alert(d.error);
+}
+async function closeRepair(repairId){
+  if(!confirm('{{ "Засварыг дуусгах уу?" if lang=="mn" else "Close this repair?" }}')) return;
+  const r = await fetch(`/repair/${repairId}/close`,{method:'POST'});
+  const d = await r.json();
+  if(d.success) location.reload();
+}
+</script>
+{% endblock %}

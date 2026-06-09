@@ -1,0 +1,120 @@
+{% extends "partial/base.html" %}
+{% block title %}{{ 'Миний профайл' if lang=='mn' else 'My Profile' }}{% endblock %}
+{% block content %}
+<div class="page" style="max-width:620px">
+  <h1 class="page-title" style="margin-bottom:20px">{{ 'Миний профайл' if lang=='mn' else 'My Profile' }}</h1>
+
+  <div style="display:grid;grid-template-columns:160px 1fr;gap:16px;align-items:start">
+
+    <!-- Зураг + мэдээлэл -->
+    <div>
+      <div class="card" style="padding:14px;text-align:center;margin-bottom:10px">
+        {% if user['photo'] %}
+        <img src="{{ url_for('static',filename='uploads/'+user['photo']) }}" style="width:90px;height:90px;border-radius:50%;object-fit:cover;margin:0 auto 10px;display:block">
+        {% else %}
+        <div style="width:90px;height:90px;border-radius:50%;background:var(--navy);color:#93a8d4;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:600;margin:0 auto 10px">{{ user['name'][:2] }}</div>
+        {% endif %}
+        <div style="font-size:14px;font-weight:600">{{ user['name'] }}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px">{{ user['employee_id'] }}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px">{{ user['position'] or '' }}</div>
+        {% if user['role']=='admin' %}
+        <span class="badge badge-admin" style="margin-top:6px;display:inline-block">Админ</span>
+        {% elif user['role']=='senior' %}
+        <span class="badge" style="background:#E1F5EE;color:#0F6E56;margin-top:6px;display:inline-block">Ахлах химич</span>
+        {% else %}
+        <span class="badge badge-staff" style="margin-top:6px;display:inline-block">Ажилтан</span>
+        {% endif %}
+      </div>
+      <div class="card-sm" style="font-size:12px">
+        {% if user['phone'] %}<div style="margin-bottom:4px">📞 {{ user['phone'] }}</div>{% endif %}
+        {% if user['email'] %}<div>✉️ {{ user['email'] }}</div>{% endif %}
+      </div>
+    </div>
+
+    <div>
+      {% if user['role'] in ('admin','senior') %}
+      <!-- Админ / Ахлах химич: мэдээлэл засах -->
+      <div class="card" style="margin-bottom:12px">
+        <div class="section-title">{{ 'Мэдээлэл засах' if lang=='mn' else 'Edit Info' }}</div>
+        <form method="POST" enctype="multipart/form-data">
+          <input type="hidden" name="action" value="update_info">
+          <div class="form-group">
+            <label class="form-label">{{ 'Албан тушаал' if lang=='mn' else 'Position' }}</label>
+            <input type="text" name="position" class="form-input" value="{{ user['position'] or '' }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">{{ 'Утас' if lang=='mn' else 'Phone' }}</label>
+            <input type="text" name="phone" class="form-input" value="{{ user['phone'] or '' }}" placeholder="9911-XXXX">
+          </div>
+          <div class="form-group">
+            <label class="form-label">{{ 'Имэйл' if lang=='mn' else 'Email' }}</label>
+            <input type="email" name="email" class="form-input" value="{{ user['email'] or '' }}" placeholder="name@lab.mn">
+          </div>
+          <div class="form-group">
+            <label class="form-label">{{ 'Профайл зураг' if lang=='mn' else 'Photo' }}</label>
+            <input type="file" name="photo" class="form-input" accept=".jpg,.jpeg,.png,.webp">
+          </div>
+          <button type="submit" class="btn btn-primary">{{ 'Хадгалах' if lang=='mn' else 'Save' }}</button>
+        </form>
+      </div>
+      {% else %}
+      <!-- Ажилтан: зөвхөн мэдээлэл харна -->
+      <div class="card" style="margin-bottom:12px">
+        <div class="section-title">{{ 'Миний мэдээлэл' if lang=='mn' else 'My Info' }}</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          {% set rows = [('Овог нэр','name'),('Ажилтны ID','employee_id'),('Албан тушаал','position'),('Утас','phone'),('Имэйл','email')] %}
+          {% for lbl, key in rows %}
+          <div style="display:flex;gap:10px;padding:8px 10px;background:var(--gray);border-radius:6px;font-size:13px">
+            <span style="color:var(--text-muted);min-width:100px">{{ lbl }}</span>
+            <span style="font-weight:500">{{ user[key] or '—' }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--text-muted);padding:8px 10px;background:#faeeda;border-radius:6px">
+          ℹ️ Мэдээлэл өөрчлөх бол ахлах химич эсвэл админтай холбогдоно уу.
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Нууц үг солих — бүгдэд -->
+      <div class="card">
+        <div class="section-title">{{ 'Нууц үг солих' if lang=='mn' else 'Change Password' }}</div>
+        <form method="POST">
+          <input type="hidden" name="action" value="change_password">
+          <div class="form-group">
+            <label class="form-label">{{ 'Хуучин нууц үг' if lang=='mn' else 'Current Password' }}</label>
+            <div style="position:relative">
+              <input type="password" name="old_password" id="old_pw" class="form-input" required style="padding-right:40px">
+              <button type="button" onclick="togglePw('old_pw','e1')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px" id="e1">👁</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">{{ 'Шинэ нууц үг' if lang=='mn' else 'New Password' }}</label>
+            <div style="position:relative">
+              <input type="password" name="new_password" id="new_pw" class="form-input" required minlength="6" style="padding-right:40px">
+              <button type="button" onclick="togglePw('new_pw','e2')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px" id="e2">👁</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">{{ 'Нууц үг давтах' if lang=='mn' else 'Confirm' }}</label>
+            <div style="position:relative">
+              <input type="password" name="confirm_password" id="conf_pw" class="form-input" required minlength="6" style="padding-right:40px">
+              <button type="button" onclick="togglePw('conf_pw','e3')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px" id="e3">👁</button>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-danger">{{ 'Нууц үг солих' if lang=='mn' else 'Change Password' }}</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function togglePw(inputId, btnId){
+  var inp = document.getElementById(inputId);
+  inp.type = inp.type==='password' ? 'text' : 'password';
+  document.getElementById(btnId).textContent = inp.type==='password' ? '👁' : '🙈';
+}
+</script>
+{% endblock %}

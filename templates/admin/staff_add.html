@@ -1,0 +1,101 @@
+{% extends "partial/base.html" %}
+{% block title %}{{ 'Ажилтан нэмэх' if lang=='mn' else 'Add Staff' }}{% endblock %}
+{% block content %}
+<div class="page" style="max-width:700px">
+  <div style="margin-bottom:16px">
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px"><a href="{{ url_for('staff_list') }}">{{ 'Ажилтнууд' if lang=='mn' else 'Staff' }}</a> /</div>
+    <h1 class="page-title">{{ 'Шинэ ажилтан нэмэх' if lang=='mn' else 'Add New Staff' }}</h1>
+  </div>
+  <div class="card">
+    <form method="POST" enctype="multipart/form-data">
+      <div class="section-title">{{ 'Үндсэн мэдээлэл' if lang=='mn' else 'Basic Info' }}</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">{{ 'Ажилтны ID' if lang=='mn' else 'Employee ID' }} *</label>
+          <input type="text" name="employee_id" class="form-input" required placeholder="LAB-001">
+        </div>
+        <div class="form-group">
+          <label class="form-label">{{ 'Овог нэр' if lang=='mn' else 'Full Name' }} *</label>
+          <input type="text" name="name" class="form-input" required placeholder="{{ 'Б.Болд' if lang=='mn' else 'John Smith' }}">
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">{{ 'Албан тушаал' if lang=='mn' else 'Position' }}</label>
+          <input type="text" name="position" class="form-input" placeholder="{{ 'Лаборант' if lang=='mn' else 'Lab Technician' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">{{ 'Эрх' if lang=='mn' else 'Role' }}</label>
+          <select name="role" class="form-input">
+            <option value="staff">Химич</option>
+            <option value="preparer">Дээж бэлтгэгч</option>
+            <option value="geologist">Геологи</option>
+            <option value="senior" {% if current_user['role'] in ('staff','preparer','geologist') %}disabled{% endif %}>Ахлах химич</option>
+            {% if current_user['role']=='admin' %}
+            <option value="admin">Админ</option>
+            {% endif %}
+          </select>
+          {% if current_user['role']=='senior' %}
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">⚠️ {{ 'Та зөвхөн ажилтан нэмэх боломжтой' if lang=='mn' else 'You can only add staff members' }}</div>
+          {% endif %}
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">{{ 'Утас' if lang=='mn' else 'Phone' }}</label>
+          <input type="text" name="phone" class="form-input" placeholder="9911-XXXX">
+        </div>
+        <div class="form-group">
+          <label class="form-label">{{ 'Имэйл' if lang=='mn' else 'Email' }}</label>
+          <input type="email" name="email" class="form-input" placeholder="name@lab.mn">
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">{{ 'Ажилд орсон огноо' if lang=='mn' else 'Joined Date' }}</label>
+          <input type="date" name="joined_date" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">{{ 'Зураг' if lang=='mn' else 'Photo' }}</label>
+          <input type="file" name="photo" class="form-input" accept=".jpg,.jpeg,.png,.webp">
+        </div>
+      </div>
+
+      <div class="section-title">{{ 'Нууц үг' if lang=='mn' else 'Password' }}</div>
+      <div class="form-group">
+        <label class="form-label">{{ 'Нууц үг' if lang=='mn' else 'Password' }} *</label>
+        <div style="position:relative">
+          <input type="password" name="password" id="reg_pw" class="form-input" required placeholder="••••••••" style="padding-right:40px">
+          <button type="button" onclick="togglePw()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px" id="eye_btn">👁</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Хамгийн багадаа 6 тэмдэгт</div>
+      </div>
+
+      <div class="section-title">{{ 'Ашиглах эрхтэй төхөөрөмж' if lang=='mn' else 'Allowed Devices' }}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">
+        {% for d in devices %}
+        <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--gray);border-radius:6px;cursor:pointer;font-size:13px">
+          <input type="checkbox" name="device_permissions" value="{{ d['id'] }}">
+          {{ d['name'] }}
+        </label>
+        {% endfor %}
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <a href="{{ url_for('staff_list') }}" class="btn btn-ghost">{{ 'Буцах' if lang=='mn' else 'Cancel' }}</a>
+        <button type="submit" class="btn btn-primary">{{ 'Нэмэх' if lang=='mn' else 'Add Staff' }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% block scripts %}
+<script>
+function togglePw(){
+  var inp = document.getElementById('reg_pw');
+  var btn = document.getElementById('eye_btn');
+  inp.type = inp.type==="password" ? "text" : "password";
+  btn.textContent = inp.type==="password" ? "👁" : "🙈";
+}
+</script>
+{% endblock %}
+{% endblock %}

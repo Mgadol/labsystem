@@ -1,0 +1,206 @@
+{% extends "partial/base.html" %}
+{% block title %}{{ 'Нэгдсэн архив' if lang=='mn' else 'Archive' }}{% endblock %}
+{% block content %}
+<div class="page">
+  <h1 class="page-title" style="margin-bottom:4px">🗄️ {{ 'Нэгдсэн архив' if lang=='mn' else 'Archive' }}</h1>
+  <p class="page-sub">{{ 'Бүх архивласан мэдээлэл нэг дор' if lang=='mn' else 'All archived records in one place' }}</p>
+
+  <!-- Tab цэс -->
+  <div class="tab-nav" style="margin-bottom:20px">
+    <button class="tab-btn active" data-tab="tab-devices" onclick="switchTab(this,'tab-devices')">
+      ⚙️ {{ 'Тоног төхөөрөмж' if lang=='mn' else 'Devices' }}
+      <span style="background:#eee;color:#888;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px">{{ archived_devices|length }}</span>
+    </button>
+    <button class="tab-btn" data-tab="tab-staff" onclick="switchTab(this,'tab-staff')">
+      👥 {{ 'Ажилтан' if lang=='mn' else 'Staff' }}
+      <span style="background:#eee;color:#888;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px">{{ archived_staff|length }}</span>
+    </button>
+    <button class="tab-btn" data-tab="tab-analysis" onclick="switchTab(this,'tab-analysis')">
+      🧪 {{ 'Шинжилгээ' if lang=='mn' else 'Analysis' }}
+    </button>
+    <button class="tab-btn" data-tab="tab-repair" onclick="switchTab(this,'tab-repair')">
+      🔧 {{ 'Засвар' if lang=='mn' else 'Repairs' }}
+    </button>
+    <button class="tab-btn" data-tab="tab-report" onclick="switchTab(this,'tab-report')">
+      📋 {{ 'Тайлан' if lang=='mn' else 'Reports' }}
+    </button>
+  </div>
+
+  <!-- Тоног төхөөрөмж -->
+  <div id="tab-devices" class="tab-pane active">
+    <div class="card">
+      {% if archived_devices %}
+      <table class="table">
+        <thead><tr>
+          <th>{{ 'Нэр' if lang=='mn' else 'Name' }}</th>
+          <th>Mark</th>
+          <th>Serial</th>
+          <th>{{ 'Байршил' if lang=='mn' else 'Location' }}</th>
+          <th>{{ 'Статус' if lang=='mn' else 'Status' }}</th>
+          <th></th>
+        </tr></thead>
+        <tbody>
+        {% for d in archived_devices %}
+        <tr>
+          <td>
+            <a href="{{ url_for('device_detail', did=d['id']) }}" style="font-weight:500;color:var(--navy)">{{ d['name'] }}</a>
+          </td>
+          <td style="color:var(--text-muted)">{{ (d['manufacturer'] or '') + ' ' + (d['model'] or '') }}</td>
+          <td style="color:var(--text-muted)">{{ d['serial_number'] or '—' }}</td>
+          <td>{{ d['location'] or '—' }}</td>
+          <td>
+            {% if d['status']=='archived' %}
+            <span class="badge" style="background:#eee;color:#888">🗄️ {{ 'Архивласан' if lang=='mn' else 'Archived' }}</span>
+            {% elif d['status']=='replaced' %}
+            <span class="badge" style="background:#eeedfe;color:#3c3489">🔄 {{ 'Солигдсон' if lang=='mn' else 'Replaced' }}</span>
+            {% elif d['status']=='standby' %}
+            <span class="badge badge-standby">📦 {{ 'Нөөц' if lang=='mn' else 'Standby' }}</span>
+            {% endif %}
+          </td>
+          <td>
+            <div style="display:flex;gap:6px">
+              <a href="{{ url_for('device_detail', did=d['id']) }}" class="btn btn-ghost btn-sm">{{ 'Харах' if lang=='mn' else 'View' }}</a>
+              {% if current_user['role'] in ('admin','senior') %}
+              <form method="POST" action="{{ url_for('device_restore', did=d['id']) }}">
+                <button type="submit" class="btn btn-sm" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">
+                  🔄 {{ 'Сэргээх' if lang=='mn' else 'Restore' }}
+                </button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px">
+        🗄️ {{ 'Архивласан төхөөрөмж байхгүй байна' if lang=='mn' else 'No archived devices' }}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Ажилтан -->
+  <div id="tab-staff" class="tab-pane">
+    <div class="card">
+      {% if archived_staff %}
+      <table class="table">
+        <thead><tr>
+          <th>{{ 'Ажилтан' if lang=='mn' else 'Staff' }}</th>
+          <th>ID</th>
+          <th>{{ 'Албан тушаал' if lang=='mn' else 'Position' }}</th>
+          <th>{{ 'Утас' if lang=='mn' else 'Phone' }}</th>
+          <th>{{ 'Эрх' if lang=='mn' else 'Role' }}</th>
+          <th></th>
+        </tr></thead>
+        <tbody>
+        {% for u in archived_staff %}
+        <tr style="opacity:.7">
+          <td>
+            <div class="flex gap-8">
+              {% if u['photo'] %}
+              <img src="{{ url_for('static',filename='uploads/'+u['photo']) }}" style="width:30px;height:30px;border-radius:50%;object-fit:cover">
+              {% else %}
+              <div style="width:30px;height:30px;border-radius:50%;background:var(--gray);color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600">{{ u['name'][:2] }}</div>
+              {% endif %}
+              <span style="text-decoration:line-through;color:var(--text-muted)">{{ u['name'] }}</span>
+            </div>
+          </td>
+          <td style="color:var(--text-muted)">{{ u['employee_id'] }}</td>
+          <td>{{ u['position'] or '—' }}</td>
+          <td>{{ u['phone'] or '—' }}</td>
+          <td>
+            {% if u['role']=='admin' %}<span class="badge badge-admin">Админ</span>
+            {% elif u['role']=='senior' %}<span class="badge" style="background:#E1F5EE;color:#0F6E56">Ахлах химич</span>
+            {% else %}<span class="badge badge-staff">Ажилтан</span>{% endif %}
+          </td>
+          <td>
+            <div style="display:flex;gap:6px">
+              <a href="{{ url_for('staff_detail', uid=u['id']) }}" class="btn btn-ghost btn-sm">{{ 'Харах' if lang=='mn' else 'View' }}</a>
+              {% if current_user['role'] in ('admin','senior') %}
+              <form method="POST" action="{{ url_for('staff_activate', uid=u['id']) }}">
+                <button type="submit" class="btn btn-sm" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">
+                  🔄 {{ 'Буцаах' if lang=='mn' else 'Reactivate' }}
+                </button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px">
+        👥 {{ 'Гарсан ажилтан байхгүй байна' if lang=='mn' else 'No inactive staff' }}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Шинжилгээ — дараа нэмэгдэнэ -->
+  <div id="tab-analysis" class="tab-pane">
+    <div class="card" style="text-align:center;padding:40px;color:var(--text-muted)">
+      <div style="font-size:32px;margin-bottom:10px">🧪</div>
+      <div style="font-size:14px;font-weight:500;margin-bottom:6px">{{ 'Шинжилгээний архив' if lang=='mn' else 'Analysis Archive' }}</div>
+      <div style="font-size:13px">{{ 'Шинжилгээний модуль нэмэгдсэний дараа энд харагдана' if lang=='mn' else 'Will be available after analysis module is added' }}</div>
+    </div>
+  </div>
+
+  <!-- Засвар -->
+  <div id="tab-repair" class="tab-pane">
+    <div class="card">
+      <div class="section-title" style="margin-bottom:12px">{{ 'Гүйцэтгэсэн засварын бүртгэл' if lang=='mn' else 'Completed Repairs' }}</div>
+      {% if completed_repairs %}
+      <table class="table">
+        <thead><tr>
+          <th>{{ 'Төхөөрөмж' if lang=='mn' else 'Device' }}</th>
+          <th>{{ 'Огноо' if lang=='mn' else 'Date' }}</th>
+          <th>{{ 'Тайлбар' if lang=='mn' else 'Description' }}</th>
+          <th>{{ 'Компани' if lang=='mn' else 'Company' }}</th>
+          <th>{{ 'Зардал' if lang=='mn' else 'Cost' }}</th>
+          <th>{{ 'Статус' if lang=='mn' else 'Status' }}</th>
+        </tr></thead>
+        <tbody>
+        {% for r in completed_repairs %}
+        <tr>
+          <td>{{ r['dname'] or '—' }}</td>
+          <td>{{ r['reported_date'] or '—' }}</td>
+          <td style="max-width:200px">{{ r['description'][:60] if r['description'] else '—' }}</td>
+          <td>{{ r['company'] or '—' }}</td>
+          <td>{{ '{:,.0f}'.format(r['cost']) if r['cost'] else '—' }} ₮</td>
+          <td><span class="badge" style="background:#e1f5ee;color:#0f6e56">🟢 {{ 'Гүйцэтгэсэн' if lang=='mn' else 'Done' }}</span></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px">
+        🔧 {{ 'Гүйцэтгэсэн засвар байхгүй байна' if lang=='mn' else 'No completed repairs' }}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Тайлан -->
+  <div id="tab-report" class="tab-pane">
+    <div class="card" style="text-align:center;padding:40px;color:var(--text-muted)">
+      <div style="font-size:32px;margin-bottom:10px">📋</div>
+      <div style="font-size:14px;font-weight:500;margin-bottom:6px">{{ 'Тайлангийн архив' if lang=='mn' else 'Report Archive' }}</div>
+      <div style="font-size:13px">{{ 'Шинжилгээний тайлан энд архивлагдана' if lang=='mn' else 'Analysis reports will be archived here' }}</div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function switchTab(btn, tabId){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+}
+</script>
+{% endblock %}

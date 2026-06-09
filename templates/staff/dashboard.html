@@ -1,0 +1,68 @@
+{% extends "partial/base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page">
+  <h1 class="page-title">{{ 'Сайн байна уу, ' + current_user['name'].split()[0] + '!' if lang=='mn' else 'Hello, ' + current_user['name'].split()[0] + '!' }}</h1>
+  <p class="page-sub">{{ 'Өнөөдөр: ' + now().strftime('%Y.%m.%d') if lang=='mn' else 'Today: ' + now().strftime('%Y.%m.%d') }}</p>
+
+  {% if active_log %}
+  <div class="card" style="margin-bottom:16px;border-left:3px solid var(--teal);border-radius:0 var(--radius) var(--radius) 0">
+    <div style="font-size:12px;color:var(--teal);font-weight:600;margin-bottom:4px">{{ 'Одоо ажиллаж байна' if lang=='mn' else 'Currently working' }}</div>
+    <div style="font-size:13px">{{ 'Эхэлсэн цаг:' if lang=='mn' else 'Started:' }} <strong>{{ active_log['start_time'][11:16] }}</strong></div>
+    <button onclick="stopUsage({{ active_log['id'] }})" class="btn btn-stop btn-sm" style="margin-top:8px">STOP</button>
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <div class="section-title">{{ 'Миний төхөөрөмжүүд' if lang=='mn' else 'My Devices' }}</div>
+    {% if devices %}
+    <div style="display:flex;flex-direction:column;gap:8px">
+      {% for d in devices %}
+      <div style="background:var(--gray);border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:12px">
+        {% if d['photo'] %}
+        <img src="{{ url_for('static',filename='uploads/'+d['photo']) }}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0">
+        {% else %}
+        <div style="width:44px;height:44px;border-radius:8px;background:var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/></svg>
+        </div>
+        {% endif %}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d['name'] }}</div>
+          <div style="font-size:11px;color:var(--text-muted)">{{ (d['manufacturer'] or '') + ' ' + (d['model'] or '') }}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <a href="{{ url_for('device_detail', did=d['id']) }}" class="btn btn-ghost btn-sm">{{ 'Харах' if lang=='mn' else 'View' }}</a>
+          {% if not active_log %}
+          <button onclick="startUsage({{ d['id'] }})" class="btn btn-start btn-sm">START</button>
+          {% elif active_log['device_id'] == d['id'] %}
+          <button onclick="stopUsage({{ active_log['id'] }})" class="btn btn-stop btn-sm">STOP</button>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px">
+      {{ 'Танд хуваарилагдсан төхөөрөмж байхгүй байна.' if lang=='mn' else 'No devices assigned to you.' }}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function startUsage(did){
+  const r=await fetch(`/usage/start/${did}`,{method:'POST'});
+  const d=await r.json();
+  if(d.success) location.reload();
+  else alert(d.error);
+}
+async function stopUsage(lid){
+  const notes=prompt('{{ "Тэмдэглэл (заавал биш):" if lang=="mn" else "Notes (optional):" }}','');
+  const r=await fetch(`/usage/stop/${lid}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({notes:notes||''})});
+  const d=await r.json();
+  if(d.success) location.reload();
+  else alert(d.error);
+}
+</script>
+{% endblock %}

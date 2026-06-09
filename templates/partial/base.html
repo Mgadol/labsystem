@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="{{ session.get('lang','mn') }}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Лабораторийн систем{% endblock %}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#1a2744;--navy-light:#253561;--navy-dark:#111c35;
+  --teal:#0f6e56;--teal-light:#e1f5ee;
+  --coral:#993c1d;--coral-light:#faece7;
+  --amber:#854f0b;--amber-light:#faeeda;
+  --purple:#3c3489;--purple-light:#eeedfe;
+  --gray:#f7f7f5;--border:#e5e4e0;
+  --text:#1a1a18;--text-muted:#6b6b67;
+  --white:#ffffff;
+  --radius:10px;--shadow:0 1px 3px rgba(0,0,0,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;font-size:14px;color:var(--text);background:#f0ede8;min-height:100vh}
+a{color:inherit;text-decoration:none}
+.topbar{background:var(--navy);color:#fff;padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.topbar-logo{font-size:15px;font-weight:600;color:#fff;display:flex;align-items:center;gap:8px}
+.topbar-logo i{font-size:18px;color:#93a8d4}
+.topbar-nav{display:flex;gap:2px}
+.topbar-nav a{padding:6px 12px;border-radius:6px;font-size:13px;color:#93a8d4;transition:.15s}
+.topbar-nav a:hover,.topbar-nav a.active{background:rgba(255,255,255,.1);color:#fff}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.user-chip{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.08);padding:5px 10px;border-radius:20px;font-size:12px;color:#c5cfe8}
+.avatar-sm{width:26px;height:26px;border-radius:50%;object-fit:cover;background:var(--navy-light);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#93a8d4;flex-shrink:0}
+.lang-btns{display:flex;gap:3px}
+.lang-btn{padding:3px 8px;border-radius:12px;font-size:11px;color:#93a8d4;cursor:pointer;border:1px solid transparent;transition:.15s}
+.lang-btn.active,.lang-btn:hover{border-color:#93a8d4;color:#fff}
+.logout-btn{padding:5px 10px;border-radius:6px;font-size:12px;color:#93a8d4;cursor:pointer;border:1px solid rgba(255,255,255,.15);transition:.15s}
+.logout-btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.page{max-width:1200px;margin:0 auto;padding:20px 16px}
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
+.card-sm{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
+.page-title{font-size:20px;font-weight:600;color:var(--text);margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--text-muted);margin-bottom:20px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:.15s;text-decoration:none}
+.btn-primary{background:var(--navy);color:#fff}.btn-primary:hover{background:var(--navy-light)}
+.btn-teal{background:var(--teal);color:#fff}.btn-teal:hover{opacity:.9}
+.btn-danger{background:var(--coral);color:#fff}.btn-danger:hover{opacity:.9}
+.btn-ghost{background:none;border:1px solid var(--border);color:var(--text)}.btn-ghost:hover{background:var(--gray)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-start{background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb}.btn-start:hover{background:#9fe1cb}
+.btn-stop{background:#faece7;color:#993c1d;border:1px solid #f5c4b3}.btn-stop:hover{background:#f5c4b3}
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500}
+.badge-active{background:var(--teal-light);color:var(--teal)}
+.badge-repair{background:var(--amber-light);color:var(--amber)}
+.badge-standby{background:var(--gray);color:var(--text-muted)}
+.badge-passed{background:var(--teal-light);color:var(--teal)}
+.badge-failed{background:var(--coral-light);color:var(--coral)}
+.badge-open{background:var(--coral-light);color:var(--coral)}
+.badge-closed{background:var(--teal-light);color:var(--teal)}
+.badge-admin{background:var(--purple-light);color:var(--purple)}
+.badge-staff{background:var(--gray);color:var(--text-muted)}
+.form-group{margin-bottom:14px}
+.form-label{display:block;font-size:12px;font-weight:500;color:var(--text-muted);margin-bottom:5px}
+.form-input{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;color:var(--text);background:#fff;transition:.15s}
+.form-input:focus{outline:none;border-color:var(--navy)}
+select.form-input{cursor:pointer}
+textarea.form-input{resize:vertical;min-height:80px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.section-title{font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin:20px 0 10px}
+.table{width:100%;border-collapse:collapse}
+.table th{text-align:left;padding:8px 12px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border)}
+.table td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:13px}
+.table tr:last-child td{border-bottom:none}
+.table tr:hover td{background:var(--gray)}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px}
+.stat-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
+.stat-val{font-size:24px;font-weight:600;color:var(--text);line-height:1.2}
+.stat-lbl{font-size:12px;color:var(--text-muted);margin-top:3px}
+.alert{padding:10px 14px;border-radius:7px;font-size:13px;margin-bottom:14px}
+.alert-success{background:var(--teal-light);color:var(--teal);border:1px solid #9fe1cb}
+.alert-error{background:var(--coral-light);color:var(--coral);border:1px solid #f5c4b3}
+.divider{height:1px;background:var(--border);margin:20px 0}
+.flex{display:flex;align-items:center}.gap-8{gap:8px}.gap-12{gap:12px}
+.justify-between{justify-content:space-between}
+.device-img{width:60px;height:60px;border-radius:8px;object-fit:cover;background:var(--gray);border:1px solid var(--border)}
+.tab-nav{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px}
+.tab-btn{padding:9px 16px;font-size:13px;font-weight:500;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;transition:.15s;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit}
+.tab-btn.active{color:var(--navy);border-bottom-color:var(--navy)}
+.tab-pane{display:none}.tab-pane.active{display:block}
+@media(max-width:640px){
+  .topbar-nav{display:none}
+  .form-grid,.form-row{grid-template-columns:1fr}
+  .page{padding:12px}
+}
+</style>
+{% block extra_head %}{% endblock %}
+</head>
+<body>
+{% if session.get('user_id') %}
+{% set cur = current_user %}
+<nav class="topbar">
+  <div class="topbar-left">
+    <a href="{{ url_for('dashboard') }}" class="topbar-logo">
+      <img src="{{ url_for('static', filename='logo.jpg') }}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;background:#fff;flex-shrink:0">
+      <span style="display:flex;flex-direction:column;line-height:1.2">
+        <span style="font-size:13px;font-weight:600;color:#fff">Хүрэншанд уурхайн лаборатори</span>
+        <span style="font-size:10px;color:#93a8d4;font-weight:400">Лабораторийн удирдлагын систем</span>
+      </span>
+    </a>
+    <div class="topbar-nav">
+      <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint=='dashboard' %}active{% endif %}">Нүүр</a>
+      {% if cur and cur['role'] in ('admin','senior') %}
+      <a href="{{ url_for('staff_list') }}" class="{% if 'staff' in request.endpoint %}active{% endif %}">Ажилтан</a>
+      {% endif %}
+      <a href="{{ url_for('analysis') }}" class="{% if 'analysis' in request.endpoint %}active{% endif %}">Шинжилгээ</a>
+      <a href="{{ url_for('devices') }}" class="{% if 'device' in request.endpoint %}active{% endif %}">Төхөөрөмж</a>
+      {% if cur and cur['role'] in ('admin','senior') %}
+      <a href="{{ url_for('reports') }}" class="{% if 'report' in request.endpoint %}active{% endif %}">Тайлан</a>
+      <a href="{{ url_for('archive') }}" class="{% if request.endpoint=='archive' %}active{% endif %}">Нэгдсэн архив</a>
+      <a href="{{ url_for('lab_settings') }}" class="{% if request.endpoint in ('lab_settings','profile') %}active{% endif %}">Тохиргоо</a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="lang-btns">
+      <a href="{{ url_for('set_lang', lang='mn') }}" class="lang-btn {% if session.get('lang','mn')=='mn' %}active{% endif %}">МОН</a>
+      <a href="{{ url_for('set_lang', lang='en') }}" class="lang-btn {% if session.get('lang')=='en' %}active{% endif %}">ENG</a>
+    </div>
+    {% if cur %}
+    <div class="user-chip">
+      {% if cur['photo'] %}
+      <img src="{{ url_for('static',filename='uploads/'+cur['photo']) }}" class="avatar-sm" style="border-radius:50%">
+      {% else %}
+      <div class="avatar-sm">{{ cur['name'][:2] }}</div>
+      {% endif %}
+      {{ cur['position'] if cur['position'] else cur['name'] }}
+      {% if cur['role']=='admin' %}
+      <span class="badge badge-admin" style="font-size:10px">Админ</span>
+      {% elif cur['role']=='senior' %}
+      <span class="badge" style="background:#253561;color:#4ade80;font-size:10px">Ахлах химич</span>
+      {% else %}
+      <span class="badge badge-staff" style="font-size:10px">Ажилтан</span>
+      {% endif %}
+    </div>
+    {% endif %}
+    <a href="{{ url_for('logout') }}" class="logout-btn" title="Гарах" style="display:flex;align-items:center;gap:5px;padding:6px 12px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+        <polyline points="16 17 21 12 16 7"/>
+        <line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
+      {{ 'Гарах' if session.get('lang','mn')=='mn' else 'Logout' }}
+    </a>
+  </div>
+</nav>
+{% endif %}
+<main>
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in messages %}
+  <div style="max-width:1200px;margin:12px auto 0;padding:0 16px">
+    <div class="alert alert-{{ cat }}">{{ msg }}</div>
+  </div>
+  {% endfor %}
+{% endwith %}
+{% block content %}{% endblock %}
+</main>
+<script>
+function initTabs(){
+  document.querySelectorAll('.tab-nav').forEach(nav=>{
+    nav.querySelectorAll('.tab-btn').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const target=btn.dataset.tab;
+        nav.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+        document.getElementById(target)?.classList.add('active');
+      });
+    });
+  });
+}
+document.addEventListener('DOMContentLoaded',initTabs);
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

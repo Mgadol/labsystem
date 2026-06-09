@@ -1,0 +1,110 @@
+{% extends "partial/base.html" %}
+{% block title %}{{ 'Тайлан' if lang=='mn' else 'Reports' }}{% endblock %}
+{% block content %}
+<div class="page" style="max-width:600px">
+  <h1 class="page-title" style="margin-bottom:4px">{{ 'Excel тайлан гаргах' if lang=='mn' else 'Export Excel Report' }}</h1>
+  <p class="page-sub">{{ 'Тайлангийн төрөл болон хугацааг сонгоно уу' if lang=='mn' else 'Select report type and period' }}</p>
+
+  <div class="card">
+    <div class="section-title">{{ 'Тайлангийн төрөл' if lang=='mn' else 'Report Type' }}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px">
+      <label id="lbl-month" onclick="setType('month')" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--navy);color:#fff;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500">
+        <input type="radio" name="rtype" value="month" checked style="display:none"> 📅 {{ 'Сарын тайлан' if lang=='mn' else 'Monthly' }}
+      </label>
+      <label id="lbl-quarter" onclick="setType('quarter')" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--gray);border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text)">
+        <input type="radio" name="rtype" value="quarter" style="display:none"> 📊 {{ 'Улирлын тайлан' if lang=='mn' else 'Quarterly' }}
+      </label>
+      <label id="lbl-half" onclick="setType('half')" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--gray);border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text)">
+        <input type="radio" name="rtype" value="half" style="display:none"> 📈 {{ 'Хагас жилийн тайлан' if lang=='mn' else 'Half-year' }}
+      </label>
+      <label id="lbl-year" onclick="setType('year')" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--gray);border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text)">
+        <input type="radio" name="rtype" value="year" style="display:none"> 🗓 {{ 'Жилийн тайлан' if lang=='mn' else 'Annual' }}
+      </label>
+    </div>
+
+    <div class="section-title">{{ 'Хугацаа сонгох' if lang=='mn' else 'Select Period' }}</div>
+
+    <!-- Жил -->
+    <div class="form-group">
+      <label class="form-label">{{ 'Жил' if lang=='mn' else 'Year' }}</label>
+      <select id="year" class="form-input">
+        {% set cur_year = now.year %}
+        {% for y in range(cur_year, cur_year-5, -1) %}
+        <option value="{{ y }}" {{ 'selected' if y==cur_year }}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Сар (сарын тайланд) -->
+    <div id="row-month" class="form-group">
+      <label class="form-label">{{ 'Сар' if lang=='mn' else 'Month' }}</label>
+      <select id="month" class="form-input">
+        {% for m in range(1,13) %}
+        <option value="{{ m }}" {{ 'selected' if m==now.month }}>{{ m }}-р сар</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Улирал -->
+    <div id="row-quarter" class="form-group" style="display:none">
+      <label class="form-label">{{ 'Улирал' if lang=='mn' else 'Quarter' }}</label>
+      <select id="quarter" class="form-input">
+        <option value="1">I улирал (1-3-р сар)</option>
+        <option value="2">II улирал (4-6-р сар)</option>
+        <option value="3">III улирал (7-9-р сар)</option>
+        <option value="4">IV улирал (10-12-р сар)</option>
+      </select>
+    </div>
+
+    <!-- Хагас жил -->
+    <div id="row-half" class="form-group" style="display:none">
+      <label class="form-label">{{ 'Хагас жил' if lang=='mn' else 'Half' }}</label>
+      <select id="half" class="form-input">
+        <option value="1">Эхний хагас жил (1-6-р сар)</option>
+        <option value="2">Хоёрдугаар хагас жил (7-12-р сар)</option>
+      </select>
+    </div>
+
+    <button onclick="exportReport()" class="btn btn-teal" style="width:100%;margin-top:8px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      {{ 'Excel татаж авах' if lang=='mn' else 'Download Excel' }}
+    </button>
+
+    <div style="margin-top:12px;padding:10px 12px;background:var(--gray);border-radius:7px;font-size:12px;color:var(--text-muted)">
+      {{ 'Тайланд: нийт дүгнэлт, ашиглалтын бүртгэл, calibration бүртгэл, засварын бүртгэл орно.' if lang=='mn' else 'Includes: summary, usage log, calibration log, repair log.' }}
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+var currentType = 'month';
+var NAVY = '#1a2744';
+var GRAY = 'var(--gray)';
+
+function setType(t){
+  currentType = t;
+  ['month','quarter','half','year'].forEach(function(x){
+    var lbl = document.getElementById('lbl-'+x);
+    lbl.style.background = (x===t) ? NAVY : GRAY;
+    lbl.style.color = (x===t) ? '#fff' : 'var(--text)';
+  });
+  document.getElementById('row-month').style.display   = (t==='month')   ? 'block' : 'none';
+  document.getElementById('row-quarter').style.display = (t==='quarter') ? 'block' : 'none';
+  document.getElementById('row-half').style.display    = (t==='half')    ? 'block' : 'none';
+}
+
+function exportReport(){
+  var y = document.getElementById('year').value;
+  var url = '/reports/export?year='+y+'&type='+currentType;
+  if(currentType==='month'){
+    url += '&month='+document.getElementById('month').value;
+  } else if(currentType==='quarter'){
+    url += '&quarter='+document.getElementById('quarter').value;
+  } else if(currentType==='half'){
+    url += '&half='+document.getElementById('half').value;
+  }
+  window.location.href = url;
+}
+</script>
+{% endblock %}

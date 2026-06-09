@@ -1,0 +1,233 @@
+{% extends "partial/base.html" %}
+{% block title %}Үр дүн — {{ receipt['lab_number'] }}{% endblock %}
+{% block content %}
+<style>
+.result-wrap{overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto}
+.result-table{width:100%;border-collapse:collapse;font-size:12px}
+.result-table th,.result-table td{border:1px solid #d8d8d0;padding:4px 8px;text-align:center;white-space:nowrap}
+.result-table thead th{position:sticky;top:0;z-index:2}
+.result-table thead tr.h1 th{background:#1e3a5f;color:#fff;font-size:11px;height:24px}
+.result-table thead tr.h2 th{background:#2d5282;color:#bee3f8;font-size:10px;border-bottom:3px solid #4a9eff}
+.result-table tbody tr:hover td{background:#f8f9ff}
+.result-table tbody tr.dup-row td{background:#f0f6ff}
+.val{font-family:monospace;font-weight:600;color:#1a2744}
+.val-empty{color:#ccc;font-style:italic;font-size:11px}
+.val-prelim{color:#854f0b;font-family:monospace;font-weight:600}
+.st-empty{color:#ccc;font-size:11px}
+.st-progress{color:#185fa5;font-size:11px}
+.st-done{color:#854f0b;font-size:11px;font-weight:600}
+.st-approved{color:#0f6e56;font-size:11px;font-weight:600}
+.prog-bar{height:8px;background:#e0e8f0;border-radius:4px;overflow:hidden;min-width:80px}
+.prog-fill{height:100%;background:#0f6e56;border-radius:4px;transition:.3s}
+.approve-cb{width:16px;height:16px;cursor:pointer}
+</style>
+
+<!-- Мэдээлэл -->
+<div style="padding:7px 14px;background:#1a2744;color:#fff;display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12px;border-bottom:2px solid #4ade80">
+  <div>
+    <div style="font-size:9px;color:#93a8d4">Ажлын дугаар</div>
+    <div style="font-size:15px;font-weight:700;font-family:monospace;color:#4ade80">{{ receipt['lab_number'] }}</div>
+  </div>
+  <div style="width:1px;background:rgba(255,255,255,.15);height:30px"></div>
+  <div><div style="font-size:9px;color:#93a8d4">Дээжний нэр</div><div style="font-weight:600">{{ receipt['sample_name'] }}</div></div>
+  <div><div style="font-size:9px;color:#93a8d4">Төрөл</div><div style="font-weight:600;color:#fbbf24">{{ receipt['sample_type'] }}</div></div>
+  <div><div style="font-size:9px;color:#93a8d4">Нийт</div><div style="font-weight:600">{{ receipt['quantity'] }} дээж</div></div>
+  <div><div style="font-size:9px;color:#93a8d4">Огноо</div><div>{{ receipt['collected_date'] }}</div></div>
+  <div style="width:1px;background:rgba(255,255,255,.15);height:30px"></div>
+  <div><div style="font-size:9px;color:#93a8d4">Геологи</div><div>{{ receipt['geo_name'] or '—' }}</div></div>
+  <div style="margin-left:auto;display:flex;gap:6px">
+    <a href="{{ url_for('analysis_export', receipt_id=receipt['id']) }}" class="btn btn-sm" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">📥 Excel татах</a>
+    <a href="{{ url_for('analysis_measure', receipt_id=receipt['id']) }}" class="btn btn-ghost btn-sm">✏️ Шинжилгээ</a>
+    <a href="{{ url_for('analysis') }}" class="btn btn-ghost btn-sm">← Буцах</a>
+  </div>
+</div>
+
+<!-- Явц + баталгаажуулах -->
+{% set total = receipt['quantity'] %}
+{% set done_entries = entries|selectattr('row_status','in',['done','approved'])|selectattr('is_duplicate','equalto',0)|list %}
+{% set approved_entries = entries|selectattr('row_status','equalto','approved')|selectattr('is_duplicate','equalto',0)|list %}
+{% set done_count = done_entries|length %}
+{% set approved_count = approved_entries|length %}
+{% set pending_approve = done_entries|rejectattr('row_status','equalto','approved')|list %}
+
+<div style="padding:8px 14px;background:#f7f7f5;border-bottom:1px solid #e5e4e0;display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+  <!-- Явц -->
+  <div style="display:flex;align-items:center;gap:10px;flex:1">
+    <span style="font-size:12px;color:#555;white-space:nowrap">Явц:</span>
+    <div class="prog-bar" style="flex:1;max-width:200px">
+      <div class="prog-fill" style="width:{{ (done_count/total*100)|int if total else 0 }}%"></div>
+    </div>
+    <span style="font-size:12px;font-weight:600;color:#0f6e56">{{ done_count }}/{{ total }}</span>
+    <span style="font-size:11px;color:#aaa">
+      {% if done_count < total %}({{ total - done_count }} дуусаагүй){% else %}✅ Бүгд дууссан{% endif %}
+    </span>
+  </div>
+
+  <!-- Баталгаажуулах -->
+  {% if role in ('admin','senior') %}
+  <div style="display:flex;align-items:center;gap:8px">
+    {% if pending_approve %}
+    <span style="font-size:12px;color:#854f0b">
+      🟠 {{ pending_approve|length }} дээж баталгаажуулах боломжтой
+    </span>
+    <button onclick="approveSelected()" class="btn btn-teal btn-sm" id="approveBtn">
+      ✅ Сонгосныг баталгаажуулах
+    </button>
+    <button onclick="approveAll()" class="btn btn-sm" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">
+      ✅ Бүгдийг баталгаажуулах
+    </button>
+    {% elif done_count == 0 %}
+    <span style="font-size:12px;color:#aaa">Дууссан дээж байхгүй</span>
+    {% else %}
+    <span style="font-size:12px;color:#0f6e56;font-weight:600">🟢 Бүгд баталгаажсан</span>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<!-- Үр дүнгийн хүснэгт -->
+<div class="result-wrap">
+<table class="result-table">
+  <thead>
+    <tr class="h1">
+      {% if role in ('admin','senior') and pending_approve %}
+      <th rowspan="2" style="width:30px">
+        <input type="checkbox" id="checkAll" onchange="toggleAll(this)" title="Бүгдийг сонгох">
+      </th>
+      {% endif %}
+      <th rowspan="2">No.</th>
+      <th rowspan="2">Дээжний нэр</th>
+      <th rowspan="2">Mt %</th>
+      <th rowspan="2">Mad %</th>
+      <th rowspan="2">Aad %</th>
+      <th rowspan="2">Vad %</th>
+      <th rowspan="2">FCad %</th>
+      <th rowspan="2">Sad %</th>
+      <th rowspan="2">Qb,ad J/g</th>
+      <th rowspan="2">G</th>
+      <th rowspan="2">CSN</th>
+      <th rowspan="2">Статус</th>
+    </tr>
+    <tr class="h2"></tr>
+  </thead>
+  <tbody>
+  {% for i in range(total) %}
+  {% set ri = i+1 %}
+  {% set e = entries|selectattr('row_num','equalto',ri)|selectattr('is_duplicate','equalto',0)|first %}
+  {% set de = entries|selectattr('row_num','equalto',ri)|selectattr('is_duplicate','equalto',1)|first %}
+  {% set is_done = e and e['row_status'] in ('done','approved') %}
+  {% set is_approved = e and e['row_status'] == 'approved' %}
+  {% set is_pending_approve = e and e['row_status'] == 'done' %}
+  <tr>
+    {% if role in ('admin','senior') and pending_approve %}
+    <td>
+      {% if is_pending_approve %}
+      <input type="checkbox" class="approve-cb" data-row="{{ ri }}" data-dup="0">
+      {% endif %}
+    </td>
+    {% endif %}
+    <td style="color:#666;font-size:11px">{{ ri }}</td>
+    <td style="text-align:left;font-weight:500;padding-left:8px">
+      {{ e.sample_name if e and e.sample_name else '—' }}
+    </td>
+    {% if is_done %}
+    <td class="{{ 'val' if not is_approved else 'val' }}" style="{{ 'color:#854f0b' if is_pending_approve else '' }}">
+      {{ '%.2f'|format(e['mad']) if e['mad'] else '—' }}
+    </td>
+    <td class="val" style="{{ 'color:#854f0b' if is_pending_approve else '' }}">
+      {{ '%.4f'|format(e['mad']) if e['mad'] else '—' }}
+    </td>
+    <td class="val" style="{{ 'color:#854f0b' if is_pending_approve else '' }}">
+      {{ '%.4f'|format(e['aad']) if e['aad'] else '—' }}
+    </td>
+    <td class="val" style="{{ 'color:#854f0b' if is_pending_approve else '' }}">
+      {{ '%.4f'|format(e['vad']) if e['vad'] else '—' }}
+    </td>
+    <td class="val" style="{{ 'color:#854f0b' if is_pending_approve else '' }}">
+      {{ '%.4f'|format(e['fc']) if e['fc'] else '—' }}
+    </td>
+    <td class="val" style="{{ 'color:#854f0b' if is_pending_approve else '' }}">
+      {{ '%.3f'|format(e['sulfur']) if e['sulfur'] else '—' }}
+    </td>
+    <td class="val" style="{{ 'color:#854f0b' if is_pending_approve else '' }}">
+      {{ '%.1f'|format(e['cal_value']) if e['cal_value'] else '—' }}
+    </td>
+    <td class="val" style="{{ 'color:#854f0b' if is_pending_approve else '' }}">—</td>
+    <td class="val" style="{{ 'color:#854f0b' if is_pending_approve else '' }}">
+      {{ '%.1f'|format(e['fsi']) if e['fsi'] else '—' }}
+    </td>
+    {% else %}
+    <td colspan="9" class="val-empty">Шинжилгээ хийгдэж байна...</td>
+    {% endif %}
+    <td>
+      {% if not e or e['row_status'] == 'empty' %}
+      <span class="st-empty">⬜ Хүлээгдэж байна</span>
+      {% elif e['row_status'] == 'done' %}
+      <span class="st-done">🟠 Урьдчилсан</span>
+      {% elif e['row_status'] == 'approved' %}
+      <span class="st-approved">🟢 Баталгаажсан</span>
+      {% endif %}
+    </td>
+  </tr>
+  {% if de and de['row_status'] in ('done','approved') %}
+  <tr class="dup-row">
+    {% if role in ('admin','senior') and pending_approve %}<td></td>{% endif %}
+    <td style="color:#185fa5;font-size:10px">↳</td>
+    <td style="color:#185fa5;font-size:10px;font-style:italic;text-align:left;padding-left:8px">зэрэгцээ</td>
+    <td class="val" style="color:#185fa5">—</td>
+    <td class="val" style="color:#185fa5">{{ '%.4f'|format(de['mad']) if de['mad'] else '—' }}</td>
+    <td class="val" style="color:#185fa5">{{ '%.4f'|format(de['aad']) if de['aad'] else '—' }}</td>
+    <td class="val" style="color:#185fa5">{{ '%.4f'|format(de['vad']) if de['vad'] else '—' }}</td>
+    <td class="val" style="color:#185fa5">{{ '%.4f'|format(de['fc']) if de['fc'] else '—' }}</td>
+    <td class="val" style="color:#185fa5">{{ '%.3f'|format(de['sulfur']) if de['sulfur'] else '—' }}</td>
+    <td class="val" style="color:#185fa5">{{ '%.1f'|format(de['cal_value']) if de['cal_value'] else '—' }}</td>
+    <td></td><td></td>
+    <td>
+      {% if de['row_status']=='done' %}<span class="st-done">🟠 Урьдчилсан</span>
+      {% else %}<span class="st-approved">🟢 Баталгаажсан</span>{% endif %}
+    </td>
+  </tr>
+  {% endif %}
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+var RID = {{ receipt['id'] }};
+
+function toggleAll(cb){
+  document.querySelectorAll('.approve-cb').forEach(function(c){ c.checked = cb.checked; });
+}
+
+function approveSelected(){
+  var rows = [];
+  document.querySelectorAll('.approve-cb:checked').forEach(function(cb){
+    rows.push({row_num:parseInt(cb.dataset.row), is_duplicate:parseInt(cb.dataset.dup)});
+  });
+  if(!rows.length){ alert('Дээж сонгоогүй байна!'); return; }
+  if(!confirm(rows.length+' дээжийг баталгаажуулах уу?')) return;
+  doApprove(rows);
+}
+
+function approveAll(){
+  if(!confirm('Бүх дууссан дээжийг баталгаажуулах уу?')) return;
+  var rows = [];
+  document.querySelectorAll('.approve-cb').forEach(function(cb){
+    rows.push({row_num:parseInt(cb.dataset.row), is_duplicate:parseInt(cb.dataset.dup)});
+  });
+  doApprove(rows);
+}
+
+function doApprove(rows){
+  fetch('/analysis/row/approve', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({receipt_id:RID, rows:rows})
+  }).then(r=>r.json()).then(function(d){
+    if(d.ok) location.reload();
+  });
+}
+</script>
+{% endblock %}

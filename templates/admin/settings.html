@@ -1,0 +1,356 @@
+{% extends "partial/base.html" %}
+{% block title %}Тохиргоо{% endblock %}
+{% block content %}
+<style>
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+</style>
+<div class="page" style="max-width:700px">
+  <h1 class="page-title" style="margin-bottom:4px">⚙️ Тохиргоо</h1>
+  <p class="page-sub">Системийн тохиргоо</p>
+
+  <!-- Дэд цэс -->
+  <div class="tab-nav" style="margin-bottom:20px">
+    <button class="tab-btn active" onclick="switchTab(this,'tab-lab')">🏢 Лабораторийн мэдээлэл</button>
+    <button class="tab-btn" onclick="switchTab(this,'tab-qc')">📊 QC стандарт</button>
+    <button class="tab-btn" onclick="switchTab(this,'tab-types')">🧪 Дээжний төрөл</button>
+    <button class="tab-btn" onclick="switchTab(this,'tab-device-map')">🔧 Тоног холбоос</button>
+    <button class="tab-btn" onclick="switchTab(this,'tab-profile')">👤 Профайл</button>
+    <button class="tab-btn" onclick="switchTab(this,'tab-backup')">💾 Нөөцлөлт</button>
+  </div>
+
+  <!-- Лабораторийн мэдээлэл -->
+  <div id="tab-lab" class="tab-pane active">
+    <div class="card">
+      <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="action" value="lab_info">
+        <div class="section-title">Лабораторийн нэр</div>
+        <div class="form-group">
+          <label class="form-label">Монгол нэр</label>
+          <input type="text" name="lab_name" class="form-input" value="{{ s.lab_name }}" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">English name</label>
+          <input type="text" name="lab_name_en" class="form-input" value="{{ s.lab_name_en }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Дэд гарчиг</label>
+          <input type="text" name="lab_subtitle" class="form-input" value="{{ s.lab_subtitle }}">
+        </div>
+        <div class="section-title" style="margin-top:16px">Лого</div>
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;padding:14px;background:var(--gray);border-radius:8px">
+          <img src="{{ url_for('static', filename=s.logo) }}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid var(--border)">
+          <div>
+            <div style="font-size:13px;font-weight:500;margin-bottom:4px">Одоогийн лого</div>
+            <div style="font-size:12px;color:var(--text-muted)">{{ s.logo }}</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Шинэ лого оруулах</label>
+          <input type="file" name="logo" class="form-input" accept=".png,.jpg,.jpeg,.webp">
+        </div>
+        <div style="background:#EBF4FF;border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#185FA5;line-height:1.7">
+          📐 <strong>Логоны шаардлага:</strong> Дугуй эсвэл квадрат (1:1 харьцаа) · Хамгийн багадаа 200×200px · PNG эсвэл JPG
+        </div>
+        <!-- Урьдчилан харах -->
+        <div style="background:#1a2744;padding:12px 16px;border-radius:8px;display:flex;align-items:center;gap:10px;margin-bottom:16px">
+          <img src="{{ url_for('static', filename=s.logo) }}" style="width:34px;height:34px;border-radius:50%;object-fit:cover">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:#fff">{{ s.lab_name }}</div>
+            <div style="font-size:10px;color:#93a8d4">{{ s.lab_subtitle }}</div>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary">💾 Хадгалах</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- QC стандарт утга -->
+  <div id="tab-qc" class="tab-pane">
+    <div class="card">
+      <div class="section-title">QC зөвшөөрөгдөх зөрүү</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:14px">Зэрэгцээ шинжилгээний зөвшөөрөгдөх зөрүүний утгуудыг тохируулна</div>
+      <form method="POST">
+        <input type="hidden" name="action" value="qc_settings">
+        <table class="table">
+          <thead><tr>
+            <th>Үзүүлэлт</th>
+            <th>Зөрүү (±)</th>
+            <th>Стандарт</th>
+          </tr></thead>
+          <tbody>
+          {% for q in qc_settings %}
+          <tr>
+            <td><strong>{{ q['parameter'] }}</strong></td>
+            <td>
+              <input type="number" name="tol_{{ q['parameter'] }}"
+                value="{{ q['tolerance'] }}" step="0.001"
+                class="form-input" style="width:100px;padding:4px 8px;font-size:13px">
+            </td>
+            <td style="color:var(--text-muted);font-size:12px">{{ q['standard'] or '—' }}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        <button type="submit" class="btn btn-primary" style="margin-top:12px">💾 Хадгалах</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Профайл -->
+  <div id="tab-profile" class="tab-pane">
+    <div class="card" style="margin-bottom:12px">
+      <div class="section-title">Мэдээлэл засах</div>
+      <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="action" value="update_profile">
+        <div class="form-group">
+          <label class="form-label">Албан тушаал</label>
+          <input type="text" name="position" class="form-input" value="{{ current_user['position'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Утас</label>
+          <input type="text" name="phone" class="form-input" value="{{ current_user['phone'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Имэйл</label>
+          <input type="email" name="email" class="form-input" value="{{ current_user['email'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Профайл зураг</label>
+          <input type="file" name="photo" class="form-input" accept=".jpg,.jpeg,.png,.webp">
+        </div>
+        <button type="submit" class="btn btn-primary">💾 Хадгалах</button>
+      </form>
+    </div>
+    <div class="card">
+      <div class="section-title">Нууц үг солих</div>
+      <form method="POST">
+        <input type="hidden" name="action" value="change_password">
+        <div class="form-group">
+          <label class="form-label">Хуучин нууц үг</label>
+          <div style="position:relative">
+            <input type="password" name="old_password" id="old_pw" class="form-input" required style="padding-right:40px">
+            <button type="button" onclick="togglePw('old_pw','e1')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px" id="e1">👁</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Шинэ нууц үг</label>
+          <div style="position:relative">
+            <input type="password" name="new_password" id="new_pw" class="form-input" required minlength="6" style="padding-right:40px">
+            <button type="button" onclick="togglePw('new_pw','e2')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px" id="e2">👁</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Нууц үг давтах</label>
+          <div style="position:relative">
+            <input type="password" name="confirm_password" id="conf_pw" class="form-input" required minlength="6" style="padding-right:40px">
+            <button type="button" onclick="togglePw('conf_pw','e3')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px" id="e3">👁</button>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-danger">🔑 Нууц үг солих</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Тоног холбоос -->
+  <div id="tab-device-map" class="tab-pane">
+    <div class="card">
+      <div class="section-title">🔧 Шинжилгээний төрөл → Тоног төхөөрөмж</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+        Шинжилгээ тус бүрд ямар тоног ашиглагддагийг тохируулна. Химич шинжилгээ хийхэд автоматаар бүртгэгдэнэ.
+      </div>
+      <table class="table" id="deviceMapTable">
+        <thead><tr>
+          <th>Шинжилгээ</th>
+          <th>Тоног төхөөрөмж</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="deviceMapBody">
+          <tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:20px">Ачаалж байна...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Дээжний төрөл -->
+  <div id="tab-types" class="tab-pane">
+    <div class="card" style="margin-bottom:12px">
+      <div class="section-title">Одоогийн дээжний төрлүүд</div>
+      <table class="table" id="typesTable">
+        <thead><tr>
+          <th>Icon</th>
+          <th>Код</th>
+          <th>Нэр</th>
+          <th>Серийн дугаар</th>
+          <th>PIT</th>
+          <th>Статус</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="typesList">
+          <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px">Ачаалж байна...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="section-title">➕ Шинэ төрөл нэмэх</div>
+      <form method="POST" action="{{ url_for('sample_types') }}">
+        <input type="hidden" name="action" value="add">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Код * (жишээ: COAL_A)</label>
+            <input type="text" name="code" class="form-input" required placeholder="COAL_A" style="text-transform:uppercase">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Монгол нэр *</label>
+            <input type="text" name="name_mn" class="form-input" required placeholder="Нүүрсний дээж А">
+          </div>
+          <div class="form-group">
+            <label class="form-label">English name</label>
+            <input type="text" name="name_en" class="form-input" placeholder="Coal Sample A">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Icon</label>
+            <input type="text" name="icon" class="form-input" value="🧪" placeholder="🧪">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Өнгө</label>
+            <input type="color" name="color" class="form-input" value="#185fa5" style="height:38px;padding:2px">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Серийн эхлэл</label>
+            <input type="number" name="serial_from" class="form-input" placeholder="7000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Серийн төгсгөл</label>
+            <input type="number" name="serial_to" class="form-input" placeholder="7999">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Дараалал</label>
+            <input type="number" name="sort_order" class="form-input" value="99">
+          </div>
+        </div>
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" name="is_pit"> 
+            <span>PIT дугаарлалт ашиглах (зөвхөн тоон дугаар)</span>
+          </label>
+        </div>
+        <button type="submit" class="btn btn-primary">➕ Нэмэх</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Нөөцлөлт -->
+  <div id="tab-backup" class="tab-pane">
+    <div class="card">
+      <div class="section-title">💾 Мэдээллийн сангийн нөөцлөлт</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+        Мэдээллийн сангийн backup файлыг татаж авна. Долоо хоног бүр нөөцлөхийг зөвлөж байна.
+      </div>
+      <a href="{{ url_for('backup_db') }}" class="btn btn-teal">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Backup татаж авах (lab.db)
+      </a>
+      <div style="margin-top:12px;padding:10px 12px;background:var(--gray);border-radius:7px;font-size:12px;color:var(--text-muted)">
+        ⚠️ Backup файлыг аюулгүй газарт хадгална уу. Системийн бүх өгөгдөл агуулагдана.
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function switchTab(btn, tabId){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+  if(tabId==='tab-types') loadTypes();
+  if(tabId==='tab-device-map') loadDeviceMap();
+  // URL-д tab хадгалах
+  var url = new URL(window.location);
+  url.searchParams.set('tab', tabId.replace('tab-',''));
+  window.history.replaceState({}, '', url);
+}
+
+var ANALYSIS_TYPES = [
+  {key:'mad', name:'💧 Дотоод чийг (Mad)'},
+  {key:'aad', name:'🔥 Үнс (Aad)'},
+  {key:'vad', name:'💨 Дэгдэмхий (Vad)'},
+  {key:'st',  name:'⚗️ Нийт хүхэр (Sad)'},
+  {key:'q',   name:'🔆 Илчлэг (Qb,ad)'},
+  {key:'g',   name:'📊 G индекс'},
+  {key:'fsi', name:'🔵 Чөлөөт хөөлт (CSN)'}
+];
+
+function loadDeviceMap(){
+  fetch('/analysis/device-map').then(r=>r.json()).then(function(data){
+    var devices = data.devices;
+    var mapping = data.mapping;
+    var html = '';
+    ANALYSIS_TYPES.forEach(function(at){
+      var sel = '<select class="form-input" style="font-size:12px;padding:4px 8px" onchange="saveDeviceMap(''+at.key+'',this.value)">';
+      sel += '<option value="">— тоног сонгоогүй —</option>';
+      devices.forEach(function(d){
+        var selected = mapping[at.key] == d.id ? 'selected' : '';
+        sel += '<option value="'+d.id+'" '+selected+'>'+d.name+'</option>';
+      });
+      sel += '</select>';
+      html += '<tr><td style="font-weight:500">'+at.name+'</td><td>'+sel+'</td><td style="color:var(--teal);font-size:12px" id="dmap_'+at.key+'"></td></tr>';
+    });
+    document.getElementById('deviceMapBody').innerHTML = html;
+  });
+}
+
+function saveDeviceMap(analysisType, deviceId){
+  var fd = new FormData();
+  fd.append('analysis_type', analysisType);
+  fd.append('device_id', deviceId);
+  fetch('/analysis/device-map', {method:'POST', body:fd})
+    .then(r=>r.json()).then(function(d){
+      var el = document.getElementById('dmap_'+analysisType);
+      if(el) { el.textContent = '✅ Хадгалагдлаа'; setTimeout(function(){ el.textContent=''; }, 2000); }
+    });
+}
+
+function loadTypes(){
+  fetch('/sample-types').then(r=>r.json()).then(function(types){
+    var html = '';
+    types.forEach(function(t){
+      html += '<tr>';
+      html += '<td style="font-size:18px">'+t.icon+'</td>';
+      html += '<td><strong>'+t.code+'</strong></td>';
+      html += '<td>'+t.name_mn+'</td>';
+      html += '<td style="font-family:monospace;font-size:12px">'+t.serial_from+'-'+t.serial_to+'</td>';
+      html += '<td>'+(t.is_pit?'✅':'—')+'</td>';
+      html += '<td><span class="badge '+(t.is_active?'badge-active':'badge-inactive')+'">'+(t.is_active?'Идэвхтэй':'Идэвхгүй')+'</span></td>';
+      html += '<td><div style="display:flex;gap:4px">';
+      html += '<form method="POST" action="/sample-types" style="display:inline"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="'+t.id+'"><button class="btn btn-ghost btn-sm">'+(t.is_active?'Идэвхгүй':'Идэвхтэй')+'</button></form>';
+      if(!['PIT','STOCKPILE','EXPORT','CONTROL','EQ_CONTROL','DP'].includes(t.code)){
+        html += '<form method="POST" action="/sample-types" style="display:inline" onsubmit="return confirm('Устгах уу?')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="'+t.id+'"><button class="btn btn-sm" style="background:#faece7;color:#993c1d">Устгах</button></form>';
+      }
+      html += '</div></td></tr>';
+    });
+    document.getElementById('typesList').innerHTML = html || '<tr><td colspan="7" style="text-align:center;color:var(--text-muted)">Байхгүй</td></tr>';
+  });
+}
+
+// URL-аас tab сонгох — хуудас ачаалахад сэргээх
+document.addEventListener('DOMContentLoaded', function(){
+  var tab = new URLSearchParams(window.location.search).get('tab');
+  if(tab){
+    var btn = document.querySelector('[onclick*="tab-'+tab+'"]');
+    if(btn){ btn.click(); return; }
+  }
+  // Анхдагч: лабораторийн мэдээлэл
+  document.querySelector('.tab-btn').click();
+});
+function togglePw(inputId, btnId){
+  var inp = document.getElementById(inputId);
+  inp.type = inp.type==='password' ? 'text' : 'password';
+  document.getElementById(btnId).textContent = inp.type==='password' ? '👁' : '🙈';
+}
+</script>
+{% endblock %}

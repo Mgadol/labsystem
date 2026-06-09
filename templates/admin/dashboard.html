@@ -1,0 +1,157 @@
+{% extends "partial/base.html" %}
+{% block title %}{{ 'Нүүр хуудас' if lang=='mn' else 'Dashboard' }}{% endblock %}
+{% block content %}
+<style>
+.modules{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.module-card{background:var(--white);border:1px solid var(--border);border-radius:16px;padding:20px;cursor:pointer;transition:all .2s;text-decoration:none;display:flex;align-items:center;gap:16px;position:relative;overflow:hidden}
+.module-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.09);border-color:transparent}
+.module-card::after{content:'›';position:absolute;right:18px;top:50%;transform:translateY(-50%);font-size:22px;color:#ddd;transition:.2s}
+.module-card:hover::after{color:var(--navy);right:14px}
+.module-icon{width:60px;height:60px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.module-info{flex:1;padding-right:20px}
+.module-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:4px}
+.module-desc{font-size:12px;color:var(--text-muted);line-height:1.5}
+.module-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500;margin-top:5px}
+.alert-bar{background:#faeeda;border:1px solid #f5d48a;border-radius:10px;padding:10px 16px;font-size:13px;color:#854F0B;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+@media(max-width:600px){.modules{grid-template-columns:1fr}}
+</style>
+
+<div class="page">
+  <div style="margin-bottom:20px">
+    <h1 class="page-title">{{ 'Сайн байна уу, ' if lang=='mn' else 'Hello, ' }}{{ current_user['name'].split()[0] }}! 👋</h1>
+    <p class="page-sub">{{ now.strftime('%Y.%m.%d') }}</p>
+  </div>
+
+  {% if expiring %}
+  <div class="alert-bar">
+    ⚠️ <strong>{{ expiring|length }} {{ 'төхөөрөмжийн' if lang=='mn' else 'devices' }}</strong>
+    {{ 'calibration дуусах гэж байна' if lang=='mn' else 'calibration expiring soon' }} —
+    <a href="{{ url_for('devices') }}" style="color:#854F0B;font-weight:600">{{ 'харах' if lang=='mn' else 'view' }}</a>
+  </div>
+  {% endif %}
+
+  <!-- Статистик -->
+  <div class="stat-grid" style="margin-bottom:20px">
+    <div class="stat-card">
+      <div class="stat-val">{{ devices|length }}</div>
+      <div class="stat-lbl">{{ 'Нийт төхөөрөмж' if lang=='mn' else 'Devices' }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:var(--teal)">{{ users|length }}</div>
+      <div class="stat-lbl">{{ 'Ажилтан' if lang=='mn' else 'Staff' }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:var(--coral)">{{ open_rep }}</div>
+      <div class="stat-lbl">{{ 'Нээлттэй засвар' if lang=='mn' else 'Open repairs' }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:var(--purple)">{{ devices|selectattr('status','eq','active')|list|length }}</div>
+      <div class="stat-lbl">{{ 'Идэвхтэй' if lang=='mn' else 'Active' }}</div>
+    </div>
+  </div>
+
+  <!-- Модулиуд -->
+  <div class="modules">
+
+    <!-- Ажилтан -->
+    <a href="{{ url_for('staff_list') }}" class="module-card" style="border-top:3px solid #185FA5">
+      <div class="module-icon" style="background:#EBF4FF">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#185FA5" stroke-width="1.5">
+          <circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/>
+          <path d="M16 3.13a4 4 0 010 7.75"/><path d="M21 21v-2a4 4 0 00-3-3.87"/>
+        </svg>
+      </div>
+      <div class="module-info">
+        <div class="module-title">{{ 'Ажилтан' if lang=='mn' else 'Staff' }}</div>
+        <div class="module-desc">{{ 'Мэдээлэл, эрх, ашиглалтын түүх' if lang=='mn' else 'Info, permissions, history' }}</div>
+        <span class="module-badge" style="background:#EBF4FF;color:#185FA5">{{ users|length }} {{ 'ажилтан' if lang=='mn' else 'members' }}</span>
+      </div>
+    </a>
+
+    <!-- Шинжилгээ -->
+    <a href="{{ url_for('analysis') }}" class="module-card" style="border-top:3px solid #854F0B">
+      <div class="module-icon" style="background:#FFF8EC">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#854F0B" stroke-width="1.5">
+          <path d="M6 2v6l-2 4v8a2 2 0 002 2h12a2 2 0 002-2v-8l-2-4V2"/>
+          <path d="M6 2h12"/><path d="M6 8h12"/>
+          <path d="M12 12v4"/><circle cx="12" cy="18" r="1" fill="#854F0B"/>
+        </svg>
+      </div>
+      <div class="module-info">
+        <div class="module-title">{{ 'Шинжилгээ' if lang=='mn' else 'Analysis' }}</div>
+        <div class="module-desc">{{ 'Дээж бүртгэл, үр дүн, QC хяналт' if lang=='mn' else 'Sample, results, QC' }}</div>
+        <span class="module-badge" style="background:#FFF8EC;color:#854F0B">{{ 'Удахгүй нэмэгдэнэ' if lang=='mn' else 'Coming soon' }}</span>
+      </div>
+    </a>
+
+    <!-- Тоног төхөөрөмж -->
+    <a href="{{ url_for('devices') }}" class="module-card" style="border-top:3px solid #0F6E56">
+      <div class="module-icon" style="background:#E8FAF4">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0F6E56" stroke-width="1.5">
+          <rect x="2" y="3" width="20" height="14" rx="2"/>
+          <path d="M8 21h8M12 17v4"/>
+          <circle cx="12" cy="10" r="2.5"/>
+          <path d="M12 7.5V9M12 11v1.5M9.5 10H8M16 10h-1.5"/>
+        </svg>
+      </div>
+      <div class="module-info">
+        <div class="module-title">{{ 'Тоног төхөөрөмж' if lang=='mn' else 'Equipment' }}</div>
+        <div class="module-desc">{{ 'Паспорт, calibration, засвар' if lang=='mn' else 'Passport, calibration, repair' }}</div>
+        {% if open_rep > 0 %}
+        <span class="module-badge" style="background:#FAECE7;color:#993c1d">{{ open_rep }} {{ 'засвартай' if lang=='mn' else 'repairs' }}</span>
+        {% else %}
+        <span class="module-badge" style="background:#E8FAF4;color:#0F6E56">{{ devices|length }} {{ 'төхөөрөмж' if lang=='mn' else 'devices' }}</span>
+        {% endif %}
+      </div>
+    </a>
+
+    <!-- Тайлан -->
+    <a href="{{ url_for('reports') }}" class="module-card" style="border-top:3px solid #3C3489">
+      <div class="module-icon" style="background:#F0EFFE">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3C3489" stroke-width="1.5">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+          <path d="M14 2v6h6"/>
+          <path d="M8 13h8M8 17h5M8 9h3"/>
+        </svg>
+      </div>
+      <div class="module-info">
+        <div class="module-title">{{ 'Тайлан' if lang=='mn' else 'Reports' }}</div>
+        <div class="module-desc">{{ 'Шинжилгээний PDF, Excel, QC тайлан' if lang=='mn' else 'PDF, Excel, QC reports' }}</div>
+        <span class="module-badge" style="background:#F0EFFE;color:#3C3489">{{ 'Сар, улирал, жил' if lang=='mn' else 'Monthly, quarterly' }}</span>
+      </div>
+    </a>
+
+    <!-- Нэгдсэн архив -->
+    <a href="{{ url_for('archive') }}" class="module-card" style="border-top:3px solid #4A6080">
+      <div class="module-icon" style="background:#EEF2F8">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4A6080" stroke-width="1.5">
+          <polyline points="21 8 21 21 3 21 3 8"/>
+          <rect x="1" y="3" width="22" height="5" rx="1"/>
+          <line x1="10" y1="12" x2="14" y2="12"/>
+        </svg>
+      </div>
+      <div class="module-info">
+        <div class="module-title">{{ 'Нэгдсэн архив' if lang=='mn' else 'Archive' }}</div>
+        <div class="module-desc">{{ 'Шинжилгээ, тоног, ажилтан, засварын бүрэн түүх' if lang=='mn' else 'Full history of all records' }}</div>
+        <span class="module-badge" style="background:#EEF2F8;color:#4A6080">{{ 'Бүх бүртгэл' if lang=='mn' else 'All records' }}</span>
+      </div>
+    </a>
+
+    <!-- Тохиргоо -->
+    <a href="{{ url_for('lab_settings') }}" class="module-card" style="border-top:3px solid #6B6B67">
+      <div class="module-icon" style="background:#F5F5F3">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6B6B67" stroke-width="1.5">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+        </svg>
+      </div>
+      <div class="module-info">
+        <div class="module-title">{{ 'Тохиргоо' if lang=='mn' else 'Settings' }}</div>
+        <div class="module-desc">{{ 'Лаборатори, стандарт, нөөцлөлт, нууц үг' if lang=='mn' else 'Lab info, standards, backup' }}</div>
+        <span class="module-badge" style="background:#F5F5F3;color:#6B6B67">{{ 'Систем' if lang=='mn' else 'System' }}</span>
+      </div>
+    </a>
+
+  </div>
+</div>
+{% endblock %}

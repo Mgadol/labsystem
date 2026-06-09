@@ -1,0 +1,114 @@
+{% extends "partial/base.html" %}
+{% block title %}{{ 'Ажилтнууд' if lang=='mn' else 'Staff' }}{% endblock %}
+{% block content %}
+<div class="page">
+  <div class="flex justify-between gap-12" style="margin-bottom:20px;flex-wrap:wrap">
+    <div>
+      <h1 class="page-title">{{ 'Ажилтнууд' if lang=='mn' else 'Staff' }}</h1>
+      <p class="page-sub">{{ users|length }} {{ 'ажилтан' if lang=='mn' else 'staff members' }}</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <label style="font-size:13px;color:var(--text-muted);display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="show-inactive" onchange="toggleInactive()">
+        {{ 'Идэвхгүй харах' if lang=='mn' else 'Show inactive' }}
+      </label>
+      <a href="{{ url_for('staff_add') }}" class="btn btn-primary">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        {{ 'Нэмэх' if lang=='mn' else 'Add Staff' }}
+      </a>
+    </div>
+  </div>
+
+  <div class="card">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{{ 'Ажилтан' if lang=='mn' else 'Staff' }}</th>
+          <th>ID</th>
+          <th>{{ 'Албан тушаал' if lang=='mn' else 'Position' }}</th>
+          <th>{{ 'Утас' if lang=='mn' else 'Phone' }}</th>
+          <th>{{ 'Эрх' if lang=='mn' else 'Role' }}</th>
+          <th>{{ 'Статус' if lang=='mn' else 'Status' }}</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for u in users %}
+      <tr class="{% if not u['is_active'] %}inactive-row{% endif %}" {% if not u['is_active'] %}style="display:none;opacity:.6"{% endif %}>
+        <td>
+          <div class="flex gap-8">
+            {% if u['photo'] %}
+            <img src="{{ url_for('static',filename='uploads/'+u['photo']) }}" style="width:32px;height:32px;border-radius:50%;object-fit:cover">
+            {% else %}
+            <div style="width:32px;height:32px;border-radius:50%;background:var(--navy);color:#93a8d4;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">{{ u['name'][:2] }}</div>
+            {% endif %}
+            <span style="font-weight:500;{% if not u['is_active'] %}text-decoration:line-through;color:var(--text-muted){% endif %}">{{ u['name'] }}</span>
+          </div>
+        </td>
+        <td style="color:var(--text-muted)">{{ u['employee_id'] }}</td>
+        <td>{{ u['position'] or '—' }}</td>
+        <td>{{ u['phone'] or '—' }}</td>
+        <td>
+          {% if u['role']=='admin' %}
+            <span class="badge badge-admin">Админ</span>
+          {% elif u['role']=='senior' %}
+            <span class="badge" style="background:#E1F5EE;color:#0F6E56">Ахлах химич</span>
+          {% else %}
+            <span class="badge badge-staff">Ажилтан</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if u['is_active'] %}
+          <span class="badge badge-active">{{ 'Идэвхтэй' if lang=='mn' else 'Active' }}</span>
+          {% else %}
+          <span class="badge badge-standby">{{ 'Идэвхгүй' if lang=='mn' else 'Inactive' }}</span>
+          {% endif %}
+        </td>
+        <td>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <a href="{{ url_for('staff_detail', uid=u['id']) }}" class="btn btn-ghost btn-sm">{{ 'Харах' if lang=='mn' else 'View' }}</a>
+            {% if u['id'] != session['user_id'] %}
+              {% if u['is_active'] %}
+              <form method="POST" action="{{ url_for('staff_deactivate', uid=u['id']) }}"
+                onsubmit="return confirm('{{ u['name'] }} ажилтныг гаргах уу?')">
+                <button type="submit" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">
+                  {{ 'Гаргах' if lang=='mn' else 'Deactivate' }}
+                </button>
+              </form>
+              {% else %}
+              <form method="POST" action="{{ url_for('staff_activate', uid=u['id']) }}">
+                <button type="submit" class="btn btn-sm" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">
+                  🔄 {{ 'Буцаах' if lang=='mn' else 'Reactivate' }}
+                </button>
+              </form>
+              {% endif %}
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:30px">{{ 'Ажилтан байхгүй' if lang=='mn' else 'No staff found' }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+
+    <!-- Идэвхгүй ажилтны тоо -->
+    {% set inactive_count = users|rejectattr('is_active')|list|length %}
+    {% if inactive_count > 0 %}
+    <div style="margin-top:12px;padding:10px 14px;background:var(--gray);border-radius:8px;font-size:13px;color:var(--text-muted)">
+      🗄️ {{ inactive_count }} {{ 'идэвхгүй ажилтан байна — "Идэвхгүй харах" дарж харна уу' if lang=='mn' else 'inactive staff — check "Show inactive" to view' }}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function toggleInactive(){
+  var show = document.getElementById('show-inactive').checked;
+  document.querySelectorAll('.inactive-row').forEach(function(r){
+    r.style.display = show ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}
