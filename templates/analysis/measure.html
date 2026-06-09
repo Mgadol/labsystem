@@ -39,7 +39,7 @@
 .tbl input[type=number]{-moz-appearance:textfield}
 .tbl input[type=number]::-webkit-inner-spin-button,
 .tbl input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
-.tbl input:focus{background:#fffde7;outline:none;box-shadow:0 0 0 2px #1a73e8;position:relative;z-index:10}
+.tbl input:focus{background:#fffde7;outline:2px solid #1a73e8;outline-offset:-1px;position:relative;z-index:10}
 .tbl input[type=text]{text-align:left;padding-left:3px}
 
 /* + товч */
@@ -510,8 +510,8 @@ document.addEventListener('keydown',function(e){
 document.querySelectorAll('.tbl input').forEach(function(i){
   i.addEventListener('focus',function(){this.select();});
   i.addEventListener('mousedown', function(e){
-    this.focus();
-    this.select();
+    var self = this;
+    setTimeout(function(){ self.focus(); }, 0);
   });
 });
 
