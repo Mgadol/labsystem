@@ -803,7 +803,7 @@ def report_export():
 
     conn.close()
     buf=io.BytesIO(); wb.save(buf); buf.seek(0)
-    fname=f'Лаборатори_{period_label.replace(' ','_')}.xlsx'
+    fname='Лаборатори_'+period_label.replace(' ','_')+'.xlsx'
     return send_file(buf,as_attachment=True,download_name=fname,
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
