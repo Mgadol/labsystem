@@ -1355,20 +1355,36 @@ def row_done():
     return jsonify({'ok': True})
 
 @app.route('/analysis/row/approve', methods=['POST'])
-@senior_required
+@login_required
 def row_approve():
     """Ахлах химич мөрийг баталгаажуулна"""
+    if session.get('role') not in ('admin', 'senior'):
+        return jsonify({'ok': False})
     data = request.get_json()
     rid = data.get('receipt_id')
     rows = data.get('rows', [])  # [{row_num, is_duplicate}]
+    approve_all = data.get('approve_all', False)
     conn = get_db()
-    for r in rows:
-        conn.execute("""UPDATE sample_entries SET row_status='approved', approved_by=?, approved_at=?
-                       WHERE receipt_id=? AND row_num=? AND is_duplicate=?""",
-                    (session['user_id'], datetime.now().isoformat(), rid, r['row_num'], r['is_duplicate']))
+    if approve_all:
+        conn.execute("UPDATE sample_entries SET row_status='approved', approved_by=?, approved_at=? WHERE receipt_id=? AND is_duplicate=0 AND row_status='done'",
+                    (session['user_id'], datetime.now().isoformat(), rid))
+    else:
+        for r in rows:
+            conn.execute("""UPDATE sample_entries SET row_status='approved', approved_by=?, approved_at=?
+                           WHERE receipt_id=? AND row_num=? AND is_duplicate=?""",
+                        (session['user_id'], datetime.now().isoformat(), rid, r['row_num'], r['is_duplicate']))
+    receipt = conn.execute("SELECT sr.*, g.quantity, g.id as geo_id FROM sample_receipt sr JOIN geo_samples g ON g.id=sr.geo_sample_id WHERE sr.id=?", (rid,)).fetchone()
+    all_approved = False
+    if receipt:
+        total = receipt['quantity'] or 1
+        approved = conn.execute("SELECT COUNT(*) FROM sample_entries WHERE receipt_id=? AND is_duplicate=0 AND row_status='approved'", (rid,)).fetchone()[0]
+        if approved >= total:
+            all_approved = True
+            conn.execute("UPDATE geo_samples SET status='done' WHERE id=?", (receipt['geo_id'],))
+            conn.execute("UPDATE sample_receipt SET prep_status='done' WHERE id=?", (rid,))
     conn.commit()
     conn.close()
-    return jsonify({'ok': True})
+    return jsonify({'ok': True, 'all_approved': all_approved})
 
 @app.route('/analysis/result/<int:receipt_id>')
 @login_required  
