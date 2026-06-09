@@ -339,10 +339,10 @@ document.addEventListener('DOMContentLoaded', function(){
   var tab = new URLSearchParams(window.location.search).get('tab');
   if(tab){
     var btn = document.querySelector('[onclick*="tab-'+tab+'"]');
-    if(btn){ btn.click(); return; }
+    if(btn){ switchTab(btn, 'tab-'+tab); return; }
   }
-  // Анхдагч: лабораторийн мэдээлэл
-  document.querySelector('.tab-btn').click();
+  var firstBtn = document.querySelector('.tab-btn');
+  if(firstBtn) switchTab(firstBtn, 'tab-lab');
 });
 function togglePw(inputId, btnId){
   var inp = document.getElementById(inputId);
