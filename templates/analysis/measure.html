@@ -83,8 +83,8 @@
     <button onclick="openDevicePopup()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">
       🔧 <span id="deviceSummary">Тоног</span>
     </button>
-    <button onclick="decreaseDecimal()" title="Аравтын орон хасах" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">←.0</button>
-    <button onclick="increaseDecimal()" title="Аравтын орон нэмэх" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">.00→</button>
+    <button onmousedown="event.preventDefault();decreaseDecimal()" title="Аравтын орон хасах" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">←.0</button>
+    <button onmousedown="event.preventDefault();increaseDecimal()" title="Аравтын орон нэмэх" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">.00→</button>
     <span class="save-dot" id="saveDot"></span>
     <span id="saveStatus" style="font-size:11px;color:#93a8d4">Хадгалагдсан</span>
   </div>
