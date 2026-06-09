@@ -1727,6 +1727,18 @@ def save_settings(data):
 def inject_settings():
     return dict(settings=get_settings())
 
+@app.route('/lab-settings/qc-delete', methods=['POST'])
+@admin_required
+def qc_delete():
+    param = request.get_json().get('parameter', '').strip()
+    if not param:
+        return jsonify({'ok': False, 'error': 'Параметр олдсонгүй'})
+    conn = get_db()
+    conn.execute("DELETE FROM qc_settings WHERE parameter=?", (param,))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
 @app.route('/lab-settings', methods=['GET','POST'])
 @admin_required
 def lab_settings():
