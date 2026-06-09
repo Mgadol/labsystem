@@ -288,7 +288,7 @@ function loadDeviceMap(){
     var mapping = data.mapping;
     var html = '';
     ANALYSIS_TYPES.forEach(function(at){
-      var sel = '<select class="form-input" style="font-size:12px;padding:4px 8px" onchange="saveDeviceMap(''+at.key+'',this.value)">';
+      var sel = '<select class="form-input" style="font-size:12px;padding:4px 8px" onchange="saveDeviceMap(&quot;'+at.key+'&quot;,this.value)">';
       sel += '<option value="">— тоног сонгоогүй —</option>';
       devices.forEach(function(d){
         var selected = mapping[at.key] == d.id ? 'selected' : '';
