@@ -85,7 +85,7 @@
   <tr>
     <td>
       {% if e %}
-      <button class="toggle-btn" onclick="toggleDetail({{ ri }})" title="Хэмжилтийн өгөгдөл">+</button>
+      <button class="toggle-btn" onclick="toggleDetail(this, {{ ri }})" title="Хэмжилтийн өгөгдөл">+</button>
       {% endif %}
     </td>
     <td style="color:#666;font-size:11px">{{ ri }}</td>
@@ -193,9 +193,8 @@
 {% endblock %}
 {% block scripts %}
 <script>
-function toggleDetail(ri){
+function toggleDetail(btn, ri){
   var row = document.getElementById('detail-'+ri);
-  var btn = event.target;
   if(row.style.display==='none'){
     row.style.display='';
     btn.textContent='−';
