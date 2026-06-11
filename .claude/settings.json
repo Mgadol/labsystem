@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /home/user/labsystem && git pull --rebase origin claude/adoring-hamilton-wdvj0b 2>/dev/null || true && python app.py &",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

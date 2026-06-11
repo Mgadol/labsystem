@@ -724,6 +724,521 @@ def mark_add():
 def reports():
     return render_template('admin/reports.html', lang=session.get('lang','mn'))
 
+@app.route('/lab-reports')
+@senior_required
+def lab_reports():
+    conn = get_db()
+    records = conn.execute(
+        '''SELECT r.*, u.name as gen_name
+           FROM lab_report_records r
+           LEFT JOIN users u ON u.id=r.generated_by
+           WHERE r.status='active'
+           ORDER BY r.generated_at DESC LIMIT 30''').fetchall()
+
+    # Системийн графикт зориулсан мэдээлэл — поточний он сараар
+    cur_year = datetime.now().year
+    SAMPLE_TYPES_MAP = [
+        ('PIT','Уурхай'), ('STOCKPILE','Овоолго'), ('EXPORT','Ачилт'),
+        ('CONTROL','Хяналт'), ('DP','Баяжуулах'), ('EQ_CONTROL','Гадаад хяналт'),
+    ]
+    ANALYSIS_FIELDS = [
+        ('Mt','Нийт чийг'), ('Mad','Дотоод чийг'), ('Aad','Үнслэг'),
+        ('Vad','Дэгдэмхий'), ('Stad','Хүхэр'), ('Qb_ad_kcal','Илчлэг'),
+        ('G_index','Барьцалдах'), ('Y_index','Хөөлтийн'), ('FSI','Пластометр'),
+    ]
+    months = list(range(1, 13))
+    sample_chart = {code: [] for code, _ in SAMPLE_TYPES_MAP}
+    analysis_chart = {f: [] for f, _ in ANALYSIS_FIELDS}
+    for m in months:
+        d0 = f"{cur_year}-{m:02d}-01"
+        import calendar
+        _, ld = calendar.monthrange(cur_year, m)
+        d1 = f"{cur_year}-{m:02d}-{ld:02d}"
+        for code, _ in SAMPLE_TYPES_MAP:
+            v = conn.execute(
+                'SELECT COUNT(*) as c FROM geo_samples WHERE sample_type=? AND collected_date BETWEEN ? AND ?',
+                (code, d0, d1)).fetchone()['c']
+            sample_chart[code].append(v)
+        for field, _ in ANALYSIS_FIELDS:
+            v = conn.execute(
+                f'''SELECT COUNT(*) as c FROM analysis_results ar
+                    JOIN sample_receipt sr ON sr.id=ar.receipt_id
+                    JOIN geo_samples g ON g.id=sr.geo_sample_id
+                    WHERE ar.{field} IS NOT NULL AND g.collected_date BETWEEN ? AND ?''',
+                (d0, d1)).fetchone()['c']
+            analysis_chart[field].append(v)
+    conn.close()
+    return render_template('admin/lab_reports.html',
+        lang=session.get('lang','mn'), now=datetime.now(),
+        records=records,
+        sample_chart=sample_chart,
+        sample_types=[n for _, n in SAMPLE_TYPES_MAP],
+        analysis_chart=analysis_chart,
+        analysis_types=[n for _, n in ANALYSIS_FIELDS],
+        cur_year=cur_year)
+
+@app.route('/lab-reports/archive/<int:rid>', methods=['POST'])
+@senior_required
+def lab_report_archive(rid):
+    conn = get_db()
+    conn.execute(
+        "UPDATE lab_report_records SET status='archived', archived_by=?, archived_at=? WHERE id=?",
+        (session['user_id'], datetime.now().strftime('%Y-%m-%d %H:%M:%S'), rid))
+    conn.commit()
+    conn.close()
+    flash('Тайлан архивлагдлаа.', 'success')
+    return redirect(url_for('lab_reports'))
+
+@app.route('/lab-reports/download/<int:rid>')
+@senior_required
+def lab_report_download(rid):
+    conn = get_db()
+    rec = conn.execute('SELECT * FROM lab_report_records WHERE id=?', (rid,)).fetchone()
+    conn.close()
+    if not rec or not rec['file_path']:
+        flash('Файл олдсонгүй.', 'error')
+        return redirect(url_for('lab_reports'))
+    fpath = os.path.join(os.path.dirname(__file__), rec['file_path'])
+    if not os.path.exists(fpath):
+        flash('Файл олдсонгүй.', 'error')
+        return redirect(url_for('lab_reports'))
+    fname = f"Лаб_тайлан_{rec['period_label'].replace(' ','_')}.xlsx"
+    return send_file(fpath, as_attachment=True, download_name=fname,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+@app.route('/lab-reports/export')
+@senior_required
+def lab_report_export():
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    import math
+
+    rtype  = request.args.get('type', 'week')
+    year   = int(request.args.get('year',  datetime.now().year))
+    month  = int(request.args.get('month', datetime.now().month))
+    half   = int(request.args.get('half',  1))
+    weekno = int(request.args.get('week',  date.today().isocalendar()[1]))
+
+    # ── Период тооцоолол ──────────────────────────────────
+    from datetime import timedelta
+
+    def week_range(y, w):
+        # ISO week-ийн Даваа, Ням
+        d = date.fromisocalendar(y, w, 1)
+        return d, d + timedelta(days=6)
+
+    if rtype == 'week':
+        d_from, d_to = week_range(year, weekno)
+        period_label = f"{year} оны {weekno}-р долоо хоног"
+        # Өдөр бүрийн баганууд
+        col_labels = []
+        col_ranges = []
+        for i in range(7):
+            d = d_from + timedelta(days=i)
+            col_labels.append(d.strftime('%m/%d'))
+            col_ranges.append((str(d), str(d)))
+    elif rtype == 'month':
+        from calendar import monthrange
+        _, days = monthrange(year, month)
+        d_from = date(year, month, 1)
+        d_to   = date(year, month, days)
+        period_label = f"{year} оны {month}-р сар"
+        col_labels = []
+        col_ranges = []
+        cur = d_from
+        wnum = 1
+        while cur <= d_to:
+            w_end = min(cur + timedelta(days=6 - cur.weekday()), d_to)
+            col_labels.append(f"{wnum} долоо хоног")
+            col_ranges.append((str(cur), str(w_end)))
+            cur = w_end + timedelta(days=1)
+            wnum += 1
+    elif rtype == 'half':
+        months = list(range(1, 7)) if half == 1 else list(range(7, 13))
+        d_from = date(year, months[0], 1)
+        from calendar import monthrange
+        _, ld = monthrange(year, months[-1])
+        d_to  = date(year, months[-1], ld)
+        period_label = f"{year} оны {'эхний' if half==1 else 'хоёрдугаар'} хагас жил"
+        col_labels = []
+        col_ranges = []
+        cur = d_from
+        wnum = 1
+        while cur <= d_to:
+            w_end = min(cur + timedelta(days=6 - cur.weekday()), d_to)
+            col_labels.append(f"{wnum} д/х")
+            col_ranges.append((str(cur), str(w_end)))
+            cur = w_end + timedelta(days=1)
+            wnum += 1
+    else:  # year
+        d_from = date(year, 1, 1)
+        d_to   = date(year, 12, 31)
+        period_label = f"{year} он"
+        col_labels = [f"{m}-р сар" for m in range(1, 13)]
+        col_ranges = []
+        from calendar import monthrange
+        for m in range(1, 13):
+            _, ld = monthrange(year, m)
+            col_ranges.append((f"{year}-{m:02d}-01", f"{year}-{m:02d}-{ld:02d}"))
+
+    conn = get_db()
+
+    SAMPLE_TYPES = [
+        ('PIT',        'Уурхай'),
+        ('STOCKPILE',  'Овоолго'),
+        ('EXPORT',     'Ачилт'),
+        ('CONTROL',    'Хяналт'),
+        ('DP',         'Баяжуулах'),
+        ('EQ_CONTROL', 'Гадаад хяналт'),
+    ]
+
+    ANALYSIS_TYPES = [
+        ('Mt',        'Нийт чийг'),
+        ('Mad',       'Дотоод чийг'),
+        ('Aad',       'Үнслэг'),
+        ('Vad',       'Дэгдэмхий бодис'),
+        ('Stad',      'Нийт хүхэр'),
+        ('Qb_ad_kcal','Илчлэг'),
+        ('G_index',   'Барьцалдах чадвар'),
+        ('Y_index',   'Хөөлтийн зэрэг'),
+        ('FSI',       'Пластометр'),
+    ]
+
+    # ── Мэдээлэл татах ────────────────────────────────────
+    def count_samples_by_type(code, d0, d1):
+        row = conn.execute(
+            '''SELECT COUNT(*) as c FROM geo_samples
+               WHERE sample_type=? AND collected_date BETWEEN ? AND ?''',
+            (code, d0, d1)).fetchone()
+        return row['c'] if row else 0
+
+    def count_analysis_by_field(field, d0, d1):
+        row = conn.execute(
+            f'''SELECT COUNT(*) as c
+                FROM analysis_results ar
+                JOIN sample_receipt sr ON sr.id=ar.receipt_id
+                JOIN geo_samples g ON g.id=sr.geo_sample_id
+                WHERE ar.{field} IS NOT NULL
+                  AND g.collected_date BETWEEN ? AND ?''',
+            (d0, d1)).fetchone()
+        return row['c'] if row else 0
+
+    def prep_kg_total(d0, d1):
+        row = conn.execute(
+            '''SELECT COALESCE(SUM(sr.mass_kg),0) as t
+               FROM sample_receipt sr
+               JOIN geo_samples g ON g.id=sr.geo_sample_id
+               WHERE g.collected_date BETWEEN ? AND ?''',
+            (d0, d1)).fetchone()
+        return row['t'] if row else 0
+
+    # ── Excel style helpers ──────────────────────────────
+    NAVY='1A2744'; TEAL='0F6E56'; CORAL='993C1D'
+    WHITE='FFFFFF'; GRAY='F5F5F3'; LGRAY='E8EAF0'
+
+    def side(): return Side(style='thin', color='CCCCCC')
+    def border(): return Border(left=side(), right=side(), top=side(), bottom=side())
+
+    def head_cell(ws, r, c, v, bg=NAVY, size=10):
+        cell = ws.cell(row=r, column=c, value=v)
+        cell.font = Font(name='Arial', bold=True, color=WHITE, size=size)
+        cell.fill = PatternFill('solid', fgColor=bg)
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        cell.border = border()
+        return cell
+
+    def data_cell(ws, r, c, v, bold=False, bg=None, align='center', fmt=None):
+        cell = ws.cell(row=r, column=c, value=v)
+        cell.font = Font(name='Arial', size=10, bold=bold)
+        cell.alignment = Alignment(horizontal=align, vertical='center')
+        cell.border = border()
+        if bg: cell.fill = PatternFill('solid', fgColor=bg)
+        if fmt: cell.number_format = fmt
+        return cell
+
+    def title_row(ws, text, ncols):
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
+        c = ws.cell(row=1, column=1, value=text)
+        c.font = Font(name='Arial', bold=True, size=13, color=WHITE)
+        c.fill = PatternFill('solid', fgColor=NAVY)
+        c.alignment = Alignment(horizontal='center', vertical='center')
+        ws.row_dimensions[1].height = 30
+
+    def subtotal_row(ws, r, label, vals, ncols, bg='D6E4F0'):
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=2)
+        data_cell(ws, r, 1, label, bold=True, bg=bg, align='center')
+        total = 0
+        for ci, v in enumerate(vals, 3):
+            data_cell(ws, r, ci, v, bold=True, bg=bg)
+            total += v or 0
+        data_cell(ws, r, 3 + len(vals), total, bold=True, bg=bg)
+
+    wb = Workbook()
+
+    # ════════════════════════════════════════════════════
+    # SHEET 1 — ДЭЭЖНИЙ ТӨРӨЛ, ХЭМЖЭЭ
+    # ════════════════════════════════════════════════════
+    ws1 = wb.active
+    ws1.title = 'Дээжний төрөл, хэмжээ'
+    ws1.sheet_view.showGridLines = False
+    ncols1 = 2 + len(col_labels) + 1
+    title_row(ws1, f'ДЭЭЖНИЙ ТӨРӨЛ, ХЭМЖЭЭ — {period_label}', ncols1)
+
+    # Header row
+    ws1.row_dimensions[2].height = 36
+    head_cell(ws1, 2, 1, '№')
+    head_cell(ws1, 2, 2, 'Дээжний төрөл')
+    for ci, lbl in enumerate(col_labels, 3):
+        head_cell(ws1, 2, ci, lbl)
+    head_cell(ws1, 2, 3 + len(col_labels), 'Нийт', bg=TEAL)
+
+    # Data rows
+    col_totals1 = [0] * len(col_labels)
+    for ri, (code, name) in enumerate(SAMPLE_TYPES, 3):
+        bg = WHITE if ri % 2 == 0 else GRAY
+        data_cell(ws1, ri, 1, ri - 2, bg=bg)
+        data_cell(ws1, ri, 2, name, bg=bg, align='left')
+        row_total = 0
+        for ci, (d0, d1) in enumerate(col_ranges):
+            v = count_samples_by_type(code, d0, d1)
+            data_cell(ws1, ri, 3 + ci, v if v else None, bg=bg)
+            col_totals1[ci] += v
+            row_total += v
+        data_cell(ws1, ri, 3 + len(col_labels), row_total, bold=True, bg=LGRAY)
+
+    # Нийт мөр
+    subtotal_row(ws1, 3 + len(SAMPLE_TYPES), 'Нийт', col_totals1, ncols1)
+
+    # Column widths
+    ws1.column_dimensions['A'].width = 5
+    ws1.column_dimensions['B'].width = 22
+    for ci in range(len(col_labels)):
+        ws1.column_dimensions[get_column_letter(3 + ci)].width = max(10, len(col_labels[ci]) + 2)
+    ws1.column_dimensions[get_column_letter(3 + len(col_labels))].width = 10
+
+    # ════════════════════════════════════════════════════
+    # SHEET 2 — ШИНЖИЛГЭЭ ТУС БҮРЭЭР
+    # ════════════════════════════════════════════════════
+    ws2 = wb.create_sheet('Шинжилгээ тус бүрээр')
+    ws2.sheet_view.showGridLines = False
+    ncols2 = 2 + len(col_labels) + 1
+    title_row(ws2, f'ШИНЖИЛГЭЭ ТУС БҮРЭЭР — {period_label}', ncols2)
+
+    ws2.row_dimensions[2].height = 36
+    head_cell(ws2, 2, 1, '№')
+    head_cell(ws2, 2, 2, 'Үзүүлэлт', bg=TEAL)
+    for ci, lbl in enumerate(col_labels, 3):
+        head_cell(ws2, 2, ci, lbl, bg=TEAL)
+    head_cell(ws2, 2, 3 + len(col_labels), 'Нийт', bg=CORAL)
+
+    col_totals2 = [0] * len(col_labels)
+    for ri, (field, name) in enumerate(ANALYSIS_TYPES, 3):
+        bg = WHITE if ri % 2 == 0 else GRAY
+        data_cell(ws2, ri, 1, ri - 2, bg=bg)
+        data_cell(ws2, ri, 2, name, bg=bg, align='left')
+        row_total = 0
+        for ci, (d0, d1) in enumerate(col_ranges):
+            v = count_analysis_by_field(field, d0, d1)
+            data_cell(ws2, ri, 3 + ci, v if v else None, bg=bg)
+            col_totals2[ci] += v
+            row_total += v
+        data_cell(ws2, ri, 3 + len(col_labels), row_total, bold=True, bg=LGRAY)
+
+    # Дээж бэлтгэл кг мөр
+    ri_kg = 3 + len(ANALYSIS_TYPES)
+    bg = WHITE if ri_kg % 2 == 0 else GRAY
+    data_cell(ws2, ri_kg, 1, len(ANALYSIS_TYPES) + 1, bg=bg)
+    data_cell(ws2, ri_kg, 2, 'Дээж бэлтгэл, кг', bg=bg, align='left')
+    kg_total = 0
+    for ci, (d0, d1) in enumerate(col_ranges):
+        v = prep_kg_total(d0, d1)
+        data_cell(ws2, ri_kg, 3 + ci, round(v, 1) if v else None, bg=bg, fmt='#,##0.0')
+        kg_total += v
+    data_cell(ws2, ri_kg, 3 + len(col_labels), round(kg_total, 1), bold=True, bg=LGRAY, fmt='#,##0.0')
+
+    # Нийт мөр (шинжилгээ)
+    subtotal_row(ws2, ri_kg + 1, 'Нийт шинжилгээ', col_totals2, ncols2, bg='D6F0E8')
+
+    ws2.column_dimensions['A'].width = 5
+    ws2.column_dimensions['B'].width = 24
+    for ci in range(len(col_labels)):
+        ws2.column_dimensions[get_column_letter(3 + ci)].width = max(10, len(col_labels[ci]) + 2)
+    ws2.column_dimensions[get_column_letter(3 + len(col_labels))].width = 10
+
+    # ════════════════════════════════════════════════════
+    # SHEET 3 — НИЙТ ДҮГНЭЛТ
+    # ════════════════════════════════════════════════════
+    ws3 = wb.create_sheet('Нийт дүгнэлт')
+    ws3.sheet_view.showGridLines = False
+    title_row(ws3, f'НИЙТ ДҮГНЭЛТ — {period_label}', 4)
+
+    ws3.row_dimensions[2].height = 30
+    for ci, h in enumerate(['Үзүүлэлт', 'Тоо', 'Нийт дүн', '%'], 1):
+        head_cell(ws3, 2, ci, h)
+
+    # Дээж нийт
+    total_samples = sum(
+        count_samples_by_type(code, str(d_from), str(d_to))
+        for code, _ in SAMPLE_TYPES
+    )
+    r = 3
+    for code, name in SAMPLE_TYPES:
+        bg = WHITE if r % 2 == 0 else GRAY
+        cnt = count_samples_by_type(code, str(d_from), str(d_to))
+        pct = round(cnt / total_samples * 100, 1) if total_samples else 0
+        data_cell(ws3, r, 1, name, bg=bg, align='left')
+        data_cell(ws3, r, 2, 'Дээж', bg=bg)
+        data_cell(ws3, r, 3, cnt, bg=bg)
+        data_cell(ws3, r, 4, f'{pct}%', bg=bg)
+        r += 1
+
+    # Хоосон мөр
+    r += 1
+
+    total_analyses = {}
+    for field, name in ANALYSIS_TYPES:
+        cnt = count_analysis_by_field(field, str(d_from), str(d_to))
+        total_analyses[field] = cnt
+
+    grand_total = sum(total_analyses.values())
+    for field, name in ANALYSIS_TYPES:
+        bg = WHITE if r % 2 == 0 else GRAY
+        cnt = total_analyses[field]
+        pct = round(cnt / grand_total * 100, 1) if grand_total else 0
+        data_cell(ws3, r, 1, name, bg=bg, align='left')
+        data_cell(ws3, r, 2, 'Шинжилгээ', bg=bg)
+        data_cell(ws3, r, 3, cnt, bg=bg)
+        data_cell(ws3, r, 4, f'{pct}%', bg=bg)
+        r += 1
+
+    # Нийт дүгнэлт
+    data_cell(ws3, r, 1, 'Нийт дээж', bold=True, bg=LGRAY, align='left')
+    data_cell(ws3, r, 2, '', bg=LGRAY)
+    data_cell(ws3, r, 3, total_samples, bold=True, bg=LGRAY)
+    data_cell(ws3, r, 4, '100%', bold=True, bg=LGRAY)
+    r += 1
+    data_cell(ws3, r, 1, 'Нийт шинжилгээ', bold=True, bg='D6F0E8', align='left')
+    data_cell(ws3, r, 2, '', bg='D6F0E8')
+    data_cell(ws3, r, 3, grand_total, bold=True, bg='D6F0E8')
+    data_cell(ws3, r, 4, '', bg='D6F0E8')
+    r += 1
+    kg_all = prep_kg_total(str(d_from), str(d_to))
+    data_cell(ws3, r, 1, 'Дээж бэлтгэл, кг', bold=True, bg='FFF3CD', align='left')
+    data_cell(ws3, r, 2, '', bg='FFF3CD')
+    data_cell(ws3, r, 3, round(kg_all, 1), bold=True, bg='FFF3CD', fmt='#,##0.0')
+    data_cell(ws3, r, 4, '', bg='FFF3CD')
+
+    ws3.column_dimensions['A'].width = 28
+    ws3.column_dimensions['B'].width = 16
+    ws3.column_dimensions['C'].width = 14
+    ws3.column_dimensions['D'].width = 10
+
+    # ════════════════════════════════════════════════════
+    # CHART 1 — Дээжний төрөл (Sheet 1-д нэмнэ)
+    # ════════════════════════════════════════════════════
+    from openpyxl.chart import BarChart, Reference, Series
+    from openpyxl.chart.label import DataLabelList
+
+    chart_start_row = 3 + len(SAMPLE_TYPES) + 3
+
+    # Нийт баганын өгөгдлийг chart-д ашиглана
+    c1 = BarChart()
+    c1.type = 'col'
+    c1.grouping = 'clustered'
+    c1.title = f'Дээжний төрөл — {period_label}'
+    c1.y_axis.title = 'Тоо'
+    c1.x_axis.title = 'Долоо хоног'
+    c1.style = 10
+    c1.width = 22
+    c1.height = 12
+
+    # Мэдээлэл: мөр бүр нэг series (дээжний төрөл)
+    for si, (code, name) in enumerate(SAMPLE_TYPES):
+        row_idx = 3 + si
+        data_ref = Reference(ws1, min_col=3, max_col=2 + len(col_labels), min_row=row_idx, max_row=row_idx)
+        s = Series(data_ref, title=name)
+        c1.append(s)
+
+    cats = Reference(ws1, min_col=3, max_col=2 + len(col_labels), min_row=2)
+    c1.set_categories(cats)
+    ws1.add_chart(c1, f'A{chart_start_row}')
+
+    # ════════════════════════════════════════════════════
+    # CHART 2 — Шинжилгээний тоо (Sheet 2-д нэмнэ)
+    # ════════════════════════════════════════════════════
+    chart_start_row2 = ri_kg + 4
+
+    c2 = BarChart()
+    c2.type = 'col'
+    c2.grouping = 'clustered'
+    c2.title = f'Шинжилгээ тус бүрээр — {period_label}'
+    c2.y_axis.title = 'Тоо'
+    c2.x_axis.title = 'Долоо хоног'
+    c2.style = 10
+    c2.width = 22
+    c2.height = 12
+
+    for si, (field, name) in enumerate(ANALYSIS_TYPES):
+        row_idx = 3 + si
+        data_ref = Reference(ws2, min_col=3, max_col=2 + len(col_labels), min_row=row_idx, max_row=row_idx)
+        s = Series(data_ref, title=name)
+        c2.append(s)
+
+    cats2 = Reference(ws2, min_col=3, max_col=2 + len(col_labels), min_row=2)
+    c2.set_categories(cats2)
+    ws2.add_chart(c2, f'A{chart_start_row2}')
+
+    # ════════════════════════════════════════════════════
+    # CHART 3 — Дүгнэлт pie chart (Sheet 3-т)
+    # ════════════════════════════════════════════════════
+    from openpyxl.chart import PieChart
+    c3 = PieChart()
+    c3.title = 'Дээжний төрлийн хувь'
+    c3.style = 10
+    c3.width = 14
+    c3.height = 12
+    # Дээж тоо (3-р мөрөөс 8-р мөр хүртэл = 6 төрөл)
+    data3 = Reference(ws3, min_col=3, min_row=3, max_row=3 + len(SAMPLE_TYPES) - 1)
+    cats3 = Reference(ws3, min_col=1, min_row=3, max_row=3 + len(SAMPLE_TYPES) - 1)
+    c3.add_data(data3)
+    c3.set_categories(cats3)
+    ws3.add_chart(c3, f'F3')
+
+    for ws in [ws1, ws2, ws3]:
+        ws.page_setup.orientation = 'landscape'
+        ws.page_setup.fitToPage = True
+        ws.page_setup.fitToWidth = 1
+
+    # ── Файл хадгалах ──────────────────────────────────
+    reports_dir = os.path.join(os.path.dirname(__file__), 'static', 'lab_reports')
+    os.makedirs(reports_dir, exist_ok=True)
+    safe_label = period_label.replace(' ', '_').replace('/', '-')
+    fname_base = f"lab_{rtype}_{year}_{safe_label}_{datetime.now().strftime('%Y%m%d%H%M%S')}.xlsx"
+    fpath_abs = os.path.join(reports_dir, fname_base)
+    rel_path = os.path.join('static', 'lab_reports', fname_base)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    with open(fpath_abs, 'wb') as f:
+        f.write(buf.getvalue())
+
+    # ── DB бүртгэл ─────────────────────────────────────
+    period_value = weekno if rtype == 'week' else (month if rtype == 'month' else (half if rtype == 'half' else None))
+    conn.execute(
+        '''INSERT INTO lab_report_records
+           (period_type, year, period_value, period_label, file_path, generated_by)
+           VALUES (?, ?, ?, ?, ?, ?)''',
+        (rtype, year, period_value, period_label, rel_path, session['user_id']))
+    conn.commit()
+    conn.close()
+
+    buf.seek(0)
+    dl_name = f'Лаб_тайлан_{safe_label}.xlsx'
+    return send_file(buf, as_attachment=True, download_name=dl_name,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
 @app.route('/reports/export')
 @senior_required
 def report_export():
@@ -872,7 +1387,7 @@ def report_export():
 
     conn.close()
     buf=io.BytesIO(); wb.save(buf); buf.seek(0)
-    fname='Лаборатори_'+period_label.replace(' ','_')+'.xlsx'
+    fname=f"Лаборатори_{period_label.replace(' ','_')}.xlsx"
     return send_file(buf,as_attachment=True,download_name=fname,
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 

@@ -256,6 +256,21 @@ def init_analysis_db():
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
+    -- Лабораторийн тайлангийн бүртгэл
+    CREATE TABLE IF NOT EXISTS lab_report_records (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        period_type TEXT NOT NULL,  -- week/month/half/year
+        year INTEGER NOT NULL,
+        period_value INTEGER,       -- week#, month#, half#
+        period_label TEXT NOT NULL,
+        file_path TEXT,
+        generated_by INTEGER REFERENCES users(id),
+        generated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        status TEXT DEFAULT 'active',  -- active/archived
+        archived_by INTEGER REFERENCES users(id),
+        archived_at TEXT
+    );
+
     -- Анхны QC тохиргоо
     INSERT OR IGNORE INTO qc_settings(parameter, tolerance, standard) VALUES
         ('Mad', 0.20, 'MNS GB/T 212-2015'),
