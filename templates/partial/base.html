@@ -114,8 +114,7 @@ textarea.form-input{resize:vertical;min-height:80px}
       <a href="{{ url_for('analysis') }}" class="{% if 'analysis' in request.endpoint %}active{% endif %}">Шинжилгээ</a>
       <a href="{{ url_for('devices') }}" class="{% if 'device' in request.endpoint %}active{% endif %}">Төхөөрөмж</a>
       {% if cur and cur['role'] in ('admin','senior') %}
-      <a href="{{ url_for('reports') }}" class="{% if request.endpoint=='reports' or request.endpoint=='report_export' %}active{% endif %}">Тайлан</a>
-      <a href="{{ url_for('lab_reports') }}" class="{% if 'lab_report' in request.endpoint %}active{% endif %}">Лаб тайлан</a>
+      <a href="{{ url_for('reports') }}" class="{% if 'report' in request.endpoint or 'lab_report' in request.endpoint %}active{% endif %}">Тайлан</a>
       <a href="{{ url_for('archive') }}" class="{% if request.endpoint=='archive' %}active{% endif %}">Нэгдсэн архив</a>
       <a href="{{ url_for('lab_settings') }}" class="{% if request.endpoint in ('lab_settings','profile') %}active{% endif %}">Тохиргоо</a>
       {% endif %}

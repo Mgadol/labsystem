@@ -722,7 +722,52 @@ def mark_add():
 @app.route('/reports')
 @senior_required
 def reports():
-    return render_template('admin/reports.html', lang=session.get('lang','mn'))
+    import calendar as cal_mod
+    conn = get_db()
+    lab_records = conn.execute(
+        '''SELECT r.*, u.name as gen_name
+           FROM lab_report_records r
+           LEFT JOIN users u ON u.id=r.generated_by
+           WHERE r.status='active'
+           ORDER BY r.generated_at DESC LIMIT 30''').fetchall()
+    cur_year = datetime.now().year
+    SAMPLE_TYPES_MAP = [
+        ('PIT','Уурхай'),('STOCKPILE','Овоолго'),('EXPORT','Ачилт'),
+        ('CONTROL','Хяналт'),('DP','Баяжуулах'),('EQ_CONTROL','Гадаад хяналт'),
+    ]
+    ANALYSIS_FIELDS = [
+        ('Mt','Нийт чийг'),('Mad','Дотоод чийг'),('Aad','Үнслэг'),
+        ('Vad','Дэгдэмхий'),('Stad','Хүхэр'),('Qb_ad_kcal','Илчлэг'),
+        ('G_index','Барьцалдах'),('Y_index','Хөөлтийн'),('FSI','Пластометр'),
+    ]
+    sample_chart = {code: [] for code, _ in SAMPLE_TYPES_MAP}
+    analysis_chart = {f: [] for f, _ in ANALYSIS_FIELDS}
+    for m in range(1, 13):
+        d0 = f"{cur_year}-{m:02d}-01"
+        _, ld = cal_mod.monthrange(cur_year, m)
+        d1 = f"{cur_year}-{m:02d}-{ld:02d}"
+        for code, _ in SAMPLE_TYPES_MAP:
+            v = conn.execute(
+                'SELECT COUNT(*) as c FROM geo_samples WHERE sample_type=? AND collected_date BETWEEN ? AND ?',
+                (code, d0, d1)).fetchone()['c']
+            sample_chart[code].append(v)
+        for field, _ in ANALYSIS_FIELDS:
+            v = conn.execute(
+                f'''SELECT COUNT(*) as c FROM analysis_results ar
+                    JOIN sample_receipt sr ON sr.id=ar.receipt_id
+                    JOIN geo_samples g ON g.id=sr.geo_sample_id
+                    WHERE ar.{field} IS NOT NULL AND g.collected_date BETWEEN ? AND ?''',
+                (d0, d1)).fetchone()['c']
+            analysis_chart[field].append(v)
+    conn.close()
+    return render_template('admin/reports.html',
+        lang=session.get('lang','mn'), now=datetime.now(),
+        lab_records=lab_records,
+        sample_chart=sample_chart,
+        sample_types=[n for _, n in SAMPLE_TYPES_MAP],
+        analysis_chart=analysis_chart,
+        analysis_types=[n for _, n in ANALYSIS_FIELDS],
+        cur_year=cur_year)
 
 @app.route('/lab-reports')
 @senior_required
