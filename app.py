@@ -648,7 +648,84 @@ def reports():
 @app.route('/lab-reports')
 @senior_required
 def lab_reports():
-    return render_template('admin/lab_reports.html', lang=session.get('lang','mn'), now=datetime.now())
+    conn = get_db()
+    records = conn.execute(
+        '''SELECT r.*, u.name as gen_name
+           FROM lab_report_records r
+           LEFT JOIN users u ON u.id=r.generated_by
+           WHERE r.status='active'
+           ORDER BY r.generated_at DESC LIMIT 30''').fetchall()
+
+    # Системийн графикт зориулсан мэдээлэл — поточний он сараар
+    cur_year = datetime.now().year
+    SAMPLE_TYPES_MAP = [
+        ('PIT','Уурхай'), ('STOCKPILE','Овоолго'), ('EXPORT','Ачилт'),
+        ('CONTROL','Хяналт'), ('DP','Баяжуулах'), ('EQ_CONTROL','Гадаад хяналт'),
+    ]
+    ANALYSIS_FIELDS = [
+        ('Mt','Нийт чийг'), ('Mad','Дотоод чийг'), ('Aad','Үнслэг'),
+        ('Vad','Дэгдэмхий'), ('Stad','Хүхэр'), ('Qb_ad_kcal','Илчлэг'),
+        ('G_index','Барьцалдах'), ('Y_index','Хөөлтийн'), ('FSI','Пластометр'),
+    ]
+    months = list(range(1, 13))
+    sample_chart = {code: [] for code, _ in SAMPLE_TYPES_MAP}
+    analysis_chart = {f: [] for f, _ in ANALYSIS_FIELDS}
+    for m in months:
+        d0 = f"{cur_year}-{m:02d}-01"
+        import calendar
+        _, ld = calendar.monthrange(cur_year, m)
+        d1 = f"{cur_year}-{m:02d}-{ld:02d}"
+        for code, _ in SAMPLE_TYPES_MAP:
+            v = conn.execute(
+                'SELECT COUNT(*) as c FROM geo_samples WHERE sample_type=? AND collected_date BETWEEN ? AND ?',
+                (code, d0, d1)).fetchone()['c']
+            sample_chart[code].append(v)
+        for field, _ in ANALYSIS_FIELDS:
+            v = conn.execute(
+                f'''SELECT COUNT(*) as c FROM analysis_results ar
+                    JOIN sample_receipt sr ON sr.id=ar.receipt_id
+                    JOIN geo_samples g ON g.id=sr.geo_sample_id
+                    WHERE ar.{field} IS NOT NULL AND g.collected_date BETWEEN ? AND ?''',
+                (d0, d1)).fetchone()['c']
+            analysis_chart[field].append(v)
+    conn.close()
+    return render_template('admin/lab_reports.html',
+        lang=session.get('lang','mn'), now=datetime.now(),
+        records=records,
+        sample_chart=sample_chart,
+        sample_types=[n for _, n in SAMPLE_TYPES_MAP],
+        analysis_chart=analysis_chart,
+        analysis_types=[n for _, n in ANALYSIS_FIELDS],
+        cur_year=cur_year)
+
+@app.route('/lab-reports/archive/<int:rid>', methods=['POST'])
+@senior_required
+def lab_report_archive(rid):
+    conn = get_db()
+    conn.execute(
+        "UPDATE lab_report_records SET status='archived', archived_by=?, archived_at=? WHERE id=?",
+        (session['user_id'], datetime.now().strftime('%Y-%m-%d %H:%M:%S'), rid))
+    conn.commit()
+    conn.close()
+    flash('Тайлан архивлагдлаа.', 'success')
+    return redirect(url_for('lab_reports'))
+
+@app.route('/lab-reports/download/<int:rid>')
+@senior_required
+def lab_report_download(rid):
+    conn = get_db()
+    rec = conn.execute('SELECT * FROM lab_report_records WHERE id=?', (rid,)).fetchone()
+    conn.close()
+    if not rec or not rec['file_path']:
+        flash('Файл олдсонгүй.', 'error')
+        return redirect(url_for('lab_reports'))
+    fpath = os.path.join(os.path.dirname(__file__), rec['file_path'])
+    if not os.path.exists(fpath):
+        flash('Файл олдсонгүй.', 'error')
+        return redirect(url_for('lab_reports'))
+    fname = f"Лаб_тайлан_{rec['period_label'].replace(' ','_')}.xlsx"
+    return send_file(fpath, as_attachment=True, download_name=fname,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 @app.route('/lab-reports/export')
 @senior_required
@@ -978,17 +1055,109 @@ def lab_report_export():
     ws3.column_dimensions['C'].width = 14
     ws3.column_dimensions['D'].width = 10
 
+    # ════════════════════════════════════════════════════
+    # CHART 1 — Дээжний төрөл (Sheet 1-д нэмнэ)
+    # ════════════════════════════════════════════════════
+    from openpyxl.chart import BarChart, Reference, Series
+    from openpyxl.chart.label import DataLabelList
+
+    chart_start_row = 3 + len(SAMPLE_TYPES) + 3
+
+    # Нийт баганын өгөгдлийг chart-д ашиглана
+    c1 = BarChart()
+    c1.type = 'col'
+    c1.grouping = 'clustered'
+    c1.title = f'Дээжний төрөл — {period_label}'
+    c1.y_axis.title = 'Тоо'
+    c1.x_axis.title = 'Долоо хоног'
+    c1.style = 10
+    c1.width = 22
+    c1.height = 12
+
+    # Мэдээлэл: мөр бүр нэг series (дээжний төрөл)
+    for si, (code, name) in enumerate(SAMPLE_TYPES):
+        row_idx = 3 + si
+        data_ref = Reference(ws1, min_col=3, max_col=2 + len(col_labels), min_row=row_idx, max_row=row_idx)
+        s = Series(data_ref, title=name)
+        c1.append(s)
+
+    cats = Reference(ws1, min_col=3, max_col=2 + len(col_labels), min_row=2)
+    c1.set_categories(cats)
+    ws1.add_chart(c1, f'A{chart_start_row}')
+
+    # ════════════════════════════════════════════════════
+    # CHART 2 — Шинжилгээний тоо (Sheet 2-д нэмнэ)
+    # ════════════════════════════════════════════════════
+    chart_start_row2 = ri_kg + 4
+
+    c2 = BarChart()
+    c2.type = 'col'
+    c2.grouping = 'clustered'
+    c2.title = f'Шинжилгээ тус бүрээр — {period_label}'
+    c2.y_axis.title = 'Тоо'
+    c2.x_axis.title = 'Долоо хоног'
+    c2.style = 10
+    c2.width = 22
+    c2.height = 12
+
+    for si, (field, name) in enumerate(ANALYSIS_TYPES):
+        row_idx = 3 + si
+        data_ref = Reference(ws2, min_col=3, max_col=2 + len(col_labels), min_row=row_idx, max_row=row_idx)
+        s = Series(data_ref, title=name)
+        c2.append(s)
+
+    cats2 = Reference(ws2, min_col=3, max_col=2 + len(col_labels), min_row=2)
+    c2.set_categories(cats2)
+    ws2.add_chart(c2, f'A{chart_start_row2}')
+
+    # ════════════════════════════════════════════════════
+    # CHART 3 — Дүгнэлт pie chart (Sheet 3-т)
+    # ════════════════════════════════════════════════════
+    from openpyxl.chart import PieChart
+    c3 = PieChart()
+    c3.title = 'Дээжний төрлийн хувь'
+    c3.style = 10
+    c3.width = 14
+    c3.height = 12
+    # Дээж тоо (3-р мөрөөс 8-р мөр хүртэл = 6 төрөл)
+    data3 = Reference(ws3, min_col=3, min_row=3, max_row=3 + len(SAMPLE_TYPES) - 1)
+    cats3 = Reference(ws3, min_col=1, min_row=3, max_row=3 + len(SAMPLE_TYPES) - 1)
+    c3.add_data(data3)
+    c3.set_categories(cats3)
+    ws3.add_chart(c3, f'F3')
+
     for ws in [ws1, ws2, ws3]:
         ws.page_setup.orientation = 'landscape'
         ws.page_setup.fitToPage = True
         ws.page_setup.fitToWidth = 1
 
-    conn.close()
+    # ── Файл хадгалах ──────────────────────────────────
+    reports_dir = os.path.join(os.path.dirname(__file__), 'static', 'lab_reports')
+    os.makedirs(reports_dir, exist_ok=True)
+    safe_label = period_label.replace(' ', '_').replace('/', '-')
+    fname_base = f"lab_{rtype}_{year}_{safe_label}_{datetime.now().strftime('%Y%m%d%H%M%S')}.xlsx"
+    fpath_abs = os.path.join(reports_dir, fname_base)
+    rel_path = os.path.join('static', 'lab_reports', fname_base)
+
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
-    fname = f'Лаб_тайлан_{period_label.replace(" ", "_")}.xlsx'
-    return send_file(buf, as_attachment=True, download_name=fname,
+    with open(fpath_abs, 'wb') as f:
+        f.write(buf.getvalue())
+
+    # ── DB бүртгэл ─────────────────────────────────────
+    period_value = weekno if rtype == 'week' else (month if rtype == 'month' else (half if rtype == 'half' else None))
+    conn.execute(
+        '''INSERT INTO lab_report_records
+           (period_type, year, period_value, period_label, file_path, generated_by)
+           VALUES (?, ?, ?, ?, ?, ?)''',
+        (rtype, year, period_value, period_label, rel_path, session['user_id']))
+    conn.commit()
+    conn.close()
+
+    buf.seek(0)
+    dl_name = f'Лаб_тайлан_{safe_label}.xlsx'
+    return send_file(buf, as_attachment=True, download_name=dl_name,
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 @app.route('/reports/export')
