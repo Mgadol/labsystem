@@ -164,6 +164,7 @@
           <td>
             {% if s['receipt_id'] %}
             <a href="{{ url_for('archive_result', receipt_id=s['receipt_id']) }}" class="btn btn-ghost btn-sm">{{ 'Харах' if lang=='mn' else 'View' }}</a>
+            <a href="{{ url_for('archive_measure', receipt_id=s['receipt_id']) }}" class="btn btn-ghost btn-sm">📋 Шинжилгээний хуудас</a>
             {% endif %}
           </td>
         </tr>
