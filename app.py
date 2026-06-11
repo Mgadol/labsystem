@@ -645,6 +645,352 @@ def mark_add():
 def reports():
     return render_template('admin/reports.html', lang=session.get('lang','mn'))
 
+@app.route('/lab-reports')
+@senior_required
+def lab_reports():
+    return render_template('admin/lab_reports.html', lang=session.get('lang','mn'), now=datetime.now())
+
+@app.route('/lab-reports/export')
+@senior_required
+def lab_report_export():
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    import math
+
+    rtype  = request.args.get('type', 'week')
+    year   = int(request.args.get('year',  datetime.now().year))
+    month  = int(request.args.get('month', datetime.now().month))
+    half   = int(request.args.get('half',  1))
+    weekno = int(request.args.get('week',  date.today().isocalendar()[1]))
+
+    # ── Период тооцоолол ──────────────────────────────────
+    from datetime import timedelta
+
+    def week_range(y, w):
+        # ISO week-ийн Даваа, Ням
+        d = date.fromisocalendar(y, w, 1)
+        return d, d + timedelta(days=6)
+
+    if rtype == 'week':
+        d_from, d_to = week_range(year, weekno)
+        period_label = f"{year} оны {weekno}-р долоо хоног"
+        # Өдөр бүрийн баганууд
+        col_labels = []
+        col_ranges = []
+        for i in range(7):
+            d = d_from + timedelta(days=i)
+            col_labels.append(d.strftime('%m/%d'))
+            col_ranges.append((str(d), str(d)))
+    elif rtype == 'month':
+        from calendar import monthrange
+        _, days = monthrange(year, month)
+        d_from = date(year, month, 1)
+        d_to   = date(year, month, days)
+        period_label = f"{year} оны {month}-р сар"
+        col_labels = []
+        col_ranges = []
+        cur = d_from
+        wnum = 1
+        while cur <= d_to:
+            w_end = min(cur + timedelta(days=6 - cur.weekday()), d_to)
+            col_labels.append(f"{wnum} долоо хоног")
+            col_ranges.append((str(cur), str(w_end)))
+            cur = w_end + timedelta(days=1)
+            wnum += 1
+    elif rtype == 'half':
+        months = list(range(1, 7)) if half == 1 else list(range(7, 13))
+        d_from = date(year, months[0], 1)
+        from calendar import monthrange
+        _, ld = monthrange(year, months[-1])
+        d_to  = date(year, months[-1], ld)
+        period_label = f"{year} оны {'эхний' if half==1 else 'хоёрдугаар'} хагас жил"
+        col_labels = []
+        col_ranges = []
+        cur = d_from
+        wnum = 1
+        while cur <= d_to:
+            w_end = min(cur + timedelta(days=6 - cur.weekday()), d_to)
+            col_labels.append(f"{wnum} д/х")
+            col_ranges.append((str(cur), str(w_end)))
+            cur = w_end + timedelta(days=1)
+            wnum += 1
+    else:  # year
+        d_from = date(year, 1, 1)
+        d_to   = date(year, 12, 31)
+        period_label = f"{year} он"
+        col_labels = [f"{m}-р сар" for m in range(1, 13)]
+        col_ranges = []
+        from calendar import monthrange
+        for m in range(1, 13):
+            _, ld = monthrange(year, m)
+            col_ranges.append((f"{year}-{m:02d}-01", f"{year}-{m:02d}-{ld:02d}"))
+
+    conn = get_db()
+
+    SAMPLE_TYPES = [
+        ('PIT',        'Уурхай'),
+        ('STOCKPILE',  'Овоолго'),
+        ('EXPORT',     'Ачилт'),
+        ('CONTROL',    'Хяналт'),
+        ('DP',         'Баяжуулах'),
+        ('EQ_CONTROL', 'Гадаад хяналт'),
+    ]
+
+    ANALYSIS_TYPES = [
+        ('Mt',        'Нийт чийг'),
+        ('Mad',       'Дотоод чийг'),
+        ('Aad',       'Үнслэг'),
+        ('Vad',       'Дэгдэмхий бодис'),
+        ('Stad',      'Нийт хүхэр'),
+        ('Qb_ad_kcal','Илчлэг'),
+        ('G_index',   'Барьцалдах чадвар'),
+        ('Y_index',   'Хөөлтийн зэрэг'),
+        ('FSI',       'Пластометр'),
+    ]
+
+    # ── Мэдээлэл татах ────────────────────────────────────
+    def count_samples_by_type(code, d0, d1):
+        row = conn.execute(
+            '''SELECT COUNT(*) as c FROM geo_samples
+               WHERE sample_type=? AND collected_date BETWEEN ? AND ?''',
+            (code, d0, d1)).fetchone()
+        return row['c'] if row else 0
+
+    def count_analysis_by_field(field, d0, d1):
+        row = conn.execute(
+            f'''SELECT COUNT(*) as c
+                FROM analysis_results ar
+                JOIN sample_receipt sr ON sr.id=ar.receipt_id
+                JOIN geo_samples g ON g.id=sr.geo_sample_id
+                WHERE ar.{field} IS NOT NULL
+                  AND g.collected_date BETWEEN ? AND ?''',
+            (d0, d1)).fetchone()
+        return row['c'] if row else 0
+
+    def prep_kg_total(d0, d1):
+        row = conn.execute(
+            '''SELECT COALESCE(SUM(sr.mass_kg),0) as t
+               FROM sample_receipt sr
+               JOIN geo_samples g ON g.id=sr.geo_sample_id
+               WHERE g.collected_date BETWEEN ? AND ?''',
+            (d0, d1)).fetchone()
+        return row['t'] if row else 0
+
+    # ── Excel style helpers ──────────────────────────────
+    NAVY='1A2744'; TEAL='0F6E56'; CORAL='993C1D'
+    WHITE='FFFFFF'; GRAY='F5F5F3'; LGRAY='E8EAF0'
+
+    def side(): return Side(style='thin', color='CCCCCC')
+    def border(): return Border(left=side(), right=side(), top=side(), bottom=side())
+
+    def head_cell(ws, r, c, v, bg=NAVY, size=10):
+        cell = ws.cell(row=r, column=c, value=v)
+        cell.font = Font(name='Arial', bold=True, color=WHITE, size=size)
+        cell.fill = PatternFill('solid', fgColor=bg)
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        cell.border = border()
+        return cell
+
+    def data_cell(ws, r, c, v, bold=False, bg=None, align='center', fmt=None):
+        cell = ws.cell(row=r, column=c, value=v)
+        cell.font = Font(name='Arial', size=10, bold=bold)
+        cell.alignment = Alignment(horizontal=align, vertical='center')
+        cell.border = border()
+        if bg: cell.fill = PatternFill('solid', fgColor=bg)
+        if fmt: cell.number_format = fmt
+        return cell
+
+    def title_row(ws, text, ncols):
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
+        c = ws.cell(row=1, column=1, value=text)
+        c.font = Font(name='Arial', bold=True, size=13, color=WHITE)
+        c.fill = PatternFill('solid', fgColor=NAVY)
+        c.alignment = Alignment(horizontal='center', vertical='center')
+        ws.row_dimensions[1].height = 30
+
+    def subtotal_row(ws, r, label, vals, ncols, bg='D6E4F0'):
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=2)
+        data_cell(ws, r, 1, label, bold=True, bg=bg, align='center')
+        total = 0
+        for ci, v in enumerate(vals, 3):
+            data_cell(ws, r, ci, v, bold=True, bg=bg)
+            total += v or 0
+        data_cell(ws, r, 3 + len(vals), total, bold=True, bg=bg)
+
+    wb = Workbook()
+
+    # ════════════════════════════════════════════════════
+    # SHEET 1 — ДЭЭЖНИЙ ТӨРӨЛ, ХЭМЖЭЭ
+    # ════════════════════════════════════════════════════
+    ws1 = wb.active
+    ws1.title = 'Дээжний төрөл, хэмжээ'
+    ws1.sheet_view.showGridLines = False
+    ncols1 = 2 + len(col_labels) + 1
+    title_row(ws1, f'ДЭЭЖНИЙ ТӨРӨЛ, ХЭМЖЭЭ — {period_label}', ncols1)
+
+    # Header row
+    ws1.row_dimensions[2].height = 36
+    head_cell(ws1, 2, 1, '№')
+    head_cell(ws1, 2, 2, 'Дээжний төрөл')
+    for ci, lbl in enumerate(col_labels, 3):
+        head_cell(ws1, 2, ci, lbl)
+    head_cell(ws1, 2, 3 + len(col_labels), 'Нийт', bg=TEAL)
+
+    # Data rows
+    col_totals1 = [0] * len(col_labels)
+    for ri, (code, name) in enumerate(SAMPLE_TYPES, 3):
+        bg = WHITE if ri % 2 == 0 else GRAY
+        data_cell(ws1, ri, 1, ri - 2, bg=bg)
+        data_cell(ws1, ri, 2, name, bg=bg, align='left')
+        row_total = 0
+        for ci, (d0, d1) in enumerate(col_ranges):
+            v = count_samples_by_type(code, d0, d1)
+            data_cell(ws1, ri, 3 + ci, v if v else None, bg=bg)
+            col_totals1[ci] += v
+            row_total += v
+        data_cell(ws1, ri, 3 + len(col_labels), row_total, bold=True, bg=LGRAY)
+
+    # Нийт мөр
+    subtotal_row(ws1, 3 + len(SAMPLE_TYPES), 'Нийт', col_totals1, ncols1)
+
+    # Column widths
+    ws1.column_dimensions['A'].width = 5
+    ws1.column_dimensions['B'].width = 22
+    for ci in range(len(col_labels)):
+        ws1.column_dimensions[get_column_letter(3 + ci)].width = max(10, len(col_labels[ci]) + 2)
+    ws1.column_dimensions[get_column_letter(3 + len(col_labels))].width = 10
+
+    # ════════════════════════════════════════════════════
+    # SHEET 2 — ШИНЖИЛГЭЭ ТУС БҮРЭЭР
+    # ════════════════════════════════════════════════════
+    ws2 = wb.create_sheet('Шинжилгээ тус бүрээр')
+    ws2.sheet_view.showGridLines = False
+    ncols2 = 2 + len(col_labels) + 1
+    title_row(ws2, f'ШИНЖИЛГЭЭ ТУС БҮРЭЭР — {period_label}', ncols2)
+
+    ws2.row_dimensions[2].height = 36
+    head_cell(ws2, 2, 1, '№')
+    head_cell(ws2, 2, 2, 'Үзүүлэлт', bg=TEAL)
+    for ci, lbl in enumerate(col_labels, 3):
+        head_cell(ws2, 2, ci, lbl, bg=TEAL)
+    head_cell(ws2, 2, 3 + len(col_labels), 'Нийт', bg=CORAL)
+
+    col_totals2 = [0] * len(col_labels)
+    for ri, (field, name) in enumerate(ANALYSIS_TYPES, 3):
+        bg = WHITE if ri % 2 == 0 else GRAY
+        data_cell(ws2, ri, 1, ri - 2, bg=bg)
+        data_cell(ws2, ri, 2, name, bg=bg, align='left')
+        row_total = 0
+        for ci, (d0, d1) in enumerate(col_ranges):
+            v = count_analysis_by_field(field, d0, d1)
+            data_cell(ws2, ri, 3 + ci, v if v else None, bg=bg)
+            col_totals2[ci] += v
+            row_total += v
+        data_cell(ws2, ri, 3 + len(col_labels), row_total, bold=True, bg=LGRAY)
+
+    # Дээж бэлтгэл кг мөр
+    ri_kg = 3 + len(ANALYSIS_TYPES)
+    bg = WHITE if ri_kg % 2 == 0 else GRAY
+    data_cell(ws2, ri_kg, 1, len(ANALYSIS_TYPES) + 1, bg=bg)
+    data_cell(ws2, ri_kg, 2, 'Дээж бэлтгэл, кг', bg=bg, align='left')
+    kg_total = 0
+    for ci, (d0, d1) in enumerate(col_ranges):
+        v = prep_kg_total(d0, d1)
+        data_cell(ws2, ri_kg, 3 + ci, round(v, 1) if v else None, bg=bg, fmt='#,##0.0')
+        kg_total += v
+    data_cell(ws2, ri_kg, 3 + len(col_labels), round(kg_total, 1), bold=True, bg=LGRAY, fmt='#,##0.0')
+
+    # Нийт мөр (шинжилгээ)
+    subtotal_row(ws2, ri_kg + 1, 'Нийт шинжилгээ', col_totals2, ncols2, bg='D6F0E8')
+
+    ws2.column_dimensions['A'].width = 5
+    ws2.column_dimensions['B'].width = 24
+    for ci in range(len(col_labels)):
+        ws2.column_dimensions[get_column_letter(3 + ci)].width = max(10, len(col_labels[ci]) + 2)
+    ws2.column_dimensions[get_column_letter(3 + len(col_labels))].width = 10
+
+    # ════════════════════════════════════════════════════
+    # SHEET 3 — НИЙТ ДҮГНЭЛТ
+    # ════════════════════════════════════════════════════
+    ws3 = wb.create_sheet('Нийт дүгнэлт')
+    ws3.sheet_view.showGridLines = False
+    title_row(ws3, f'НИЙТ ДҮГНЭЛТ — {period_label}', 4)
+
+    ws3.row_dimensions[2].height = 30
+    for ci, h in enumerate(['Үзүүлэлт', 'Тоо', 'Нийт дүн', '%'], 1):
+        head_cell(ws3, 2, ci, h)
+
+    # Дээж нийт
+    total_samples = sum(
+        count_samples_by_type(code, str(d_from), str(d_to))
+        for code, _ in SAMPLE_TYPES
+    )
+    r = 3
+    for code, name in SAMPLE_TYPES:
+        bg = WHITE if r % 2 == 0 else GRAY
+        cnt = count_samples_by_type(code, str(d_from), str(d_to))
+        pct = round(cnt / total_samples * 100, 1) if total_samples else 0
+        data_cell(ws3, r, 1, name, bg=bg, align='left')
+        data_cell(ws3, r, 2, 'Дээж', bg=bg)
+        data_cell(ws3, r, 3, cnt, bg=bg)
+        data_cell(ws3, r, 4, f'{pct}%', bg=bg)
+        r += 1
+
+    # Хоосон мөр
+    r += 1
+
+    total_analyses = {}
+    for field, name in ANALYSIS_TYPES:
+        cnt = count_analysis_by_field(field, str(d_from), str(d_to))
+        total_analyses[field] = cnt
+
+    grand_total = sum(total_analyses.values())
+    for field, name in ANALYSIS_TYPES:
+        bg = WHITE if r % 2 == 0 else GRAY
+        cnt = total_analyses[field]
+        pct = round(cnt / grand_total * 100, 1) if grand_total else 0
+        data_cell(ws3, r, 1, name, bg=bg, align='left')
+        data_cell(ws3, r, 2, 'Шинжилгээ', bg=bg)
+        data_cell(ws3, r, 3, cnt, bg=bg)
+        data_cell(ws3, r, 4, f'{pct}%', bg=bg)
+        r += 1
+
+    # Нийт дүгнэлт
+    data_cell(ws3, r, 1, 'Нийт дээж', bold=True, bg=LGRAY, align='left')
+    data_cell(ws3, r, 2, '', bg=LGRAY)
+    data_cell(ws3, r, 3, total_samples, bold=True, bg=LGRAY)
+    data_cell(ws3, r, 4, '100%', bold=True, bg=LGRAY)
+    r += 1
+    data_cell(ws3, r, 1, 'Нийт шинжилгээ', bold=True, bg='D6F0E8', align='left')
+    data_cell(ws3, r, 2, '', bg='D6F0E8')
+    data_cell(ws3, r, 3, grand_total, bold=True, bg='D6F0E8')
+    data_cell(ws3, r, 4, '', bg='D6F0E8')
+    r += 1
+    kg_all = prep_kg_total(str(d_from), str(d_to))
+    data_cell(ws3, r, 1, 'Дээж бэлтгэл, кг', bold=True, bg='FFF3CD', align='left')
+    data_cell(ws3, r, 2, '', bg='FFF3CD')
+    data_cell(ws3, r, 3, round(kg_all, 1), bold=True, bg='FFF3CD', fmt='#,##0.0')
+    data_cell(ws3, r, 4, '', bg='FFF3CD')
+
+    ws3.column_dimensions['A'].width = 28
+    ws3.column_dimensions['B'].width = 16
+    ws3.column_dimensions['C'].width = 14
+    ws3.column_dimensions['D'].width = 10
+
+    for ws in [ws1, ws2, ws3]:
+        ws.page_setup.orientation = 'landscape'
+        ws.page_setup.fitToPage = True
+        ws.page_setup.fitToWidth = 1
+
+    conn.close()
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    fname = f'Лаб_тайлан_{period_label.replace(" ", "_")}.xlsx'
+    return send_file(buf, as_attachment=True, download_name=fname,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
 @app.route('/reports/export')
 @senior_required
 def report_export():
@@ -793,7 +1139,7 @@ def report_export():
 
     conn.close()
     buf=io.BytesIO(); wb.save(buf); buf.seek(0)
-    fname=f'Лаборатори_{period_label.replace(' ','_')}.xlsx'
+    fname=f"Лаборатори_{period_label.replace(' ','_')}.xlsx"
     return send_file(buf,as_attachment=True,download_name=fname,
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
