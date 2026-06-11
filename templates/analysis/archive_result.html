@@ -42,6 +42,7 @@
       <button type="submit" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">↩️ Шинжилгээнд буцаах</button>
     </form>
     {% endif %}
+    <a href="{{ url_for('archive_measure', receipt_id=receipt['id']) }}" class="btn btn-sm" style="background:#eeedfe;color:#3c3489;border:1px solid #c7d2fe">📋 Хэмжилт харах</a>
     <a href="{{ url_for('analysis_export', receipt_id=receipt['id']) }}" class="btn btn-sm" style="background:#eeedfe;color:#3c3489;border:1px solid #c7d2fe">📥 Excel татах</a>
     <a href="{{ url_for('archive') }}" class="btn btn-ghost btn-sm">← Архив</a>
   </div>
