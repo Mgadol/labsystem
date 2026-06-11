@@ -718,6 +718,183 @@ def mark_add():
     conn.commit(); conn.close()
     return jsonify({'success': True, 'id': mid, 'name': name})
 
+# ── MONTHLY REPORT & CHARTS ──────────────────────────────
+@app.route('/monthly-report')
+@senior_required
+def monthly_report():
+    lang = session.get('lang','mn')
+    now = datetime.now()
+    year  = int(request.args.get('year',  now.year))
+    month = int(request.args.get('month', now.month))
+    conn = get_db()
+
+    # Нийт шинжилгээний тоо (тухайн сард)
+    date_from = f"{year}-{month:02d}-01"
+    if month == 12:
+        date_to = f"{year+1}-01-01"
+    else:
+        date_to = f"{year}-{month+1:02d}-01"
+
+    total = conn.execute("""
+        SELECT COUNT(DISTINCT sr.id) as c
+        FROM sample_receipt sr
+        JOIN geo_samples g ON g.id=sr.geo_sample_id
+        WHERE sr.received_date >= ? AND sr.received_date < ?
+    """, (date_from, date_to)).fetchone()['c']
+
+    # Ангиллаар
+    by_type = conn.execute("""
+        SELECT g.sample_type, COUNT(DISTINCT sr.id) as cnt
+        FROM sample_receipt sr
+        JOIN geo_samples g ON g.id=sr.geo_sample_id
+        WHERE sr.received_date >= ? AND sr.received_date < ?
+        GROUP BY g.sample_type ORDER BY cnt DESC
+    """, (date_from, date_to)).fetchall()
+
+    # Баталгаажсан / баталгаажаагүй
+    approved = conn.execute("""
+        SELECT COUNT(DISTINCT se.receipt_id) as c
+        FROM sample_entries se
+        JOIN sample_receipt sr ON sr.id=se.receipt_id
+        WHERE sr.received_date >= ? AND sr.received_date < ?
+          AND se.is_duplicate=0 AND se.row_status='approved'
+    """, (date_from, date_to)).fetchone()['c']
+
+    # QC: зэрэгцээ шинжилгээний зөрүүний дүн
+    qc_settings = {r['parameter']: r['tolerance'] for r in conn.execute("SELECT parameter, tolerance FROM qc_settings").fetchall()}
+    mad_tol = qc_settings.get('Mad', 0.20)
+    aad_tol = qc_settings.get('Aad', 0.30)
+    vad_tol = qc_settings.get('Vad', 0.30)
+
+    pairs = conn.execute("""
+        SELECT p.receipt_id, p.mad as p_mad, p.aad as p_aad, p.vad as p_vad,
+               d.mad as d_mad, d.aad as d_aad, d.vad as d_vad
+        FROM sample_entries p
+        JOIN sample_entries d ON d.receipt_id=p.receipt_id AND d.row_num=p.row_num AND d.is_duplicate=1
+        JOIN sample_receipt sr ON sr.id=p.receipt_id
+        WHERE p.is_duplicate=0 AND p.row_status IN ('done','approved')
+          AND sr.received_date >= ? AND sr.received_date < ?
+          AND p.mad IS NOT NULL AND d.mad IS NOT NULL
+    """, (date_from, date_to)).fetchall()
+
+    qc_passed = qc_failed = 0
+    for r in pairs:
+        ok = (abs((r['p_mad'] or 0)-(r['d_mad'] or 0)) <= mad_tol and
+              abs((r['p_aad'] or 0)-(r['d_aad'] or 0)) <= aad_tol and
+              abs((r['p_vad'] or 0)-(r['d_vad'] or 0)) <= vad_tol)
+        if ok: qc_passed += 1
+        else:  qc_failed += 1
+
+    # Операторуудын гүйцэтгэсэн шинжилгээний тоо
+    operators = conn.execute("""
+        SELECT u.name, COUNT(DISTINCT se.receipt_id) as cnt
+        FROM sample_entries se
+        JOIN users u ON u.id=se.done_by
+        JOIN sample_receipt sr ON sr.id=se.receipt_id
+        WHERE sr.received_date >= ? AND sr.received_date < ?
+          AND se.is_duplicate=0 AND se.row_status IN ('done','approved')
+        GROUP BY u.id ORDER BY cnt DESC
+    """, (date_from, date_to)).fetchall()
+
+    # Өдөр тус бүрийн динамик (line chart-д)
+    daily = conn.execute("""
+        SELECT sr.received_date as d, COUNT(DISTINCT sr.id) as cnt
+        FROM sample_receipt sr
+        WHERE sr.received_date >= ? AND sr.received_date < ?
+        GROUP BY sr.received_date ORDER BY sr.received_date
+    """, (date_from, date_to)).fetchall()
+
+    conn.close()
+    months_mn = ['','1-р сар','2-р сар','3-р сар','4-р сар','5-р сар','6-р сар',
+                 '7-р сар','8-р сар','9-р сар','10-р сар','11-р сар','12-р сар']
+    return render_template('admin/monthly_report.html',
+        year=year, month=month, months_mn=months_mn,
+        total=total, by_type=by_type, approved=approved,
+        qc_passed=qc_passed, qc_failed=qc_failed,
+        operators=operators, daily=daily, lang=lang,
+        years=list(range(now.year-3, now.year+1)))
+
+@app.route('/api/monthly-report')
+@senior_required
+def api_monthly_report():
+    now = datetime.now()
+    year  = int(request.args.get('year',  now.year))
+    month = int(request.args.get('month', now.month))
+    date_from = f"{year}-{month:02d}-01"
+    date_to = f"{year+1}-01-01" if month==12 else f"{year}-{month+1:02d}-01"
+    conn = get_db()
+    by_type = conn.execute("""
+        SELECT g.sample_type, COUNT(DISTINCT sr.id) as cnt
+        FROM sample_receipt sr JOIN geo_samples g ON g.id=sr.geo_sample_id
+        WHERE sr.received_date >= ? AND sr.received_date < ?
+        GROUP BY g.sample_type
+    """, (date_from, date_to)).fetchall()
+    conn.close()
+    return jsonify({'by_type': [dict(r) for r in by_type]})
+
+@app.route('/api/chart-data')
+@senior_required
+def api_chart_data():
+    rng = request.args.get('range','6m')
+    now = datetime.now()
+    if rng == '3m':
+        months = 3
+    elif rng == '1y':
+        months = 12
+    else:
+        months = 6
+
+    conn = get_db()
+    rows = []
+    qc_settings = {r['parameter']: r['tolerance'] for r in conn.execute("SELECT parameter, tolerance FROM qc_settings").fetchall()}
+    mad_tol = qc_settings.get('Mad', 0.20)
+    aad_tol = qc_settings.get('Aad', 0.30)
+    vad_tol = qc_settings.get('Vad', 0.30)
+
+    for i in range(months-1, -1, -1):
+        m = now.month - i
+        y = now.year
+        while m <= 0:
+            m += 12; y -= 1
+        df = f"{y}-{m:02d}-01"
+        dt = f"{y+1}-01-01" if m==12 else f"{y}-{m+1:02d}-01"
+        label = f"{y}/{m:02d}"
+
+        cnt = conn.execute("""
+            SELECT COUNT(DISTINCT sr.id) as c FROM sample_receipt sr
+            WHERE sr.received_date >= ? AND sr.received_date < ?
+        """, (df, dt)).fetchone()['c']
+
+        pairs = conn.execute("""
+            SELECT p.mad as p_mad, p.aad as p_aad, p.vad as p_vad,
+                   d.mad as d_mad, d.aad as d_aad, d.vad as d_vad
+            FROM sample_entries p
+            JOIN sample_entries d ON d.receipt_id=p.receipt_id AND d.row_num=p.row_num AND d.is_duplicate=1
+            JOIN sample_receipt sr ON sr.id=p.receipt_id
+            WHERE p.is_duplicate=0 AND p.row_status IN ('done','approved')
+              AND sr.received_date >= ? AND sr.received_date < ?
+              AND p.mad IS NOT NULL AND d.mad IS NOT NULL
+        """, (df, dt)).fetchall()
+
+        passed = failed = 0
+        for r in pairs:
+            ok = (abs((r['p_mad'] or 0)-(r['d_mad'] or 0)) <= mad_tol and
+                  abs((r['p_aad'] or 0)-(r['d_aad'] or 0)) <= aad_tol and
+                  abs((r['p_vad'] or 0)-(r['d_vad'] or 0)) <= vad_tol)
+            if ok: passed += 1
+            else:  failed += 1
+
+        rows.append({'label': label, 'total': cnt, 'passed': passed, 'failed': failed})
+
+    conn.close()
+    return jsonify(rows)
+
+@app.route('/charts')
+@senior_required
+def charts():
+    lang = session.get('lang','mn')
+    return render_template('admin/charts.html', lang=lang)
+
 # ── REPORTS ─────────────────────────────────────────────
 @app.route('/reports')
 @senior_required
