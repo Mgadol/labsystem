@@ -1081,7 +1081,7 @@ def lab_report_export():
     # ════════════════════════════════════════════════════
     # SHEET 2 — ШИНЖИЛГЭЭ ТУС БҮРЭЭР
     # ════════════════════════════════════════════════════
-    ws2 = wb.create_sheet('Шинжилгээ тус бүрээр')
+    ws2 = wb.create_sheet('Шинжилгээний өдрүүд')
     ws2.sheet_view.showGridLines = False
     ncols2 = 2 + len(col_labels) + 1
     title_row(ws2, f'ШИНЖИЛГЭЭ ТУС БҮРЭЭР — {period_label}', ncols2)
