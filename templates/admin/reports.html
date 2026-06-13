@@ -155,7 +155,7 @@
           <div id="cpane-analysis" style="position:relative;height:240px;display:none">
             <canvas id="chartAnalysis"></canvas>
           </div>
-          <p style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:right">{{ cur_year }} оны сараар</p>
+          <p id="chart-period-label" style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:right">{{ cur_year }} оны сараар</p>
         </div>
 
         <div class="card">
@@ -246,6 +246,23 @@ function exportDevice() {
 
 // ── Лаборатори тайлан ────────────────────────────────
 var labType = 'week';
+function updateChartLabel() {
+  var y = document.getElementById('l-year').value;
+  var lbl = '';
+  if (labType === 'week') {
+    var w = document.getElementById('l-week').value;
+    lbl = y + ' оны ' + w + '-р долоо хоног';
+  } else if (labType === 'month') {
+    var m = document.getElementById('l-month').value;
+    lbl = y + ' оны ' + m + '-р сар';
+  } else if (labType === 'half') {
+    var h = document.getElementById('l-half').value;
+    lbl = y + ' оны ' + (h==='1' ? 'эхний' : 'хоёрдугаар') + ' хагас жил';
+  } else {
+    lbl = y + ' он';
+  }
+  document.getElementById('chart-period-label').textContent = lbl;
+}
 function setLabType(t) {
   labType = t;
   ['week','month','half','year'].forEach(function(x) {
@@ -256,6 +273,7 @@ function setLabType(t) {
   document.getElementById('lrow-week').style.display  = (t==='week')  ? 'block' : 'none';
   document.getElementById('lrow-month').style.display = (t==='month') ? 'block' : 'none';
   document.getElementById('lrow-half').style.display  = (t==='half')  ? 'block' : 'none';
+  updateChartLabel();
 }
 function exportLab() {
   var y = document.getElementById('l-year').value;
@@ -333,6 +351,7 @@ new Chart(document.getElementById('chartAnalysis'), {
         borderWidth: 2.5,
         pointRadius: 0,
         tension: 0,
+        spanGaps: true,
         order: 0
       }
     ]
@@ -342,5 +361,11 @@ new Chart(document.getElementById('chartAnalysis'), {
               tooltip:{ mode:'index', intersect:false }},
     scales:{ x:{ grid:{display:false}, ticks:{font:{size:10}} }, y:{ beginAtZero:true }}}
 });
+
+['l-year','l-week','l-month','l-half'].forEach(function(id) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('change', updateChartLabel);
+});
+updateChartLabel();
 </script>
 {% endblock %}
