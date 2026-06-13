@@ -1043,228 +1043,61 @@ def lab_report_export():
     ws1 = wb.active
     ws1.title = 'Дээжний төрөл, хэмжээ'
     ws1.sheet_view.showGridLines = False
-    ncols1 = 2 + len(col_labels) + 1
-    title_row(ws1, f'ДЭЭЖНИЙ ТӨРӨЛ, ХЭМЖЭЭ — {period_label}', ncols1)
+    title_row(ws1, f'ДЭЭЖНИЙ ТӨРӨЛ, ХЭМЖАА — {period_label}', 4)
 
-    # Header row
-    ws1.row_dimensions[2].height = 36
+    # Header: №, Төрөл, Тоо Ширхэг, %
+    ws1.row_dimensions[2].height = 14
+    ws1.row_dimensions[3].height = 28
+    ws1.merge_cells('C2:D2')
     head_cell(ws1, 2, 1, '№')
-    head_cell(ws1, 2, 2, 'Дээжний төрөл')
-    for ci, lbl in enumerate(col_labels, 3):
-        head_cell(ws1, 2, ci, lbl)
-    head_cell(ws1, 2, 3 + len(col_labels), 'Нийт', bg=TEAL)
+    head_cell(ws1, 2, 2, 'Төрөл')
+    head_cell(ws1, 2, 3, period_label, bg=TEAL)
+    head_cell(ws1, 3, 1, '№')
+    head_cell(ws1, 3, 2, 'Төрөл')
+    head_cell(ws1, 3, 3, 'Тоо Ширхэг')
+    head_cell(ws1, 3, 4, '%')
 
     # Data rows
-    col_totals1 = [0] * len(col_labels)
-    for ri, (code, name) in enumerate(SAMPLE_TYPES, 3):
+    total_s1 = sum(count_samples_by_type(code, str(d_from), str(d_to)) for code, _ in SAMPLE_TYPES)
+    for ri, (code, name) in enumerate(SAMPLE_TYPES):
+        r = 4 + ri
         bg = WHITE if ri % 2 == 0 else GRAY
-        data_cell(ws1, ri, 1, ri - 2, bg=bg)
-        data_cell(ws1, ri, 2, name, bg=bg, align='left')
-        row_total = 0
-        for ci, (d0, d1) in enumerate(col_ranges):
-            v = count_samples_by_type(code, d0, d1)
-            data_cell(ws1, ri, 3 + ci, v if v else None, bg=bg)
-            col_totals1[ci] += v
-            row_total += v
-        data_cell(ws1, ri, 3 + len(col_labels), row_total, bold=True, bg=LGRAY)
+        cnt = count_samples_by_type(code, str(d_from), str(d_to))
+        pct = round(cnt / total_s1 * 100, 1) if total_s1 else 0
+        data_cell(ws1, r, 1, ri + 1, bg=bg)
+        data_cell(ws1, r, 2, name, bg=bg, align='left')
+        data_cell(ws1, r, 3, cnt if cnt else None, bg=bg)
+        data_cell(ws1, r, 4, f'{pct}%', bg=bg)
 
     # Нийт мөр
-    subtotal_row(ws1, 3 + len(SAMPLE_TYPES), 'Нийт', col_totals1, ncols1)
+    nrow1 = 4 + len(SAMPLE_TYPES)
+    data_cell(ws1, nrow1, 1, '', bg=LGRAY)
+    data_cell(ws1, nrow1, 2, 'Нийт', bg=LGRAY, bold=True, align='left')
+    data_cell(ws1, nrow1, 3, total_s1, bg=LGRAY, bold=True)
+    data_cell(ws1, nrow1, 4, '100.0%', bg=LGRAY, bold=True)
 
-    # Column widths
     ws1.column_dimensions['A'].width = 5
-    ws1.column_dimensions['B'].width = 22
-    for ci in range(len(col_labels)):
-        ws1.column_dimensions[get_column_letter(3 + ci)].width = max(10, len(col_labels[ci]) + 2)
-    ws1.column_dimensions[get_column_letter(3 + len(col_labels))].width = 10
+    ws1.column_dimensions['B'].width = 20
+    ws1.column_dimensions['C'].width = 16
+    ws1.column_dimensions['D'].width = 10
 
-    # ════════════════════════════════════════════════════
-    # SHEET 2 — ШИНЖИЛГЭЭ ТУС БҮРЭЭР
-    # ════════════════════════════════════════════════════
-    ws2 = wb.create_sheet('Шинжилгээний өдрүүд')
-    ws2.sheet_view.showGridLines = False
-    ncols2 = 2 + len(col_labels) + 1
-    title_row(ws2, f'ШИНЖИЛГЭЭ ТУС БҮРЭЭР — {period_label}', ncols2)
+    # Pie chart
+    from openpyxl.chart import PieChart as PC1, Reference as R1
+    pc1 = PC1()
+    pc1.style = 10
+    pc1.width = 16
+    pc1.height = 12
+    data1 = R1(ws1, min_col=3, min_row=4, max_row=3 + len(SAMPLE_TYPES))
+    cats1 = R1(ws1, min_col=2, min_row=4, max_row=3 + len(SAMPLE_TYPES))
+    pc1.add_data(data1)
+    pc1.set_categories(cats1)
+    pc1.dataLabels = openpyxl.chart.label.DataLabelList()
+    pc1.dataLabels.showPercent = True
+    pc1.dataLabels.showLegendKey = False
+    pc1.dataLabels.showVal = False
+    pc1.dataLabels.showCatName = False
+    ws1.add_chart(pc1, f'A{nrow1 + 2}')
 
-    ws2.row_dimensions[2].height = 36
-    head_cell(ws2, 2, 1, '№')
-    head_cell(ws2, 2, 2, 'Үзүүлэлт', bg=TEAL)
-    for ci, lbl in enumerate(col_labels, 3):
-        head_cell(ws2, 2, ci, lbl, bg=TEAL)
-    head_cell(ws2, 2, 3 + len(col_labels), 'Нийт', bg=CORAL)
-
-    col_totals2 = [0] * len(col_labels)
-    for ri, (field, name) in enumerate(ANALYSIS_TYPES, 3):
-        bg = WHITE if ri % 2 == 0 else GRAY
-        data_cell(ws2, ri, 1, ri - 2, bg=bg)
-        data_cell(ws2, ri, 2, name, bg=bg, align='left')
-        row_total = 0
-        for ci, (d0, d1) in enumerate(col_ranges):
-            v = count_analysis_by_field(field, d0, d1)
-            data_cell(ws2, ri, 3 + ci, v if v else None, bg=bg)
-            col_totals2[ci] += v
-            row_total += v
-        data_cell(ws2, ri, 3 + len(col_labels), row_total, bold=True, bg=LGRAY)
-
-    # Дээж бэлтгэл кг мөр
-    ri_kg = 3 + len(ANALYSIS_TYPES)
-    bg = WHITE if ri_kg % 2 == 0 else GRAY
-    data_cell(ws2, ri_kg, 1, len(ANALYSIS_TYPES) + 1, bg=bg)
-    data_cell(ws2, ri_kg, 2, 'Дээж бэлтгэл, кг', bg=bg, align='left')
-    kg_total = 0
-    for ci, (d0, d1) in enumerate(col_ranges):
-        v = prep_kg_total(d0, d1)
-        data_cell(ws2, ri_kg, 3 + ci, round(v, 1) if v else None, bg=bg, fmt='#,##0.0')
-        kg_total += v
-    data_cell(ws2, ri_kg, 3 + len(col_labels), round(kg_total, 1), bold=True, bg=LGRAY, fmt='#,##0.0')
-
-    # Нийт мөр (шинжилгээ)
-    subtotal_row(ws2, ri_kg + 1, 'Нийт шинжилгээ', col_totals2, ncols2, bg='D6F0E8')
-
-    ws2.column_dimensions['A'].width = 5
-    ws2.column_dimensions['B'].width = 24
-    for ci in range(len(col_labels)):
-        ws2.column_dimensions[get_column_letter(3 + ci)].width = max(10, len(col_labels[ci]) + 2)
-    ws2.column_dimensions[get_column_letter(3 + len(col_labels))].width = 10
-
-    # ════════════════════════════════════════════════════
-    # SHEET 3 — НИЙТ ДҮГНЭЛТ
-    # ════════════════════════════════════════════════════
-    ws3 = wb.create_sheet('Нийт дүгнэлт')
-    ws3.sheet_view.showGridLines = False
-    title_row(ws3, f'НИЙТ ДҮГНЭЛТ — {period_label}', 4)
-
-    ws3.row_dimensions[2].height = 30
-    for ci, h in enumerate(['Үзүүлэлт', 'Тоо', 'Нийт дүн', '%'], 1):
-        head_cell(ws3, 2, ci, h)
-
-    # Дээж нийт
-    total_samples = sum(
-        count_samples_by_type(code, str(d_from), str(d_to))
-        for code, _ in SAMPLE_TYPES
-    )
-    r = 3
-    for code, name in SAMPLE_TYPES:
-        bg = WHITE if r % 2 == 0 else GRAY
-        cnt = count_samples_by_type(code, str(d_from), str(d_to))
-        pct = round(cnt / total_samples * 100, 1) if total_samples else 0
-        data_cell(ws3, r, 1, name, bg=bg, align='left')
-        data_cell(ws3, r, 2, 'Дээж', bg=bg)
-        data_cell(ws3, r, 3, cnt, bg=bg)
-        data_cell(ws3, r, 4, f'{pct}%', bg=bg)
-        r += 1
-
-    # Хоосон мөр
-    r += 1
-
-    total_analyses = {}
-    for field, name in ANALYSIS_TYPES:
-        cnt = count_analysis_by_field(field, str(d_from), str(d_to))
-        total_analyses[field] = cnt
-
-    grand_total = sum(total_analyses.values())
-    for field, name in ANALYSIS_TYPES:
-        bg = WHITE if r % 2 == 0 else GRAY
-        cnt = total_analyses[field]
-        pct = round(cnt / grand_total * 100, 1) if grand_total else 0
-        data_cell(ws3, r, 1, name, bg=bg, align='left')
-        data_cell(ws3, r, 2, 'Шинжилгээ', bg=bg)
-        data_cell(ws3, r, 3, cnt, bg=bg)
-        data_cell(ws3, r, 4, f'{pct}%', bg=bg)
-        r += 1
-
-    # Нийт дүгнэлт
-    data_cell(ws3, r, 1, 'Нийт дээж', bold=True, bg=LGRAY, align='left')
-    data_cell(ws3, r, 2, '', bg=LGRAY)
-    data_cell(ws3, r, 3, total_samples, bold=True, bg=LGRAY)
-    data_cell(ws3, r, 4, '100%', bold=True, bg=LGRAY)
-    r += 1
-    data_cell(ws3, r, 1, 'Нийт шинжилгээ', bold=True, bg='D6F0E8', align='left')
-    data_cell(ws3, r, 2, '', bg='D6F0E8')
-    data_cell(ws3, r, 3, grand_total, bold=True, bg='D6F0E8')
-    data_cell(ws3, r, 4, '', bg='D6F0E8')
-    r += 1
-    kg_all = prep_kg_total(str(d_from), str(d_to))
-    data_cell(ws3, r, 1, 'Дээж бэлтгэл, кг', bold=True, bg='FFF3CD', align='left')
-    data_cell(ws3, r, 2, '', bg='FFF3CD')
-    data_cell(ws3, r, 3, round(kg_all, 1), bold=True, bg='FFF3CD', fmt='#,##0.0')
-    data_cell(ws3, r, 4, '', bg='FFF3CD')
-
-    ws3.column_dimensions['A'].width = 28
-    ws3.column_dimensions['B'].width = 16
-    ws3.column_dimensions['C'].width = 14
-    ws3.column_dimensions['D'].width = 10
-
-    # ════════════════════════════════════════════════════
-    # CHART 1 — Дээжний төрөл (Sheet 1-д нэмнэ)
-    # ════════════════════════════════════════════════════
-    from openpyxl.chart import BarChart, Reference, Series
-    from openpyxl.chart.label import DataLabelList
-
-    chart_start_row = 3 + len(SAMPLE_TYPES) + 3
-
-    # Нийт баганын өгөгдлийг chart-д ашиглана
-    c1 = BarChart()
-    c1.type = 'col'
-    c1.grouping = 'clustered'
-    c1.title = f'Дээжний төрөл — {period_label}'
-    c1.y_axis.title = 'Тоо'
-    c1.x_axis.title = 'Долоо хоног'
-    c1.style = 10
-    c1.width = 22
-    c1.height = 12
-
-    # Мэдээлэл: мөр бүр нэг series (дээжний төрөл)
-    for si, (code, name) in enumerate(SAMPLE_TYPES):
-        row_idx = 3 + si
-        data_ref = Reference(ws1, min_col=3, max_col=2 + len(col_labels), min_row=row_idx, max_row=row_idx)
-        s = Series(data_ref, title=name)
-        c1.append(s)
-
-    cats = Reference(ws1, min_col=3, max_col=2 + len(col_labels), min_row=2)
-    c1.set_categories(cats)
-    ws1.add_chart(c1, f'A{chart_start_row}')
-
-    # ════════════════════════════════════════════════════
-    # CHART 2 — Шинжилгээний тоо (Sheet 2-д нэмнэ)
-    # ════════════════════════════════════════════════════
-    chart_start_row2 = ri_kg + 4
-
-    c2 = BarChart()
-    c2.type = 'col'
-    c2.grouping = 'clustered'
-    c2.title = f'Шинжилгээ тус бүрээр — {period_label}'
-    c2.y_axis.title = 'Тоо'
-    c2.x_axis.title = 'Долоо хоног'
-    c2.style = 10
-    c2.width = 22
-    c2.height = 12
-
-    for si, (field, name) in enumerate(ANALYSIS_TYPES):
-        row_idx = 3 + si
-        data_ref = Reference(ws2, min_col=3, max_col=2 + len(col_labels), min_row=row_idx, max_row=row_idx)
-        s = Series(data_ref, title=name)
-        c2.append(s)
-
-    cats2 = Reference(ws2, min_col=3, max_col=2 + len(col_labels), min_row=2)
-    c2.set_categories(cats2)
-    ws2.add_chart(c2, f'A{chart_start_row2}')
-
-    # ════════════════════════════════════════════════════
-    # CHART 3 — Дүгнэлт pie chart (Sheet 3-т)
-    # ════════════════════════════════════════════════════
-    from openpyxl.chart import PieChart
-    c3 = PieChart()
-    c3.title = 'Дээжний төрлийн хувь'
-    c3.style = 10
-    c3.width = 14
-    c3.height = 12
-    # Дээж тоо (3-р мөрөөс 8-р мөр хүртэл = 6 төрөл)
-    data3 = Reference(ws3, min_col=3, min_row=3, max_row=3 + len(SAMPLE_TYPES) - 1)
-    cats3 = Reference(ws3, min_col=1, min_row=3, max_row=3 + len(SAMPLE_TYPES) - 1)
-    c3.add_data(data3)
-    c3.set_categories(cats3)
-    ws3.add_chart(c3, f'F3')
 
     # ════════════════════════════════════════════════════
     # SHEET 4 — ШИНЖИЛГЭЭ ТУС БҮРЭЭР
@@ -1344,7 +1177,7 @@ def lab_report_export():
     bar4 += line4
     ws4.add_chart(bar4, f'C{chart4_r}')
 
-    for ws in [ws1, ws2, ws3, ws4]:
+    for ws in [ws1, ws4]:
         ws.page_setup.orientation = 'landscape'
         ws.page_setup.fitToPage = True
         ws.page_setup.fitToWidth = 1
