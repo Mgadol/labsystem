@@ -822,6 +822,88 @@ def lab_reports():
         analysis_types=[n for _, n in ANALYSIS_FIELDS],
         cur_year=cur_year)
 
+@app.route('/lab-reports/chart-data')
+@senior_required
+def lab_report_chart_data():
+    from datetime import timedelta, date as ddate
+    rtype  = request.args.get('type', 'week')
+    year   = int(request.args.get('year', datetime.now().year))
+    month  = int(request.args.get('month', datetime.now().month))
+    half   = int(request.args.get('half', 1))
+    weekno = int(request.args.get('week', ddate.today().isocalendar()[1]))
+
+    def week_range(y, w):
+        d = ddate.fromisocalendar(y, w, 1)
+        return d, d + timedelta(days=6)
+
+    if rtype == 'week':
+        d_from, d_to = week_range(year, weekno)
+        labels = [(d_from + timedelta(days=i)).strftime('%m/%d') for i in range(7)]
+        ranges = [(str(d_from + timedelta(days=i)), str(d_from + timedelta(days=i))) for i in range(7)]
+    elif rtype == 'month':
+        from calendar import monthrange
+        _, days = monthrange(year, month)
+        d_from = ddate(year, month, 1)
+        d_to   = ddate(year, month, days)
+        labels, ranges, cur = [], [], d_from
+        wnum = 1
+        while cur <= d_to:
+            w_end = min(cur + timedelta(days=6 - cur.weekday()), d_to)
+            labels.append(f"{wnum} д/х"); ranges.append((str(cur), str(w_end)))
+            cur = w_end + timedelta(days=1); wnum += 1
+    elif rtype == 'half':
+        months = list(range(1,7)) if half==1 else list(range(7,13))
+        from calendar import monthrange
+        d_from = ddate(year, months[0], 1)
+        _, ld = monthrange(year, months[-1]); d_to = ddate(year, months[-1], ld)
+        labels, ranges, cur = [], [], d_from; wnum = 1
+        while cur <= d_to:
+            w_end = min(cur + timedelta(days=6 - cur.weekday()), d_to)
+            labels.append(f"{wnum} д/х"); ranges.append((str(cur), str(w_end)))
+            cur = w_end + timedelta(days=1); wnum += 1
+    else:
+        from calendar import monthrange
+        d_from = ddate(year, 1, 1); d_to = ddate(year, 12, 31)
+        labels = [f"{m}-р сар" for m in range(1, 13)]
+        ranges = [(f"{year}-{m:02d}-01", f"{year}-{m:02d}-{monthrange(year,m)[1]:02d}") for m in range(1,13)]
+
+    conn = get_db()
+    SAMPLE_TYPES_MAP = [
+        ('PIT','Уурхай'),('STOCKPILE','Овоолго'),('EXPORT','Ачилт'),
+        ('CONTROL','Хяналт'),('DP','Баяжуулах'),('EQ_CONTROL','Гадаад хяналт'),
+    ]
+    ANALYSIS_FIELDS = [
+        ('Mt','Нийт чийг'),('Mad','Дотоод чийг'),('Aad','Үнслэг'),
+        ('Vad','Дэгдэмхий'),('Stad','Хүхэр'),('Qb_ad_kcal','Илчлэг'),
+        ('G_index','Барьцалдах'),('Y_index','Хөөлтийн'),('FSI','Пластометр'),
+    ]
+    FIELD_COL_WEB = {
+        'Mt':'mt_sample','Mad':'dc_sample','Aad':'ash_sample','Vad':'vol_sample',
+        'Stad':'sulfur','Qb_ad_kcal':'cal_value','G_index':'g_coke','Y_index':'g_sieve1','FSI':'fsi',
+    }
+    sample_data = {}
+    for code, name in SAMPLE_TYPES_MAP:
+        sample_data[name] = sum(
+            conn.execute('SELECT COUNT(*) as c FROM geo_samples WHERE sample_type=? AND collected_date BETWEEN ? AND ?',
+                (code, d0, d1)).fetchone()['c'] for d0, d1 in ranges)
+    analysis_data = {}
+    for field, name in ANALYSIS_FIELDS:
+        col = FIELD_COL_WEB.get(field)
+        if col:
+            analysis_data[name] = sum(
+                conn.execute(
+                    f'''SELECT COUNT(*) as c FROM sample_entries se
+                        JOIN sample_receipt sr ON sr.id=se.receipt_id
+                        JOIN geo_samples g ON g.id=sr.geo_sample_id
+                        WHERE se.{col} IS NOT NULL AND se.{col}!=0
+                          AND g.collected_date BETWEEN ? AND ?''',
+                    (d0, d1)).fetchone()['c'] for d0, d1 in ranges)
+        else:
+            analysis_data[name] = 0
+    total_samples = sum(sample_data.values())
+    conn.close()
+    return jsonify(labels=labels, sample_data=sample_data, analysis_data=analysis_data, total_samples=total_samples)
+
 @app.route('/lab-reports/archive/<int:rid>', methods=['POST'])
 @senior_required
 def lab_report_archive(rid):
@@ -1091,7 +1173,8 @@ def lab_report_export():
     cats1 = R1(ws1, min_col=2, min_row=4, max_row=3 + len(SAMPLE_TYPES))
     pc1.add_data(data1)
     pc1.set_categories(cats1)
-    pc1.dataLabels = openpyxl.chart.label.DataLabelList()
+    from openpyxl.chart.label import DataLabelList as DLL1
+    pc1.dataLabels = DLL1()
     pc1.dataLabels.showPercent = True
     pc1.dataLabels.showLegendKey = False
     pc1.dataLabels.showVal = False
