@@ -280,10 +280,9 @@ function setLabType(t) {
   filterRecords(t);
 }
 function filterRecords(t) {
-  var y = document.getElementById('l-year').value;
   var anyVisible = false;
   document.querySelectorAll('.rec-row').forEach(function(row) {
-    var show = (t === 'year') ? (row.dataset.ryear === y) : (row.dataset.rtype === t && row.dataset.ryear === y);
+    var show = row.dataset.rtype === t;
     row.style.display = show ? '' : 'none';
     if (show) anyVisible = true;
   });
