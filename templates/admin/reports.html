@@ -173,7 +173,7 @@
             </thead>
             <tbody>
               {% for rec in lab_records %}
-              <tr>
+              <tr class="rec-row" data-rtype="{{ rec.period_type }}">
                 <td style="font-weight:500">{{ rec.period_label }}</td>
                 <td>
                   {% if rec.period_type=='week' %}<span style="background:#E8F0FE;color:#1A2744;padding:2px 8px;border-radius:4px;font-size:11px">7 хоног</span>
@@ -198,6 +198,9 @@
               {% endfor %}
             </tbody>
           </table>
+          <p id="rec-empty" style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px 0;display:none">
+            Энэ төрлийн тайлан байхгүй байна.
+          </p>
           {% else %}
           <p style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px 0">
             Тайлан байхгүй байна. Excel татахад автоматаар нэмэгдэнэ.
@@ -274,6 +277,16 @@ function setLabType(t) {
   document.getElementById('lrow-month').style.display = (t==='month') ? 'block' : 'none';
   document.getElementById('lrow-half').style.display  = (t==='half')  ? 'block' : 'none';
   updateChartLabel();
+  filterRecords(t);
+}
+function filterRecords(t) {
+  document.querySelectorAll('.rec-row').forEach(function(row) {
+    row.style.display = (row.dataset.rtype === t) ? '' : 'none';
+  });
+  var visible = document.querySelectorAll('.rec-row[style=""]').length +
+                document.querySelectorAll('.rec-row:not([style])').length;
+  var empty = document.getElementById('rec-empty');
+  if (empty) empty.style.display = (document.querySelectorAll('.rec-row[data-rtype="'+t+'"]').length === 0) ? '' : 'none';
 }
 function exportLab() {
   var y = document.getElementById('l-year').value;
@@ -369,5 +382,6 @@ new Chart(document.getElementById('chartAnalysis'), {
   if (el) el.addEventListener('change', updateChartLabel);
 });
 updateChartLabel();
+filterRecords('week');
 </script>
 {% endblock %}
