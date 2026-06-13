@@ -1944,10 +1944,10 @@ def sample_types():
                 request.form.get('name_en',''),
                 request.form.get('icon','🧪'),
                 request.form.get('color','#185fa5'),
-                int(request.form.get('serial_from',7000)),
-                int(request.form.get('serial_to',7999)),
+                int(request.form.get('serial_from') or 7000),
+                int(request.form.get('serial_to') or 7999),
                 1 if request.form.get('is_pit') else 0,
-                int(request.form.get('sort_order',99))
+                int(request.form.get('sort_order') or 99)
             ))
             flash('Дээжний төрөл нэмэгдлээ!', 'success')
         elif action == 'toggle':
