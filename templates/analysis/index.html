@@ -137,7 +137,7 @@
               </button>
               {% endif %}
 
-            {% elif ps == 'ready' %}
+            {% elif ps == 'ready' or st == 'analysing' %}
               {% if role in ('admin','senior','staff') %}
               <a href="{{ url_for('analysis_measure', receipt_id=rid) }}"
                  class="btn btn-sm" style="background:#faeeda;color:#854f0b;border:1px solid #f5d48a">
@@ -147,7 +147,7 @@
               <a href="{{ url_for('analysis_result', receipt_id=rid) }}"
                  class="btn btn-ghost btn-sm">📊 Үр дүн</a>
 
-            {% elif ps == 'done' or st == 'analysing' %}
+            {% elif ps == 'done' %}
               <a href="{{ url_for('analysis_result', receipt_id=rid) }}"
                  class="btn btn-ghost btn-sm">📊 Үр дүн</a>
             {% endif %}
