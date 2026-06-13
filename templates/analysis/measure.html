@@ -411,16 +411,34 @@ function markAllDone(){
     var btn=document.getElementById('dnbtn'+i+'_0');
     if(btn && !btn.classList.contains('done')){ allDone = false; break; }
   }
+  var action = allDone ? 'undo' : 'done';
+  var rows = [];
   for(var i=1;i<=ROWS;i++){
     var btn=document.getElementById('dnbtn'+i+'_0');
     if(btn){
       var isDone = btn.classList.contains('done');
-      if(allDone && isDone) markDone(i,0);
-      else if(!allDone && !isDone) markDone(i,0);
+      if((allDone && isDone) || (!allDone && !isDone)){
+        rows.push({row_num:i, is_duplicate:0, action:action});
+      }
     }
   }
-  var markBtn = document.getElementById('markAllBtn');
-  if(markBtn) markBtn.textContent = allDone ? '☐' : '☑';
+  if(!rows.length) return;
+  fetch('/analysis/row/done-all',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({receipt_id:RID, rows:rows})
+  }).then(r=>r.json()).then(function(d){
+    if(d.ok){
+      for(var i=1;i<=ROWS;i++){
+        var btn=document.getElementById('dnbtn'+i+'_0');
+        if(btn){
+          if(action==='done' && !btn.classList.contains('done')){ btn.classList.add('done'); btn.textContent='✓'; }
+          else if(action==='undo' && btn.classList.contains('done')){ btn.classList.remove('done'); btn.textContent='○'; }
+        }
+      }
+      var markBtn=document.getElementById('markAllBtn');
+      if(markBtn) markBtn.textContent = allDone ? '☐' : '☑';
+    }
+  });
 }
 
 // Тоног popup
