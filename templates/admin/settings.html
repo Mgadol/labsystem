@@ -50,11 +50,11 @@
           <input type="file" name="logo" class="form-input" accept=".png,.jpg,.jpeg,.webp">
         </div>
         <div style="background:#EBF4FF;border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#185FA5;line-height:1.7">
-          📐 <strong>Логоны шаардлага:</strong> Дугуй эсвэл квадрат (1:1 харьцаа) · Хамгийн багадаа 200×200px · PNG эсвэл JPG
+          📐 <strong>Логоны шаардлага:</strong> Хамгийн багадаа 200×200px · PNG эсвэл JPG · Аль ч харьцаа зөвшөөрөгдөнө
         </div>
         <!-- Урьдчилан харах -->
         <div style="background:#1a2744;padding:12px 16px;border-radius:8px;display:flex;align-items:center;gap:10px;margin-bottom:16px">
-          <img src="{{ url_for('static', filename=s.logo) }}" style="width:28px;height:42px;object-fit:contain">
+          <img src="{{ url_for('static', filename=s.logo) }}" style="width:42px;height:64px;object-fit:contain;flex-shrink:0">
           <div>
             <div style="font-size:13px;font-weight:600;color:#fff">{{ s.lab_name }}</div>
             <div style="font-size:10px;color:#93a8d4">{{ s.lab_subtitle }}</div>
