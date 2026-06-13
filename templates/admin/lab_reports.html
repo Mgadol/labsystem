@@ -193,33 +193,41 @@ function switchTab(tab) {
 var months = ['1-р','2-р','3-р','4-р','5-р','6-р','7-р','8-р','9-р','10-р','11-р','12-р'];
 var COLORS = ['#1A2744','#0F6E56','#993C1D','#3C3489','#D4860B','#185FA5'];
 
-// Дээжний төрөл
+// Дээжний төрөл — X тэнхлэгт дээжийн төрлүүд, нийт тоогоор босоо багана
 var sampleData = {{ sample_chart | tojson }};
 var sampleTypes = {{ sample_types | tojson }};
 var sampleKeys = Object.keys(sampleData);
 
+// Нийт тоо (сарын нийлбэр)
+var sampleTotals = sampleKeys.map(function(k) {
+  return (sampleData[k] || []).reduce(function(a,b){ return a + (b||0); }, 0);
+});
+
 new Chart(document.getElementById('chartSample'), {
   type: 'bar',
   data: {
-    labels: months,
-    datasets: sampleKeys.map(function(k, i) {
-      return {
-        label: sampleTypes[i],
-        data: sampleData[k],
-        backgroundColor: COLORS[i % COLORS.length] + 'CC',
-        borderColor: COLORS[i % COLORS.length],
+    labels: sampleTypes,
+    datasets: [
+      {
+        label: 'Дээжний тоо',
+        data: sampleTotals,
+        backgroundColor: '#4472C4CC',
+        borderColor: '#4472C4',
         borderWidth: 1,
         borderRadius: 3
-      };
-    })
+      }
+    ]
   },
   options: {
     responsive: true,
     maintainAspectRatio: false,
-    plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } } },
+    plugins: {
+      legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } },
+      tooltip: { mode: 'index', intersect: false }
+    },
     scales: {
-      x: { stacked: false, grid: { display: false } },
-      y: { beginAtZero: true, ticks: { stepSize: 1 } }
+      x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+      y: { beginAtZero: true }
     }
   }
 });
