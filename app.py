@@ -1111,10 +1111,10 @@ def lab_report_export():
 
     # Толгой мөр — row 2
     ws4.row_dimensions[2].height = 28
-    head_cell(ws4, 2, 3, 'үзүүлэлт', bg=NAVY)
+    head_cell(ws4, 2, 3, 'Үзүүлэлт', bg=NAVY)
     head_cell(ws4, 2, 4, '12 долоо хоног', bg=NAVY)
-    head_cell(ws4, 2, 5, 'үзүүлэлт', bg=NAVY)   # chart title row
-    head_cell(ws4, 2, 6, 'Нийт дээж', bg=TEAL)  # line chart title row
+    head_cell(ws4, 2, 5, 'Нийт', bg=NAVY)
+    head_cell(ws4, 2, 6, 'дээж бэлтгэл', bg=TEAL)
 
     total_s4 = sum(count_samples_by_type(code, str(d_from), str(d_to)) for code, _ in SAMPLE_TYPES)
 
