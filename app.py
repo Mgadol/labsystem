@@ -958,13 +958,29 @@ def lab_report_export():
             (code, d0, d1)).fetchone()
         return row['c'] if row else 0
 
+    # sample_entries баганууд руу mapping
+    FIELD_COL = {
+        'Mt':         'mt_sample',
+        'Mad':        'dc_sample',
+        'Aad':        'ash_sample',
+        'Vad':        'vol_sample',
+        'Stad':       'sulfur',
+        'Qb_ad_kcal': 'cal_value',
+        'G_index':    'g_coke',
+        'Y_index':    'g_sieve1',
+        'FSI':        'fsi',
+    }
+
     def count_analysis_by_field(field, d0, d1):
+        col = FIELD_COL.get(field)
+        if not col:
+            return 0
         row = conn.execute(
             f'''SELECT COUNT(*) as c
-                FROM analysis_results ar
-                JOIN sample_receipt sr ON sr.id=ar.receipt_id
+                FROM sample_entries se
+                JOIN sample_receipt sr ON sr.id=se.receipt_id
                 JOIN geo_samples g ON g.id=sr.geo_sample_id
-                WHERE ar.{field} IS NOT NULL
+                WHERE se.{col} IS NOT NULL AND se.{col} != 0
                   AND g.collected_date BETWEEN ? AND ?''',
             (d0, d1)).fetchone()
         return row['c'] if row else 0
@@ -1251,44 +1267,50 @@ def lab_report_export():
     ws3.add_chart(c3, f'F3')
 
     # ════════════════════════════════════════════════════
-    # SHEET 4 — Шинжилгээний дүн (bar+line combo chart)
+    # SHEET 4 — ШИНЖИЛГЭЭ ТУС БҮРЭЭР (таны template-тэй адил)
     # ════════════════════════════════════════════════════
-    ws4 = wb.create_sheet('Шинжилгээний дүн')
+    ws4 = wb.create_sheet('ШИНЖИЛГЭЭ ТУС БҮРЭЭР')
     ws4.sheet_view.showGridLines = False
-    title_row(ws4, f'ШИНЖИЛГЭЭНИЙ ДҮН — {period_label}', 4)
+    title_row(ws4, f'ШИНЖИЛГЭЭ ТУС БҮРЭЭР — {period_label}', 4)
 
-    ws4.row_dimensions[2].height = 28
-    head_cell(ws4, 2, 1, 'Үзүүлэлт', bg=NAVY)
-    head_cell(ws4, 2, 2, '12 долоо хоног', bg=NAVY)
-    head_cell(ws4, 2, 3, 'Нийт', bg=NAVY)
-    head_cell(ws4, 2, 4, 'Дээж бэлтгэл', bg=TEAL)
+    # Headers
+    ws4.row_dimensions[2].height = 14
+    ws4.row_dimensions[3].height = 28
+    ws4.merge_cells('C2:D2')
+    head_cell(ws4, 2, 3, 'үзүүлэлт', bg=NAVY)
+    head_cell(ws4, 2, 6, 'Нийт дээж', bg=TEAL)
+    head_cell(ws4, 3, 3, '', bg=NAVY)
+    head_cell(ws4, 3, 4, '12 долоо хоног', bg=NAVY)
+    head_cell(ws4, 3, 5, 'Нийт', bg=NAVY)
+    head_cell(ws4, 3, 6, '', bg=TEAL)
 
-    total_samples_all = sum(
-        count_samples_by_type(code, str(d_from), str(d_to)) for code, _ in SAMPLE_TYPES
-    )
+    total_s = sum(count_samples_by_type(code, str(d_from), str(d_to)) for code, _ in SAMPLE_TYPES)
 
-    chart_rows = [('Нийт дээж', total_samples_all)] + [
+    s4_rows = [('Нийт дээж', total_s)] + [
         (name, count_analysis_by_field(field, str(d_from), str(d_to)))
         for field, name in ANALYSIS_TYPES
-    ]
+    ] + [('Дээж бэлтгэл, кг', round(prep_kg_total(str(d_from), str(d_to)), 1))]
 
-    for ri, (name, cnt) in enumerate(chart_rows):
-        r = 3 + ri
+    for ri, (name, cnt) in enumerate(s4_rows):
+        r = 4 + ri
         bg = WHITE if ri % 2 == 0 else GRAY
-        data_cell(ws4, r, 1, name, bg=bg, align='left')
-        data_cell(ws4, r, 2, cnt, bg=bg)
-        data_cell(ws4, r, 3, cnt, bg=bg, bold=True)
-        data_cell(ws4, r, 4, total_samples_all, bg='D6F0E8')
+        data_cell(ws4, r, 3, name, bg=bg, align='left')
+        data_cell(ws4, r, 4, cnt, bg=bg)
+        data_cell(ws4, r, 5, cnt, bg=bg, bold=True)
+        if ri < len(s4_rows) - 1:  # Дээж бэлтгэл мөрөөс бусад
+            data_cell(ws4, r, 6, total_s, bg='D6F0E8')
 
-    ws4.column_dimensions['A'].width = 22
-    ws4.column_dimensions['B'].width = 16
-    ws4.column_dimensions['C'].width = 12
-    ws4.column_dimensions['D'].width = 14
+    ws4.column_dimensions['C'].width = 22
+    ws4.column_dimensions['D'].width = 16
+    ws4.column_dimensions['E'].width = 12
+    ws4.column_dimensions['F'].width = 14
 
+    # Bar+Line combo chart
     from openpyxl.chart import BarChart as BC4, LineChart as LC4, Reference as R4
     from openpyxl.chart.label import DataLabelList
 
-    chart4_r = 3 + len(chart_rows) + 2
+    n_rows4 = len(s4_rows) - 1  # Дээж бэлтгэл мөрийг chart-д оруулахгүй
+    chart4_r = 4 + len(s4_rows) + 2
 
     bar4 = BC4()
     bar4.type = 'col'
@@ -1299,9 +1321,9 @@ def lab_report_export():
     bar4.width = 26
     bar4.height = 14
 
-    bar_data4 = R4(ws4, min_col=3, max_col=3, min_row=2, max_row=2 + len(chart_rows))
+    bar_data4 = R4(ws4, min_col=5, max_col=5, min_row=3, max_row=3 + n_rows4)
     bar4.add_data(bar_data4, titles_from_data=True)
-    cats4 = R4(ws4, min_col=1, min_row=3, max_row=2 + len(chart_rows))
+    cats4 = R4(ws4, min_col=3, min_row=4, max_row=3 + n_rows4)
     bar4.set_categories(cats4)
 
     bar4.series[0].graphicalProperties.solidFill = '4472C4'
@@ -1313,14 +1335,14 @@ def lab_report_export():
     bar4.series[0].dLbls.showSerName = False
 
     line4 = LC4()
-    line_data4 = R4(ws4, min_col=4, max_col=4, min_row=2, max_row=2 + len(chart_rows))
+    line_data4 = R4(ws4, min_col=6, max_col=6, min_row=3, max_row=3 + n_rows4)
     line4.add_data(line_data4, titles_from_data=True)
     line4.series[0].graphicalProperties.line.solidFill = 'ED7D31'
     line4.series[0].graphicalProperties.line.width = 25000
     line4.series[0].marker.symbol = 'none'
 
     bar4 += line4
-    ws4.add_chart(bar4, f'A{chart4_r}')
+    ws4.add_chart(bar4, f'C{chart4_r}')
 
     for ws in [ws1, ws2, ws3, ws4]:
         ws.page_setup.orientation = 'landscape'
