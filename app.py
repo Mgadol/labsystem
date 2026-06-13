@@ -1692,7 +1692,7 @@ def analysis_receive(geo_id):
             session['user_id'],
             request.form.get('notes')
         ))
-        conn.execute("UPDATE geo_samples SET status='prepared' WHERE id=?", (geo_id,))
+        conn.execute("UPDATE geo_samples SET status='received' WHERE id=?", (geo_id,))
         conn.commit(); conn.close()
         flash(f'Дээж хүлээн авлаа! Ажлын дугаар: {lab_num}', 'success')
         return redirect(url_for('analysis'))
@@ -1906,7 +1906,7 @@ def prep_start(receipt_id):
     conn = get_db()
     conn.execute("""UPDATE sample_receipt SET prep_status='preparing', prep_started_at=?
                    WHERE id=?""", (datetime.now().isoformat(), receipt_id))
-    conn.execute("UPDATE geo_samples SET status='preparing' WHERE id=(SELECT geo_sample_id FROM sample_receipt WHERE id=?)", (receipt_id,))
+    conn.execute("UPDATE geo_samples SET status='prepared' WHERE id=(SELECT geo_sample_id FROM sample_receipt WHERE id=?)", (receipt_id,))
     conn.commit(); conn.close()
     flash('Дээж бэлтгэж эхэллээ!', 'success')
     return redirect(url_for('analysis'))
@@ -1918,7 +1918,7 @@ def prep_done(receipt_id):
     notes = request.form.get('notes','')
     conn.execute("""UPDATE sample_receipt SET prep_status='ready', prep_done_at=?, prep_notes=?
                    WHERE id=?""", (datetime.now().isoformat(), notes, receipt_id))
-    conn.execute("UPDATE geo_samples SET status='ready' WHERE id=(SELECT geo_sample_id FROM sample_receipt WHERE id=?)", (receipt_id,))
+    conn.execute("UPDATE geo_samples SET status='prepared' WHERE id=(SELECT geo_sample_id FROM sample_receipt WHERE id=?)", (receipt_id,))
     lab_num = conn.execute('SELECT lab_number FROM sample_receipt WHERE id=?', (receipt_id,)).fetchone()
     lab_str = lab_num[0] if lab_num else ''
     conn.commit()

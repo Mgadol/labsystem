@@ -104,12 +104,12 @@
           {% set st = s['status'] or '' %}
           {% if st == 'pending' %}
             <span class="badge" style="background:#faeeda;color:#854f0b">🟡 Хүлээгдэж байна</span>
-          {% elif ps == 'received' or st == 'prepared' %}
-            <span class="badge" style="background:#e6f1fb;color:#185fa5">🔵 Хүлээн авсан</span>
+          {% elif ps == 'ready' %}
+            <span class="badge" style="background:#f0e6ff;color:#6020a0">🟣 Шинжилгээнд бэлэн</span>
           {% elif ps == 'preparing' %}
             <span class="badge" style="background:#fff0e0;color:#c05000">🟠 Бэлтгэгдэж байна</span>
-          {% elif ps == 'ready' or st == 'ready' %}
-            <span class="badge" style="background:#f0e6ff;color:#6020a0">🟣 Шинжилгээнд бэлэн</span>
+          {% elif st in ('received', 'prepared') or ps == 'received' %}
+            <span class="badge" style="background:#e6f1fb;color:#185fa5">🔵 Хүлээн авсан</span>
           {% elif st == 'analysing' %}
             <span class="badge badge-repair">🔴 Шинжилгээнд</span>
           {% elif st == 'done' %}
@@ -122,9 +122,6 @@
             {% set st = s['status'] or '' %}
             {% set rid = s['receipt_id'] %}
             {% set role = current_user['role'] %}
-            {# prepared = хүлээн авсан хуучин статус #}
-            {% set ps = 'received' if (st == 'prepared' and ps == '') else ps %}
-            {% set ps = 'ready' if (st == 'ready' and ps == '') else ps %}
 
             {% if st == 'pending' %}
               {% if role in ('admin','senior','staff','preparer') %}
@@ -134,7 +131,7 @@
               </a>
               {% endif %}
 
-            {% elif ps in ('received', 'preparing') %}
+            {% elif ps in ('preparing', '') and st in ('received', 'prepared') %}
               {% if role in ('admin','senior','preparer') %}
               <button onclick="showDoneModal({{ rid }})"
                  class="btn btn-sm" style="background:#f0e6ff;color:#6020a0;border:1px solid #c090e0">
