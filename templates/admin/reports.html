@@ -351,6 +351,7 @@ new Chart(document.getElementById('chartAnalysis'), {
         fill: false,
         borderWidth: 2.5,
         pointRadius: 0,
+        pointStyle: 'line',
         tension: 0,
         spanGaps: true,
         order: 0
@@ -358,7 +359,7 @@ new Chart(document.getElementById('chartAnalysis'), {
     ]
   },
   options: { responsive:true, maintainAspectRatio:false,
-    plugins:{ legend:{ position:'bottom', labels:{ font:{size:11}, boxWidth:12 }},
+    plugins:{ legend:{ position:'bottom', labels:{ font:{size:11}, boxWidth:12, usePointStyle:true }},
               tooltip:{ mode:'index', intersect:false }},
     scales:{ x:{ grid:{display:false}, ticks:{font:{size:10}} }, y:{ beginAtZero:true }}}
 });
