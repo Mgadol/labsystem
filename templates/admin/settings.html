@@ -39,7 +39,7 @@
         </div>
         <div class="section-title" style="margin-top:16px">Лого</div>
         <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;padding:14px;background:var(--gray);border-radius:8px">
-          <img src="{{ url_for('static', filename=s.logo) }}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid var(--border)">
+          <img src="{{ url_for('static', filename=s.logo) }}" style="width:42px;height:64px;object-fit:contain;border:1px solid var(--border);background:#fff">
           <div>
             <div style="font-size:13px;font-weight:500;margin-bottom:4px">Одоогийн лого</div>
             <div style="font-size:12px;color:var(--text-muted)">{{ s.logo }}</div>
@@ -54,7 +54,7 @@
         </div>
         <!-- Урьдчилан харах -->
         <div style="background:#1a2744;padding:12px 16px;border-radius:8px;display:flex;align-items:center;gap:10px;margin-bottom:16px">
-          <img src="{{ url_for('static', filename=s.logo) }}" style="width:34px;height:34px;border-radius:50%;object-fit:cover">
+          <img src="{{ url_for('static', filename=s.logo) }}" style="width:28px;height:42px;object-fit:contain">
           <div>
             <div style="font-size:13px;font-weight:600;color:#fff">{{ s.lab_name }}</div>
             <div style="font-size:10px;color:#93a8d4">{{ s.lab_subtitle }}</div>
