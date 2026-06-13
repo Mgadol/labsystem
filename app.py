@@ -175,7 +175,7 @@ def dashboard():
 def devices():
     lang = session.get('lang','mn')
     conn = get_db()
-    if session.get('role') == 'admin':
+    if session.get('role') in ('admin', 'senior'):
         devs = conn.execute("SELECT d.*, dm.manufacturer, dm.model, dm.category FROM devices d LEFT JOIN device_marks dm ON d.mark_id=dm.id ORDER BY d.name").fetchall()
     else:
         devs = conn.execute("""
