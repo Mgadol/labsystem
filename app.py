@@ -1110,10 +1110,12 @@ def lab_report_export():
     ws4.sheet_view.showGridLines = False
     title_row(ws4, f'ШИНЖИЛГЭЭ ТУС БҮРЭЭР — {period_label}', 2)
 
-    # Толгой мөр — row 2 (A-B баганад, C нуусан)
+    # Толгой мөр — row 2 (A-B харагдана, C загваргүй)
     ws4.row_dimensions[2].height = 28
     head_cell(ws4, 2, 1, 'Үзүүлэлт', bg=NAVY)
     head_cell(ws4, 2, 2, '12 долоо хоног', bg=NAVY)
+    c2 = ws4.cell(row=2, column=3, value='дээж бэлтгэл')
+    c2.font = Font(name='Arial', color='FFFFFF', size=1)
 
     total_s4 = sum(count_samples_by_type(code, str(d_from), str(d_to)) for code, _ in SAMPLE_TYPES)
 
@@ -1127,7 +1129,8 @@ def lab_report_export():
         bg = WHITE if ri % 2 == 0 else GRAY
         data_cell(ws4, r, 1, name, bg=bg, align='left')
         data_cell(ws4, r, 2, cnt, bg=bg, bold=True)
-        ws4.cell(row=r, column=3, value=total_s4)  # chart-д зориулсан нуусан өгөгдөл
+        c = ws4.cell(row=r, column=3, value=total_s4)
+        c.font = Font(name='Arial', color='FFFFFF', size=1)  # харагдахгүй
 
     # Дээж бэлтгэл кг мөр
     kg_r = 3 + len(s4_data)
@@ -1140,8 +1143,7 @@ def lab_report_export():
 
     ws4.column_dimensions['A'].width = 26
     ws4.column_dimensions['B'].width = 18
-    ws4.column_dimensions['C'].width = 0.5  # нуусан — chart-д хэрэгтэй
-    ws4.column_dimensions['C'].hidden = True
+    ws4.column_dimensions['C'].width = 1  # chart-д хэрэгтэй, харагдахгүй
 
     # Bar+Line combo chart
     d_start = 2
