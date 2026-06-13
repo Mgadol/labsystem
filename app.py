@@ -2478,6 +2478,11 @@ if __name__ == '__main__':
     init_db()
     from models import init_analysis_db
     init_analysis_db()
+    # settings.json-д logo.jpg байвал logo.png болгон засна
+    s = get_settings()
+    if s.get('logo') == 'logo.jpg':
+        s['logo'] = 'logo.png'
+        save_settings(s)
     print('Систем эхэллээ!')
     print('Браузерт нэвтрэх: http://localhost:5000')
     print('ID: ADMIN  Нууц үг: admin123')
