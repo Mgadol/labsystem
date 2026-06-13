@@ -2449,7 +2449,15 @@ def lab_settings():
                 flash('Нууц үг амжилттай солигдлоо!', 'success')
 
         conn.close()
-        return redirect(url_for('lab_settings'))
+        tab_map = {
+            'lab_info': 'info',
+            'qc_settings': 'qc',
+            'qc_add': 'qc',
+            'update_profile': 'profile',
+            'change_password': 'profile',
+        }
+        tab = tab_map.get(action, 'info')
+        return redirect(url_for('lab_settings') + f'?tab={tab}')
 
     conn.close()
     return render_template('admin/settings.html', s=s, qc_settings=qc_settings_list, lang=lang)
