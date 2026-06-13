@@ -173,7 +173,7 @@
             </thead>
             <tbody>
               {% for rec in lab_records %}
-              <tr class="rec-row" data-rtype="{{ rec.period_type }}">
+              <tr class="rec-row" data-rtype="{{ rec.period_type }}" data-ryear="{{ rec.year }}">
                 <td style="font-weight:500">{{ rec.period_label }}</td>
                 <td>
                   {% if rec.period_type=='week' %}<span style="background:#E8F0FE;color:#1A2744;padding:2px 8px;border-radius:4px;font-size:11px">7 хоног</span>
@@ -280,13 +280,15 @@ function setLabType(t) {
   filterRecords(t);
 }
 function filterRecords(t) {
+  var y = document.getElementById('l-year').value;
+  var anyVisible = false;
   document.querySelectorAll('.rec-row').forEach(function(row) {
-    row.style.display = (row.dataset.rtype === t) ? '' : 'none';
+    var show = (t === 'year') ? (row.dataset.ryear === y) : (row.dataset.rtype === t && row.dataset.ryear === y);
+    row.style.display = show ? '' : 'none';
+    if (show) anyVisible = true;
   });
-  var visible = document.querySelectorAll('.rec-row[style=""]').length +
-                document.querySelectorAll('.rec-row:not([style])').length;
   var empty = document.getElementById('rec-empty');
-  if (empty) empty.style.display = (document.querySelectorAll('.rec-row[data-rtype="'+t+'"]').length === 0) ? '' : 'none';
+  if (empty) empty.style.display = anyVisible ? 'none' : '';
 }
 function exportLab() {
   var y = document.getElementById('l-year').value;
@@ -379,7 +381,7 @@ new Chart(document.getElementById('chartAnalysis'), {
 
 ['l-year','l-week','l-month','l-half'].forEach(function(id) {
   var el = document.getElementById(id);
-  if (el) el.addEventListener('change', updateChartLabel);
+  if (el) el.addEventListener('change', function(){ updateChartLabel(); filterRecords(labType); });
 });
 updateChartLabel();
 filterRecords('week');
