@@ -153,6 +153,10 @@ def init_analysis_db():
         mt_sample2 REAL,
         mt_dried2 REAL,
         mt_crucible2 TEXT,
+        prep_status TEXT DEFAULT 'preparing',  -- preparing/ready/done
+        prep_started_at TEXT,
+        prep_done_at TEXT,
+        prep_notes TEXT,
         notes TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -333,5 +337,21 @@ def init_analysis_db():
 
     ''')
     conn.commit()
+
+    # Migration: одоогийн DB-д байхгүй колонкуудыг нэмэх
+    migrations = [
+        "ALTER TABLE sample_receipt ADD COLUMN prep_status TEXT DEFAULT 'preparing'",
+        "ALTER TABLE sample_receipt ADD COLUMN prep_started_at TEXT",
+        "ALTER TABLE sample_receipt ADD COLUMN prep_done_at TEXT",
+        "ALTER TABLE sample_receipt ADD COLUMN prep_notes TEXT",
+        "ALTER TABLE sample_receipt ADD COLUMN mass_kg REAL",
+    ]
+    for sql in migrations:
+        try:
+            conn.execute(sql)
+            conn.commit()
+        except Exception:
+            pass  # колонк аль хэдийн байна
+
     conn.close()
     print("Analysis DB initialized")
