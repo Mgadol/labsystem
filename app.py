@@ -1250,7 +1250,79 @@ def lab_report_export():
     c3.set_categories(cats3)
     ws3.add_chart(c3, f'F3')
 
-    for ws in [ws1, ws2, ws3]:
+    # ════════════════════════════════════════════════════
+    # SHEET 4 — Шинжилгээний дүн (bar+line combo chart)
+    # ════════════════════════════════════════════════════
+    ws4 = wb.create_sheet('Шинжилгээний дүн')
+    ws4.sheet_view.showGridLines = False
+    title_row(ws4, f'ШИНЖИЛГЭЭНИЙ ДҮН — {period_label}', 4)
+
+    ws4.row_dimensions[2].height = 28
+    head_cell(ws4, 2, 1, 'Үзүүлэлт', bg=NAVY)
+    head_cell(ws4, 2, 2, '12 долоо хоног', bg=NAVY)
+    head_cell(ws4, 2, 3, 'Нийт', bg=NAVY)
+    head_cell(ws4, 2, 4, 'Дээж бэлтгэл', bg=TEAL)
+
+    total_samples_all = sum(
+        count_samples_by_type(code, str(d_from), str(d_to)) for code, _ in SAMPLE_TYPES
+    )
+
+    chart_rows = [('Нийт дээж', total_samples_all)] + [
+        (name, count_analysis_by_field(field, str(d_from), str(d_to)))
+        for field, name in ANALYSIS_TYPES
+    ]
+
+    for ri, (name, cnt) in enumerate(chart_rows):
+        r = 3 + ri
+        bg = WHITE if ri % 2 == 0 else GRAY
+        data_cell(ws4, r, 1, name, bg=bg, align='left')
+        data_cell(ws4, r, 2, cnt, bg=bg)
+        data_cell(ws4, r, 3, cnt, bg=bg, bold=True)
+        data_cell(ws4, r, 4, total_samples_all, bg='D6F0E8')
+
+    ws4.column_dimensions['A'].width = 22
+    ws4.column_dimensions['B'].width = 16
+    ws4.column_dimensions['C'].width = 12
+    ws4.column_dimensions['D'].width = 14
+
+    from openpyxl.chart import BarChart as BC4, LineChart as LC4, Reference as R4
+    from openpyxl.chart.label import DataLabelList
+
+    chart4_r = 3 + len(chart_rows) + 2
+
+    bar4 = BC4()
+    bar4.type = 'col'
+    bar4.grouping = 'clustered'
+    bar4.title = f'Шинжилгээний дүн — {period_label}'
+    bar4.y_axis.title = 'Тоо'
+    bar4.style = 10
+    bar4.width = 26
+    bar4.height = 14
+
+    bar_data4 = R4(ws4, min_col=3, max_col=3, min_row=2, max_row=2 + len(chart_rows))
+    bar4.add_data(bar_data4, titles_from_data=True)
+    cats4 = R4(ws4, min_col=1, min_row=3, max_row=2 + len(chart_rows))
+    bar4.set_categories(cats4)
+
+    bar4.series[0].graphicalProperties.solidFill = '4472C4'
+    bar4.series[0].graphicalProperties.line.solidFill = '4472C4'
+    bar4.series[0].dLbls = DataLabelList()
+    bar4.series[0].dLbls.showVal = True
+    bar4.series[0].dLbls.showLegendKey = False
+    bar4.series[0].dLbls.showCatName = False
+    bar4.series[0].dLbls.showSerName = False
+
+    line4 = LC4()
+    line_data4 = R4(ws4, min_col=4, max_col=4, min_row=2, max_row=2 + len(chart_rows))
+    line4.add_data(line_data4, titles_from_data=True)
+    line4.series[0].graphicalProperties.line.solidFill = 'ED7D31'
+    line4.series[0].graphicalProperties.line.width = 25000
+    line4.series[0].marker.symbol = 'none'
+
+    bar4 += line4
+    ws4.add_chart(bar4, f'A{chart4_r}')
+
+    for ws in [ws1, ws2, ws3, ws4]:
         ws.page_setup.orientation = 'landscape'
         ws.page_setup.fitToPage = True
         ws.page_setup.fitToWidth = 1
