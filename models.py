@@ -325,6 +325,33 @@ def init_analysis_db():
         ('EQ_CONTROL','Гадаад хяналт',    'External Control','🌐', '#993c1d', 5000, 5999, 0, 5),
         ('DP',        'Баяжуулах дээж',   'DP/WP',           '⚗️', '#0f6e56', 6000, 6999, 0, 6);
 
+    -- Шинжилгээний мөрүүд
+    CREATE TABLE IF NOT EXISTS sample_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        receipt_id INTEGER NOT NULL REFERENCES sample_receipt(id),
+        row_num INTEGER NOT NULL,
+        is_duplicate INTEGER DEFAULT 0,
+        sample_name TEXT,
+        mass_kg REAL,
+        ff_sample REAL, ff_dried REAL,
+        mt_bux TEXT, mt_tare REAL, mt_sample REAL, mt_dried REAL,
+        dc_bux TEXT, dc_tare REAL, dc_sample REAL, dc_dried REAL,
+        ash_tav TEXT, ash_tare REAL, ash_sample REAL, ash_burned REAL,
+        vol_tig TEXT, vol_tare REAL, vol_sample REAL, vol_burned REAL,
+        g_tig TEXT, g_tare REAL, g_coke REAL, g_sieve1 REAL, g_sieve2 REAL,
+        sulfur REAL, cal_value REAL, cal_temp REAL, fsi REAL,
+        mad REAL, aad REAL, vad REAL, fc REAL,
+        row_status TEXT DEFAULT 'empty',
+        done_by INTEGER REFERENCES users(id),
+        done_at TEXT,
+        approved_by INTEGER REFERENCES users(id),
+        approved_at TEXT,
+        updated_by INTEGER,
+        updated_at TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(receipt_id, row_num, is_duplicate)
+    );
+
     -- Анхны QC тохиргоо
     INSERT OR IGNORE INTO qc_settings(parameter, tolerance, standard) VALUES
         ('Mad', 0.20, 'MNS GB/T 212-2015'),

@@ -1989,6 +1989,10 @@ def row_done():
         conn.execute("""INSERT INTO sample_entries(receipt_id,row_num,is_duplicate,row_status,done_by,done_at)
                        VALUES(?,?,?,'done',?,?)""",
                     (rid, row, dup, session['user_id'], datetime.now().isoformat()))
+    # geo_samples.status → 'analysing'
+    conn.execute("""UPDATE geo_samples SET status='analysing'
+                   WHERE id=(SELECT geo_sample_id FROM sample_receipt WHERE id=?)
+                   AND status != 'done'""", (rid,))
     conn.commit()
     conn.close()
     return jsonify({'ok': True})
