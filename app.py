@@ -1593,7 +1593,8 @@ def analysis():
     if role == 'geologist':
         samples = conn.execute("""
             SELECT g.*, u.name as reg_name,
-                   sr.lab_number, sr.received_date, sr.mass_kg, sr.id as receipt_id
+                   sr.lab_number, sr.received_date, sr.mass_kg, sr.id as receipt_id,
+                   sr.prep_status
             FROM geo_samples g
             LEFT JOIN users u ON u.id=g.registered_by
             LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
@@ -1602,13 +1603,13 @@ def analysis():
     else:
         samples = conn.execute("""
             SELECT g.*, u.name as reg_name,
-                   sr.lab_number, sr.received_date, sr.mass_kg, sr.id as receipt_id
+                   sr.lab_number, sr.received_date, sr.mass_kg, sr.id as receipt_id,
+                   sr.prep_status
             FROM geo_samples g
             LEFT JOIN users u ON u.id=g.registered_by
             LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
             WHERE g.status != 'done' ORDER BY g.created_at DESC LIMIT 200
         """).fetchall()
-    conn.close()
     conn.close()
     return render_template('analysis/index.html', samples=samples, lang=lang, today=datetime.now().strftime('%Y-%m-%d'))
 
