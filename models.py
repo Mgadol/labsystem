@@ -271,6 +271,56 @@ def init_analysis_db():
         archived_at TEXT
     );
 
+    -- Дээжний төрөл
+    CREATE TABLE IF NOT EXISTS sample_types (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT NOT NULL UNIQUE,
+        name_mn TEXT NOT NULL,
+        name_en TEXT,
+        icon TEXT DEFAULT '🧪',
+        color TEXT DEFAULT '#185fa5',
+        serial_from INTEGER DEFAULT 1000,
+        serial_to INTEGER DEFAULT 1999,
+        is_pit INTEGER DEFAULT 0,
+        is_active INTEGER DEFAULT 1,
+        sort_order INTEGER DEFAULT 99,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Шинжилгээний төрөл → Тоног төхөөрөмж холбоос
+    CREATE TABLE IF NOT EXISTS analysis_device_map (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        analysis_type TEXT NOT NULL,
+        device_id INTEGER REFERENCES devices(id),
+        is_active INTEGER DEFAULT 1,
+        updated_by INTEGER REFERENCES users(id),
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Тоног төхөөрөмжийн хэрэглээний лог
+    CREATE TABLE IF NOT EXISTS device_usage_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        device_id INTEGER REFERENCES devices(id),
+        user_id INTEGER REFERENCES users(id),
+        receipt_id INTEGER REFERENCES sample_receipt(id),
+        analysis_type TEXT,
+        started_at TEXT,
+        ended_at TEXT,
+        duration_min INTEGER,
+        sample_count INTEGER,
+        notes TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Анхны дээжний төрлүүд
+    INSERT OR IGNORE INTO sample_types(code,name_mn,name_en,icon,color,serial_from,serial_to,is_pit,sort_order) VALUES
+        ('PIT',       'Уурхайн дээж',     'Pit Sample',      '⛏️', '#1a6b3c', 1000, 1999, 1, 1),
+        ('STOCKPILE', 'Овоолгын дээж',    'Stockpile',       '🏔️', '#854f0b', 2000, 2999, 0, 2),
+        ('EXPORT',    'Ачилтын дээж',     'Export',          '🚢', '#185fa5', 3000, 3999, 0, 3),
+        ('CONTROL',   'Хяналтын дээж',    'Control',         '🔬', '#3c3489', 4000, 4999, 0, 4),
+        ('EQ_CONTROL','Гадаад хяналт',    'External Control','🌐', '#993c1d', 5000, 5999, 0, 5),
+        ('DP',        'Баяжуулах дээж',   'DP/WP',           '⚗️', '#0f6e56', 6000, 6999, 0, 6);
+
     -- Анхны QC тохиргоо
     INSERT OR IGNORE INTO qc_settings(parameter, tolerance, standard) VALUES
         ('Mad', 0.20, 'MNS GB/T 212-2015'),
