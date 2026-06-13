@@ -2349,7 +2349,7 @@ def get_settings():
     if os.path.exists(SETTINGS_FILE):
         with open(SETTINGS_FILE, encoding='utf-8') as f:
             return _json.load(f)
-    return {'lab_name':'Лабораторийн нэр','lab_name_en':'Laboratory','lab_subtitle':'Лабораторийн удирдлагын систем','logo':'logo.jpg'}
+    return {'lab_name':'Лабораторийн нэр','lab_name_en':'Laboratory','lab_subtitle':'Лабораторийн удирдлагын систем','logo':'logo.png'}
 
 def save_settings(data):
     os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
