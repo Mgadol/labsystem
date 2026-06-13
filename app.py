@@ -195,7 +195,7 @@ def device_detail(did):
     device = conn.execute("SELECT d.*, dm.manufacturer, dm.model, dm.category FROM devices d LEFT JOIN device_marks dm ON d.mark_id=dm.id WHERE d.id=?", (did,)).fetchone()
     if not device:
         conn.close(); return redirect(url_for('devices'))
-    if session.get('role') != 'admin':
+    if session.get('role') not in ('admin', 'senior'):
         perm = conn.execute("SELECT 1 FROM staff_device_permissions WHERE user_id=? AND device_id=?", (session['user_id'], did)).fetchone()
         if not perm:
             conn.close()
