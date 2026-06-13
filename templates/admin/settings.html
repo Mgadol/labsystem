@@ -102,7 +102,11 @@
           </tbody>
         </table>
         <button type="submit" class="btn btn-primary" style="margin-top:12px">💾 Хадгалах</button>
-        <div class="section-title" style="margin-top:20px">➕ Шинэ параметр нэмэх</div>
+      </form>
+
+      <div class="section-title" style="margin-top:20px">➕ Шинэ параметр нэмэх</div>
+      <form method="POST">
+        <input type="hidden" name="action" value="qc_add">
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
           <div>
             <label class="form-label">Параметр</label>
@@ -116,7 +120,7 @@
             <label class="form-label">Стандарт</label>
             <input type="text" name="new_standard" class="form-input" placeholder="MNS GB/T 212-2015" style="width:180px">
           </div>
-          <button type="submit" name="action" value="qc_add" class="btn btn-primary">➕ Нэмэх</button>
+          <button type="submit" class="btn btn-primary">➕ Нэмэх</button>
         </div>
       </form>
     </div>
