@@ -1108,14 +1108,13 @@ def lab_report_export():
 
     ws4 = wb.create_sheet('ШИНЖИЛГЭЭ ТУС БҮРЭЭР')
     ws4.sheet_view.showGridLines = False
-    title_row(ws4, f'ШИНЖИЛГЭЭ ТУС БҮРЭЭР — {period_label}', 4)
+    title_row(ws4, f'ШИНЖИЛГЭЭ ТУС БҮРЭЭР — {period_label}', 3)
 
-    # Толгой мөр — row 2 (A-D баганад)
+    # Толгой мөр — row 2 (A-C баганад)
     ws4.row_dimensions[2].height = 28
     head_cell(ws4, 2, 1, 'Үзүүлэлт', bg=NAVY)
     head_cell(ws4, 2, 2, '12 долоо хоног', bg=NAVY)
-    head_cell(ws4, 2, 3, 'Нийт', bg=NAVY)
-    head_cell(ws4, 2, 4, 'дээж бэлтгэл', bg=TEAL)
+    head_cell(ws4, 2, 3, 'дээж бэлтгэл', bg=TEAL)
 
     total_s4 = sum(count_samples_by_type(code, str(d_from), str(d_to)) for code, _ in SAMPLE_TYPES)
 
@@ -1128,21 +1127,18 @@ def lab_report_export():
         r = 3 + ri
         bg = WHITE if ri % 2 == 0 else GRAY
         data_cell(ws4, r, 1, name, bg=bg, align='left')
-        data_cell(ws4, r, 2, cnt, bg=bg)
-        data_cell(ws4, r, 3, cnt, bg=bg, bold=True)
-        data_cell(ws4, r, 4, total_s4, bg='D6F0E8')
+        data_cell(ws4, r, 2, cnt, bg=bg, bold=True)
+        data_cell(ws4, r, 3, total_s4, bg='D6F0E8')
 
     # Дээж бэлтгэл кг мөр
     kg_r = 3 + len(s4_data)
     data_cell(ws4, kg_r, 1, 'Дээж бэлтгэл, кг', bg=GRAY, align='left', bold=True)
     data_cell(ws4, kg_r, 2, round(prep_kg_total(str(d_from), str(d_to)), 1), bg=GRAY, fmt='#,##0.0')
     data_cell(ws4, kg_r, 3, '', bg=GRAY)
-    data_cell(ws4, kg_r, 4, '', bg=GRAY)
 
     ws4.column_dimensions['A'].width = 26
     ws4.column_dimensions['B'].width = 18
     ws4.column_dimensions['C'].width = 14
-    ws4.column_dimensions['D'].width = 14
 
     # Bar+Line combo chart
     d_start = 2
@@ -1156,7 +1152,7 @@ def lab_report_export():
     bar4.width = 28
     bar4.height = 15
 
-    bar_data4 = R4(ws4, min_col=3, max_col=3, min_row=d_start, max_row=d_end)
+    bar_data4 = R4(ws4, min_col=2, max_col=2, min_row=d_start, max_row=d_end)
     bar4.add_data(bar_data4, titles_from_data=True)
     cats4 = R4(ws4, min_col=1, min_row=d_start+1, max_row=d_end)
     bar4.set_categories(cats4)
@@ -1169,7 +1165,7 @@ def lab_report_export():
     bar4.series[0].dLbls.showSerName = False
 
     line4 = LC4()
-    line_data4 = R4(ws4, min_col=4, max_col=4, min_row=d_start, max_row=d_end)
+    line_data4 = R4(ws4, min_col=3, max_col=3, min_row=d_start, max_row=d_end)
     line4.add_data(line_data4, titles_from_data=True)
     line4.series[0].graphicalProperties.line.solidFill = 'ED7D31'
     line4.series[0].graphicalProperties.line.width = 28000
