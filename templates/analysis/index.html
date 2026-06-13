@@ -106,12 +106,10 @@
             <span class="badge" style="background:#faeeda;color:#854f0b">🟡 Хүлээгдэж байна</span>
           {% elif ps == 'ready' %}
             <span class="badge" style="background:#f0e6ff;color:#6020a0">🟣 Шинжилгээнд бэлэн</span>
-          {% elif ps == 'preparing' %}
-            <span class="badge" style="background:#fff0e0;color:#c05000">🟠 Бэлтгэгдэж байна</span>
-          {% elif st in ('received', 'prepared') or ps == 'received' %}
-            <span class="badge" style="background:#e6f1fb;color:#185fa5">🔵 Хүлээн авсан</span>
-          {% elif st == 'analysing' %}
+          {% elif ps == 'done' or st == 'analysing' %}
             <span class="badge badge-repair">🔴 Шинжилгээнд</span>
+          {% elif st == 'received' or st == 'prepared' %}
+            <span class="badge" style="background:#e6f1fb;color:#185fa5">🔵 Хүлээн авсан</span>
           {% elif st == 'done' %}
             <span class="badge badge-active">🟢 Дууссан</span>
           {% endif %}
@@ -131,7 +129,7 @@
               </a>
               {% endif %}
 
-            {% elif ps in ('preparing', '') and st in ('received', 'prepared') %}
+            {% elif ps != 'ready' and ps != 'done' and st in ('received', 'prepared') %}
               {% if role in ('admin','senior','preparer') %}
               <button onclick="showDoneModal({{ rid }})"
                  class="btn btn-sm" style="background:#f0e6ff;color:#6020a0;border:1px solid #c090e0">
@@ -149,7 +147,7 @@
               <a href="{{ url_for('analysis_result', receipt_id=rid) }}"
                  class="btn btn-ghost btn-sm">📊 Үр дүн</a>
 
-            {% elif st == 'done' or ps == 'done' %}
+            {% elif ps == 'done' or st == 'analysing' %}
               <a href="{{ url_for('analysis_result', receipt_id=rid) }}"
                  class="btn btn-ghost btn-sm">📊 Үр дүн</a>
             {% endif %}

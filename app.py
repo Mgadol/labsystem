@@ -1918,7 +1918,6 @@ def prep_done(receipt_id):
     notes = request.form.get('notes','')
     conn.execute("""UPDATE sample_receipt SET prep_status='ready', prep_done_at=?, prep_notes=?
                    WHERE id=?""", (datetime.now().isoformat(), notes, receipt_id))
-    conn.execute("UPDATE geo_samples SET status='prepared' WHERE id=(SELECT geo_sample_id FROM sample_receipt WHERE id=?)", (receipt_id,))
     lab_num = conn.execute('SELECT lab_number FROM sample_receipt WHERE id=?', (receipt_id,)).fetchone()
     lab_str = lab_num[0] if lab_num else ''
     conn.commit()
