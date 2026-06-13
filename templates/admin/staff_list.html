@@ -67,6 +67,7 @@
         <td>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <a href="{{ url_for('staff_detail', uid=u['id']) }}" class="btn btn-ghost btn-sm">{{ 'Харах' if lang=='mn' else 'View' }}</a>
+            <a href="{{ url_for('staff_edit', uid=u['id']) }}" class="btn btn-ghost btn-sm">✏️ Засах</a>
             {% if u['id'] != session['user_id'] %}
               {% if u['is_active'] %}
               <form method="POST" action="{{ url_for('staff_deactivate', uid=u['id']) }}"

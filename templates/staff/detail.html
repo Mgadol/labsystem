@@ -2,9 +2,14 @@
 {% block title %}{{ target['name'] }}{% endblock %}
 {% block content %}
 <div class="page">
-  <div style="margin-bottom:16px">
-    {% if current_user['role']=='admin' %}<div style="font-size:12px;color:var(--text-muted);margin-bottom:4px"><a href="{{ url_for('staff_list') }}">{{ 'Ажилтнууд' if lang=='mn' else 'Staff' }}</a> /</div>{% endif %}
-    <h1 class="page-title">{{ target['name'] }}</h1>
+  <div style="margin-bottom:16px;display:flex;align-items:flex-start;justify-content:space-between">
+    <div>
+      {% if current_user['role'] in ('admin','senior') %}<div style="font-size:12px;color:var(--text-muted);margin-bottom:4px"><a href="{{ url_for('staff_list') }}">{{ 'Ажилтнууд' if lang=='mn' else 'Staff' }}</a> /</div>{% endif %}
+      <h1 class="page-title">{{ target['name'] }}</h1>
+    </div>
+    {% if current_user['role'] in ('admin','senior') %}
+    <a href="{{ url_for('staff_edit', uid=target['id']) }}" class="btn btn-primary">✏️ Засах</a>
+    {% endif %}
   </div>
   <div style="display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:start">
     <div>
