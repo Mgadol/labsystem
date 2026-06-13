@@ -86,25 +86,30 @@ textarea.form-input{resize:vertical;min-height:80px}
 .tab-nav{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px}
 .tab-btn{padding:9px 16px;font-size:13px;font-weight:500;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;transition:.15s;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit}
 .tab-btn.active{color:var(--navy);border-bottom-color:var(--navy)}
-.logo-3d-wrap{display:flex;flex-direction:column;align-items:center;flex-shrink:0;gap:1px}
+.logo-3d-wrap{display:flex;flex-direction:column;align-items:center;flex-shrink:0;gap:2px;perspective:200px}
 .logo-3d-img{
-  width:42px;height:42px;object-fit:contain;
-  filter:brightness(1.15) saturate(1.2) drop-shadow(0 0 6px rgba(212,175,55,.9));
-  animation:logoSpin 5s ease-in-out infinite;
-  transform-style:preserve-3d;
+  width:44px;height:44px;object-fit:contain;
+  filter:brightness(1.1) saturate(1.2) drop-shadow(0 0 8px rgba(212,175,55,1)) drop-shadow(0 2px 12px rgba(212,175,55,.5));
+  animation:logoSpin 4s linear infinite;
+  transform-origin:center center;
 }
 .logo-shadow{
-  width:28px;height:5px;
-  background:radial-gradient(ellipse,rgba(212,175,55,.55) 0%,transparent 75%);
-  animation:shadowPulse 5s ease-in-out infinite;
+  width:30px;height:6px;
+  background:radial-gradient(ellipse,rgba(212,175,55,.6) 0%,transparent 70%);
+  animation:shadowPulse 4s linear infinite;
   border-radius:50%;
+  margin-top:-2px;
 }
 @keyframes logoSpin{
-  0%{transform:perspective(120px) rotateY(0deg)}
-  100%{transform:perspective(120px) rotateY(360deg)}
+  0%  {transform:rotateY(0deg)   scaleX(1)}
+  25% {transform:rotateY(90deg)  scaleX(0.05)}
+  50% {transform:rotateY(180deg) scaleX(1)}
+  75% {transform:rotateY(270deg) scaleX(0.05)}
+  100%{transform:rotateY(360deg) scaleX(1)}
 }
 @keyframes shadowPulse{
-  0%,100%{transform:scaleX(1);opacity:.6}
+  0%,50%,100%{transform:scaleX(1);opacity:.6}
+  25%,75%    {transform:scaleX(.15);opacity:.1}
   25%{transform:scaleX(.25);opacity:.15}
   50%{transform:scaleX(1);opacity:.6}
   75%{transform:scaleX(.25);opacity:.15}
