@@ -1091,7 +1091,8 @@ def lab_report_export():
     cats1 = R1(ws1, min_col=2, min_row=4, max_row=3 + len(SAMPLE_TYPES))
     pc1.add_data(data1)
     pc1.set_categories(cats1)
-    pc1.dataLabels = openpyxl.chart.label.DataLabelList()
+    from openpyxl.chart.label import DataLabelList as _DLL
+    pc1.dataLabels = _DLL()
     pc1.dataLabels.showPercent = True
     pc1.dataLabels.showLegendKey = False
     pc1.dataLabels.showVal = False
