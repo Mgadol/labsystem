@@ -1267,65 +1267,65 @@ def lab_report_export():
     ws3.add_chart(c3, f'F3')
 
     # ════════════════════════════════════════════════════
-    # SHEET 4 — ШИНЖИЛГЭЭ ТУС БҮРЭЭР (таны template-тэй адил)
+    # SHEET 4 — ШИНЖИЛГЭЭ ТУС БҮРЭЭР
     # ════════════════════════════════════════════════════
+    from openpyxl.chart import BarChart as BC4, LineChart as LC4, Reference as R4
+    from openpyxl.chart.label import DataLabelList
+
     ws4 = wb.create_sheet('ШИНЖИЛГЭЭ ТУС БҮРЭЭР')
     ws4.sheet_view.showGridLines = False
     title_row(ws4, f'ШИНЖИЛГЭЭ ТУС БҮРЭЭР — {period_label}', 4)
 
-    # Headers
-    ws4.row_dimensions[2].height = 14
-    ws4.row_dimensions[3].height = 28
-    ws4.merge_cells('C2:D2')
+    # Толгой мөр — row 2
+    ws4.row_dimensions[2].height = 28
     head_cell(ws4, 2, 3, 'үзүүлэлт', bg=NAVY)
-    head_cell(ws4, 2, 6, 'Нийт дээж', bg=TEAL)
-    head_cell(ws4, 3, 3, '', bg=NAVY)
-    head_cell(ws4, 3, 4, '12 долоо хоног', bg=NAVY)
-    head_cell(ws4, 3, 5, 'Нийт', bg=NAVY)
-    head_cell(ws4, 3, 6, '', bg=TEAL)
+    head_cell(ws4, 2, 4, '12 долоо хоног', bg=NAVY)
+    head_cell(ws4, 2, 5, 'үзүүлэлт', bg=NAVY)   # chart title row
+    head_cell(ws4, 2, 6, 'Нийт дээж', bg=TEAL)  # line chart title row
 
-    total_s = sum(count_samples_by_type(code, str(d_from), str(d_to)) for code, _ in SAMPLE_TYPES)
+    total_s4 = sum(count_samples_by_type(code, str(d_from), str(d_to)) for code, _ in SAMPLE_TYPES)
 
-    s4_rows = [('Нийт дээж', total_s)] + [
+    # Шинжилгээний мөрүүд (Пластометр 0 байвал оруулна, гэхдээ үргэлж харуулна)
+    s4_data = [('Нийт дээж', total_s4)] + [
         (name, count_analysis_by_field(field, str(d_from), str(d_to)))
         for field, name in ANALYSIS_TYPES
-    ] + [('Дээж бэлтгэл, кг', round(prep_kg_total(str(d_from), str(d_to)), 1))]
+    ]
 
-    for ri, (name, cnt) in enumerate(s4_rows):
-        r = 4 + ri
+    for ri, (name, cnt) in enumerate(s4_data):
+        r = 3 + ri
         bg = WHITE if ri % 2 == 0 else GRAY
         data_cell(ws4, r, 3, name, bg=bg, align='left')
         data_cell(ws4, r, 4, cnt, bg=bg)
         data_cell(ws4, r, 5, cnt, bg=bg, bold=True)
-        if ri < len(s4_rows) - 1:  # Дээж бэлтгэл мөрөөс бусад
-            data_cell(ws4, r, 6, total_s, bg='D6F0E8')
+        data_cell(ws4, r, 6, total_s4, bg='D6F0E8')
 
-    ws4.column_dimensions['C'].width = 22
+    # Дээж бэлтгэл кг мөр
+    kg_r = 3 + len(s4_data)
+    data_cell(ws4, kg_r, 3, 'Дээж бэлтгэл, кг', bg=GRAY, align='left', bold=True)
+    data_cell(ws4, kg_r, 4, round(prep_kg_total(str(d_from), str(d_to)), 1), bg=GRAY, fmt='#,##0.0')
+
+    ws4.column_dimensions['C'].width = 24
     ws4.column_dimensions['D'].width = 16
-    ws4.column_dimensions['E'].width = 12
+    ws4.column_dimensions['E'].width = 14
     ws4.column_dimensions['F'].width = 14
 
     # Bar+Line combo chart
-    from openpyxl.chart import BarChart as BC4, LineChart as LC4, Reference as R4
-    from openpyxl.chart.label import DataLabelList
-
-    n_rows4 = len(s4_rows) - 1  # Дээж бэлтгэл мөрийг chart-д оруулахгүй
-    chart4_r = 4 + len(s4_rows) + 2
+    # Мөрүүд: header=row2, data=rows 3..(3+len-1)
+    d_start = 2  # header row (titles_from_data=True ашиглана)
+    d_end   = 2 + len(s4_data)
+    chart4_r = kg_r + 2
 
     bar4 = BC4()
     bar4.type = 'col'
     bar4.grouping = 'clustered'
-    bar4.title = f'Шинжилгээний дүн — {period_label}'
-    bar4.y_axis.title = 'Тоо'
     bar4.style = 10
-    bar4.width = 26
-    bar4.height = 14
+    bar4.width = 28
+    bar4.height = 15
 
-    bar_data4 = R4(ws4, min_col=5, max_col=5, min_row=3, max_row=3 + n_rows4)
+    bar_data4 = R4(ws4, min_col=5, max_col=5, min_row=d_start, max_row=d_end)
     bar4.add_data(bar_data4, titles_from_data=True)
-    cats4 = R4(ws4, min_col=3, min_row=4, max_row=3 + n_rows4)
+    cats4 = R4(ws4, min_col=3, min_row=d_start+1, max_row=d_end)
     bar4.set_categories(cats4)
-
     bar4.series[0].graphicalProperties.solidFill = '4472C4'
     bar4.series[0].graphicalProperties.line.solidFill = '4472C4'
     bar4.series[0].dLbls = DataLabelList()
@@ -1335,10 +1335,10 @@ def lab_report_export():
     bar4.series[0].dLbls.showSerName = False
 
     line4 = LC4()
-    line_data4 = R4(ws4, min_col=6, max_col=6, min_row=3, max_row=3 + n_rows4)
+    line_data4 = R4(ws4, min_col=6, max_col=6, min_row=d_start, max_row=d_end)
     line4.add_data(line_data4, titles_from_data=True)
     line4.series[0].graphicalProperties.line.solidFill = 'ED7D31'
-    line4.series[0].graphicalProperties.line.width = 25000
+    line4.series[0].graphicalProperties.line.width = 28000
     line4.series[0].marker.symbol = 'none'
 
     bar4 += line4
