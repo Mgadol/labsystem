@@ -1108,13 +1108,12 @@ def lab_report_export():
 
     ws4 = wb.create_sheet('ШИНЖИЛГЭЭ ТУС БҮРЭЭР')
     ws4.sheet_view.showGridLines = False
-    title_row(ws4, f'ШИНЖИЛГЭЭ ТУС БҮРЭЭР — {period_label}', 3)
+    title_row(ws4, f'ШИНЖИЛГЭЭ ТУС БҮРЭЭР — {period_label}', 2)
 
-    # Толгой мөр — row 2 (A-C баганад)
+    # Толгой мөр — row 2 (A-B баганад, C нуусан)
     ws4.row_dimensions[2].height = 28
     head_cell(ws4, 2, 1, 'Үзүүлэлт', bg=NAVY)
     head_cell(ws4, 2, 2, '12 долоо хоног', bg=NAVY)
-    head_cell(ws4, 2, 3, 'дээж бэлтгэл', bg=TEAL)
 
     total_s4 = sum(count_samples_by_type(code, str(d_from), str(d_to)) for code, _ in SAMPLE_TYPES)
 
@@ -1128,17 +1127,21 @@ def lab_report_export():
         bg = WHITE if ri % 2 == 0 else GRAY
         data_cell(ws4, r, 1, name, bg=bg, align='left')
         data_cell(ws4, r, 2, cnt, bg=bg, bold=True)
-        data_cell(ws4, r, 3, total_s4, bg='D6F0E8')
+        ws4.cell(row=r, column=3, value=total_s4)  # chart-д зориулсан нуусан өгөгдөл
 
     # Дээж бэлтгэл кг мөр
     kg_r = 3 + len(s4_data)
-    data_cell(ws4, kg_r, 1, 'Дээж бэлтгэл, кг', bg=GRAY, align='left', bold=True)
-    data_cell(ws4, kg_r, 2, round(prep_kg_total(str(d_from), str(d_to)), 1), bg=GRAY, fmt='#,##0.0')
-    data_cell(ws4, kg_r, 3, '', bg=GRAY)
+    # Нийт дэж бэлтгэл мөр
+    data_cell(ws4, kg_r, 1, 'Нийт дэж бэлтгэл, ш', bg='D6F0E8', align='left', bold=True)
+    data_cell(ws4, kg_r, 2, total_s4, bg='D6F0E8', bold=True)
+    # Дэж бэлтгэл кг мөр
+    data_cell(ws4, kg_r+1, 1, 'Дэж бэлтгэл, кг', bg=GRAY, align='left', bold=True)
+    data_cell(ws4, kg_r+1, 2, round(prep_kg_total(str(d_from), str(d_to)), 1), bg=GRAY, fmt='#,##0.0')
 
     ws4.column_dimensions['A'].width = 26
     ws4.column_dimensions['B'].width = 18
-    ws4.column_dimensions['C'].width = 14
+    ws4.column_dimensions['C'].width = 0.5  # нуусан — chart-д хэрэгтэй
+    ws4.column_dimensions['C'].hidden = True
 
     # Bar+Line combo chart
     d_start = 2
