@@ -43,7 +43,7 @@ body{font-family:'Inter',sans-serif;background:#f0ede8;min-height:100vh;display:
 <div class="center">
   <div class="card">
     <div class="card-logo">
-      <img src="/static/logo.jpg" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin-bottom:8px">
+      <img src="/static/logo.png" width="72" height="72" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin-bottom:8px;filter:sepia(1) saturate(4) hue-rotate(5deg) brightness(1.15)">
       <div class="card-title">{{ settings.lab_name if session.get('lang','mn')=='mn' else settings.lab_name_en }}</div>
       <div class="card-sub" style="font-size:12px;margin-bottom:4px">Лабораторийн удирдлагын систем</div>
       <div class="card-sub">{{ 'Ажилтны ID болон нууц үгээ оруулна уу' if session.get('lang','mn')=='mn' else 'Enter your employee ID and password' }}</div>
