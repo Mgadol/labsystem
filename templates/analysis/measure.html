@@ -357,7 +357,7 @@ function calc(ri,dup){
   var tm_raw=(mtt!=null&&mts&&mts>0&&mtd!=null)?(mtt+mts-mtd)/mts*100:null;
   var tm=null;
   if(tm_raw!=null){tm=chch?(chch+tm_raw*(1-chch/100)):tm_raw;}
-  setC('r'+id+'_tm',tm,4);
+  setC('r'+id+'_tm',tm,2);
   // Mad
   var t=gv(ri,dup,'dc_tare'),s=gv(ri,dup,'dc_sample'),d=gv(ri,dup,'dc_dried');
   var mad=(t!=null&&s&&s>0&&d!=null)?(t+s-d)/s*100:null;
@@ -370,8 +370,8 @@ function calc(ri,dup){
   var gm1=gv(ri,dup,'g_tare'),gm2=gv(ri,dup,'g_coke'),gm3=gv(ri,dup,'g_sieve1'),gm4=gv(ri,dup,'g_sieve2');
   var gval=(gm1!=null&&gm2!=null&&gm3!=null&&gm4!=null&&(gm2-gm1)>0)?10+(30*(gm3-gm1)+70*(gm4-gm1))/(gm2-gm1):null;
   setC('r'+id+'_g',gval,2);
-  setC('r'+id+'_mad',mad,4);setC('r'+id+'_aad',aad,4);
-  setC('r'+id+'_vad',vad,4);setC('r'+id+'_fc',fc,4);
+  setC('r'+id+'_mad',mad,2);setC('r'+id+'_aad',aad,2);
+  setC('r'+id+'_vad',vad,2);setC('r'+id+'_fc',fc,2);
   if(dup) checkQC(ri);
   if(mad!=null||aad!=null||gval!=null)
     fetch('/analysis/autosave/calc',{method:'POST',headers:{'Content-Type':'application/json'},
