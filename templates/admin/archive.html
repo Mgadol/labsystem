@@ -243,5 +243,13 @@ function switchTab(btn, tabId){
   var pane=document.getElementById(tabId);
   if(pane){ pane.classList.add('active'); pane.style.display='block'; }
 }
+// URL-ийн hash-аас tab нээх
+(function(){
+  var hash = window.location.hash.replace('#','');
+  if(hash){
+    var btn = document.querySelector('[data-tab="'+hash+'"]');
+    if(btn) switchTab(btn, hash);
+  }
+})();
 </script>
 {% endblock %}
