@@ -166,7 +166,7 @@
       <th class="cg-st gs ge">Sad [%]</th>
       <th class="cg-il gs">Qb,ad [J/g]</th><th class="cg-il ge">Өрөө ⁰C</th>
       <th class="cg-fsi gs ge">CSN</th>
-      <th class="gs">Mad%</th><th>Aad%</th><th>Vad%</th><th>FCad%</th>
+      <th class="gs">TM%</th><th>Mad%</th><th>Aad%</th><th>Vad%</th><th>FCad%</th>
     </tr>
   </thead>
   <tbody id="tbody">
@@ -223,6 +223,7 @@
     <!-- FSI -->
     <td class="cg-fsi gs ge"><input type="number" step="0.5" data-field="fsi" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calcQC({{ ri }})"></td>
     <!-- Тооцоо -->
+    <td class="calc-cell gs" id="r{{ ri }}_tm">—</td>
     <td class="calc-cell gs" id="r{{ ri }}_mad">—</td>
     <td class="calc-cell" id="r{{ ri }}_aad">—</td>
     <td class="calc-cell" id="r{{ ri }}_vad">—</td>
@@ -269,6 +270,7 @@
     <!-- FSI -->
     <td class="cg-fsi gs ge"><input type="number" step="0.5" data-field="fsi" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calcQC({{ ri }})"></td>
     <!-- Тооцоо -->
+    <td class="calc-cell gs" id="r{{ ri }}d_tm">—</td>
     <td class="calc-cell gs" id="r{{ ri }}d_mad">—</td>
     <td class="calc-cell" id="r{{ ri }}d_aad">—</td>
     <td class="calc-cell" id="r{{ ri }}d_vad">—</td>
@@ -346,6 +348,15 @@ function gv(row,dup,field){
 }
 function calc(ri,dup){
   var id=dup?ri+'d':ri+'';
+  // TM (нийт чийг)
+  var ffs=gv(ri,dup,'ff_sample'),ffd=gv(ri,dup,'ff_dried');
+  var chch=(ffs&&ffs>0&&ffd!=null)?(ffs-ffd)/ffs*100:0;
+  var mtt=gv(ri,dup,'mt_tare'),mts=gv(ri,dup,'mt_sample'),mtd=gv(ri,dup,'mt_dried');
+  var tm_raw=(mtt!=null&&mts&&mts>0&&mtd!=null)?(mtt+mts-mtd)/mts*100:null;
+  var tm=null;
+  if(tm_raw!=null){tm=chch?(chch+tm_raw*(1-chch/100)):tm_raw;}
+  setC('r'+id+'_tm',tm,4);
+  // Mad
   var t=gv(ri,dup,'dc_tare'),s=gv(ri,dup,'dc_sample'),d=gv(ri,dup,'dc_dried');
   var mad=(t!=null&&s&&s>0&&d!=null)?(t+s-d)/s*100:null;
   var pt=gv(ri,dup,'ash_tare'),ps=gv(ri,dup,'ash_sample'),pb=gv(ri,dup,'ash_burned');
@@ -360,7 +371,7 @@ function calc(ri,dup){
     fetch('/analysis/autosave/calc',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({receipt_id:RID,row_num:ri,is_duplicate:dup,mad:mad,aad:aad,vad:vad,fc:fc})});
 }
-function setC(id,v,d){var e=document.getElementById(id);if(e){e.textContent=v!=null?v.toFixed(d):'—';e.className='calc-cell'+(id.includes('_mad')?' gs':'');}}
+function setC(id,v,d){var e=document.getElementById(id);if(e){e.textContent=v!=null?v.toFixed(d):'—';e.className='calc-cell'+((id.includes('_tm')||id.includes('_mad'))?' gs':'');}}
 function calcQC(ri){calc(ri,0);if(document.getElementById('dr'+ri).classList.contains('show'))calc(ri,1);}
 function checkQC(ri){
   [['mad',QC.mad],['aad',QC.aad],['vad',QC.vad]].forEach(function(p){
