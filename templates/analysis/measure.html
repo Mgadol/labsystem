@@ -31,6 +31,7 @@
 
 /* Тооцоо */
 .calc-cell{font-weight:600;font-family:monospace;color:#1a2744;background:#e8faf4!important}
+.qc-avg-ok{color:#0a6e3f!important}
 .qc-ok{background:#bbf7d0!important;color:#065f46}
 .qc-warn{background:#fecaca!important;color:#7f1d1d}
 
@@ -399,20 +400,19 @@ function checkQC(ri){
     var v1=getN('r'+ri+'_'+p),v2=getN('r'+ri+'d_'+p);
     if(v1!=null&&v2!=null){
       var d=decMap[p]||2;
-      var diff=Math.abs(v1-v2);
+      var diff=Math.round(Math.abs(v1-v2)*100000)/100000;
       var avg=(v1+v2)/2;
-      // Үндсэн мөрт дундаж
       var el=document.getElementById('r'+ri+'_'+p);
-      if(el){el.textContent=avg.toFixed(d);el.className='calc-cell'+(p==='tm'?' gs':'');}
-      // Зэрэгцээ мөрт зөрүү
       var el2=document.getElementById('r'+ri+'d_'+p);
-      if(el2){
-        el2.textContent=diff.toFixed(d);
-        if(qcMap[p]!=null){
-          el2.className='calc-cell '+(diff<=qcMap[p]?'':'qc-warn');
-        } else {
-          el2.className='calc-cell';
-        }
+      if(qcMap[p]!=null){
+        var ok=diff<=qcMap[p];
+        // Үндсэн мөр: дундаж, QC зөв → ногоон текст
+        if(el){el.textContent=avg.toFixed(d);el.className='calc-cell'+(p==='tm'?' gs':'')+(ok?' qc-avg-ok':'');}
+        // Зэрэгцээ мөр: зөрүү, QC хэтэрвэл улаан дэвсгэр
+        if(el2){el2.textContent=diff.toFixed(d);el2.className='calc-cell '+(ok?'':'qc-warn');}
+      } else {
+        if(el){el.textContent=avg.toFixed(d);el.className='calc-cell'+(p==='tm'?' gs':'');}
+        if(el2){el2.textContent=diff.toFixed(d);el2.className='calc-cell';}
       }
     }
   });
