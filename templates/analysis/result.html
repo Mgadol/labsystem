@@ -104,7 +104,7 @@
       <th colspan="4">Дэгдэмхий бодисын<br>гарц</th>
       <th>Бэхэжсэн<br>нүүрстөрөгч</th>
       <th colspan="2">Нийт хүхэр</th>
-      <th colspan="3">Илчлэг</th>
+      <th colspan="4">Илчлэг</th>
       <th>G-индекс</th>
       <th>Чөлөөт хөөлтийн<br>зэрэг</th>
       <th rowspan="2">Статус</th>
@@ -116,7 +116,7 @@
       <th>Vad<br>[%]</th><th>Vdb<br>[%]</th><th>Vdaf<br>[%]</th><th>Var<br>[%]</th>
       <th>FCad<br>[%]</th>
       <th>Sad<br>[%]</th><th>Sdb<br>[%]</th>
-      <th>Qb,ad<br>[Ккал/кг]</th><th>Qgr,ad<br>[Ккал/кг]</th><th>Qgr,ar<br>[Ккал/кг]</th>
+      <th>Qb,ad<br>[Ккал/кг]</th><th>Qgr,ad<br>[Ккал/кг]</th><th>Qgr,ar<br>[Ккал/кг]</th><th>Qnet,ar<br>[Ккал/кг]</th>
       <th>G<br>[1:5]</th>
       <th>CSN<br>[1-9]</th>
     </tr>
@@ -206,13 +206,24 @@
       {% else %}—{% endif %}
     </td>
     <td class="val">
+      {% if e['cal_value'] and e['sulfur'] is not none and e['mad'] is not none and e['aad'] is not none and e['vad'] is not none and e['mt_result'] is not none and (100 - e['mad']) > 0 %}
+        {% set qgr_ad_jg = (e['cal_value'] - (e['sulfur'] * 94.1 + e['cal_value'] * 0.0016)) / 4.1868 * 4.1868 %}
+        {% set adb = e['aad'] * 100 / (100 - e['mad']) %}
+        {% set vdaf = e['vad'] * 100 / (100 - e['mad'] - e['aad']) if (100 - e['mad'] - e['aad']) > 0 else 0 %}
+        {% set hdaf = adb + 0.393 * (vdaf**0.5) - 0.023 * qgr_ad_jg %}
+        {% set had = hdaf * (100 - e['mad'] - e['aad']) / 100 %}
+        {% set qnet_ar = ((qgr_ad_jg - 206 * had) * ((100 - e['mt_result']) / (100 - e['mad'])) - 23 * e['mt_result']) / 4.1868 %}
+        {{ '%.2f'|format(qnet_ar) }}
+      {% else %}—{% endif %}
+    </td>
+    <td class="val">
       {{ '%.2f'|format(e['g_val']) if e['g_val'] else '—' }}
     </td>
     <td class="val">
       {{ '%.2f'|format(e['fsi']) if e['fsi'] else '—' }}
     </td>
     {% else %}
-    <td colspan="17" class="val-empty" style="text-align:left;padding-left:8px">Шинжилгээ хийгдэж байна...</td>
+    <td colspan="18" class="val-empty" style="text-align:left;padding-left:8px">Шинжилгээ хийгдэж байна...</td>
     {% endif %}
     <td>
       {% if not e or e['row_status'] == 'empty' %}
