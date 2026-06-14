@@ -261,8 +261,8 @@
         </div>
         <div class="form-group">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-            <input type="checkbox" name="is_pit"> 
-            <span>PIT дугаарлалт ашиглах (зөвхөн тоон дугаар)</span>
+            <input type="checkbox" name="is_pit">
+            <span>PIT дугаарлалт ашиглах <span style="color:var(--text-muted);font-weight:400">(тоон хүрээ: 1-100) — сонгоогүй бол ;-ээр тусгаарласан нэр ашиглана (B1;B2;B3)</span></span>
           </label>
         </div>
         <button type="submit" class="btn btn-primary">➕ Нэмэх</button>
@@ -368,7 +368,7 @@ function loadTypes(){
       html += '<td><strong>'+t.code+'</strong></td>';
       html += '<td>'+t.name_mn+'</td>';
       html += '<td style="font-family:monospace;font-size:12px">'+t.serial_from+'-'+t.serial_to+'</td>';
-      html += '<td>'+(t.is_pit?'✅':'—')+'</td>';
+      html += '<td>'+(t.is_pit?'<span style="color:#0f6e56">✅ PIT</span>':'<span style="color:#185fa5">; нэр</span>')+'</td>';
       html += '<td><span class="badge '+(t.is_active?'badge-active':'badge-inactive')+'">'+(t.is_active?'Идэвхтэй':'Идэвхгүй')+'</span></td>';
       html += '<td><div style="display:flex;gap:4px">';
       html += '<form method="POST" action="/sample-types" style="display:inline"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="'+t.id+'"><button class="btn btn-ghost btn-sm">'+(t.is_active?'Идэвхгүй':'Идэвхтэй')+'</button></form>';
