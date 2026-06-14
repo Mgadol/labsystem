@@ -19,7 +19,7 @@
 .st-approved{color:#0f6e56;font-size:11px;font-weight:600}
 .prog-bar{height:8px;background:#e0e8f0;border-radius:4px;overflow:hidden;min-width:80px}
 .prog-fill{height:100%;background:#0f6e56;border-radius:4px;transition:.3s}
-.approve-cb{width:16px;height:16px;cursor:pointer}
+.approve-cb{width:12px;height:12px;cursor:pointer}
 </style>
 
 <!-- Мэдээлэл -->
@@ -131,29 +131,29 @@
       {{ e.sample_name if e and e.sample_name else '—' }}
     </td>
     {% if is_done %}
-    <td class="val" style="{{ 'color:#854f0b' if is_pending_approve else '' }}">
+    <td class="val">
       {{ '%.4f'|format(e['mt_result']) if e['mt_result'] else '—' }}
     </td>
-    <td class="val" style="{{ 'color:#854f0b' if is_pending_approve else '' }}">
+    <td class="val">
       {{ '%.4f'|format(e['mad']) if e['mad'] else '—' }}
     </td>
-    <td class="val" style="{{ 'color:#854f0b' if is_pending_approve else '' }}">
+    <td class="val">
       {{ '%.4f'|format(e['aad']) if e['aad'] else '—' }}
     </td>
-    <td class="val" style="{{ 'color:#854f0b' if is_pending_approve else '' }}">
+    <td class="val">
       {{ '%.4f'|format(e['vad']) if e['vad'] else '—' }}
     </td>
-    <td class="val" style="{{ 'color:#854f0b' if is_pending_approve else '' }}">
+    <td class="val">
       {{ '%.4f'|format(e['fc']) if e['fc'] else '—' }}
     </td>
-    <td class="val" style="{{ 'color:#854f0b' if is_pending_approve else '' }}">
+    <td class="val">
       {{ '%.3f'|format(e['sulfur']) if e['sulfur'] else '—' }}
     </td>
-    <td class="val" style="{{ 'color:#854f0b' if is_pending_approve else '' }}">
+    <td class="val">
       {{ '%.1f'|format(e['cal_value']) if e['cal_value'] else '—' }}
     </td>
-    <td class="val" style="{{ 'color:#854f0b' if is_pending_approve else '' }}">—</td>
-    <td class="val" style="{{ 'color:#854f0b' if is_pending_approve else '' }}">
+    <td class="val">—</td>
+    <td class="val">
       {{ '%.1f'|format(e['fsi']) if e['fsi'] else '—' }}
     </td>
     {% else %}
