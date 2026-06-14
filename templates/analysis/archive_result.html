@@ -39,8 +39,6 @@
     </form>
     {% endif %}
     <a href="{{ url_for('archive_measure', receipt_id=receipt['id']) }}" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;text-decoration:none">📋 Хэмжилт харах</a>
-    <a href="{{ url_for('analysis_export', receipt_id=receipt['id']) }}" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;text-decoration:none">📥 Excel татах</a>
-    <a href="{{ url_for('analysis_export_report', receipt_id=receipt['id']) }}" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;text-decoration:none">📋 Тайлан татах</a>
     <a href="{{ url_for('archive') }}" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;text-decoration:none">← Архив</a>
   </div>
 </div>

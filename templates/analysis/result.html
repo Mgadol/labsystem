@@ -36,8 +36,6 @@
   <div style="width:1px;background:rgba(255,255,255,.15);height:30px"></div>
   <div><div style="font-size:9px;color:#93a8d4">Геологи</div><div>{{ receipt['geo_name'] or '—' }}</div></div>
   <div style="margin-left:auto;display:flex;gap:6px">
-    <a href="{{ url_for('analysis_export', receipt_id=receipt['id']) }}" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;text-decoration:none">📥 Excel татах</a>
-    <a href="{{ url_for('analysis_export_report', receipt_id=receipt['id']) }}" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;text-decoration:none">📋 Тайлан татах</a>
     <a href="{{ url_for('analysis_measure', receipt_id=receipt['id']) }}" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;text-decoration:none">✏️ Шинжилгээ</a>
     <a href="{{ url_for('analysis') }}" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;text-decoration:none">← Буцах</a>
   </div>
