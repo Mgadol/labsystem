@@ -97,6 +97,7 @@
       {% endif %}
       <th rowspan="2">No.</th>
       <th rowspan="2">Дээжний нэр</th>
+      <th rowspan="2">Масс<br>[кг]</th>
       <th>Mt</th>
       <th>Дотоод чийг</th>
       <th colspan="3">Үнс</th>
@@ -140,6 +141,7 @@
     <td style="text-align:left;font-weight:500;padding-left:8px">
       {{ e.sample_name if e and e.sample_name else '—' }}
     </td>
+    <td class="val">{{ '%.3f'|format(e['mass_kg']) if e and e['mass_kg'] else '—' }}</td>
     {% if is_done %}
     <td class="val">
       {{ '%.2f'|format(e['mt_result']) if e['mt_result'] else '—' }}
@@ -204,7 +206,7 @@
       {{ '%.2f'|format(e['fsi']) if e['fsi'] else '—' }}
     </td>
     {% else %}
-    <td colspan="16" class="val-empty">Шинжилгээ хийгдэж байна...</td>
+    <td colspan="16" class="val-empty" style="text-align:left;padding-left:8px">Шинжилгээ хийгдэж байна...</td>
     {% endif %}
     <td>
       {% if not e or e['row_status'] == 'empty' %}
