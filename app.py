@@ -447,8 +447,67 @@ def staff_detail(uid):
         JOIN staff_device_permissions p ON p.device_id=d.id
         WHERE p.user_id=?
     """, (uid,)).fetchall()
+
+    # Шинжилгээний статистик
+    total_done = conn.execute(
+        "SELECT COUNT(*) as c FROM sample_entries WHERE done_by=? AND is_duplicate=0 AND row_status IN ('done','approved')",
+        (uid,)).fetchone()['c']
+    total_approved = conn.execute(
+        "SELECT COUNT(*) as c FROM sample_entries WHERE approved_by=? AND is_duplicate=0 AND row_status='approved'",
+        (uid,)).fetchone()['c']
+    total_hours = conn.execute(
+        "SELECT COALESCE(SUM(duration_hours),0) as t FROM usage_logs WHERE user_id=?",
+        (uid,)).fetchone()['t']
+
+    # Сарын шинжилгээний тоо (сүүлийн 6 сар)
+    monthly = conn.execute("""
+        SELECT strftime('%Y-%m', done_at) as month, COUNT(*) as cnt
+        FROM sample_entries
+        WHERE done_by=? AND is_duplicate=0 AND row_status IN ('done','approved')
+          AND done_at >= date('now','-6 months')
+        GROUP BY month ORDER BY month
+    """, (uid,)).fetchall()
+
+    # QC radar: параметр бүрээр primary/duplicate зөрүүг tolerance-тай харьцуулна
+    qc_tol = {r['parameter']: r['tolerance'] for r in conn.execute("SELECT parameter, tolerance FROM qc_settings").fetchall()}
+    # Тухайн ажилтны хийсэн primary мөрүүд + тэдгээрийн duplicate
+    primary_rows = conn.execute("""
+        SELECT se.receipt_id, se.row_num,
+               se.mad, se.aad, se.vad, se.fc, se.sulfur, se.cal_value, se.g_val, se.fsi
+        FROM sample_entries se
+        WHERE se.done_by=? AND se.is_duplicate=0 AND se.row_status IN ('done','approved')
+    """, (uid,)).fetchall()
+
+    param_map = {
+        'Mad': ('mad', 'mad'), 'Aad': ('aad', 'aad'),
+        'Vad': ('vad', 'vad'), 'FCad': ('fc', 'fc'),
+        'Sad': ('sulfur', 'sulfur'), 'G': ('g_val', 'g_val'), 'FSI': ('fsi', 'fsi')
+    }
+    qc_radar = {}
+    for label, (pf, _) in param_map.items():
+        tol = qc_tol.get(label) or qc_tol.get(label.lower()) or qc_tol.get(pf)
+        if not tol: continue
+        pass_c = fail_c = 0
+        for row in primary_rows:
+            pv = row[pf]
+            if pv is None: continue
+            dup = conn.execute(
+                "SELECT {} as val FROM sample_entries WHERE receipt_id=? AND row_num=? AND is_duplicate=1".format(pf),
+                (row['receipt_id'], row['row_num'])).fetchone()
+            if not dup or dup['val'] is None: continue
+            if abs(pv - dup['val']) <= tol:
+                pass_c += 1
+            else:
+                fail_c += 1
+        total_qc = pass_c + fail_c
+        if total_qc > 0:
+            qc_radar[label] = round(pass_c / total_qc * 100, 1)
+
     conn.close()
-    return render_template('staff/detail.html', target=target, logs=logs, my_devices=my_devs, lang=lang)
+    return render_template('staff/detail.html',
+        target=target, logs=logs, my_devices=my_devs, lang=lang,
+        total_done=total_done, total_approved=total_approved, total_hours=total_hours,
+        monthly=list(monthly), qc_radar=qc_radar)
 
 # ── ARCHIVE ─────────────────────────────────────────────
 @app.route('/archive/measure/<int:receipt_id>')
