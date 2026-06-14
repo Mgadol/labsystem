@@ -386,20 +386,26 @@ function calc(ri,dup){
 function setC(id,v,d){var e=document.getElementById(id);if(e){e.textContent=v!=null?v.toFixed(d):'—';e.className='calc-cell'+(id.includes('_tm')?' gs':'');}}
 function calcQC(ri){calc(ri,0);if(document.getElementById('dr'+ri).classList.contains('show'))calc(ri,1);}
 function checkQC(ri){
-  // Дундаж + QC өнгө
   var qcMap={mad:QC.mad,aad:QC.aad,vad:QC.vad};
   var decMap={tm:2,mad:2,aad:2,vad:2,fc:2,g:2,sad:3,qb:1};
   ['tm','mad','aad','vad','fc','g','sad','qb'].forEach(function(p){
     var v1=getN('r'+ri+'_'+p),v2=getN('r'+ri+'d_'+p);
     if(v1!=null&&v2!=null){
-      var avg=(v1+v2)/2;
       var d=decMap[p]||2;
+      var diff=Math.abs(v1-v2);
+      var avg=(v1+v2)/2;
+      // Үндсэн мөрт дундаж
       var el=document.getElementById('r'+ri+'_'+p);
-      if(el) el.textContent=avg.toFixed(d);
-      if(qcMap[p]!=null){
-        var ok=Math.abs(v1-v2)<=qcMap[p];
-        cqc('r'+ri+'_'+p,ok);
-        cqc('r'+ri+'d_'+p,ok);
+      if(el){el.textContent=avg.toFixed(d);el.className='calc-cell'+(p==='tm'?' gs':'');}
+      // Зэрэгцээ мөрт зөрүү
+      var el2=document.getElementById('r'+ri+'d_'+p);
+      if(el2){
+        el2.textContent=diff.toFixed(d);
+        if(qcMap[p]!=null){
+          el2.className='calc-cell '+(diff<=qcMap[p]?'':'qc-warn');
+        } else {
+          el2.className='calc-cell';
+        }
       }
     }
   });
