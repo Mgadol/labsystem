@@ -205,12 +205,12 @@
         {{ '%.2f'|format(qgr_ad * (100 - e['mt_result']) / (100 - e['mad'])) }}
       {% else %}—{% endif %}
     </td>
-    <td class="val" style="cursor:help" title="{% if e['cal_value'] and e['sulfur'] is not none and e['mad'] is not none and e['aad'] is not none and e['vad'] is not none and e['mt_result'] is not none and (100 - e['mad']) > 0 %}{% set _qjg = e['cal_value'] - (e['sulfur'] * 94.1 + e['cal_value'] * 0.0016) %}{% set _adb = e['aad'] * 100 / (100 - e['mad']) %}{% set _vdaf = e['vad'] * 100 / (100 - e['mad'] - e['aad']) if (100 - e['mad'] - e['aad']) > 0 else 0 %}{% set _hdaf = 3.0 + 0.393 * (_vdaf**0.5) - 0.023 * _adb %}{% set _had = _hdaf * (100 - e['mad'] - e['aad']) / 100 %}Qgr,ad J/g={{ '%.1f'|format(_qjg) }} | Adb={{ '%.2f'|format(_adb) }}% | Vdaf={{ '%.2f'|format(_vdaf) }}% | Hdaf={{ '%.4f'|format(_hdaf) }}% | Had={{ '%.4f'|format(_had) }}%{% endif %}">
+    <td class="val" style="cursor:help" title="{% if e['cal_value'] and e['sulfur'] is not none and e['mad'] is not none and e['aad'] is not none and e['vad'] is not none and e['mt_result'] is not none and (100 - e['mad']) > 0 %}{% set _qjg = e['cal_value'] - (e['sulfur'] * 94.1 + e['cal_value'] * 0.0016) %}{% set _adb = e['aad'] * 100 / (100 - e['mad']) %}{% set _vdaf = e['vad'] * 100 / (100 - e['mad'] - e['aad']) if (100 - e['mad'] - e['aad']) > 0 else 0 %}{% set _hdaf = 2.888 + 0.393 * (_vdaf**0.5) - 0.023 * _adb %}{% set _had = _hdaf * (100 - e['mad'] - e['aad']) / 100 %}Qgr,ad J/g={{ '%.1f'|format(_qjg) }} | Adb={{ '%.2f'|format(_adb) }}% | Vdaf={{ '%.2f'|format(_vdaf) }}% | Hdaf={{ '%.4f'|format(_hdaf) }}% | Had={{ '%.4f'|format(_had) }}%{% endif %}">
       {% if e['cal_value'] and e['sulfur'] is not none and e['mad'] is not none and e['aad'] is not none and e['vad'] is not none and e['mt_result'] is not none and (100 - e['mad']) > 0 %}
         {% set qgr_ad_jg = e['cal_value'] - (e['sulfur'] * 94.1 + e['cal_value'] * 0.0016) %}
         {% set adb = e['aad'] * 100 / (100 - e['mad']) %}
         {% set vdaf = e['vad'] * 100 / (100 - e['mad'] - e['aad']) if (100 - e['mad'] - e['aad']) > 0 else 0 %}
-        {% set hdaf = 3.0 + 0.393 * (vdaf**0.5) - 0.023 * adb %}
+        {% set hdaf = 2.888 + 0.393 * (vdaf**0.5) - 0.023 * adb %}
         {% set had = hdaf * (100 - e['mad'] - e['aad']) / 100 %}
         {% set qnet_ar = ((qgr_ad_jg - 206 * had) * ((100 - e['mt_result']) / (100 - e['mad'])) - 23 * e['mt_result']) / 4.1868 %}
         {{ '%.2f'|format(qnet_ar) }}
