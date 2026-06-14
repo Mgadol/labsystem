@@ -2298,7 +2298,7 @@ def analysis_export_report(receipt_id):
 
         ws.cell(row, 1, i+1)
         ws.cell(row, 2, e['sample_name'] or '—')
-        ws.cell(row, 3, None)
+        ws.cell(row, 3, v(e['mass_kg']) if e['mass_kg'] else None)
         ws.cell(row, 4, mt_rounded)
         ws.cell(row, 5, mad)
         ws.cell(row, 6, aad)
