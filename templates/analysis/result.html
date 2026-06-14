@@ -109,7 +109,7 @@
       <th rowspan="2">FCad %</th>
       <th rowspan="2">Sad %</th>
       <th rowspan="2">Sdb %</th>
-      <th rowspan="2">Qb,ad J/g</th>
+      <th rowspan="2">Qb,ad kcal/kg</th>
       <th rowspan="2">G</th>
       <th rowspan="2">CSN</th>
       <th rowspan="2">Статус</th>
@@ -186,7 +186,7 @@
       {% else %}—{% endif %}
     </td>
     <td class="val">
-      {{ '%.2f'|format(e['cal_value']) if e['cal_value'] else '—' }}
+      {{ '%.2f'|format(e['cal_value'] / 4.1868) if e['cal_value'] else '—' }}
     </td>
     <td class="val">
       {{ '%.2f'|format(e['g_val']) if e['g_val'] else '—' }}
