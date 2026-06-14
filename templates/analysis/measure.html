@@ -135,7 +135,7 @@
     <!-- FSI -->
     <col class="cg-fsi" style="width:40px">
     <!-- Тооцоо -->
-    <col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px">
+    <col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:55px">
   </colgroup>
   <thead>
     <tr class="h1">
@@ -154,7 +154,7 @@
       <th class="cg-st">Нийт хүхэр</th>
       <th colspan="2" class="cg-il">Илчлэгийн утга</th>
       <th class="cg-fsi">Чөлөөт<br>хөөлт</th>
-      <th colspan="6">Тооцоо</th>
+      <th colspan="8">Тооцоо</th>
     </tr>
     <tr class="h2">
       <th class="cg-ff gs">Дээжний масс<br>[кг]</th><th class="cg-ff ge">Хатаасан масс<br>[кг]</th>
@@ -166,7 +166,7 @@
       <th class="cg-st gs ge">Sad [%]</th>
       <th class="cg-il gs">Qb,ad [J/g]</th><th class="cg-il ge">Өрөө ⁰C</th>
       <th class="cg-fsi gs ge">CSN</th>
-      <th class="gs">TM%</th><th>Mad%</th><th>Aad%</th><th>Vad%</th><th>FCad%</th><th>G</th>
+      <th class="gs">TM%</th><th>Mad%</th><th>Aad%</th><th>Vad%</th><th>FCad%</th><th>G</th><th>Sad%</th><th>Qb,ad</th>
     </tr>
   </thead>
   <tbody id="tbody">
@@ -229,6 +229,8 @@
     <td class="calc-cell" id="r{{ ri }}_vad">—</td>
     <td class="calc-cell" id="r{{ ri }}_fc">—</td>
     <td class="calc-cell" id="r{{ ri }}_g">—</td>
+    <td class="calc-cell" id="r{{ ri }}_sad">—</td>
+    <td class="calc-cell" id="r{{ ri }}_qb">—</td>
   </tr>
   <!-- Зэрэгцээ мөр -->
   <tr class="dup-row" id="dr{{ ri }}">
@@ -372,6 +374,8 @@ function calc(ri,dup){
   setC('r'+id+'_g',gval,2);
   setC('r'+id+'_mad',mad,2);setC('r'+id+'_aad',aad,2);
   setC('r'+id+'_vad',vad,2);setC('r'+id+'_fc',fc,2);
+  var sad=gv(ri,dup,'sulfur'),qb=gv(ri,dup,'cal_value');
+  setC('r'+id+'_sad',sad,3);setC('r'+id+'_qb',qb,1);
   if(dup) checkQC(ri);
   if(mad!=null||aad!=null||gval!=null)
     fetch('/analysis/autosave/calc',{method:'POST',headers:{'Content-Type':'application/json'},
