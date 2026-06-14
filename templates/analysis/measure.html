@@ -386,9 +386,22 @@ function calc(ri,dup){
 function setC(id,v,d){var e=document.getElementById(id);if(e){e.textContent=v!=null?v.toFixed(d):'—';e.className='calc-cell'+(id.includes('_tm')?' gs':'');}}
 function calcQC(ri){calc(ri,0);if(document.getElementById('dr'+ri).classList.contains('show'))calc(ri,1);}
 function checkQC(ri){
-  [['mad',QC.mad],['aad',QC.aad],['vad',QC.vad]].forEach(function(p){
-    var v1=getN('r'+ri+'_'+p[0]),v2=getN('r'+ri+'d_'+p[0]);
-    if(v1!=null&&v2!=null){var ok=Math.abs(v1-v2)<=p[1];cqc('r'+ri+'_'+p[0],ok);cqc('r'+ri+'d_'+p[0],ok);}
+  // Дундаж + QC өнгө
+  var qcMap={mad:QC.mad,aad:QC.aad,vad:QC.vad};
+  var decMap={tm:2,mad:2,aad:2,vad:2,fc:2,g:2,sad:3,qb:1};
+  ['tm','mad','aad','vad','fc','g','sad','qb'].forEach(function(p){
+    var v1=getN('r'+ri+'_'+p),v2=getN('r'+ri+'d_'+p);
+    if(v1!=null&&v2!=null){
+      var avg=(v1+v2)/2;
+      var d=decMap[p]||2;
+      var el=document.getElementById('r'+ri+'_'+p);
+      if(el) el.textContent=avg.toFixed(d);
+      if(qcMap[p]!=null){
+        var ok=Math.abs(v1-v2)<=qcMap[p];
+        cqc('r'+ri+'_'+p,ok);
+        cqc('r'+ri+'d_'+p,ok);
+      }
+    }
   });
 }
 function getN(id){var e=document.getElementById(id);return e&&e.textContent!='—'?parseFloat(e.textContent):null;}
