@@ -2209,6 +2209,101 @@ def analysis_export(receipt_id):
     )
 
 
+@app.route('/analysis/export-report/<int:receipt_id>')
+@login_required
+def analysis_export_report(receipt_id):
+    """Template Excel-д үр дүнг бичиж татуулна"""
+    import openpyxl, io, os
+    from copy import copy
+
+    conn = get_db()
+    receipt = conn.execute("""
+        SELECT sr.*, g.sample_name, g.sample_type, g.quantity, g.collected_date,
+               g.location, ug.name as geo_name
+        FROM sample_receipt sr
+        JOIN geo_samples g ON g.id=sr.geo_sample_id
+        LEFT JOIN users ug ON ug.id=g.registered_by
+        WHERE sr.id=?
+    """, (receipt_id,)).fetchone()
+    if not receipt:
+        conn.close(); return redirect(url_for('analysis'))
+
+    entries = conn.execute(
+        "SELECT * FROM sample_entries WHERE receipt_id=? AND is_duplicate=0 ORDER BY row_num",
+        (receipt_id,)
+    ).fetchall()
+    conn.close()
+
+    tpl_path = os.path.join(os.path.dirname(__file__), 'static', 'templates', 'analysis_report_template.xlsx')
+    wb = openpyxl.load_workbook(tpl_path)
+    ws = wb['Analysis results ']
+
+    # Толгой хэсэг
+    ws['C12'] = receipt['lab_number'] or ''
+    ws['H12'] = receipt['received_date'] or ''
+    type_mn = {'PIT':'Уурхай\nPIT','STOCKPILE':'Овоолго\nSTOCKPILE',
+               'EXPORT':'Ачилт\nEXPORT','CONTROL':'Хяналт\nCONTROL',
+               'EQ_CONTROL':'Тоног\nEQ_CONTROL','DP':'DP'}.get(receipt['sample_type'], receipt['sample_type'])
+    ws['C13'] = type_mn
+    ws['H13'] = datetime.now().strftime('%Y-%m-%d')
+    ws['H14'] = datetime.now().strftime('%Y-%m-%d')
+
+    # Мэдээллийн мөрүүд — row 20-аас эхэлнэ
+    DATA_START = 20
+
+    def calc_qnet(e):
+        try:
+            qjg = e['cal_value'] - (e['sulfur'] * 94.1 + e['cal_value'] * 0.0016)
+            adb = e['aad'] * 100 / (100 - e['mad'])
+            vdaf = e['vad'] * 100 / (100 - e['mad'] - e['aad'])
+            hdaf = 2.888 + 0.393 * (vdaf ** 0.5) - 0.0023 * adb
+            had = hdaf * (100 - e['mad'] - e['aad']) / 100
+            mt = e['mt_result'] or 0
+            return round(((qjg - 206 * had) * (100 - mt) / (100 - e['mad']) - 23 * mt) / 4.1868, 2)
+        except:
+            return None
+
+    for i, e in enumerate(entries):
+        row = DATA_START + i
+        def v(val, digits=2):
+            return round(float(val), digits) if val is not None else None
+
+        mad = v(e['mad'], 4)
+        aad = v(e['aad'], 4)
+        vad = v(e['vad'], 4)
+        adb = round(e['aad']*100/(100-e['mad']), 2) if e['mad'] is not None and e['aad'] is not None and (100-e['mad'])>0 else None
+        vdb = round(e['vad']*100/(100-e['mad']), 2) if e['mad'] is not None and e['vad'] is not None and (100-e['mad'])>0 else None
+        vdaf = round(e['vad']*100/(100-e['mad']-e['aad']), 2) if e['mad'] is not None and e['aad'] is not None and e['vad'] is not None and (100-e['mad']-e['aad'])>0 else None
+        sdb = round(e['sulfur']*100/(100-e['mad']), 2) if e['sulfur'] is not None and e['mad'] is not None and (100-e['mad'])>0 else None
+        qb_kcal = round(e['cal_value']/4.1868, 2) if e['cal_value'] else None
+        qnet = calc_qnet(e) if e['cal_value'] and e['sulfur'] is not None and e['mad'] is not None and e['aad'] is not None and e['vad'] is not None else None
+        mt = round(e['mt_result'], 2) if e['mt_result'] else None
+
+        ws.cell(row, 1, i+1)            # A: No.
+        ws.cell(row, 2, e['sample_name'] or '—')  # B
+        ws.cell(row, 3, v(e['mass_kg'])) # C: масс
+        ws.cell(row, 4, mt)              # D: Mt
+        ws.cell(row, 5, mad)             # E: Mad
+        ws.cell(row, 6, aad)             # F: Aad
+        ws.cell(row, 7, adb)             # G: Adb
+        ws.cell(row, 8, vad)             # H: Vad
+        ws.cell(row, 9, vdb)             # I: Vdb
+        ws.cell(row, 10, vdaf)           # J: Vdaf
+        ws.cell(row, 11, v(e['fc'], 2))  # K: FCad
+        ws.cell(row, 12, v(e['sulfur'], 4))  # L: Sad
+        ws.cell(row, 13, sdb)            # M: Sdb
+        ws.cell(row, 14, qb_kcal)        # N: Qb,ad
+        ws.cell(row, 15, qnet)           # O: Qnet,ar
+        ws.cell(row, 16, v(e['g_val'], 2) if e['g_val'] else None)   # P: G
+        ws.cell(row, 17, v(e['fsi'], 1) if e['fsi'] else None)       # Q: FSI
+
+    buf = io.BytesIO()
+    wb.save(buf); buf.seek(0)
+    fname = f"report_{receipt['lab_number']}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    return send_file(buf, as_attachment=True, download_name=fname,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+
 # ── DEVICE USAGE ─────────────────────────────────────────
 
 @app.route('/analysis/device-map', methods=['GET','POST'])
