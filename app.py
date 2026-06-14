@@ -2011,7 +2011,7 @@ def analysis_result(receipt_id):
         WHERE sr.id=?
     """, (receipt_id,)).fetchone()
     
-    entries = conn.execute("""
+    entries_raw = conn.execute("""
         SELECT se.*, u1.name as done_name, u2.name as approved_name
         FROM sample_entries se
         LEFT JOIN users u1 ON u1.id=se.done_by
@@ -2020,9 +2020,30 @@ def analysis_result(receipt_id):
         ORDER BY se.row_num, se.is_duplicate
     """, (receipt_id,)).fetchall()
     conn.close()
-    
+
+    # Mt тооцоолол per entry
+    def calc_mt(e):
+        try:
+            ff_s = e['ff_sample']; ff_d = e['ff_dried']
+            mt_t = e['mt_tare'];   mt_s = e['mt_sample']; mt_d = e['mt_dried']
+            chch = (ff_s - ff_d) / ff_s * 100 if ff_s else 0
+            tm   = (mt_t + mt_s - mt_d) / mt_s * 100 if mt_s else 0
+            if chch and tm:
+                return round(chch + tm * (1 - chch / 100), 4)
+            elif tm:
+                return round(tm, 4)
+        except Exception:
+            pass
+        return None
+
+    entries = []
+    for e in entries_raw:
+        row = dict(e)
+        row['mt_result'] = calc_mt(e)
+        entries.append(row)
+
     role = session.get('role')
-    return render_template('analysis/result.html', 
+    return render_template('analysis/result.html',
         receipt=receipt, entries=entries, lang=lang, role=role)
 
 
