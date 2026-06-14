@@ -377,7 +377,7 @@ function calc(ri,dup){
     fetch('/analysis/autosave/calc',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({receipt_id:RID,row_num:ri,is_duplicate:dup,mad:mad,aad:aad,vad:vad,fc:fc,g_val:gval})});
 }
-function setC(id,v,d){var e=document.getElementById(id);if(e){e.textContent=v!=null?v.toFixed(d):'—';e.className='calc-cell'+((id.includes('_tm')||id.includes('_mad'))?' gs':'');}}
+function setC(id,v,d){var e=document.getElementById(id);if(e){e.textContent=v!=null?v.toFixed(d):'—';e.className='calc-cell'+(id.includes('_tm')?' gs':'');}}
 function calcQC(ri){calc(ri,0);if(document.getElementById('dr'+ri).classList.contains('show'))calc(ri,1);}
 function checkQC(ri){
   [['mad',QC.mad],['aad',QC.aad],['vad',QC.vad]].forEach(function(p){
