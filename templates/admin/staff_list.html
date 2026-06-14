@@ -8,10 +8,6 @@
       <p class="page-sub">{{ users|length }} {{ 'ажилтан' if lang=='mn' else 'staff members' }}</p>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
-      <label style="font-size:13px;color:var(--text-muted);display:flex;align-items:center;gap:6px;cursor:pointer">
-        <input type="checkbox" id="show-inactive" onchange="toggleInactive()">
-        {{ 'Идэвхгүй харах' if lang=='mn' else 'Show inactive' }}
-      </label>
       <a href="{{ url_for('staff_add') }}" class="btn btn-primary">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         {{ 'Нэмэх' if lang=='mn' else 'Add Staff' }}
@@ -93,23 +89,7 @@
       </tbody>
     </table>
 
-    <!-- Идэвхгүй ажилтны тоо -->
-    {% set inactive_count = users|rejectattr('is_active')|list|length %}
-    {% if inactive_count > 0 %}
-    <div style="margin-top:12px;padding:10px 14px;background:var(--gray);border-radius:8px;font-size:13px;color:var(--text-muted)">
-      🗄️ {{ inactive_count }} {{ 'идэвхгүй ажилтан байна — "Идэвхгүй харах" дарж харна уу' if lang=='mn' else 'inactive staff — check "Show inactive" to view' }}
-    </div>
-    {% endif %}
   </div>
 </div>
 {% endblock %}
-{% block scripts %}
-<script>
-function toggleInactive(){
-  var show = document.getElementById('show-inactive').checked;
-  document.querySelectorAll('.inactive-row').forEach(function(r){
-    r.style.display = show ? '' : 'none';
-  });
-}
-</script>
 {% endblock %}
