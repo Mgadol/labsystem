@@ -2251,23 +2251,51 @@ def analysis_export_report(receipt_id):
     # Мэдээллийн мөрүүд — row 20-аас эхэлнэ
     DATA_START = 20
 
-    def calc_qnet(e):
+    def _calc_mt_local(e):
+        try:
+            ff_s = e['ff_sample']; ff_d = e['ff_dried']
+            mt_t = e['mt_tare'];   mt_s = e['mt_sample']; mt_d = e['mt_dried']
+            chch = (ff_s - ff_d) / ff_s * 100 if ff_s else 0
+            tm   = (mt_t + mt_s - mt_d) / mt_s * 100 if mt_s else 0
+            if chch and tm:
+                return round(chch + tm * (1 - chch / 100), 4)
+            elif tm:
+                return round(tm, 4)
+        except Exception:
+            pass
+        return None
+
+    def _calc_g_local(e):
+        try:
+            coke = e['g_coke']; tare = e['g_tare']; s1 = e['g_sieve1']; s2 = e['g_sieve2']
+            if coke is None or tare is None: return None
+            coke_mass = coke - tare
+            if coke_mass <= 0: return None
+            sieve_mass = (s1 or 0) + (s2 or 0)
+            return round(sieve_mass / coke_mass * 100, 2)
+        except Exception:
+            return None
+
+    def calc_qnet(e, mt_val):
         try:
             qjg = e['cal_value'] - (e['sulfur'] * 94.1 + e['cal_value'] * 0.0016)
             adb = e['aad'] * 100 / (100 - e['mad'])
             vdaf = e['vad'] * 100 / (100 - e['mad'] - e['aad'])
             hdaf = 2.888 + 0.393 * (vdaf ** 0.5) - 0.0023 * adb
             had = hdaf * (100 - e['mad'] - e['aad']) / 100
-            mt = e['mt_result'] or 0
+            mt = mt_val or 0
             return round(((qjg - 206 * had) * (100 - mt) / (100 - e['mad']) - 23 * mt) / 4.1868, 2)
         except:
             return None
 
+    def v(val, digits=2):
+        return round(float(val), digits) if val is not None else None
+
     for i, e in enumerate(entries):
         row = DATA_START + i
-        def v(val, digits=2):
-            return round(float(val), digits) if val is not None else None
 
+        mt = _calc_mt_local(e)
+        mt_rounded = round(mt, 2) if mt is not None else None
         mad = v(e['mad'], 4)
         aad = v(e['aad'], 4)
         vad = v(e['vad'], 4)
@@ -2276,26 +2304,26 @@ def analysis_export_report(receipt_id):
         vdaf = round(e['vad']*100/(100-e['mad']-e['aad']), 2) if e['mad'] is not None and e['aad'] is not None and e['vad'] is not None and (100-e['mad']-e['aad'])>0 else None
         sdb = round(e['sulfur']*100/(100-e['mad']), 2) if e['sulfur'] is not None and e['mad'] is not None and (100-e['mad'])>0 else None
         qb_kcal = round(e['cal_value']/4.1868, 2) if e['cal_value'] else None
-        qnet = calc_qnet(e) if e['cal_value'] and e['sulfur'] is not None and e['mad'] is not None and e['aad'] is not None and e['vad'] is not None else None
-        mt = round(e['mt_result'], 2) if e['mt_result'] else None
+        qnet = calc_qnet(e, mt) if e['cal_value'] and e['sulfur'] is not None and e['mad'] is not None and e['aad'] is not None and e['vad'] is not None else None
+        g_val = _calc_g_local(e)
 
-        ws.cell(row, 1, i+1)            # A: No.
-        ws.cell(row, 2, e['sample_name'] or '—')  # B
-        ws.cell(row, 3, v(e['mass_kg'])) # C: масс
-        ws.cell(row, 4, mt)              # D: Mt
-        ws.cell(row, 5, mad)             # E: Mad
-        ws.cell(row, 6, aad)             # F: Aad
-        ws.cell(row, 7, adb)             # G: Adb
-        ws.cell(row, 8, vad)             # H: Vad
-        ws.cell(row, 9, vdb)             # I: Vdb
-        ws.cell(row, 10, vdaf)           # J: Vdaf
-        ws.cell(row, 11, v(e['fc'], 2))  # K: FCad
-        ws.cell(row, 12, v(e['sulfur'], 4))  # L: Sad
-        ws.cell(row, 13, sdb)            # M: Sdb
-        ws.cell(row, 14, qb_kcal)        # N: Qb,ad
-        ws.cell(row, 15, qnet)           # O: Qnet,ar
-        ws.cell(row, 16, v(e['g_val'], 2) if e['g_val'] else None)   # P: G
-        ws.cell(row, 17, v(e['fsi'], 1) if e['fsi'] else None)       # Q: FSI
+        ws.cell(row, 1, i+1)
+        ws.cell(row, 2, e['sample_name'] or '—')
+        ws.cell(row, 3, v(receipt['mass_kg']))
+        ws.cell(row, 4, mt_rounded)
+        ws.cell(row, 5, mad)
+        ws.cell(row, 6, aad)
+        ws.cell(row, 7, adb)
+        ws.cell(row, 8, vad)
+        ws.cell(row, 9, vdb)
+        ws.cell(row, 10, vdaf)
+        ws.cell(row, 11, v(e['fc'], 2))
+        ws.cell(row, 12, v(e['sulfur'], 4))
+        ws.cell(row, 13, sdb)
+        ws.cell(row, 14, qb_kcal)
+        ws.cell(row, 15, qnet)
+        ws.cell(row, 16, v(g_val, 2) if g_val is not None else None)
+        ws.cell(row, 17, v(e['fsi'], 1) if e['fsi'] else None)
 
     buf = io.BytesIO()
     wb.save(buf); buf.seek(0)
