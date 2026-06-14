@@ -110,6 +110,7 @@
       <th rowspan="2">Sad %</th>
       <th rowspan="2">Sdb %</th>
       <th rowspan="2">Qb,ad kcal/kg</th>
+      <th rowspan="2">Qgr,ad kcal/kg</th>
       <th rowspan="2">G</th>
       <th rowspan="2">CSN</th>
       <th rowspan="2">Статус</th>
@@ -189,13 +190,18 @@
       {{ '%.2f'|format(e['cal_value'] / 4.1868) if e['cal_value'] else '—' }}
     </td>
     <td class="val">
+      {% if e['cal_value'] and e['sulfur'] is not none %}
+        {{ '%.2f'|format((e['cal_value'] - (e['sulfur'] * 94.1 + e['cal_value'] * 0.0016)) / 4.1868) }}
+      {% else %}—{% endif %}
+    </td>
+    <td class="val">
       {{ '%.2f'|format(e['g_val']) if e['g_val'] else '—' }}
     </td>
     <td class="val">
       {{ '%.2f'|format(e['fsi']) if e['fsi'] else '—' }}
     </td>
     {% else %}
-    <td colspan="15" class="val-empty">Шинжилгээ хийгдэж байна...</td>
+    <td colspan="16" class="val-empty">Шинжилгээ хийгдэж байна...</td>
     {% endif %}
     <td>
       {% if not e or e['row_status'] == 'empty' %}
