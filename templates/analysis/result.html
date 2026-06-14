@@ -240,14 +240,20 @@
 </table>
 </div>
 <!-- Корреляцын графикууд -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
-  <div class="card" style="padding:12px">
-    <div style="font-size:11px;font-weight:600;color:#1a2744;margin-bottom:6px">Qb,ad ~ Aad корреляц</div>
-    <canvas id="chartQA" style="height:160px"></canvas>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;padding-bottom:20px">
+  <div class="card" style="padding:14px">
+    <div style="font-size:11px;font-weight:600;color:#1a2744;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+      <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#185fa5"></span>
+      Qb,ad ~ Aad корреляц
+    </div>
+    <div style="position:relative;height:200px"><canvas id="chartQA"></canvas></div>
   </div>
-  <div class="card" style="padding:12px">
-    <div style="font-size:11px;font-weight:600;color:#1a2744;margin-bottom:6px">Vad ~ Aad корреляц</div>
-    <canvas id="chartVA" style="height:160px"></canvas>
+  <div class="card" style="padding:14px">
+    <div style="font-size:11px;font-weight:600;color:#1a2744;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+      <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#0f6e56"></span>
+      Vad ~ Aad корреляц
+    </div>
+    <div style="position:relative;height:200px"><canvas id="chartVA"></canvas></div>
   </div>
 </div>
 {% endblock %}
