@@ -100,6 +100,7 @@
       <th rowspan="2">Mt %</th>
       <th rowspan="2">Mad %</th>
       <th rowspan="2">Aad %</th>
+      <th rowspan="2">Adb %</th>
       <th rowspan="2">Vad %</th>
       <th rowspan="2">FCad %</th>
       <th rowspan="2">Sad %</th>
@@ -141,6 +142,11 @@
       {{ '%.4f'|format(e['aad']) if e['aad'] else '—' }}
     </td>
     <td class="val">
+      {% if e['aad'] and e['mad'] is not none and (100 - e['mad']) > 0 %}
+        {{ '%.4f'|format(e['aad'] * 100 / (100 - e['mad'])) }}
+      {% else %}—{% endif %}
+    </td>
+    <td class="val">
       {{ '%.4f'|format(e['vad']) if e['vad'] else '—' }}
     </td>
     <td class="val">
@@ -157,7 +163,7 @@
       {{ '%.1f'|format(e['fsi']) if e['fsi'] else '—' }}
     </td>
     {% else %}
-    <td colspan="9" class="val-empty">Шинжилгээ хийгдэж байна...</td>
+    <td colspan="10" class="val-empty">Шинжилгээ хийгдэж байна...</td>
     {% endif %}
     <td>
       {% if not e or e['row_status'] == 'empty' %}
