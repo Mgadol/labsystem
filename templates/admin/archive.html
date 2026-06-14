@@ -161,12 +161,12 @@
           <td>{{ s['location'] or '—' }}</td>
           <td>{{ s['reg_name'] or '—' }}</td>
           <td>{{ s['received_date'] or '—' }}</td>
-          <td>
+          <td style="white-space:nowrap">
             {% if s['receipt_id'] %}
             <a href="{{ url_for('archive_result', receipt_id=s['receipt_id']) }}" class="btn btn-ghost btn-sm">📊 Үр дүн</a>
-            <a href="{{ url_for('archive_measure', receipt_id=s['receipt_id']) }}" class="btn btn-ghost btn-sm">📋 Шинжилгээний хуудас</a>
-            <a href="{{ url_for('analysis_export', receipt_id=s['receipt_id']) }}" class="btn btn-ghost btn-sm">📥 Excel татах</a>
-            <a href="{{ url_for('analysis_export_report', receipt_id=s['receipt_id']) }}" class="btn btn-ghost btn-sm">📄 Тайлан татах</a>
+            <a href="{{ url_for('archive_measure', receipt_id=s['receipt_id']) }}" class="btn btn-ghost btn-sm">📋 Хэмжилт</a>
+            <a href="{{ url_for('analysis_export', receipt_id=s['receipt_id']) }}" class="btn btn-ghost btn-sm">📥 Excel</a>
+            <a href="{{ url_for('analysis_export_report', receipt_id=s['receipt_id']) }}" class="btn btn-ghost btn-sm">📄 Тайлан</a>
             {% endif %}
           </td>
         </tr>
