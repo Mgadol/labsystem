@@ -267,7 +267,7 @@
     <td class="cg-gi"><input type="number" step="0.0001" data-field="g_sieve1" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
     <td class="cg-gi ge"><input type="number" step="0.0001" data-field="g_sieve2" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
     <!-- St -->
-    <td class="cg-st gs ge"><input type="number" step="0.001" data-field="sulfur" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calcQC({{ ri }})"></td>
+    <td class="cg-st gs ge"></td>
     <!-- Илчлэг -->
     <td class="cg-il gs"><input type="number" step="0.01" data-field="cal_value" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)"></td>
     <td class="cg-il ge"></td>
@@ -280,7 +280,7 @@
     <td class="calc-cell" id="r{{ ri }}d_vad">—</td>
     <td class="calc-cell" id="r{{ ri }}d_fc">—</td>
     <td class="calc-cell" id="r{{ ri }}d_g">—</td>
-    <td class="calc-cell" id="r{{ ri }}d_sad">—</td>
+    <td class="calc-cell"></td>
     <td class="calc-cell" id="r{{ ri }}d_qb">—</td>
   </tr>
   {% endfor %}
