@@ -240,7 +240,7 @@
 </table>
 </div>
 <!-- Корреляцын графикууд -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;padding-bottom:20px">
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px;padding-bottom:20px">
   <div class="card" style="padding:14px">
     <div style="font-size:11px;font-weight:600;color:#1a2744;margin-bottom:8px;display:flex;align-items:center;gap:6px">
       <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#185fa5"></span>
@@ -255,12 +255,19 @@
     </div>
     <div style="position:relative;height:200px"><canvas id="chartVA"></canvas></div>
   </div>
+  <div class="card" style="padding:14px">
+    <div style="font-size:11px;font-weight:600;color:#1a2744;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+      <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#854f0b"></span>
+      Sad ~ Aad корреляц
+    </div>
+    <div style="position:relative;height:200px"><canvas id="chartSA"></canvas></div>
+  </div>
 </div>
 {% endblock %}
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script>
-var CD=[{% for e in entries if e and e['is_duplicate']==0 and e['aad'] is not none %}{a:{{e['aad']}},q:{{(e['cal_value']/4.1868)|round(1) if e['cal_value'] else 'null'}},v:{{e['vad'] if e['vad'] is not none else 'null'}},n:{{e['sample_name']|tojson}}},{% endfor %}];
+var CD=[{% for e in entries if e and e['is_duplicate']==0 and e['aad'] is not none %}{a:{{e['aad']}},q:{{(e['cal_value']/4.1868)|round(1) if e['cal_value'] else 'null'}},v:{{e['vad'] if e['vad'] is not none else 'null'}},s:{{e['sulfur'] if e['sulfur'] is not none else 'null'}},n:{{e['sample_name']|tojson}}},{% endfor %}];
 function lr(pts){var n=pts.length,sx=0,sy=0,sxy=0,sxx=0;pts.forEach(function(p){sx+=p.x;sy+=p.y;sxy+=p.x*p.y;sxx+=p.x*p.x;});var m=(n*sxy-sx*sy)/(n*sxx-sx*sx),b=(sy-m*sx)/n;return{m:m,b:b};}
 function mk(id,pts,xl,yl,clr){
   if(!pts.length)return;
@@ -272,6 +279,7 @@ function mk(id,pts,xl,yl,clr){
 }
 mk('chartQA',CD.filter(function(d){return d.q!==null;}).map(function(d){return{x:d.a,y:d.q,n:d.n};}), 'Aad [%]','Qb,ad [ккал/кг]','rgba(24,95,165,0.7)');
 mk('chartVA',CD.filter(function(d){return d.v!==null;}).map(function(d){return{x:d.a,y:d.v,n:d.n};}), 'Aad [%]','Vad [%]','rgba(15,110,86,0.7)');
+mk('chartSA',CD.filter(function(d){return d.s!==null;}).map(function(d){return{x:d.a,y:d.s,n:d.n};}), 'Aad [%]','Sad [%]','rgba(133,79,11,0.7)');
 </script>
 <script>
 var RID = {{ receipt['id'] }};
