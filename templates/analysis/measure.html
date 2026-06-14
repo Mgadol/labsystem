@@ -406,13 +406,11 @@ function checkQC(ri){
       var el2=document.getElementById('r'+ri+'d_'+p);
       if(qcMap[p]!=null){
         var ok=diff<=qcMap[p];
-        // Үндсэн мөр: дундаж, QC зөв → ногоон текст
-        if(el){el.textContent=avg.toFixed(d);el.className='calc-cell'+(p==='tm'?' gs':'')+(ok?' qc-avg-ok':'');}
-        // Зэрэгцээ мөр: зөрүү, QC хэтэрвэл улаан дэвсгэр
-        if(el2){el2.textContent=diff.toFixed(d);el2.className='calc-cell '+(ok?'':'qc-warn');}
+        if(el){el.textContent=avg.toFixed(d);el.className='calc-cell'+(p==='tm'?' gs':'');el.style.color=ok?'#0a6e3f':'';}
+        if(el2){el2.textContent=diff.toFixed(d);el2.className='calc-cell '+(ok?'':'qc-warn');el2.style.color='';}
       } else {
-        if(el){el.textContent=avg.toFixed(d);el.className='calc-cell'+(p==='tm'?' gs':'');}
-        if(el2){el2.textContent=diff.toFixed(d);el2.className='calc-cell';}
+        if(el){el.textContent=avg.toFixed(d);el.className='calc-cell'+(p==='tm'?' gs':'');el.style.color='';}
+        if(el2){el2.textContent=diff.toFixed(d);el2.className='calc-cell';el2.style.color='';}
       }
     }
   });
