@@ -146,8 +146,8 @@
       {% if done_samples %}
       <table class="table">
         <thead><tr>
+          <th>{{ 'Ажлын дугаар' if lang=='mn' else 'Lab Number' }}</th>
           <th>{{ 'Дээжийн нэр' if lang=='mn' else 'Sample Name' }}</th>
-          <th>{{ 'Лабораторийн №' if lang=='mn' else 'Lab Number' }}</th>
           <th>{{ 'Байршил' if lang=='mn' else 'Location' }}</th>
           <th>{{ 'Бүртгэсэн' if lang=='mn' else 'Registered by' }}</th>
           <th>{{ 'Хүлээн авсан огноо' if lang=='mn' else 'Received Date' }}</th>
@@ -156,8 +156,8 @@
         <tbody>
         {% for s in done_samples %}
         <tr>
+          <td style="font-weight:600;font-family:monospace;color:var(--navy)">{{ s['lab_number'] or '—' }}</td>
           <td style="font-weight:500">{{ s['sample_name'] or '—' }}</td>
-          <td style="color:var(--text-muted)">{{ s['lab_number'] or '—' }}</td>
           <td>{{ s['location'] or '—' }}</td>
           <td>{{ s['reg_name'] or '—' }}</td>
           <td>{{ s['received_date'] or '—' }}</td>
