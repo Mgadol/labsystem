@@ -2,54 +2,61 @@
 {% block title %}Архив — {{ receipt['lab_number'] }}{% endblock %}
 {% block content %}
 <style>
-.result-wrap{overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto}
-.result-table{width:100%;border-collapse:collapse;font-size:12px}
-.result-table th,.result-table td{border:1px solid #d8d8d0;padding:4px 8px;text-align:center;white-space:nowrap}
-.result-table thead th{position:sticky;top:0;z-index:2}
-.result-table thead tr.h1 th{background:#3c3489;color:#fff;font-size:11px;height:24px}
-.result-table thead tr.h2 th{background:#4f46a3;color:#c7d2fe;font-size:10px;border-bottom:3px solid #818cf8}
-.result-table tbody tr:hover td{background:#f8f9ff}
-.result-table tbody tr.dup-row td{background:#f0f6ff}
+.result-wrap{overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 220px)}
+.result-table{width:100%;border-collapse:separate;border-spacing:0;font-size:11px}
+.result-table th,.result-table td{border:1px solid #d8d8d0;padding:2px 6px;text-align:center;white-space:nowrap}
+.result-table thead tr.h1 th{position:sticky;top:0;z-index:3;background:#1e3a5f;color:#fff;font-size:11px;height:32px}
+.result-table thead tr.h2 th{position:sticky;top:32px;z-index:3;background:#2d5282;color:#bee3f8;font-size:10px}
+.result-table tbody tr{background:#f7f7f5!important}
+.result-table tbody tr td{background:#f7f7f5!important}
+.result-table tbody tr:hover td{background:#eef3ff!important}
 .val{font-family:monospace;font-weight:600;color:#1a2744}
 .val-empty{color:#ccc;font-style:italic;font-size:11px}
-.st-approved{color:#0f6e56;font-size:11px;font-weight:600}
 .st-done{color:#854f0b;font-size:11px;font-weight:600}
+.st-approved{color:#0f6e56;font-size:11px;font-weight:600}
+.prog-bar{height:8px;background:#e0e8f0;border-radius:4px;overflow:hidden;min-width:80px}
+.prog-fill{height:100%;background:#0f6e56;border-radius:4px;transition:.3s}
 </style>
 
 <!-- Мэдээлэл -->
-<div style="padding:7px 14px;background:#3c3489;color:#fff;display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12px;border-bottom:2px solid #818cf8">
+<div style="padding:7px 14px;background:#1a2744;color:#fff;display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12px;border-bottom:2px solid #818cf8">
   <div>
-    <div style="font-size:9px;color:#c7d2fe">Ажлын дугаар</div>
+    <div style="font-size:9px;color:#93a8d4">Ажлын дугаар</div>
     <div style="font-size:15px;font-weight:700;font-family:monospace;color:#a5b4fc">{{ receipt['lab_number'] }}</div>
   </div>
   <div style="width:1px;background:rgba(255,255,255,.15);height:30px"></div>
-  <div><div style="font-size:9px;color:#c7d2fe">Дээжний нэр</div><div style="font-weight:600">{{ receipt['sample_name'] }}</div></div>
-  <div><div style="font-size:9px;color:#c7d2fe">Төрөл</div><div style="font-weight:600;color:#fbbf24">{{ receipt['sample_type'] }}</div></div>
-  <div><div style="font-size:9px;color:#c7d2fe">Нийт</div><div style="font-weight:600">{{ receipt['quantity'] }} дээж</div></div>
-  <div><div style="font-size:9px;color:#c7d2fe">Огноо</div><div>{{ receipt['collected_date'] }}</div></div>
+  <div><div style="font-size:9px;color:#93a8d4">Дээжний нэр</div><div style="font-weight:600">{{ receipt['sample_name'] }}</div></div>
+  <div><div style="font-size:9px;color:#93a8d4">Төрөл</div><div style="font-weight:600;color:#fbbf24">{{ receipt['sample_type'] }}</div></div>
+  <div><div style="font-size:9px;color:#93a8d4">Нийт</div><div style="font-weight:600">{{ receipt['quantity'] }} дээж</div></div>
+  <div><div style="font-size:9px;color:#93a8d4">Огноо</div><div>{{ receipt['collected_date'] }}</div></div>
   <div style="width:1px;background:rgba(255,255,255,.15);height:30px"></div>
-  <div><div style="font-size:9px;color:#c7d2fe">Геологи</div><div>{{ receipt['geo_name'] or '—' }}</div></div>
+  <div><div style="font-size:9px;color:#93a8d4">Геологи</div><div>{{ receipt['geo_name'] or '—' }}</div></div>
   <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
     {% if role in ('admin','senior') %}
     <form method="POST" action="{{ url_for('archive_reopen', receipt_id=receipt['id']) }}"
           onsubmit="return confirm('Энэ ажлыг шинжилгээнд буцаах уу? Баталгаажуулалт цуцлагдана.')">
-      <button type="submit" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">↩️ Шинжилгээнд буцаах</button>
+      <button type="submit" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">↩️ Шинжилгээнд буцаах</button>
     </form>
     {% endif %}
-    <a href="{{ url_for('archive_measure', receipt_id=receipt['id']) }}" class="btn btn-sm" style="background:#eeedfe;color:#3c3489;border:1px solid #c7d2fe">📋 Хэмжилт харах</a>
-    <a href="{{ url_for('analysis_export', receipt_id=receipt['id']) }}" class="btn btn-sm" style="background:#eeedfe;color:#3c3489;border:1px solid #c7d2fe">📥 Excel татах</a>
-    <a href="{{ url_for('analysis_export_report', receipt_id=receipt['id']) }}" class="btn btn-sm" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">📋 Тайлан татах</a>
-    <a href="{{ url_for('archive') }}" class="btn btn-ghost btn-sm">← Архив</a>
+    <a href="{{ url_for('archive_measure', receipt_id=receipt['id']) }}" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;text-decoration:none">📋 Хэмжилт харах</a>
+    <a href="{{ url_for('analysis_export', receipt_id=receipt['id']) }}" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;text-decoration:none">📥 Excel татах</a>
+    <a href="{{ url_for('analysis_export_report', receipt_id=receipt['id']) }}" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;text-decoration:none">📋 Тайлан татах</a>
+    <a href="{{ url_for('archive') }}" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;text-decoration:none">← Архив</a>
   </div>
 </div>
 
-<!-- Явц -->
 {% set total = receipt['quantity'] %}
 {% set approved_entries = entries|selectattr('row_status','equalto','approved')|selectattr('is_duplicate','equalto',0)|list %}
 {% set approved_count = approved_entries|length %}
+
 <div style="padding:8px 14px;background:#f7f7f5;border-bottom:1px solid #e5e4e0;display:flex;gap:20px;align-items:center;flex-wrap:wrap">
-  <span style="font-size:12px;color:#555">Баталгаажсан:</span>
-  <span style="font-size:13px;font-weight:600;color:#0f6e56">{{ approved_count }}/{{ total }}</span>
+  <div style="display:flex;align-items:center;gap:10px;flex:1">
+    <span style="font-size:12px;color:#555;white-space:nowrap">Баталгаажсан:</span>
+    <div class="prog-bar" style="flex:1;max-width:200px">
+      <div class="prog-fill" style="width:{{ (approved_count/total*100)|int if total else 0 }}%"></div>
+    </div>
+    <span style="font-size:12px;font-weight:600;color:#0f6e56">{{ approved_count }}/{{ total }}</span>
+  </div>
   <span style="font-size:11px;color:#3c3489;background:#eeedfe;padding:2px 8px;border-radius:10px">📦 Архивласан</span>
 </div>
 
@@ -60,18 +67,29 @@
     <tr class="h1">
       <th rowspan="2">No.</th>
       <th rowspan="2">Дээжний нэр</th>
-      <th rowspan="2">Mt %</th>
-      <th rowspan="2">Mad %</th>
-      <th rowspan="2">Aad %</th>
-      <th rowspan="2">Vad %</th>
-      <th rowspan="2">FCad %</th>
-      <th rowspan="2">Sad %</th>
-      <th rowspan="2">Qb,ad J/g</th>
-      <th rowspan="2">G</th>
-      <th rowspan="2">CSN</th>
+      <th rowspan="2">Масс<br>[кг]</th>
+      <th>Нийт чийг</th>
+      <th>Дотоод чийг</th>
+      <th colspan="3">Үнс</th>
+      <th colspan="4">Дэгдэмхий бодисын<br>гарц</th>
+      <th>Бэхэжсэн<br>нүүрстөрөгч</th>
+      <th colspan="2">Нийт хүхэр</th>
+      <th colspan="4">Илчлэг</th>
+      <th>G-индекс</th>
+      <th>Чөлөөт хөөлтийн<br>зэрэг</th>
       <th rowspan="2">Статус</th>
     </tr>
-    <tr class="h2"></tr>
+    <tr class="h2">
+      <th>Mt<br>[%]</th>
+      <th>Mad<br>[%]</th>
+      <th>Aad<br>[%]</th><th>Adb<br>[%]</th><th>Ar<br>[%]</th>
+      <th>Vad<br>[%]</th><th>Vdb<br>[%]</th><th>Vdaf<br>[%]</th><th>Var<br>[%]</th>
+      <th>FCad<br>[%]</th>
+      <th>Sad<br>[%]</th><th>Sdb<br>[%]</th>
+      <th>Qb,ad<br>[Ккал/кг]</th><th>Qgr,ad<br>[Ккал/кг]</th><th>Qgr,ar<br>[Ккал/кг]</th><th>Qnet,ar<br>[Ккал/кг]</th>
+      <th>G<br>[1:5]</th>
+      <th>CSN<br>[1-9]</th>
+    </tr>
   </thead>
   <tbody>
   {% for i in range(total) %}
@@ -79,41 +97,123 @@
   {% set e = entries|selectattr('row_num','equalto',ri)|selectattr('is_duplicate','equalto',0)|first %}
   {% set de = entries|selectattr('row_num','equalto',ri)|selectattr('is_duplicate','equalto',1)|first %}
   {% set is_done = e and e['row_status'] in ('done','approved') %}
-
+  {% set is_approved = e and e['row_status'] == 'approved' %}
   <tr>
     <td style="color:#666;font-size:11px">{{ ri }}</td>
-    <td style="text-align:left;font-weight:500;padding-left:8px">{{ e['sample_name'] if e and e['sample_name'] else '—' }}</td>
+    <td style="text-align:left;font-weight:500;padding-left:8px">
+      {{ e.sample_name if e and e.sample_name else '—' }}
+    </td>
+    <td class="val">{{ '%.3f'|format(e['mass_kg']) if e and e['mass_kg'] else '—' }}</td>
     {% if is_done %}
-    <td class="val">{{ '%.2f'|format(e['mad']) if e['mad'] else '—' }}</td>
-    <td class="val">{{ '%.4f'|format(e['mad']) if e['mad'] else '—' }}</td>
-    <td class="val">{{ '%.4f'|format(e['aad']) if e['aad'] else '—' }}</td>
-    <td class="val">{{ '%.4f'|format(e['vad']) if e['vad'] else '—' }}</td>
-    <td class="val">{{ '%.4f'|format(e['fc']) if e['fc'] else '—' }}</td>
-    <td class="val">{{ '%.3f'|format(e['sulfur']) if e['sulfur'] else '—' }}</td>
-    <td class="val">{{ '%.1f'|format(e['cal_value']) if e['cal_value'] else '—' }}</td>
-    <td class="val">—</td>
-    <td class="val">{{ '%.1f'|format(e['fsi']) if e['fsi'] else '—' }}</td>
+    <td class="val">
+      {{ '%.2f'|format(e['mt_result']) if e['mt_result'] else '—' }}
+    </td>
+    <td class="val">
+      {{ '%.2f'|format(e['mad']) if e['mad'] else '—' }}
+    </td>
+    <td class="val">
+      {{ '%.2f'|format(e['aad']) if e['aad'] else '—' }}
+    </td>
+    <td class="val">
+      {% if e['aad'] and e['mad'] is not none and (100 - e['mad']) > 0 %}
+        {{ '%.2f'|format(e['aad'] * 100 / (100 - e['mad'])) }}
+      {% else %}—{% endif %}
+    </td>
+    <td class="val">
+      {% if e['aad'] and e['mad'] is not none and e['mt_result'] is not none and (100 - e['mad']) > 0 %}
+        {{ '%.2f'|format(e['aad'] * (100 - e['mt_result']) / (100 - e['mad'])) }}
+      {% else %}—{% endif %}
+    </td>
+    <td class="val">
+      {{ '%.2f'|format(e['vad']) if e['vad'] else '—' }}
+    </td>
+    <td class="val">
+      {% if e['vad'] and e['mad'] is not none and (100 - e['mad']) > 0 %}
+        {{ '%.2f'|format(e['vad'] * 100 / (100 - e['mad'])) }}
+      {% else %}—{% endif %}
+    </td>
+    <td class="val">
+      {% if e['vad'] and e['mad'] is not none and e['aad'] is not none and (100 - e['mad'] - e['aad']) > 0 %}
+        {{ '%.2f'|format(e['vad'] * 100 / (100 - e['mad'] - e['aad'])) }}
+      {% else %}—{% endif %}
+    </td>
+    <td class="val">
+      {% if e['vad'] and e['mad'] is not none and e['mt_result'] is not none and (100 - e['mad']) > 0 %}
+        {{ '%.2f'|format(e['vad'] * (100 - e['mt_result']) / (100 - e['mad'])) }}
+      {% else %}—{% endif %}
+    </td>
+    <td class="val">
+      {{ '%.2f'|format(e['fc']) if e['fc'] else '—' }}
+    </td>
+    <td class="val">
+      {{ '%.2f'|format(e['sulfur']) if e['sulfur'] else '—' }}
+    </td>
+    <td class="val">
+      {% if e['sulfur'] and e['mad'] is not none and (100 - e['mad']) > 0 %}
+        {{ '%.2f'|format(e['sulfur'] * 100 / (100 - e['mad'])) }}
+      {% else %}—{% endif %}
+    </td>
+    <td class="val">
+      {{ '%.2f'|format(e['cal_value'] / 4.1868) if e['cal_value'] else '—' }}
+    </td>
+    <td class="val">
+      {% if e['cal_value'] and e['sulfur'] is not none %}
+        {{ '%.2f'|format((e['cal_value'] - (e['sulfur'] * 94.1 + e['cal_value'] * 0.0016)) / 4.1868) }}
+      {% else %}—{% endif %}
+    </td>
+    <td class="val">
+      {% set qgr_ad = (e['cal_value'] - (e['sulfur'] * 94.1 + e['cal_value'] * 0.0016)) / 4.1868 if e['cal_value'] and e['sulfur'] is not none else none %}
+      {% if qgr_ad is not none and e['mt_result'] is not none and e['mad'] is not none and (100 - e['mad']) > 0 %}
+        {{ '%.2f'|format(qgr_ad * (100 - e['mt_result']) / (100 - e['mad'])) }}
+      {% else %}—{% endif %}
+    </td>
+    <td class="val">
+      {% if e['cal_value'] and e['sulfur'] is not none and e['mad'] is not none and e['aad'] is not none and e['vad'] is not none and e['mt_result'] is not none and (100 - e['mad']) > 0 %}
+        {% set qgr_ad_jg = e['cal_value'] - (e['sulfur'] * 94.1 + e['cal_value'] * 0.0016) %}
+        {% set adb = e['aad'] * 100 / (100 - e['mad']) %}
+        {% set vdaf = e['vad'] * 100 / (100 - e['mad'] - e['aad']) if (100 - e['mad'] - e['aad']) > 0 else 0 %}
+        {% set hdaf = 2.888 + 0.393 * (vdaf**0.5) - 0.0023 * adb %}
+        {% set had = hdaf * (100 - e['mad'] - e['aad']) / 100 %}
+        {% set qnet_ar = ((qgr_ad_jg - 206 * had) * ((100 - e['mt_result']) / (100 - e['mad'])) - 23 * e['mt_result']) / 4.1868 %}
+        {{ '%.2f'|format(qnet_ar) }}
+      {% else %}—{% endif %}
+    </td>
+    <td class="val">
+      {{ '%.2f'|format(e['g_val']) if e['g_val'] else '—' }}
+    </td>
+    <td class="val">
+      {{ '%.2f'|format(e['fsi']) if e['fsi'] else '—' }}
+    </td>
     {% else %}
-    <td colspan="9" class="val-empty">Өгөгдөл байхгүй</td>
+    <td colspan="18" class="val-empty" style="text-align:left;padding-left:8px">Өгөгдөл байхгүй</td>
     {% endif %}
     <td>
-      {% if e and e['row_status'] == 'approved' %}<span class="st-approved">🟢 Баталгаажсан</span>
-      {% elif e and e['row_status'] == 'done' %}<span class="st-done">🟠 Урьдчилсан</span>
-      {% else %}<span style="color:#ccc;font-size:11px">—</span>{% endif %}
+      {% if not e or e['row_status'] == 'empty' %}
+      <span style="color:#ccc;font-size:11px">—</span>
+      {% elif e['row_status'] == 'done' %}
+      <span class="st-done">🟠 Урьдчилсан</span>
+      {% elif e['row_status'] == 'approved' %}
+      <span class="st-approved">🟢 Баталгаажсан</span>
+      {% endif %}
     </td>
   </tr>
-
   {% if de and de['row_status'] in ('done','approved') %}
-  <tr class="dup-row">
+  <tr style="background:#f0f6ff!important">
     <td style="color:#185fa5;font-size:10px">↳</td>
-    <td style="color:#185fa5;font-size:10px;font-style:italic;text-align:left;padding-left:8px">зэрэгцээ</td>
+    <td style="color:#185fa5;font-size:10px;font-style:italic;text-align:left;padding-left:8px" colspan="2">зэрэгцээ</td>
+    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['mt_result']) if de['mt_result'] else '—' }}</td>
+    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['mad']) if de['mad'] else '—' }}</td>
+    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['aad']) if de['aad'] else '—' }}</td>
     <td class="val" style="color:#185fa5">—</td>
-    <td class="val" style="color:#185fa5">{{ '%.4f'|format(de['mad']) if de['mad'] else '—' }}</td>
-    <td class="val" style="color:#185fa5">{{ '%.4f'|format(de['aad']) if de['aad'] else '—' }}</td>
-    <td class="val" style="color:#185fa5">{{ '%.4f'|format(de['vad']) if de['vad'] else '—' }}</td>
-    <td class="val" style="color:#185fa5">{{ '%.4f'|format(de['fc']) if de['fc'] else '—' }}</td>
-    <td class="val" style="color:#185fa5">{{ '%.3f'|format(de['sulfur']) if de['sulfur'] else '—' }}</td>
-    <td class="val" style="color:#185fa5">{{ '%.1f'|format(de['cal_value']) if de['cal_value'] else '—' }}</td>
+    <td class="val" style="color:#185fa5">—</td>
+    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['vad']) if de['vad'] else '—' }}</td>
+    <td class="val" style="color:#185fa5">—</td>
+    <td class="val" style="color:#185fa5">—</td>
+    <td class="val" style="color:#185fa5">—</td>
+    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['fc']) if de['fc'] else '—' }}</td>
+    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['sulfur']) if de['sulfur'] else '—' }}</td>
+    <td class="val" style="color:#185fa5">—</td>
+    <td colspan="4"></td>
     <td></td><td></td>
     <td>
       {% if de['row_status']=='approved' %}<span class="st-approved">🟢 Баталгаажсан</span>
@@ -125,4 +225,47 @@
   </tbody>
 </table>
 </div>
+
+<!-- Корреляцын графикууд -->
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px;padding-bottom:20px">
+  <div class="card" style="padding:14px">
+    <div style="font-size:11px;font-weight:600;color:#1a2744;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+      <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#185fa5"></span>
+      Qb,ad ~ Aad корреляц
+    </div>
+    <div style="position:relative;height:200px"><canvas id="chartQA"></canvas></div>
+  </div>
+  <div class="card" style="padding:14px">
+    <div style="font-size:11px;font-weight:600;color:#1a2744;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+      <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#0f6e56"></span>
+      Vad ~ Aad корреляц
+    </div>
+    <div style="position:relative;height:200px"><canvas id="chartVA"></canvas></div>
+  </div>
+  <div class="card" style="padding:14px">
+    <div style="font-size:11px;font-weight:600;color:#1a2744;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+      <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#854f0b"></span>
+      Sad ~ Aad корреляц
+    </div>
+    <div style="position:relative;height:200px"><canvas id="chartSA"></canvas></div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+var CD=[{% for e in entries if e and e['is_duplicate']==0 and e['aad'] is not none %}{a:{{e['aad']}},q:{{(e['cal_value']/4.1868)|round(1) if e['cal_value'] else 'null'}},v:{{e['vad'] if e['vad'] is not none else 'null'}},s:{{e['sulfur'] if e['sulfur'] is not none else 'null'}},n:{{e['sample_name']|tojson}}},{% endfor %}];
+function lr(pts){var n=pts.length,sx=0,sy=0,sxy=0,sxx=0;pts.forEach(function(p){sx+=p.x;sy+=p.y;sxy+=p.x*p.y;sxx+=p.x*p.x;});var m=(n*sxy-sx*sy)/(n*sxx-sx*sx),b=(sy-m*sx)/n;return{m:m,b:b};}
+function mk(id,pts,xl,yl,clr){
+  if(!pts.length)return;
+  var r=lr(pts),xs=pts.map(function(p){return p.x;}),mn=Math.min.apply(null,xs),mx=Math.max.apply(null,xs);
+  new Chart(document.getElementById(id),{data:{datasets:[
+    {type:'scatter',data:pts,backgroundColor:clr,pointRadius:4},
+    {type:'line',data:[{x:mn,y:r.m*mn+r.b},{x:mx,y:r.m*mx+r.b}],borderColor:'#e05252',borderWidth:1,borderDash:[3,2],pointRadius:0,fill:false}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.dataset.type==='line'?null:c.raw.n+' ('+c.raw.x.toFixed(2)+', '+c.raw.y.toFixed(0)+')';}}}},scales:{x:{title:{display:true,text:xl,font:{size:9}},ticks:{font:{size:8}}},y:{title:{display:true,text:yl,font:{size:9}},ticks:{font:{size:8}}}}}});
+}
+mk('chartQA',CD.filter(function(d){return d.q!==null;}).map(function(d){return{x:d.a,y:d.q,n:d.n};}), 'Aad [%]','Qb,ad [ккал/кг]','rgba(24,95,165,0.7)');
+mk('chartVA',CD.filter(function(d){return d.v!==null;}).map(function(d){return{x:d.a,y:d.v,n:d.n};}), 'Aad [%]','Vad [%]','rgba(15,110,86,0.7)');
+mk('chartSA',CD.filter(function(d){return d.s!==null;}).map(function(d){return{x:d.a,y:d.s,n:d.n};}), 'Aad [%]','Sad [%]','rgba(133,79,11,0.7)');
+</script>
 {% endblock %}
