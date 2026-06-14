@@ -315,6 +315,7 @@
 <script>
 var RID  = {{ receipt['id'] }};
 var ROWS = {{ receipt['quantity'] or 1 }};
+var rawVals = {};
 var QC = {
   mad: {{ qc_map.get('Mad', 0.20) }},
   aad: {{ qc_map.get('Aad', 0.30) }},
@@ -386,6 +387,7 @@ function calc(ri,dup){
   setC('r'+id+'_vad',vad,2);setC('r'+id+'_fc',fc,2);
   var sad=gv(ri,dup,'sulfur'),qb=gv(ri,dup,'cal_value');
   setC('r'+id+'_sad',sad,3);setC('r'+id+'_qb',qb,1);
+  rawVals[ri+'_'+dup]={tm:tm,mad:mad,aad:aad,vad:vad,fc:fc,g:gval,sad:sad,qb:qb};
   if(dup) checkQC(ri);
   if(mad!=null||aad!=null||gval!=null)
     fetch('/analysis/autosave/calc',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -396,8 +398,10 @@ function calcQC(ri){calc(ri,0);if(document.getElementById('dr'+ri).classList.con
 function checkQC(ri){
   var qcMap={mad:QC.mad,aad:QC.aad,vad:QC.vad,sad:QC.sad,qb:QC.qb,g:QC.g};
   var decMap={tm:2,mad:2,aad:2,vad:2,fc:2,g:2,sad:3,qb:1};
+  var d0=rawVals[ri+'_0']||{};
+  var d1=rawVals[ri+'_1']||{};
   ['tm','mad','aad','vad','fc','g','sad','qb'].forEach(function(p){
-    var v1=getN('r'+ri+'_'+p),v2=getN('r'+ri+'d_'+p);
+    var v1=d0[p],v2=d1[p];
     if(v1!=null&&v2!=null){
       var d=decMap[p]||2;
       var diff=Math.round(Math.abs(v1-v2)*100000)/100000;
