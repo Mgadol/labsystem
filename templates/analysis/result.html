@@ -210,7 +210,7 @@
         {% set qgr_ad_jg = (e['cal_value'] - (e['sulfur'] * 94.1 + e['cal_value'] * 0.0016)) / 4.1868 * 4.1868 %}
         {% set adb = e['aad'] * 100 / (100 - e['mad']) %}
         {% set vdaf = e['vad'] * 100 / (100 - e['mad'] - e['aad']) if (100 - e['mad'] - e['aad']) > 0 else 0 %}
-        {% set hdaf = adb + 0.393 * (vdaf**0.5) - 0.023 * qgr_ad_jg %}
+        {% set hdaf = adb + 0.393 * (vdaf**0.5) - 0.023 * (qgr_ad_jg / 1000) %}
         {% set had = hdaf * (100 - e['mad'] - e['aad']) / 100 %}
         {% set qnet_ar = ((qgr_ad_jg - 206 * had) * ((100 - e['mt_result']) / (100 - e['mad'])) - 23 * e['mt_result']) / 4.1868 %}
         {{ '%.2f'|format(qnet_ar) }}
