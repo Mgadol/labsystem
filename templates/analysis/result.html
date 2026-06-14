@@ -103,6 +103,9 @@
       <th rowspan="2">Adb %</th>
       <th rowspan="2">Ar %</th>
       <th rowspan="2">Vad %</th>
+      <th rowspan="2">Vdb %</th>
+      <th rowspan="2">Vdaf %</th>
+      <th rowspan="2">Var %</th>
       <th rowspan="2">FCad %</th>
       <th rowspan="2">Sad %</th>
       <th rowspan="2">Qb,ad J/g</th>
@@ -156,6 +159,21 @@
       {{ '%.4f'|format(e['vad']) if e['vad'] else '—' }}
     </td>
     <td class="val">
+      {% if e['vad'] and e['mad'] is not none and (100 - e['mad']) > 0 %}
+        {{ '%.4f'|format(e['vad'] * 100 / (100 - e['mad'])) }}
+      {% else %}—{% endif %}
+    </td>
+    <td class="val">
+      {% if e['vad'] and e['mad'] is not none and e['aad'] is not none and (100 - e['mad'] - e['aad']) > 0 %}
+        {{ '%.4f'|format(e['vad'] * 100 / (100 - e['mad'] - e['aad'])) }}
+      {% else %}—{% endif %}
+    </td>
+    <td class="val">
+      {% if e['vad'] and e['mad'] is not none and e['mt_result'] is not none and (100 - e['mad']) > 0 %}
+        {{ '%.4f'|format(e['vad'] * (100 - e['mt_result']) / (100 - e['mad'])) }}
+      {% else %}—{% endif %}
+    </td>
+    <td class="val">
       {{ '%.4f'|format(e['fc']) if e['fc'] else '—' }}
     </td>
     <td class="val">
@@ -169,7 +187,7 @@
       {{ '%.1f'|format(e['fsi']) if e['fsi'] else '—' }}
     </td>
     {% else %}
-    <td colspan="11" class="val-empty">Шинжилгээ хийгдэж байна...</td>
+    <td colspan="14" class="val-empty">Шинжилгээ хийгдэж байна...</td>
     {% endif %}
     <td>
       {% if not e or e['row_status'] == 'empty' %}
