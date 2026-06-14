@@ -131,8 +131,8 @@
       {{ e.sample_name if e and e.sample_name else '—' }}
     </td>
     {% if is_done %}
-    <td class="{{ 'val' if not is_approved else 'val' }}" style="{{ 'color:#854f0b' if is_pending_approve else '' }}">
-      {{ '%.2f'|format(e['mad']) if e['mad'] else '—' }}
+    <td class="val" style="{{ 'color:#854f0b' if is_pending_approve else '' }}">
+      {{ '%.4f'|format(e['mt_result']) if e['mt_result'] else '—' }}
     </td>
     <td class="val" style="{{ 'color:#854f0b' if is_pending_approve else '' }}">
       {{ '%.4f'|format(e['mad']) if e['mad'] else '—' }}
@@ -174,7 +174,7 @@
     {% if role in ('admin','senior') and pending_approve %}<td></td>{% endif %}
     <td style="color:#185fa5;font-size:10px">↳</td>
     <td style="color:#185fa5;font-size:10px;font-style:italic;text-align:left;padding-left:8px">зэрэгцээ</td>
-    <td class="val" style="color:#185fa5">—</td>
+    <td class="val" style="color:#185fa5">{{ '%.4f'|format(de['mt_result']) if de['mt_result'] else '—' }}</td>
     <td class="val" style="color:#185fa5">{{ '%.4f'|format(de['mad']) if de['mad'] else '—' }}</td>
     <td class="val" style="color:#185fa5">{{ '%.4f'|format(de['aad']) if de['aad'] else '—' }}</td>
     <td class="val" style="color:#185fa5">{{ '%.4f'|format(de['vad']) if de['vad'] else '—' }}</td>
