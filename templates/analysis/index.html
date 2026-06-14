@@ -140,16 +140,14 @@
             {% elif ps == 'ready' or st == 'analysing' %}
               {% if role in ('admin','senior','staff') %}
               <a href="{{ url_for('analysis_measure', receipt_id=rid) }}"
-                 style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#1a2744;font-size:11px;padding:4px 10px;text-decoration:none">
-                🧪 Шинжилгээ хийх
-              </a>
+                 class="btn btn-ghost btn-sm">🧪 Шинжилгээ хийх</a>
               {% endif %}
               <a href="{{ url_for('analysis_result', receipt_id=rid) }}"
-                 style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#1a2744;font-size:11px;padding:4px 10px;text-decoration:none">📊 Үр дүн</a>
+                 class="btn btn-ghost btn-sm">📊 Үр дүн</a>
 
             {% elif ps == 'done' %}
               <a href="{{ url_for('analysis_result', receipt_id=rid) }}"
-                 style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#1a2744;font-size:11px;padding:4px 10px;text-decoration:none">📊 Үр дүн</a>
+                 class="btn btn-ghost btn-sm">📊 Үр дүн</a>
             {% endif %}
           </div>
         </td>
