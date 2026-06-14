@@ -389,6 +389,7 @@ function calc(ri,dup){
   setC('r'+id+'_sad',sad,3);setC('r'+id+'_qb',qb,1);
   rawVals[ri+'_'+dup]={tm:tm,mad:mad,aad:aad,vad:vad,fc:fc,g:gval,sad:sad,qb:qb};
   if(dup) checkQC(ri);
+  else if(rawVals[ri+'_1']) checkQC(ri);
   if(mad!=null||aad!=null||gval!=null)
     fetch('/analysis/autosave/calc',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({receipt_id:RID,row_num:ri,is_duplicate:dup,mad:mad,aad:aad,vad:vad,fc:fc,g_val:gval})});
