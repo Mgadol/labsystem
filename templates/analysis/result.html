@@ -169,25 +169,6 @@
       {% endif %}
     </td>
   </tr>
-  {% if de and de['row_status'] in ('done','approved') %}
-  <tr class="dup-row">
-    {% if role in ('admin','senior') and pending_approve %}<td></td>{% endif %}
-    <td style="color:#185fa5;font-size:10px">↳</td>
-    <td style="color:#185fa5;font-size:10px;font-style:italic;text-align:left;padding-left:8px">зэрэгцээ</td>
-    <td class="val" style="color:#185fa5">{{ '%.4f'|format(de['mt_result']) if de['mt_result'] else '—' }}</td>
-    <td class="val" style="color:#185fa5">{{ '%.4f'|format(de['mad']) if de['mad'] else '—' }}</td>
-    <td class="val" style="color:#185fa5">{{ '%.4f'|format(de['aad']) if de['aad'] else '—' }}</td>
-    <td class="val" style="color:#185fa5">{{ '%.4f'|format(de['vad']) if de['vad'] else '—' }}</td>
-    <td class="val" style="color:#185fa5">{{ '%.4f'|format(de['fc']) if de['fc'] else '—' }}</td>
-    <td class="val" style="color:#185fa5">{{ '%.3f'|format(de['sulfur']) if de['sulfur'] else '—' }}</td>
-    <td class="val" style="color:#185fa5">{{ '%.1f'|format(de['cal_value']) if de['cal_value'] else '—' }}</td>
-    <td></td><td></td>
-    <td>
-      {% if de['row_status']=='done' %}<span class="st-done">🟠 Урьдчилсан</span>
-      {% else %}<span class="st-approved">🟢 Баталгаажсан</span>{% endif %}
-    </td>
-  </tr>
-  {% endif %}
   {% endfor %}
   </tbody>
 </table>
