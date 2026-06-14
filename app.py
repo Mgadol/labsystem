@@ -1622,6 +1622,15 @@ def analysis_receive(geo_id):
             request.form.get('notes')
         ))
         conn.execute("UPDATE geo_samples SET status='received' WHERE id=?", (geo_id,))
+        # Нэр ;-ээр тусгаарлагдсан бол sample_entries-д урьдчилан бүртгэх
+        receipt_id = conn.execute("SELECT id FROM sample_receipt WHERE geo_sample_id=? ORDER BY id DESC LIMIT 1", (geo_id,)).fetchone()['id']
+        if geo['sample_type'] != 'PIT' and geo['sample_name'] and ';' in geo['sample_name']:
+            names = [n.strip() for n in geo['sample_name'].split(';') if n.strip()]
+            for i, name in enumerate(names):
+                conn.execute(
+                    "INSERT OR IGNORE INTO sample_entries(receipt_id,row_num,is_duplicate,sample_name) VALUES(?,?,0,?)",
+                    (receipt_id, i+1, name)
+                )
         conn.commit(); conn.close()
         flash(f'Дээж хүлээн авлаа! Ажлын дугаар: {lab_num}', 'success')
         return redirect(url_for('analysis'))
