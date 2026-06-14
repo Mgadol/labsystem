@@ -3,8 +3,8 @@
 {% block content %}
 <style>
 .result-wrap{overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto}
-.result-table{width:100%;border-collapse:collapse;font-size:12px}
-.result-table th,.result-table td{border:1px solid #d8d8d0;padding:4px 8px;text-align:center;white-space:nowrap}
+.result-table{width:100%;border-collapse:collapse;font-size:11px}
+.result-table th,.result-table td{border:1px solid #d8d8d0;padding:2px 6px;text-align:center;white-space:nowrap}
 .result-table thead th{position:sticky;top:0;z-index:2}
 .result-table thead tr.h1 th{background:#1e3a5f;color:#fff;font-size:11px;height:24px}
 .result-table thead tr.h2 th{background:#2d5282;color:#bee3f8;font-size:10px;border-bottom:3px solid #4a9eff}
@@ -137,54 +137,54 @@
     </td>
     {% if is_done %}
     <td class="val">
-      {{ '%.4f'|format(e['mt_result']) if e['mt_result'] else '—' }}
+      {{ '%.2f'|format(e['mt_result']) if e['mt_result'] else '—' }}
     </td>
     <td class="val">
-      {{ '%.4f'|format(e['mad']) if e['mad'] else '—' }}
+      {{ '%.2f'|format(e['mad']) if e['mad'] else '—' }}
     </td>
     <td class="val">
-      {{ '%.4f'|format(e['aad']) if e['aad'] else '—' }}
+      {{ '%.2f'|format(e['aad']) if e['aad'] else '—' }}
     </td>
     <td class="val">
       {% if e['aad'] and e['mad'] is not none and (100 - e['mad']) > 0 %}
-        {{ '%.4f'|format(e['aad'] * 100 / (100 - e['mad'])) }}
+        {{ '%.2f'|format(e['aad'] * 100 / (100 - e['mad'])) }}
       {% else %}—{% endif %}
     </td>
     <td class="val">
       {% if e['aad'] and e['mad'] is not none and e['mt_result'] is not none and (100 - e['mad']) > 0 %}
-        {{ '%.4f'|format(e['aad'] * (100 - e['mt_result']) / (100 - e['mad'])) }}
+        {{ '%.2f'|format(e['aad'] * (100 - e['mt_result']) / (100 - e['mad'])) }}
       {% else %}—{% endif %}
     </td>
     <td class="val">
-      {{ '%.4f'|format(e['vad']) if e['vad'] else '—' }}
+      {{ '%.2f'|format(e['vad']) if e['vad'] else '—' }}
     </td>
     <td class="val">
       {% if e['vad'] and e['mad'] is not none and (100 - e['mad']) > 0 %}
-        {{ '%.4f'|format(e['vad'] * 100 / (100 - e['mad'])) }}
+        {{ '%.2f'|format(e['vad'] * 100 / (100 - e['mad'])) }}
       {% else %}—{% endif %}
     </td>
     <td class="val">
       {% if e['vad'] and e['mad'] is not none and e['aad'] is not none and (100 - e['mad'] - e['aad']) > 0 %}
-        {{ '%.4f'|format(e['vad'] * 100 / (100 - e['mad'] - e['aad'])) }}
+        {{ '%.2f'|format(e['vad'] * 100 / (100 - e['mad'] - e['aad'])) }}
       {% else %}—{% endif %}
     </td>
     <td class="val">
       {% if e['vad'] and e['mad'] is not none and e['mt_result'] is not none and (100 - e['mad']) > 0 %}
-        {{ '%.4f'|format(e['vad'] * (100 - e['mt_result']) / (100 - e['mad'])) }}
+        {{ '%.2f'|format(e['vad'] * (100 - e['mt_result']) / (100 - e['mad'])) }}
       {% else %}—{% endif %}
     </td>
     <td class="val">
-      {{ '%.4f'|format(e['fc']) if e['fc'] else '—' }}
+      {{ '%.2f'|format(e['fc']) if e['fc'] else '—' }}
     </td>
     <td class="val">
-      {{ '%.3f'|format(e['sulfur']) if e['sulfur'] else '—' }}
+      {{ '%.2f'|format(e['sulfur']) if e['sulfur'] else '—' }}
     </td>
     <td class="val">
-      {{ '%.1f'|format(e['cal_value']) if e['cal_value'] else '—' }}
+      {{ '%.2f'|format(e['cal_value']) if e['cal_value'] else '—' }}
     </td>
     <td class="val">—</td>
     <td class="val">
-      {{ '%.1f'|format(e['fsi']) if e['fsi'] else '—' }}
+      {{ '%.2f'|format(e['fsi']) if e['fsi'] else '—' }}
     </td>
     {% else %}
     <td colspan="14" class="val-empty">Шинжилгээ хийгдэж байна...</td>
