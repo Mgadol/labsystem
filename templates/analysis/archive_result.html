@@ -38,6 +38,7 @@
     {% endif %}
     <a href="{{ url_for('archive_measure', receipt_id=receipt['id']) }}" class="btn btn-sm" style="background:#eeedfe;color:#3c3489;border:1px solid #c7d2fe">📋 Хэмжилт харах</a>
     <a href="{{ url_for('analysis_export', receipt_id=receipt['id']) }}" class="btn btn-sm" style="background:#eeedfe;color:#3c3489;border:1px solid #c7d2fe">📥 Excel татах</a>
+    <a href="{{ url_for('analysis_export_report', receipt_id=receipt['id']) }}" class="btn btn-sm" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">📋 Тайлан татах</a>
     <a href="{{ url_for('archive') }}" class="btn btn-ghost btn-sm">← Архив</a>
   </div>
 </div>
