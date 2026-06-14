@@ -81,8 +81,8 @@
   <div><div style="font-size:9px;color:#93a8d4">Геологи</div><div>{{ receipt['geo_name'] or '—' }}</div></div>
   <div><div style="font-size:9px;color:#93a8d4">Дээж бэлтгэгч</div><div>{{ receipt['prep_name'] or '—' }}</div></div>
   <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
-    <button id="editModeBtn" onclick="toggleEditMode()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer;font-weight:600">
-      ✏️ Edit
+    <button id="editModeBtn" onclick="toggleEditMode()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">
+      ✏️ Засах
     </button>
     <button onclick="openDevicePopup()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">
       🔧 <span id="deviceSummary">Тоног</span>
@@ -350,7 +350,7 @@ function toggleEditMode(){
   editMode = !editMode;
   var btn = document.getElementById('editModeBtn');
   if(editMode){
-    btn.textContent = '💾 Save';
+    btn.textContent = '💾 Хадгалах';
     btn.style.background = 'rgba(255,255,255,.1)';
     btn.style.borderColor = 'rgba(255,255,255,.2)';
     document.getElementById('saveStatus').textContent = 'Edit горим';
@@ -358,7 +358,7 @@ function toggleEditMode(){
     // Save хийх
     var keys = Object.keys(pendingChanges);
     if(!keys.length){
-      btn.textContent = '✏️ Edit';
+      btn.textContent = '✏️ Засах';
       btn.style.background = '#854f0b';
       btn.style.borderColor = '#a0621a';
       document.getElementById('saveStatus').textContent = 'Хадгалагдсан';
@@ -376,7 +376,7 @@ function toggleEditMode(){
       pendingChanges = {};
       setSave('ok');
     }).catch(function(){ setSave('err'); });
-    btn.textContent = '✏️ Edit';
+    btn.textContent = '✏️ Засах';
     btn.style.background = 'rgba(255,255,255,.1)';
     btn.style.borderColor = 'rgba(255,255,255,.2)';
   }
