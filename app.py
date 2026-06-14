@@ -2265,17 +2265,6 @@ def analysis_export_report(receipt_id):
             pass
         return None
 
-    def _calc_g_local(e):
-        try:
-            coke = e['g_coke']; tare = e['g_tare']; s1 = e['g_sieve1']; s2 = e['g_sieve2']
-            if coke is None or tare is None: return None
-            coke_mass = coke - tare
-            if coke_mass <= 0: return None
-            sieve_mass = (s1 or 0) + (s2 or 0)
-            return round(sieve_mass / coke_mass * 100, 2)
-        except Exception:
-            return None
-
     def calc_qnet(e, mt_val):
         try:
             qjg = e['cal_value'] - (e['sulfur'] * 94.1 + e['cal_value'] * 0.0016)
@@ -2305,11 +2294,11 @@ def analysis_export_report(receipt_id):
         sdb = round(e['sulfur']*100/(100-e['mad']), 2) if e['sulfur'] is not None and e['mad'] is not None and (100-e['mad'])>0 else None
         qb_kcal = round(e['cal_value']/4.1868, 2) if e['cal_value'] else None
         qnet = calc_qnet(e, mt) if e['cal_value'] and e['sulfur'] is not None and e['mad'] is not None and e['aad'] is not None and e['vad'] is not None else None
-        g_val = _calc_g_local(e)
+        g_val = e['g_val']
 
         ws.cell(row, 1, i+1)
         ws.cell(row, 2, e['sample_name'] or '—')
-        ws.cell(row, 3, v(receipt['mass_kg']))
+        ws.cell(row, 3, None)
         ws.cell(row, 4, mt_rounded)
         ws.cell(row, 5, mad)
         ws.cell(row, 6, aad)
