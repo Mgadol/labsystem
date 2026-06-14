@@ -81,6 +81,9 @@
   <div><div style="font-size:9px;color:#93a8d4">Геологи</div><div>{{ receipt['geo_name'] or '—' }}</div></div>
   <div><div style="font-size:9px;color:#93a8d4">Дээж бэлтгэгч</div><div>{{ receipt['prep_name'] or '—' }}</div></div>
   <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+    <button id="editModeBtn" onclick="toggleEditMode()" style="background:#854f0b;border:1px solid #a0621a;border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer;font-weight:600">
+      ✏️ Edit
+    </button>
     <button onclick="openDevicePopup()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">
       🔧 <span id="deviceSummary">Тоног</span>
     </button>
@@ -340,6 +343,45 @@ function autoNames(){
   }
 }
 
+// Edit/Save горим
+var editMode = false;
+var pendingChanges = {};
+function toggleEditMode(){
+  editMode = !editMode;
+  var btn = document.getElementById('editModeBtn');
+  if(editMode){
+    btn.textContent = '💾 Save';
+    btn.style.background = '#0f6e56';
+    btn.style.borderColor = '#0a5a46';
+    document.getElementById('saveStatus').textContent = 'Edit горим';
+  } else {
+    // Save хийх
+    var keys = Object.keys(pendingChanges);
+    if(!keys.length){
+      btn.textContent = '✏️ Edit';
+      btn.style.background = '#854f0b';
+      btn.style.borderColor = '#a0621a';
+      document.getElementById('saveStatus').textContent = 'Хадгалагдсан';
+      return;
+    }
+    setSave('pending');
+    var promises = keys.map(function(k){
+      var c = pendingChanges[k];
+      return fetch('/analysis/autosave',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(c)
+      }).then(r=>r.json());
+    });
+    Promise.all(promises).then(function(){
+      pendingChanges = {};
+      setSave('ok');
+    }).catch(function(){ setSave('err'); });
+    btn.textContent = '✏️ Edit';
+    btn.style.background = '#854f0b';
+    btn.style.borderColor = '#a0621a';
+  }
+}
+
 // Auto-save
 function setSave(st){
   var dot=document.getElementById('saveDot');
@@ -348,7 +390,12 @@ function setSave(st){
   txt.textContent=st==='pending'?'Хадгалж байна...':st==='err'?'Алдаа':'Хадгалагдсан';
 }
 function autoSave(inp){
-  if(!inp.value) return;
+  if(!inp.value && inp.value!=='0') return;
+  if(editMode){
+    var key = inp.dataset.field+'_'+inp.dataset.row+'_'+inp.dataset.dup;
+    pendingChanges[key] = {receipt_id:RID,row_num:parseInt(inp.dataset.row),is_duplicate:parseInt(inp.dataset.dup),field:inp.dataset.field,value:inp.value};
+    return;
+  }
   setSave('pending');
   fetch('/analysis/autosave',{
     method:'POST',headers:{'Content-Type':'application/json'},
