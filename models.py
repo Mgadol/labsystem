@@ -340,7 +340,7 @@ def init_analysis_db():
         vol_tig TEXT, vol_tare REAL, vol_sample REAL, vol_burned REAL,
         g_tig TEXT, g_tare REAL, g_coke REAL, g_sieve1 REAL, g_sieve2 REAL,
         sulfur REAL, cal_value REAL, cal_temp REAL, fsi REAL,
-        mad REAL, aad REAL, vad REAL, fc REAL,
+        mad REAL, aad REAL, vad REAL, fc REAL, g_val REAL,
         row_status TEXT DEFAULT 'empty',
         done_by INTEGER REFERENCES users(id),
         done_at TEXT,

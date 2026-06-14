@@ -154,7 +154,7 @@
       <th class="cg-st">Нийт хүхэр</th>
       <th colspan="2" class="cg-il">Илчлэгийн утга</th>
       <th class="cg-fsi">Чөлөөт<br>хөөлт</th>
-      <th colspan="5">Тооцоо</th>
+      <th colspan="6">Тооцоо</th>
     </tr>
     <tr class="h2">
       <th class="cg-ff gs">Дээжний масс<br>[кг]</th><th class="cg-ff ge">Хатаасан масс<br>[кг]</th>
@@ -166,7 +166,7 @@
       <th class="cg-st gs ge">Sad [%]</th>
       <th class="cg-il gs">Qb,ad [J/g]</th><th class="cg-il ge">Өрөө ⁰C</th>
       <th class="cg-fsi gs ge">CSN</th>
-      <th class="gs">TM%</th><th>Mad%</th><th>Aad%</th><th>Vad%</th><th>FCad%</th>
+      <th class="gs">TM%</th><th>Mad%</th><th>Aad%</th><th>Vad%</th><th>FCad%</th><th>G</th>
     </tr>
   </thead>
   <tbody id="tbody">
@@ -228,6 +228,7 @@
     <td class="calc-cell" id="r{{ ri }}_aad">—</td>
     <td class="calc-cell" id="r{{ ri }}_vad">—</td>
     <td class="calc-cell" id="r{{ ri }}_fc">—</td>
+    <td class="calc-cell" id="r{{ ri }}_g">—</td>
   </tr>
   <!-- Зэрэгцээ мөр -->
   <tr class="dup-row" id="dr{{ ri }}">
@@ -275,6 +276,7 @@
     <td class="calc-cell" id="r{{ ri }}d_aad">—</td>
     <td class="calc-cell" id="r{{ ri }}d_vad">—</td>
     <td class="calc-cell" id="r{{ ri }}d_fc">—</td>
+    <td class="calc-cell" id="r{{ ri }}d_g">—</td>
   </tr>
   {% endfor %}
 
@@ -364,12 +366,16 @@ function calc(ri,dup){
   var vt=gv(ri,dup,'vol_tare'),vs=gv(ri,dup,'vol_sample'),vb=gv(ri,dup,'vol_burned');
   var vad=(vt!=null&&vs&&vs>0&&vb!=null&&mad!=null)?(vt+vs-vb)/vs*100-mad:null;
   var fc=(mad!=null&&aad!=null&&vad!=null)?100-mad-aad-vad:null;
+  // G индекс: G = 10 + (30×m1 + 70×m2) / m
+  var gm=gv(ri,dup,'g_coke'),gs1=gv(ri,dup,'g_sieve1'),gs2=gv(ri,dup,'g_sieve2');
+  var gval=(gm&&gm>0&&gs1!=null&&gs2!=null)?10+(30*gs1+70*gs2)/gm:null;
+  setC('r'+id+'_g',gval,2);
   setC('r'+id+'_mad',mad,4);setC('r'+id+'_aad',aad,4);
   setC('r'+id+'_vad',vad,4);setC('r'+id+'_fc',fc,4);
   if(dup) checkQC(ri);
-  if(mad!=null||aad!=null)
+  if(mad!=null||aad!=null||gval!=null)
     fetch('/analysis/autosave/calc',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({receipt_id:RID,row_num:ri,is_duplicate:dup,mad:mad,aad:aad,vad:vad,fc:fc})});
+      body:JSON.stringify({receipt_id:RID,row_num:ri,is_duplicate:dup,mad:mad,aad:aad,vad:vad,fc:fc,g_val:gval})});
 }
 function setC(id,v,d){var e=document.getElementById(id);if(e){e.textContent=v!=null?v.toFixed(d):'—';e.className='calc-cell'+((id.includes('_tm')||id.includes('_mad'))?' gs':'');}}
 function calcQC(ri){calc(ri,0);if(document.getElementById('dr'+ri).classList.contains('show'))calc(ri,1);}
