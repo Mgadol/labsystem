@@ -274,11 +274,13 @@
     <td class="cg-fsi gs ge"><input type="number" step="0.5" data-field="fsi" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calcQC({{ ri }})"></td>
     <!-- Тооцоо -->
     <td class="calc-cell gs" id="r{{ ri }}d_tm">—</td>
-    <td class="calc-cell gs" id="r{{ ri }}d_mad">—</td>
+    <td class="calc-cell" id="r{{ ri }}d_mad">—</td>
     <td class="calc-cell" id="r{{ ri }}d_aad">—</td>
     <td class="calc-cell" id="r{{ ri }}d_vad">—</td>
     <td class="calc-cell" id="r{{ ri }}d_fc">—</td>
     <td class="calc-cell" id="r{{ ri }}d_g">—</td>
+    <td class="calc-cell" id="r{{ ri }}d_sad">—</td>
+    <td class="calc-cell" id="r{{ ri }}d_qb">—</td>
   </tr>
   {% endfor %}
 
