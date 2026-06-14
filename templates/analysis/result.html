@@ -239,8 +239,34 @@
   </tbody>
 </table>
 </div>
+<!-- Корреляцын графикууд -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
+  <div class="card" style="padding:12px">
+    <div style="font-size:11px;font-weight:600;color:#1a2744;margin-bottom:6px">Qb,ad ~ Aad корреляц</div>
+    <canvas id="chartQA" style="height:160px"></canvas>
+  </div>
+  <div class="card" style="padding:12px">
+    <div style="font-size:11px;font-weight:600;color:#1a2744;margin-bottom:6px">Vad ~ Aad корреляц</div>
+    <canvas id="chartVA" style="height:160px"></canvas>
+  </div>
+</div>
 {% endblock %}
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+var CD=[{% for e in entries if e and e['is_duplicate']==0 and e['aad'] is not none %}{a:{{e['aad']}},q:{{(e['cal_value']/4.1868)|round(1) if e['cal_value'] else 'null'}},v:{{e['vad'] if e['vad'] is not none else 'null'}},n:{{e['sample_name']|tojson}}},{% endfor %}];
+function lr(pts){var n=pts.length,sx=0,sy=0,sxy=0,sxx=0;pts.forEach(function(p){sx+=p.x;sy+=p.y;sxy+=p.x*p.y;sxx+=p.x*p.x;});var m=(n*sxy-sx*sy)/(n*sxx-sx*sx),b=(sy-m*sx)/n;return{m:m,b:b};}
+function mk(id,pts,xl,yl,clr){
+  if(!pts.length)return;
+  var r=lr(pts),xs=pts.map(function(p){return p.x;}),mn=Math.min.apply(null,xs),mx=Math.max.apply(null,xs);
+  new Chart(document.getElementById(id),{data:{datasets:[
+    {type:'scatter',data:pts,backgroundColor:clr,pointRadius:4},
+    {type:'line',data:[{x:mn,y:r.m*mn+r.b},{x:mx,y:r.m*mx+r.b}],borderColor:'#e05252',borderWidth:1,borderDash:[3,2],pointRadius:0,fill:false}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.dataset.type==='line'?null:c.raw.n+' ('+c.raw.x.toFixed(2)+', '+c.raw.y.toFixed(0)+')';}}}},scales:{x:{title:{display:true,text:xl,font:{size:9}},ticks:{font:{size:8}}},y:{title:{display:true,text:yl,font:{size:9}},ticks:{font:{size:8}}}}}});
+}
+mk('chartQA',CD.filter(function(d){return d.q!==null;}).map(function(d){return{x:d.a,y:d.q,n:d.n};}), 'Aad [%]','Qb,ad [ккал/кг]','rgba(24,95,165,0.7)');
+mk('chartVA',CD.filter(function(d){return d.v!==null;}).map(function(d){return{x:d.a,y:d.v,n:d.n};}), 'Aad [%]','Vad [%]','rgba(15,110,86,0.7)');
+</script>
 <script>
 var RID = {{ receipt['id'] }};
 
