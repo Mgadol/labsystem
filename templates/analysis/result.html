@@ -108,6 +108,7 @@
       <th rowspan="2">Var %</th>
       <th rowspan="2">FCad %</th>
       <th rowspan="2">Sad %</th>
+      <th rowspan="2">Sdb %</th>
       <th rowspan="2">Qb,ad J/g</th>
       <th rowspan="2">G</th>
       <th rowspan="2">CSN</th>
@@ -180,6 +181,11 @@
       {{ '%.2f'|format(e['sulfur']) if e['sulfur'] else '—' }}
     </td>
     <td class="val">
+      {% if e['sulfur'] and e['mad'] is not none and (100 - e['mad']) > 0 %}
+        {{ '%.2f'|format(e['sulfur'] * 100 / (100 - e['mad'])) }}
+      {% else %}—{% endif %}
+    </td>
+    <td class="val">
       {{ '%.2f'|format(e['cal_value']) if e['cal_value'] else '—' }}
     </td>
     <td class="val">—</td>
@@ -187,7 +193,7 @@
       {{ '%.2f'|format(e['fsi']) if e['fsi'] else '—' }}
     </td>
     {% else %}
-    <td colspan="14" class="val-empty">Шинжилгээ хийгдэж байна...</td>
+    <td colspan="15" class="val-empty">Шинжилгээ хийгдэж байна...</td>
     {% endif %}
     <td>
       {% if not e or e['row_status'] == 'empty' %}
