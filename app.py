@@ -1765,6 +1765,10 @@ def analysis_autosave():
         if not all([rid, row, field]):
             return jsonify({'ok': False, 'error': 'Missing params'})
 
+        # Хоосон утга → NULL болгох
+        if value == '' or value is None:
+            value = None
+
         conn = get_db()
         # Мөр байгаа эсэх шалгах
         existing = conn.execute(

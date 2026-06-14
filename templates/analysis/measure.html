@@ -390,12 +390,12 @@ function setSave(st){
   txt.textContent=st==='pending'?'Хадгалж байна...':st==='err'?'Алдаа':'Хадгалагдсан';
 }
 function autoSave(inp){
-  if(!inp.value && inp.value!=='0') return;
   if(editMode){
     var key = inp.dataset.field+'_'+inp.dataset.row+'_'+inp.dataset.dup;
-    pendingChanges[key] = {receipt_id:RID,row_num:parseInt(inp.dataset.row),is_duplicate:parseInt(inp.dataset.dup),field:inp.dataset.field,value:inp.value};
+    pendingChanges[key] = {receipt_id:RID,row_num:parseInt(inp.dataset.row),is_duplicate:parseInt(inp.dataset.dup),field:inp.dataset.field,value:inp.value===''?null:inp.value};
     return;
   }
+  if(!inp.value) return;
   setSave('pending');
   fetch('/analysis/autosave',{
     method:'POST',headers:{'Content-Type':'application/json'},
