@@ -1687,56 +1687,55 @@ def analysis_register():
         today=datetime.now().strftime('%Y-%m-%d'),
         sample_types=stypes)
 
-@app.route('/analysis/crm/register', methods=['GET','POST'])
+@app.route('/analysis/crm/register', methods=['GET', 'POST'])
 @lab_required
-def crm_register():
-    """CRM дээж бүртгэж шууд хэмжилт рүү орно"""
-    lang = session.get('lang','mn')
+def analysis_crm_register():
     if request.method == 'POST':
+        crm_name = request.form.get('crm_name', '').strip()
+        crm_mad = request.form.get('crm_mad') or None
+        crm_aad = request.form.get('crm_aad') or None
+        crm_vad = request.form.get('crm_vad') or None
+        crm_sulfur = request.form.get('crm_sulfur') or None
+        crm_cal = request.form.get('crm_cal') or None
+        collected_date = request.form.get('collected_date') or datetime.now().strftime('%Y-%m-%d')
+        notes = request.form.get('notes', '').strip()
+
+        if not crm_name:
+            flash('CRM нэрийг оруулна уу', 'error')
+            return redirect(url_for('analysis_crm_register'))
+
         conn = get_db()
-        today_str = request.form.get('collected_date', datetime.now().strftime('%Y-%m-%d'))
-        crm_name = request.form.get('crm_name','').strip()
-        date_compact = today_str.replace('-','')
+        try:
+            cur = conn.execute("""
+                INSERT INTO geo_samples (sample_name, sample_type, location, collected_date, quantity, notes,
+                    registered_by, status, crm_name, crm_mad, crm_aad, crm_vad, crm_sulfur, crm_cal)
+                VALUES (?, 'CRM', 'CRM лаборатори', ?, 1, ?, ?, 'received', ?, ?, ?, ?, ?, ?)
+            """, (crm_name, collected_date, notes, session['user_id'],
+                  crm_name, crm_mad, crm_aad, crm_vad, crm_sulfur, crm_cal))
+            geo_id = cur.lastrowid
 
-        # geo_samples-д бүртгэх
-        conn.execute("""
-            INSERT INTO geo_samples(sample_name,sample_type,collected_date,quantity,
-                notes,registered_by,status,crm_name,crm_mad,crm_aad,crm_vad,crm_sulfur,crm_cal)
-            VALUES(?,?,?,1,?,?,'received',?,?,?,?,?,?)
-        """, (
-            crm_name, 'CRM', today_str,
-            request.form.get('notes'), session['user_id'],
-            crm_name,
-            request.form.get('crm_mad') or None,
-            request.form.get('crm_aad') or None,
-            request.form.get('crm_vad') or None,
-            request.form.get('crm_sulfur') or None,
-            request.form.get('crm_cal') or None,
-        ))
-        geo_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+            lab_number, lab_serial = generate_lab_number('CRM', collected_date)
 
-        # Ажлын дугаар үүсгэх
-        last = conn.execute(
-            "SELECT lab_serial FROM sample_receipt WHERE lab_serial>=9001 ORDER BY lab_serial DESC LIMIT 1"
-        ).fetchone()
-        serial = (last['lab_serial'] + 1) if last else 9001
-        lab_num = f"{serial}-{date_compact}"
+            cur2 = conn.execute("""
+                INSERT INTO sample_receipt (geo_sample_id, lab_number, lab_serial, received_date, received_by)
+                VALUES (?, ?, ?, ?, ?)
+            """, (geo_id, lab_number, lab_serial, collected_date, session['user_id']))
+            receipt_id = cur2.lastrowid
 
-        # sample_receipt үүсгэх
-        conn.execute("""
-            INSERT INTO sample_receipt(geo_sample_id,lab_number,lab_serial,received_date,received_by)
-            VALUES(?,?,?,?,?)
-        """, (geo_id, lab_num, serial, today_str, session['user_id']))
-        receipt_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+            conn.execute("""
+                INSERT INTO sample_entries (receipt_id, row_num, is_duplicate, sample_name, row_status)
+                VALUES (?, 1, 0, ?, 'empty')
+            """, (receipt_id, crm_name))
 
-        # sample_entries-д нэг мөр үүсгэх
-        conn.execute(
-            "INSERT OR IGNORE INTO sample_entries(receipt_id,row_num,is_duplicate,sample_name) VALUES(?,1,0,?)",
-            (receipt_id, crm_name)
-        )
-        conn.commit(); conn.close()
-        flash(f'CRM дээж бүртгэгдлээ! Ажлын дугаар: {lab_num}', 'success')
-        return redirect(url_for('analysis_measure', receipt_id=receipt_id))
+            conn.commit()
+            flash(f'CRM дээж бүртгэгдлээ: {lab_number}', 'success')
+            return redirect(url_for('analysis_measure', receipt_id=receipt_id))
+        except Exception as e:
+            conn.rollback()
+            flash(f'Алдаа: {e}', 'error')
+            return redirect(url_for('analysis_crm_register'))
+        finally:
+            conn.close()
 
     return render_template('analysis/crm_register.html', lang=lang, now=datetime.now())
 
@@ -2173,6 +2172,7 @@ def analysis_result(receipt_id):
     receipt = conn.execute("""
         SELECT sr.*, g.sample_name, g.sample_type, g.location,
                g.collected_date, g.quantity,
+               g.crm_name, g.crm_mad, g.crm_aad, g.crm_vad, g.crm_sulfur, g.crm_cal,
                ug.name as geo_name, up.name as prep_name
         FROM sample_receipt sr
         JOIN geo_samples g ON g.id=sr.geo_sample_id
@@ -2180,7 +2180,7 @@ def analysis_result(receipt_id):
         LEFT JOIN users up ON up.id=sr.received_by
         WHERE sr.id=?
     """, (receipt_id,)).fetchone()
-    
+
     entries_raw = conn.execute("""
         SELECT se.*, u1.name as done_name, u2.name as approved_name
         FROM sample_entries se
