@@ -1687,6 +1687,61 @@ def analysis_register():
         today=datetime.now().strftime('%Y-%m-%d'),
         sample_types=stypes)
 
+@app.route('/analysis/crm/register', methods=['GET','POST'])
+@lab_required
+def crm_register():
+    """CRM дээж бүртгэж шууд хэмжилт рүү орно"""
+    lang = session.get('lang','mn')
+    if request.method == 'POST':
+        conn = get_db()
+        today_str = request.form.get('collected_date', datetime.now().strftime('%Y-%m-%d'))
+        crm_name = request.form.get('crm_name','').strip()
+        date_compact = today_str.replace('-','')
+
+        # geo_samples-д бүртгэх
+        conn.execute("""
+            INSERT INTO geo_samples(sample_name,sample_type,collected_date,quantity,
+                notes,registered_by,status,crm_name,crm_mad,crm_aad,crm_vad,crm_sulfur,crm_cal)
+            VALUES(?,?,?,1,?,?,'received',?,?,?,?,?,?)
+        """, (
+            crm_name, 'CRM', today_str,
+            request.form.get('notes'), session['user_id'],
+            crm_name,
+            request.form.get('crm_mad') or None,
+            request.form.get('crm_aad') or None,
+            request.form.get('crm_vad') or None,
+            request.form.get('crm_sulfur') or None,
+            request.form.get('crm_cal') or None,
+        ))
+        geo_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+        # Ажлын дугаар үүсгэх
+        last = conn.execute(
+            "SELECT lab_serial FROM sample_receipt WHERE lab_serial>=9001 ORDER BY lab_serial DESC LIMIT 1"
+        ).fetchone()
+        serial = (last['lab_serial'] + 1) if last else 9001
+        lab_num = f"{serial}-{date_compact}"
+
+        # sample_receipt үүсгэх
+        conn.execute("""
+            INSERT INTO sample_receipt(geo_sample_id,lab_number,lab_serial,received_date,received_by)
+            VALUES(?,?,?,?,?)
+        """, (geo_id, lab_num, serial, today_str, session['user_id']))
+        receipt_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+        # sample_entries-д нэг мөр үүсгэх
+        conn.execute(
+            "INSERT OR IGNORE INTO sample_entries(receipt_id,row_num,is_duplicate,sample_name) VALUES(?,1,0,?)",
+            (receipt_id, crm_name)
+        )
+        conn.commit(); conn.close()
+        flash(f'CRM дээж бүртгэгдлээ! Ажлын дугаар: {lab_num}', 'success')
+        return redirect(url_for('analysis_measure', receipt_id=receipt_id))
+
+    return render_template('analysis/crm_register.html', lang=lang,
+        today=datetime.now().strftime('%Y-%m-%d'))
+
+
 @app.route('/analysis/receive/<int:geo_id>', methods=['GET','POST'])
 @preparer_required
 def analysis_receive(geo_id):
@@ -2700,6 +2755,16 @@ if __name__ == '__main__':
         _mc.close()
     except Exception:
         pass
+    # Migration: CRM талбарууд нэмэх
+    _mc = get_db()
+    for col in ['crm_name TEXT','crm_mad REAL','crm_aad REAL','crm_vad REAL','crm_sulfur REAL','crm_cal REAL']:
+        try: _mc.execute(f"ALTER TABLE geo_samples ADD COLUMN {col}")
+        except Exception: pass
+    # CRM sample type нэмэх
+    _mc.execute("""INSERT OR IGNORE INTO sample_types
+        (code,name_mn,name_en,icon,color,serial_from,serial_to,is_pit,is_active,sort_order)
+        VALUES('CRM','CRM дээж','CRM Sample','🔬','#7C3AED',9001,9999,0,1,10)""")
+    _mc.commit(); _mc.close()
     print('System started!')
     print('Open browser: http://localhost:5000')
     print('ID: ADMIN  Password: admin123')

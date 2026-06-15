@@ -1,0 +1,60 @@
+{% extends "partial/base.html" %}
+{% block title %}CRM дээж бүртгэх{% endblock %}
+{% block content %}
+<div class="page" style="max-width:520px">
+  <div style="margin-bottom:16px">
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">
+      <a href="{{ url_for('analysis') }}">Шинжилгээ</a> /
+    </div>
+    <h1 class="page-title">🔬 CRM дээж бүртгэх</h1>
+    <p class="page-sub">Батлагдсан утгуудыг оруулна уу</p>
+  </div>
+
+  <div class="card">
+    <form method="POST">
+      <div class="form-group">
+        <label class="form-label">CRM материалын нэр *</label>
+        <input type="text" name="crm_name" class="form-input" placeholder="SARM 18, GBW 11101..." required>
+      </div>
+
+      <div class="section-title" style="margin-top:16px">Батлагдсан утгууд (certified values)</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Mad [%]</label>
+          <input type="number" name="crm_mad" class="form-input" step="0.0001" placeholder="2.5000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Aad [%]</label>
+          <input type="number" name="crm_aad" class="form-input" step="0.0001" placeholder="12.3000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Vad [%]</label>
+          <input type="number" name="crm_vad" class="form-input" step="0.0001" placeholder="32.0000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Sad [%]</label>
+          <input type="number" name="crm_sulfur" class="form-input" step="0.0001" placeholder="0.3800">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Qb,ad [ккал/кг]</label>
+          <input type="number" name="crm_cal" class="form-input" step="0.01" placeholder="6250.00">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Огноо *</label>
+          <input type="date" name="collected_date" class="form-input" value="{{ today }}" required>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Тэмдэглэл</label>
+        <textarea name="notes" class="form-input" rows="2"></textarea>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+        <a href="{{ url_for('analysis') }}" class="btn btn-ghost">Буцах</a>
+        <button type="submit" class="btn" style="background:#7C3AED;color:#fff">🔬 Бүртгэж шинжилгээ рүү орох</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
