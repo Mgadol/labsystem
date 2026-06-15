@@ -156,9 +156,43 @@ def dashboard():
             WHERE c.id=(SELECT id FROM calibrations WHERE device_id=d.id ORDER BY calibration_date DESC LIMIT 1)
             AND days<=30 ORDER BY days
         """, (today,)).fetchall()
+
+        # Сарын шинжилгээний тоо (сүүлийн 6 сар)
+        monthly = conn.execute("""
+            SELECT strftime('%Y-%m', done_at) as month, COUNT(*) as cnt
+            FROM sample_entries
+            WHERE is_duplicate=0 AND row_status IN ('done','approved')
+              AND done_at >= date('now','-6 months')
+            GROUP BY month ORDER BY month
+        """).fetchall()
+
+        # Нийт шинжилгээ, архивласан
+        total_analysis = conn.execute("SELECT COUNT(*) as c FROM sample_entries WHERE is_duplicate=0 AND row_status IN ('done','approved')").fetchone()['c']
+        done_today = conn.execute("SELECT COUNT(*) as c FROM sample_entries WHERE is_duplicate=0 AND row_status IN ('done','approved') AND date(done_at)=?", (today,)).fetchone()['c']
+
+        # QC тэнцсэн хувь (нийтээр)
+        qc_tol = {r['parameter']: r['tolerance'] for r in conn.execute("SELECT parameter, tolerance FROM qc_settings").fetchall()}
+        qc_pass = qc_fail = 0
+        for param, tol in qc_tol.items():
+            col = {'Mad':'mad','Aad':'aad','Vad':'vad','FCad':'fc','Sad':'sulfur','G':'g_val','FSI':'fsi'}.get(param)
+            if not col: continue
+            pairs = conn.execute(f"""
+                SELECT p.{col} as pv, d.{col} as dv
+                FROM sample_entries p
+                JOIN sample_entries d ON d.receipt_id=p.receipt_id AND d.row_num=p.row_num AND d.is_duplicate=1
+                WHERE p.is_duplicate=0 AND p.{col} IS NOT NULL AND d.{col} IS NOT NULL
+            """).fetchall()
+            for pair in pairs:
+                if abs(pair['pv'] - pair['dv']) <= tol:
+                    qc_pass += 1
+                else:
+                    qc_fail += 1
+        qc_pct = round(qc_pass / (qc_pass + qc_fail) * 100, 1) if (qc_pass + qc_fail) > 0 else None
+
         conn.close()
         return render_template('admin/dashboard.html',
-            devices=devices, users=users, open_rep=open_rep, expiring=expiring, lang=lang)
+            devices=devices, users=users, open_rep=open_rep, expiring=expiring, lang=lang,
+            monthly=list(monthly), total_analysis=total_analysis, done_today=done_today, qc_pct=qc_pct)
     else:
         uid = session['user_id']
         my_devices = conn.execute("""

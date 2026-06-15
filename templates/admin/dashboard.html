@@ -45,10 +45,28 @@
       <div class="stat-lbl">{{ 'Нээлттэй засвар' if lang=='mn' else 'Open repairs' }}</div>
     </div>
     <div class="stat-card">
-      <div class="stat-val" style="color:var(--purple)">{{ devices|selectattr('status','eq','active')|list|length }}</div>
-      <div class="stat-lbl">{{ 'Идэвхтэй' if lang=='mn' else 'Active' }}</div>
+      <div class="stat-val" style="color:#854f0b">{{ total_analysis }}</div>
+      <div class="stat-lbl">Нийт шинжилгээ</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:#0f6e56">{{ done_today }}</div>
+      <div class="stat-lbl">Өнөөдөр хийсэн</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:var(--purple)">{{ qc_pct }}%</div>
+      <div class="stat-lbl">QC тэнцсэн хувь</div>
     </div>
   </div>
+
+  <!-- Chart: сарын шинжилгээ -->
+  {% if monthly %}
+  <div class="card" style="padding:16px;margin-bottom:20px">
+    <div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:12px">📊 Сарын шинжилгээний тоо (сүүлийн 6 сар)</div>
+    <div style="position:relative;height:180px">
+      <canvas id="monthlyChart"></canvas>
+    </div>
+  </div>
+  {% endif %}
 
   <!-- Модулиуд -->
   <div class="modules">
@@ -154,4 +172,34 @@
 
   </div>
 </div>
+{% endblock %}
+{% block scripts %}
+{% if monthly %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+new Chart(document.getElementById('monthlyChart'), {
+  type: 'bar',
+  data: {
+    labels: {{ monthly|map(attribute='month')|list|tojson }},
+    datasets: [{
+      label: 'Шинжилгээ',
+      data: {{ monthly|map(attribute='cnt')|list|tojson }},
+      backgroundColor: 'rgba(24,95,165,0.7)',
+      borderColor: 'rgba(24,95,165,1)',
+      borderWidth: 1,
+      borderRadius: 4
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { font: { size: 10 } } },
+      y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } } }
+    }
+  }
+});
+</script>
+{% endif %}
 {% endblock %}
