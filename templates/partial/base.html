@@ -20,10 +20,11 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Inter',sans-serif;font-size:14px;color:var(--text);background:#f0ede8;min-height:100vh}
 a{color:inherit;text-decoration:none}
-.topbar{background:var(--navy);color:#fff;padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar{background:var(--navy);color:#fff;padding:0 20px;height:72px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
 .topbar-left{display:flex;align-items:center;gap:12px}
 .topbar-logo{font-size:15px;font-weight:600;color:#fff;display:flex;align-items:center;gap:8px}
 .topbar-logo i{font-size:18px;color:#93a8d4}
+.topbar-logo img{width:42px!important;height:64px!important;min-width:42px;max-width:42px;min-height:64px;max-height:64px;object-fit:contain;flex-shrink:0}
 .topbar-nav{display:flex;gap:2px}
 .topbar-nav a{padding:6px 12px;border-radius:6px;font-size:13px;color:#93a8d4;transition:.15s}
 .topbar-nav a:hover,.topbar-nav a.active{background:rgba(255,255,255,.1);color:#fff}
@@ -86,7 +87,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 .tab-nav{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px}
 .tab-btn{padding:9px 16px;font-size:13px;font-weight:500;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;transition:.15s;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit}
 .tab-btn.active{color:var(--navy);border-bottom-color:var(--navy)}
-.tab-pane{display:none}.tab-pane.active{display:block}
+
 @media(max-width:640px){
   .topbar-nav{display:none}
   .form-grid,.form-row{grid-template-columns:1fr}
@@ -101,10 +102,10 @@ textarea.form-input{resize:vertical;min-height:80px}
 <nav class="topbar">
   <div class="topbar-left">
     <a href="{{ url_for('dashboard') }}" class="topbar-logo">
-      <img src="{{ url_for('static', filename='logo.jpg') }}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;background:#fff;flex-shrink:0">
-      <span style="display:flex;flex-direction:column;line-height:1.2">
-        <span style="font-size:13px;font-weight:600;color:#fff">Хүрэншанд уурхайн лаборатори</span>
-        <span style="font-size:10px;color:#93a8d4;font-weight:400">Лабораторийн удирдлагын систем</span>
+      <img src="{{ url_for('static', filename='logo.png') }}" width="42" height="64" style="width:42px;height:64px;object-fit:contain;flex-shrink:0">
+      <span style="display:flex;flex-direction:column;line-height:1.3">
+        <span style="font-size:13px;font-weight:600;color:#fff;white-space:nowrap">Хүрэншанд уурхайн лаборатори</span>
+        <span style="font-size:10px;color:#93a8d4;font-weight:400;text-align:center">Лабораторийн удирдлагын систем</span>
       </span>
     </a>
     <div class="topbar-nav">
@@ -115,18 +116,14 @@ textarea.form-input{resize:vertical;min-height:80px}
       <a href="{{ url_for('analysis') }}" class="{% if 'analysis' in request.endpoint %}active{% endif %}">Шинжилгээ</a>
       <a href="{{ url_for('devices') }}" class="{% if 'device' in request.endpoint %}active{% endif %}">Төхөөрөмж</a>
       {% if cur and cur['role'] in ('admin','senior') %}
-      <a href="{{ url_for('reports') }}" class="{% if 'report' in request.endpoint %}active{% endif %}">Тайлан</a>
+      <a href="{{ url_for('reports') }}" class="{% if 'report' in request.endpoint or 'lab_report' in request.endpoint %}active{% endif %}">Тайлан</a>
       <a href="{{ url_for('archive') }}" class="{% if request.endpoint=='archive' %}active{% endif %}">Нэгдсэн архив</a>
       <a href="{{ url_for('lab_settings') }}" class="{% if request.endpoint in ('lab_settings','profile') %}active{% endif %}">Тохиргоо</a>
       {% endif %}
     </div>
   </div>
   <div class="topbar-right">
-    <div class="lang-btns">
-      <a href="{{ url_for('set_lang', lang='mn') }}" class="lang-btn {% if session.get('lang','mn')=='mn' %}active{% endif %}">МОН</a>
-      <a href="{{ url_for('set_lang', lang='en') }}" class="lang-btn {% if session.get('lang')=='en' %}active{% endif %}">ENG</a>
-    </div>
-    {% if cur %}
+{% if cur %}
     <div class="user-chip">
       {% if cur['photo'] %}
       <img src="{{ url_for('static',filename='uploads/'+cur['photo']) }}" class="avatar-sm" style="border-radius:50%">
@@ -164,22 +161,11 @@ textarea.form-input{resize:vertical;min-height:80px}
 {% endwith %}
 {% block content %}{% endblock %}
 </main>
-<script>
-function initTabs(){
-  document.querySelectorAll('.tab-nav').forEach(nav=>{
-    nav.querySelectorAll('.tab-btn').forEach(btn=>{
-      btn.addEventListener('click',()=>{
-        const target=btn.dataset.tab;
-        nav.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-        btn.classList.add('active');
-        document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
-        document.getElementById(target)?.classList.add('active');
-      });
-    });
-  });
-}
-document.addEventListener('DOMContentLoaded',initTabs);
-</script>
 {% block scripts %}{% endblock %}
+<script>
+function setLang(lang){
+  window.location.href = '/lang/' + lang + '?next=' + encodeURIComponent(window.location.pathname + window.location.search);
+}
+</script>
 </body>
 </html>

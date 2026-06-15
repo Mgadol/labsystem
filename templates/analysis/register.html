@@ -75,16 +75,13 @@
         <!-- Бусад форм -->
         <div id="otherForm" style="display:none">
           <div class="section-title">Дээжний нэрлэлт</div>
-          <div class="form-grid">
-            <div class="form-group">
-              <label class="form-label">Эхний дээжний нэр *</label>
-              <input type="text" id="first_name" class="form-input" placeholder="Ex-mzl-1" oninput="updateOtherPreview()">
-              <div style="font-size:11px;color:var(--text-muted);margin-top:3px">Сүүлийн тоо автоматаар нэмэгдэнэ</div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Нийт тоо *</label>
-              <input type="number" id="other_count" class="form-input" placeholder="4" min="1" oninput="updateOtherPreview()">
-            </div>
+          <div class="form-group">
+            <label class="form-label">Дээжний нэрүүд <span style="color:var(--text-muted);font-weight:400">(; -ээр тусгаарла)</span> *</label>
+            <textarea id="other_names" class="form-input" rows="3"
+              placeholder="B1;B2;B3;A1;A2;A3"
+              oninput="updateOtherPreview()"
+              style="font-family:monospace;font-size:13px;resize:vertical"></textarea>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:3px">Жишээ: B1;B2;B3;A1;A2;A3 → нийт 6 дээж</div>
           </div>
           <div class="form-group">
             <label class="form-label">Урьдчилан харах</label>
@@ -159,7 +156,7 @@ function selectType(type){
   if(t.pit){
     document.getElementById('pit_from').focus();
   } else {
-    document.getElementById('first_name').focus();
+    document.getElementById('other_names').focus();
   }
 
   document.getElementById('formSection').classList.add('show');
@@ -183,24 +180,11 @@ function updatePitPreview(){
 
 // Бусад урьдчилан харах
 function updateOtherPreview(){
-  var first = document.getElementById('first_name').value.trim();
-  var count = parseInt(document.getElementById('other_count').value);
-  if(!first||!count){ document.getElementById('otherPreview').textContent='—'; return; }
-
-  // Угтвар болон тоог олох
-  var m = first.match(/^(.*?)(\d+)([^0-9]*)$/);
-  var preview = '';
-  if(m){
-    var prefix = m[1];
-    var num    = parseInt(m[2]);
-    var suffix = m[3];
-    var items  = [];
-    for(var i=0;i<Math.min(count,4);i++) items.push(prefix+(num+i)+suffix);
-    if(count > 4) items.push('... '+prefix+(num+count-1)+suffix);
-    preview = items.join(', ') + '  (нийт '+count+' дээж)';
-  } else {
-    preview = first+'-1, '+first+'-2 ... '+first+'-'+count+'  (нийт '+count+' дээж)';
-  }
+  var raw = document.getElementById('other_names').value.trim();
+  if(!raw){ document.getElementById('otherPreview').textContent='—'; return; }
+  var parts = raw.split(';').map(function(s){return s.trim();}).filter(function(s){return s;});
+  var count = parts.length;
+  var preview = (count<=6 ? parts.join(', ') : parts.slice(0,3).join(', ')+' ... '+parts[count-1]) + '  (нийт '+count+' дээж)';
   document.getElementById('otherPreview').textContent = preview;
 }
 
@@ -217,11 +201,11 @@ function prepareSubmit(){
     document.getElementById('sample_name_hidden').value = from+'-'+to;
     document.getElementById('quantity_hidden').value = to-from+1;
   } else {
-    var first = document.getElementById('first_name').value.trim();
-    var count = parseInt(document.getElementById('other_count').value);
-    if(!first||!count){ alert('Дээжний нэр болон тоо оруулна уу!'); return false; }
-    document.getElementById('sample_name_hidden').value = first;
-    document.getElementById('quantity_hidden').value = count;
+    var raw = document.getElementById('other_names').value.trim();
+    var parts = raw.split(';').map(function(s){return s.trim();}).filter(function(s){return s;});
+    if(!parts.length){ alert('Дээжний нэрүүд оруулна уу!'); return false; }
+    document.getElementById('sample_name_hidden').value = parts.join(';');
+    document.getElementById('quantity_hidden').value = parts.length;
   }
   return true;
 }

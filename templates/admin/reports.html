@@ -1,110 +1,391 @@
 {% extends "partial/base.html" %}
-{% block title %}{{ 'Тайлан' if lang=='mn' else 'Reports' }}{% endblock %}
+{% block title %}Тайлан{% endblock %}
 {% block content %}
-<div class="page" style="max-width:600px">
-  <h1 class="page-title" style="margin-bottom:4px">{{ 'Excel тайлан гаргах' if lang=='mn' else 'Export Excel Report' }}</h1>
-  <p class="page-sub">{{ 'Тайлангийн төрөл болон хугацааг сонгоно уу' if lang=='mn' else 'Select report type and period' }}</p>
+<div class="page" style="max-width:980px">
+  <h1 class="page-title" style="margin-bottom:4px">📊 Тайлан</h1>
+  <p class="page-sub">Excel тайлан гаргах, лабораторийн статистик</p>
 
-  <div class="card">
-    <div class="section-title">{{ 'Тайлангийн төрөл' if lang=='mn' else 'Report Type' }}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px">
-      <label id="lbl-month" onclick="setType('month')" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--navy);color:#fff;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500">
-        <input type="radio" name="rtype" value="month" checked style="display:none"> 📅 {{ 'Сарын тайлан' if lang=='mn' else 'Monthly' }}
-      </label>
-      <label id="lbl-quarter" onclick="setType('quarter')" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--gray);border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text)">
-        <input type="radio" name="rtype" value="quarter" style="display:none"> 📊 {{ 'Улирлын тайлан' if lang=='mn' else 'Quarterly' }}
-      </label>
-      <label id="lbl-half" onclick="setType('half')" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--gray);border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text)">
-        <input type="radio" name="rtype" value="half" style="display:none"> 📈 {{ 'Хагас жилийн тайлан' if lang=='mn' else 'Half-year' }}
-      </label>
-      <label id="lbl-year" onclick="setType('year')" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--gray);border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text)">
-        <input type="radio" name="rtype" value="year" style="display:none"> 🗓 {{ 'Жилийн тайлан' if lang=='mn' else 'Annual' }}
-      </label>
+  <div class="tab-nav" style="margin-top:16px">
+    <button class="tab-btn active" id="tab-device" onclick="switchTab('device')">🔧 Төхөөрөмжийн тайлан</button>
+    <button class="tab-btn" id="tab-lab" onclick="switchTab('lab')">🧪 Лабораторийн тайлан</button>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       ТАБ 1: ТӨХӨӨРӨМЖИЙН ТАЙЛАН
+  ══════════════════════════════════════════ -->
+  <div id="pane-device">
+    <div class="card" style="max-width:520px">
+      <div class="section-title">Тайлангийн төрөл</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px">
+        <label id="lbl-month" onclick="setType('month')" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--navy);color:#fff;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500">
+          <input type="radio" name="rtype" value="month" checked style="display:none">📅 Сарын тайлан
+        </label>
+        <label id="lbl-quarter" onclick="setType('quarter')" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--gray);border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text)">
+          <input type="radio" name="rtype" value="quarter" style="display:none">📊 Улирлын тайлан
+        </label>
+        <label id="lbl-half" onclick="setType('half')" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--gray);border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text)">
+          <input type="radio" name="rtype" value="half" style="display:none">📈 Хагас жилийн тайлан
+        </label>
+        <label id="lbl-year" onclick="setType('year')" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--gray);border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text)">
+          <input type="radio" name="rtype" value="year" style="display:none">🗓 Жилийн тайлан
+        </label>
+      </div>
+      <div class="section-title">Хугацаа сонгох</div>
+      <div class="form-group">
+        <label class="form-label">Жил</label>
+        <select id="d-year" class="form-input">
+          {% for y in range(now.year, now.year-5, -1) %}
+          <option value="{{ y }}" {{ 'selected' if y==now.year }}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div id="row-month" class="form-group">
+        <label class="form-label">Сар</label>
+        <select id="d-month" class="form-input">
+          {% for m in range(1,13) %}
+          <option value="{{ m }}" {{ 'selected' if m==now.month }}>{{ m }}-р сар</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div id="row-quarter" class="form-group" style="display:none">
+        <label class="form-label">Улирал</label>
+        <select id="d-quarter" class="form-input">
+          <option value="1">I улирал (1-3-р сар)</option>
+          <option value="2">II улирал (4-6-р сар)</option>
+          <option value="3">III улирал (7-9-р сар)</option>
+          <option value="4">IV улирал (10-12-р сар)</option>
+        </select>
+      </div>
+      <div id="row-half" class="form-group" style="display:none">
+        <label class="form-label">Хагас жил</label>
+        <select id="d-half" class="form-input">
+          <option value="1">Эхний хагас жил (1-6-р сар)</option>
+          <option value="2">Хоёрдугаар хагас жил (7-12-р сар)</option>
+        </select>
+      </div>
+      <button onclick="exportDevice()" class="btn btn-teal" style="width:100%;margin-top:4px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Excel татаж авах
+      </button>
+      <p style="font-size:11px;color:var(--text-muted);margin-top:8px">Агуулга: нийт дүгнэлт, ашиглалт, calibration, засвар</p>
     </div>
+  </div>
 
-    <div class="section-title">{{ 'Хугацаа сонгох' if lang=='mn' else 'Select Period' }}</div>
+  <!-- ══════════════════════════════════════════
+       ТАБ 2: ЛАБОРАТОРИЙН ТАЙЛАН
+  ══════════════════════════════════════════ -->
+  <div id="pane-lab" style="display:none">
+    <div style="display:grid;grid-template-columns:300px 1fr;gap:20px;align-items:start">
 
-    <!-- Жил -->
-    <div class="form-group">
-      <label class="form-label">{{ 'Жил' if lang=='mn' else 'Year' }}</label>
-      <select id="year" class="form-input">
-        {% set cur_year = now.year %}
-        {% for y in range(cur_year, cur_year-5, -1) %}
-        <option value="{{ y }}" {{ 'selected' if y==cur_year }}>{{ y }}</option>
-        {% endfor %}
-      </select>
-    </div>
+      <!-- Тайлан гаргах -->
+      <div class="card" style="position:sticky;top:16px">
+        <div class="section-title">Хугацааны төрөл</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px">
+          <label id="lbl-lweek" onclick="setLabType('week')" style="display:flex;align-items:center;gap:6px;padding:9px 10px;background:var(--navy);color:#fff;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600">
+            <input type="radio" name="ltype" value="week" checked style="display:none">📅 7 хоног
+          </label>
+          <label id="lbl-lmonth" onclick="setLabType('month')" style="display:flex;align-items:center;gap:6px;padding:9px 10px;background:var(--gray);border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text)">
+            <input type="radio" name="ltype" value="month" style="display:none">🗓 Сар
+          </label>
+          <label id="lbl-lhalf" onclick="setLabType('half')" style="display:flex;align-items:center;gap:6px;padding:9px 10px;background:var(--gray);border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text)">
+            <input type="radio" name="ltype" value="half" style="display:none">📈 Хагас жил
+          </label>
+          <label id="lbl-lyear" onclick="setLabType('year')" style="display:flex;align-items:center;gap:6px;padding:9px 10px;background:var(--gray);border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text)">
+            <input type="radio" name="ltype" value="year" style="display:none">📊 Жил
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Жил</label>
+          <select id="l-year" class="form-input">
+            {% for y in range(now.year, now.year-5, -1) %}
+            <option value="{{ y }}" {{ 'selected' if y==now.year }}>{{ y }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div id="lrow-week" class="form-group">
+          <label class="form-label">Долоо хоног</label>
+          <select id="l-week" class="form-input">
+            {% for w in range(1, 54) %}
+            <option value="{{ w }}" {{ 'selected' if w==now.isocalendar()[1] }}>{{ w }}-р долоо хоног</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div id="lrow-month" class="form-group" style="display:none">
+          <label class="form-label">Сар</label>
+          <select id="l-month" class="form-input">
+            {% for m in range(1,13) %}
+            <option value="{{ m }}" {{ 'selected' if m==now.month }}>{{ m }}-р сар</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div id="lrow-half" class="form-group" style="display:none">
+          <label class="form-label">Хагас жил</label>
+          <select id="l-half" class="form-input">
+            <option value="1">Эхний хагас (1–6-р сар)</option>
+            <option value="2">Хоёрдугаар хагас (7–12-р сар)</option>
+          </select>
+        </div>
+        <button onclick="exportLab()" class="btn btn-teal" style="width:100%;margin-top:4px;padding:10px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Excel татаж авах
+        </button>
+        <p style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.6">Татсан тайлан доорх жагсаалтад нэмэгдэнэ.</p>
+      </div>
 
-    <!-- Сар (сарын тайланд) -->
-    <div id="row-month" class="form-group">
-      <label class="form-label">{{ 'Сар' if lang=='mn' else 'Month' }}</label>
-      <select id="month" class="form-input">
-        {% for m in range(1,13) %}
-        <option value="{{ m }}" {{ 'selected' if m==now.month }}>{{ m }}-р сар</option>
-        {% endfor %}
-      </select>
-    </div>
+      <!-- График + жагсаалт -->
+      <div>
+        <div class="card" style="margin-bottom:16px">
+          <div style="display:flex;gap:8px;margin-bottom:12px">
+            <button id="ctab-sample" onclick="switchChart('sample')"
+              style="background:var(--navy);color:#fff;font-size:12px;padding:5px 12px;border-radius:6px;border:none;cursor:pointer;font-weight:500">
+              Дээжний төрөл
+            </button>
+            <button id="ctab-analysis" onclick="switchChart('analysis')"
+              style="background:var(--gray);color:var(--text);font-size:12px;padding:5px 12px;border-radius:6px;border:none;cursor:pointer;font-weight:500">
+              Шинжилгээ
+            </button>
+          </div>
+          <div id="cpane-sample" style="position:relative;height:240px">
+            <canvas id="chartSample"></canvas>
+          </div>
+          <div id="cpane-analysis" style="position:relative;height:240px;display:none">
+            <canvas id="chartAnalysis"></canvas>
+          </div>
+          <p id="chart-period-label" style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:right">{{ cur_year }} оны сараар</p>
+        </div>
 
-    <!-- Улирал -->
-    <div id="row-quarter" class="form-group" style="display:none">
-      <label class="form-label">{{ 'Улирал' if lang=='mn' else 'Quarter' }}</label>
-      <select id="quarter" class="form-input">
-        <option value="1">I улирал (1-3-р сар)</option>
-        <option value="2">II улирал (4-6-р сар)</option>
-        <option value="3">III улирал (7-9-р сар)</option>
-        <option value="4">IV улирал (10-12-р сар)</option>
-      </select>
-    </div>
-
-    <!-- Хагас жил -->
-    <div id="row-half" class="form-group" style="display:none">
-      <label class="form-label">{{ 'Хагас жил' if lang=='mn' else 'Half' }}</label>
-      <select id="half" class="form-input">
-        <option value="1">Эхний хагас жил (1-6-р сар)</option>
-        <option value="2">Хоёрдугаар хагас жил (7-12-р сар)</option>
-      </select>
-    </div>
-
-    <button onclick="exportReport()" class="btn btn-teal" style="width:100%;margin-top:8px">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      {{ 'Excel татаж авах' if lang=='mn' else 'Download Excel' }}
-    </button>
-
-    <div style="margin-top:12px;padding:10px 12px;background:var(--gray);border-radius:7px;font-size:12px;color:var(--text-muted)">
-      {{ 'Тайланд: нийт дүгнэлт, ашиглалтын бүртгэл, calibration бүртгэл, засварын бүртгэл орно.' if lang=='mn' else 'Includes: summary, usage log, calibration log, repair log.' }}
+        <div class="card">
+          <div class="section-title" style="margin-bottom:10px">Идэвхтэй тайлангууд</div>
+          {% if lab_records %}
+          <table class="table" style="font-size:13px">
+            <thead>
+              <tr>
+                <th>Тайлан</th>
+                <th>Төрөл</th>
+                <th>Үүсгэсэн</th>
+                <th>Хэн</th>
+                <th style="width:130px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for rec in lab_records %}
+              <tr class="rec-row" data-rtype="{{ rec.period_type }}" data-ryear="{{ rec.year }}">
+                <td style="font-weight:500">{{ rec.period_label }}</td>
+                <td>
+                  {% if rec.period_type=='week' %}<span style="background:#E8F0FE;color:#1A2744;padding:2px 8px;border-radius:4px;font-size:11px">7 хоног</span>
+                  {% elif rec.period_type=='month' %}<span style="background:#E8F5E9;color:#0F6E56;padding:2px 8px;border-radius:4px;font-size:11px">Сар</span>
+                  {% elif rec.period_type=='half' %}<span style="background:#FFF3E0;color:#E65100;padding:2px 8px;border-radius:4px;font-size:11px">Хагас жил</span>
+                  {% else %}<span style="background:#F3E5F5;color:#6A1B9A;padding:2px 8px;border-radius:4px;font-size:11px">Жил</span>
+                  {% endif %}
+                </td>
+                <td style="color:var(--text-muted);font-size:12px">{{ rec.generated_at[:16] }}</td>
+                <td style="font-size:12px">{{ rec.gen_name or '—' }}</td>
+                <td style="text-align:right">
+                  <a href="{{ url_for('lab_report_download', rid=rec.id) }}"
+                    style="font-size:12px;color:var(--teal);margin-right:10px;text-decoration:none;font-weight:500">⬇ Татах</a>
+                  <form method="post" action="{{ url_for('lab_report_archive', rid=rec.id) }}"
+                    style="display:inline" onsubmit="return confirm('Тайланг архивлах уу?')">
+                    <button type="submit" style="background:none;border:none;font-size:12px;color:var(--text-muted);cursor:pointer;padding:0;font-weight:500">
+                      📁 Архивлах
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <p id="rec-empty" style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px 0;display:none">
+            Энэ төрлийн тайлан байхгүй байна.
+          </p>
+          {% else %}
+          <p style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px 0">
+            Тайлан байхгүй байна. Excel татахад автоматаар нэмэгдэнэ.
+          </p>
+          {% endif %}
+        </div>
+      </div>
     </div>
   </div>
 </div>
 {% endblock %}
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-var currentType = 'month';
 var NAVY = '#1a2744';
-var GRAY = 'var(--gray)';
 
-function setType(t){
+// ── Таб солих ──────────────────────────────────────────
+function switchTab(t) {
+  document.getElementById('pane-device').style.display = t==='device' ? 'block' : 'none';
+  document.getElementById('pane-lab').style.display    = t==='lab'    ? 'block' : 'none';
+  document.getElementById('tab-device').classList.toggle('active', t==='device');
+  document.getElementById('tab-lab').classList.toggle('active', t==='lab');
+}
+
+// ── Төхөөрөмжийн тайлан ──────────────────────────────
+var currentType = 'month';
+function setType(t) {
   currentType = t;
-  ['month','quarter','half','year'].forEach(function(x){
+  ['month','quarter','half','year'].forEach(function(x) {
     var lbl = document.getElementById('lbl-'+x);
-    lbl.style.background = (x===t) ? NAVY : GRAY;
+    lbl.style.background = (x===t) ? NAVY : 'var(--gray)';
     lbl.style.color = (x===t) ? '#fff' : 'var(--text)';
   });
   document.getElementById('row-month').style.display   = (t==='month')   ? 'block' : 'none';
   document.getElementById('row-quarter').style.display = (t==='quarter') ? 'block' : 'none';
   document.getElementById('row-half').style.display    = (t==='half')    ? 'block' : 'none';
 }
-
-function exportReport(){
-  var y = document.getElementById('year').value;
+function exportDevice() {
+  var y = document.getElementById('d-year').value;
   var url = '/reports/export?year='+y+'&type='+currentType;
-  if(currentType==='month'){
-    url += '&month='+document.getElementById('month').value;
-  } else if(currentType==='quarter'){
-    url += '&quarter='+document.getElementById('quarter').value;
-  } else if(currentType==='half'){
-    url += '&half='+document.getElementById('half').value;
-  }
+  if (currentType==='month')   url += '&month='+document.getElementById('d-month').value;
+  if (currentType==='quarter') url += '&quarter='+document.getElementById('d-quarter').value;
+  if (currentType==='half')    url += '&half='+document.getElementById('d-half').value;
   window.location.href = url;
 }
+
+// ── Лаборатори тайлан ────────────────────────────────
+var labType = 'week';
+function updateChartLabel() {
+  var y = document.getElementById('l-year').value;
+  var lbl = '';
+  if (labType === 'week') {
+    var w = document.getElementById('l-week').value;
+    lbl = y + ' оны ' + w + '-р долоо хоног';
+  } else if (labType === 'month') {
+    var m = document.getElementById('l-month').value;
+    lbl = y + ' оны ' + m + '-р сар';
+  } else if (labType === 'half') {
+    var h = document.getElementById('l-half').value;
+    lbl = y + ' оны ' + (h==='1' ? 'эхний' : 'хоёрдугаар') + ' хагас жил';
+  } else {
+    lbl = y + ' он';
+  }
+  document.getElementById('chart-period-label').textContent = lbl;
+}
+function setLabType(t) {
+  labType = t;
+  ['week','month','half','year'].forEach(function(x) {
+    var lbl = document.getElementById('lbl-l'+x);
+    lbl.style.background = (x===t) ? NAVY : 'var(--gray)';
+    lbl.style.color = (x===t) ? '#fff' : 'var(--text)';
+  });
+  document.getElementById('lrow-week').style.display  = (t==='week')  ? 'block' : 'none';
+  document.getElementById('lrow-month').style.display = (t==='month') ? 'block' : 'none';
+  document.getElementById('lrow-half').style.display  = (t==='half')  ? 'block' : 'none';
+  updateChartLabel();
+  filterRecords(t);
+}
+function filterRecords(t) {
+  var y = document.getElementById('l-year').value;
+  var anyVisible = false;
+  document.querySelectorAll('.rec-row').forEach(function(row) {
+    var typeMatch = row.dataset.rtype === t;
+    var yearMatch = (t === 'year') ? true : (row.dataset.ryear === y);
+    var show = typeMatch && yearMatch;
+    row.style.display = show ? '' : 'none';
+    if (show) anyVisible = true;
+  });
+  var empty = document.getElementById('rec-empty');
+  if (empty) empty.style.display = anyVisible ? 'none' : '';
+}
+function exportLab() {
+  var y = document.getElementById('l-year').value;
+  var url = '/lab-reports/export?type='+labType+'&year='+y;
+  if (labType==='week')  url += '&week='+document.getElementById('l-week').value;
+  if (labType==='month') url += '&month='+document.getElementById('l-month').value;
+  if (labType==='half')  url += '&half='+document.getElementById('l-half').value;
+  window.location.href = url;
+  setTimeout(function(){ location.reload(); }, 3000);
+}
+
+// ── График солих ──────────────────────────────────────
+function switchChart(t) {
+  document.getElementById('cpane-sample').style.display   = t==='sample'   ? 'block' : 'none';
+  document.getElementById('cpane-analysis').style.display = t==='analysis' ? 'block' : 'none';
+  document.getElementById('ctab-sample').style.background   = t==='sample'   ? NAVY : 'var(--gray)';
+  document.getElementById('ctab-sample').style.color        = t==='sample'   ? '#fff' : 'var(--text)';
+  document.getElementById('ctab-analysis').style.background = t==='analysis' ? NAVY : 'var(--gray)';
+  document.getElementById('ctab-analysis').style.color      = t==='analysis' ? '#fff' : 'var(--text)';
+}
+
+// ── Chart.js ──────────────────────────────────────────
+var months = ['1-р','2-р','3-р','4-р','5-р','6-р','7-р','8-р','9-р','10-р','11-р','12-р'];
+var COLORS  = ['#1A2744','#0F6E56','#993C1D','#3C3489','#D4860B','#185FA5'];
+
+var sampleData  = {{ sample_chart  | tojson }};
+var sampleTypes = {{ sample_types  | tojson }};
+var analysisData  = {{ analysis_chart | tojson }};
+var analysisTypes = {{ analysis_types | tojson }};
+
+var sampleTotals = Object.keys(sampleData).map(function(k){
+  return (sampleData[k]||[]).reduce(function(a,b){ return a+(b||0); }, 0);
+});
+new Chart(document.getElementById('chartSample'), {
+  type: 'pie',
+  data: {
+    labels: sampleTypes,
+    datasets: [{ data: sampleTotals, backgroundColor: COLORS, borderWidth: 1 }]
+  },
+  options: { responsive:true, maintainAspectRatio:false,
+    plugins:{
+      legend:{ position:'bottom', labels:{ font:{size:11}, boxWidth:12 }},
+      tooltip:{ callbacks:{ label:function(c){
+        var total = c.dataset.data.reduce(function(a,b){ return a+b; },0);
+        return c.label+': '+c.raw+' ('+Math.round(c.raw/total*100)+'%)';
+      }}}
+    }
+  }
+});
+
+var analysisTotals = Object.keys(analysisData).map(function(k){
+  return (analysisData[k]||[]).reduce(function(a,b){ return a+(b||0); }, 0);
+});
+var sampleTotal = sampleTotals.reduce(function(a,b){ return a+b; }, 0);
+new Chart(document.getElementById('chartAnalysis'), {
+  type: 'bar',
+  data: {
+    labels: analysisTypes,
+    datasets: [
+      {
+        type: 'bar',
+        label: 'Үзүүлэлт',
+        data: analysisTotals,
+        backgroundColor: '#4472C4CC',
+        borderColor: '#4472C4',
+        borderWidth: 1,
+        borderRadius: 3
+      },
+      {
+        type: 'line',
+        label: 'Дээж бэлтгэл',
+        data: analysisTypes.map(function(){ return sampleTotal; }),
+        borderColor: '#ED7D31',
+        backgroundColor: 'transparent',
+        fill: false,
+        borderWidth: 2.5,
+        pointRadius: 0,
+        pointStyle: 'line',
+        tension: 0,
+        spanGaps: true,
+        order: 0
+      }
+    ]
+  },
+  options: { responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ position:'bottom', labels:{ font:{size:11}, boxWidth:12, usePointStyle:true }},
+              tooltip:{ mode:'index', intersect:false }},
+    scales:{ x:{ grid:{display:false}, ticks:{font:{size:10}} }, y:{ beginAtZero:true }}}
+});
+
+['l-year','l-week','l-month','l-half'].forEach(function(id) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('change', function(){ updateChartLabel(); filterRecords(labType); });
+});
+updateChartLabel();
+filterRecords('week');
 </script>
 {% endblock %}

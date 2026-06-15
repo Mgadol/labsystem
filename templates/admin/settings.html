@@ -2,8 +2,8 @@
 {% block title %}Тохиргоо{% endblock %}
 {% block content %}
 <style>
-.tab-pane{display:none}
-.tab-pane.active{display:block}
+.tab-pane{display:none!important}
+.tab-pane.active{display:block!important}
 </style>
 <div class="page" style="max-width:700px">
   <h1 class="page-title" style="margin-bottom:4px">⚙️ Тохиргоо</h1>
@@ -39,7 +39,7 @@
         </div>
         <div class="section-title" style="margin-top:16px">Лого</div>
         <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;padding:14px;background:var(--gray);border-radius:8px">
-          <img src="{{ url_for('static', filename=s.logo) }}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid var(--border)">
+          <img src="{{ url_for('static', filename=s.logo) }}" style="width:42px;height:64px;object-fit:contain;border:1px solid var(--border);background:#fff">
           <div>
             <div style="font-size:13px;font-weight:500;margin-bottom:4px">Одоогийн лого</div>
             <div style="font-size:12px;color:var(--text-muted)">{{ s.logo }}</div>
@@ -50,11 +50,11 @@
           <input type="file" name="logo" class="form-input" accept=".png,.jpg,.jpeg,.webp">
         </div>
         <div style="background:#EBF4FF;border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#185FA5;line-height:1.7">
-          📐 <strong>Логоны шаардлага:</strong> Дугуй эсвэл квадрат (1:1 харьцаа) · Хамгийн багадаа 200×200px · PNG эсвэл JPG
+          📐 <strong>Логоны шаардлага:</strong> Хамгийн багадаа 200×200px · PNG эсвэл JPG · Аль ч харьцаа зөвшөөрөгдөнө
         </div>
         <!-- Урьдчилан харах -->
         <div style="background:#1a2744;padding:12px 16px;border-radius:8px;display:flex;align-items:center;gap:10px;margin-bottom:16px">
-          <img src="{{ url_for('static', filename=s.logo) }}" style="width:34px;height:34px;border-radius:50%;object-fit:cover">
+          <img src="{{ url_for('static', filename=s.logo) }}" style="width:42px;height:64px;object-fit:contain;flex-shrink:0">
           <div>
             <div style="font-size:13px;font-weight:600;color:#fff">{{ s.lab_name }}</div>
             <div style="font-size:10px;color:#93a8d4">{{ s.lab_subtitle }}</div>
@@ -77,6 +77,7 @@
             <th>Үзүүлэлт</th>
             <th>Зөрүү (±)</th>
             <th>Стандарт</th>
+            <th></th>
           </tr></thead>
           <tbody>
           {% for q in qc_settings %}
@@ -87,12 +88,40 @@
                 value="{{ q['tolerance'] }}" step="0.001"
                 class="form-input" style="width:100px;padding:4px 8px;font-size:13px">
             </td>
-            <td style="color:var(--text-muted);font-size:12px">{{ q['standard'] or '—' }}</td>
+            <td>
+              <input type="text" name="std_{{ q['parameter'] }}"
+                value="{{ q['standard'] or '' }}"
+                class="form-input" style="width:180px;padding:4px 8px;font-size:13px">
+            </td>
+            <td>
+              <button type="button" onclick="deleteQC('{{ q['parameter'] }}')"
+                class="btn btn-danger btn-sm">🗑</button>
+            </td>
           </tr>
           {% endfor %}
           </tbody>
         </table>
         <button type="submit" class="btn btn-primary" style="margin-top:12px">💾 Хадгалах</button>
+      </form>
+
+      <div class="section-title" style="margin-top:20px">➕ Шинэ параметр нэмэх</div>
+      <form method="POST">
+        <input type="hidden" name="action" value="qc_add">
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+          <div>
+            <label class="form-label">Параметр</label>
+            <input type="text" name="new_parameter" class="form-input" placeholder="жишээ: Vad" style="width:120px">
+          </div>
+          <div>
+            <label class="form-label">Зөрүү (±)</label>
+            <input type="number" name="new_tolerance" step="0.001" class="form-input" placeholder="0.3" style="width:100px">
+          </div>
+          <div>
+            <label class="form-label">Стандарт</label>
+            <input type="text" name="new_standard" class="form-input" placeholder="MNS GB/T 212-2015" style="width:180px">
+          </div>
+          <button type="submit" class="btn btn-primary">➕ Нэмэх</button>
+        </div>
       </form>
     </div>
   </div>
@@ -232,8 +261,8 @@
         </div>
         <div class="form-group">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-            <input type="checkbox" name="is_pit"> 
-            <span>PIT дугаарлалт ашиглах (зөвхөн тоон дугаар)</span>
+            <input type="checkbox" name="is_pit">
+            <span>PIT дугаарлалт ашиглах <span style="color:var(--text-muted);font-weight:400">(тоон хүрээ: 1-100) — сонгоогүй бол ;-ээр тусгаарласан нэр ашиглана (B1;B2;B3)</span></span>
           </label>
         </div>
         <button type="submit" class="btn btn-primary">➕ Нэмэх</button>
@@ -262,17 +291,32 @@
 {% endblock %}
 {% block scripts %}
 <script>
+function deleteQC(param){
+  if(!confirm(param + ' параметрийг устгах уу?')) return;
+  fetch('/lab-settings/qc-delete', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({parameter: param})
+  }).then(r=>r.json()).then(function(d){
+    if(d.ok) location.reload();
+    else alert(d.error || 'Алдаа гарлаа');
+  });
+}
 function switchTab(btn, tabId){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(function(p){
+    p.classList.remove('active');
+    p.style.display='none';
+  });
   btn.classList.add('active');
-  document.getElementById(tabId).classList.add('active');
+  var pane = document.getElementById(tabId);
+  if(pane){
+    pane.classList.add('active');
+    pane.style.display='block';
+  }
   if(tabId==='tab-types') loadTypes();
   if(tabId==='tab-device-map') loadDeviceMap();
-  // URL-д tab хадгалах
-  var url = new URL(window.location);
-  url.searchParams.set('tab', tabId.replace('tab-',''));
-  window.history.replaceState({}, '', url);
+  history.pushState(null, '', '/lab-settings?tab=' + tabId.replace('tab-',''));
 }
 
 var ANALYSIS_TYPES = [
@@ -291,7 +335,7 @@ function loadDeviceMap(){
     var mapping = data.mapping;
     var html = '';
     ANALYSIS_TYPES.forEach(function(at){
-      var sel = '<select class="form-input" style="font-size:12px;padding:4px 8px" onchange="saveDeviceMap(''+at.key+'',this.value)">';
+      var sel = '<select class="form-input" style="font-size:12px;padding:4px 8px" onchange="saveDeviceMap(&quot;'+at.key+'&quot;,this.value)">';
       sel += '<option value="">— тоног сонгоогүй —</option>';
       devices.forEach(function(d){
         var selected = mapping[at.key] == d.id ? 'selected' : '';
@@ -324,12 +368,12 @@ function loadTypes(){
       html += '<td><strong>'+t.code+'</strong></td>';
       html += '<td>'+t.name_mn+'</td>';
       html += '<td style="font-family:monospace;font-size:12px">'+t.serial_from+'-'+t.serial_to+'</td>';
-      html += '<td>'+(t.is_pit?'✅':'—')+'</td>';
+      html += '<td>'+(t.is_pit?'<span style="color:#0f6e56">✅ PIT</span>':'<span style="color:#185fa5">; нэр</span>')+'</td>';
       html += '<td><span class="badge '+(t.is_active?'badge-active':'badge-inactive')+'">'+(t.is_active?'Идэвхтэй':'Идэвхгүй')+'</span></td>';
       html += '<td><div style="display:flex;gap:4px">';
       html += '<form method="POST" action="/sample-types" style="display:inline"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="'+t.id+'"><button class="btn btn-ghost btn-sm">'+(t.is_active?'Идэвхгүй':'Идэвхтэй')+'</button></form>';
       if(!['PIT','STOCKPILE','EXPORT','CONTROL','EQ_CONTROL','DP'].includes(t.code)){
-        html += '<form method="POST" action="/sample-types" style="display:inline" onsubmit="return confirm('Устгах уу?')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="'+t.id+'"><button class="btn btn-sm" style="background:#faece7;color:#993c1d">Устгах</button></form>';
+        html += '<form method="POST" action="/sample-types" style="display:inline" onsubmit="return confirm(\'Delete?\')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="'+t.id+'"><button class="btn btn-sm" style="background:#faece7;color:#993c1d">Устгах</button></form>';
       }
       html += '</div></td></tr>';
     });
@@ -342,10 +386,10 @@ document.addEventListener('DOMContentLoaded', function(){
   var tab = new URLSearchParams(window.location.search).get('tab');
   if(tab){
     var btn = document.querySelector('[onclick*="tab-'+tab+'"]');
-    if(btn){ btn.click(); return; }
+    if(btn){ switchTab(btn, 'tab-'+tab); return; }
   }
-  // Анхдагч: лабораторийн мэдээлэл
-  document.querySelector('.tab-btn').click();
+  var firstBtn = document.querySelector('.tab-btn');
+  if(firstBtn) switchTab(firstBtn, 'tab-lab');
 });
 function togglePw(inputId, btnId){
   var inp = document.getElementById(inputId);

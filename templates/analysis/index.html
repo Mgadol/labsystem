@@ -1,6 +1,9 @@
 {% extends "partial/base.html" %}
 {% block title %}Шинжилгээ{% endblock %}
 {% block content %}
+<style>
+input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
+</style>
 <div class="page">
   <div class="flex justify-between gap-12" style="margin-bottom:20px;flex-wrap:wrap">
     <div>
@@ -18,6 +21,12 @@
         </svg>
         Дээж бүртгэх
       </a>
+      {% if current_user['role'] in ('admin','senior','staff','preparer') %}
+      <a href="{{ url_for('analysis_crm_register') }}" class="btn" style="background:#7C3AED;color:#fff;">+ CRM дээж</a>
+      {% endif %}
+      {% if current_user['role'] in ('admin','senior','staff') %}
+      <a href="{{ url_for('analysis_crm_register') }}" class="btn" style="background:#7C3AED;color:#fff;">🔬 + CRM дээж</a>
+      {% endif %}
       {% if current_user['role'] in ('admin','senior','staff') %}
       <button onclick="startMulti()" class="btn btn-teal" id="multiBtn" disabled style="opacity:.4;cursor:not-allowed">
         🧪 Шинжилгээ эхлэх
@@ -55,7 +64,7 @@
     <table class="table" id="sample-table">
       <thead>
         <tr>
-          <th style="width:36px"><input type="checkbox" id="checkAll" onchange="toggleAll(this)" title="Бүгдийг сонгох"></th>
+          <th style="width:36px"><input type="checkbox" id="checkAll" onchange="toggleAll(this)" title="Бүгдийг сонгох" style="width:15px;height:15px;cursor:pointer"></th>
           <th>Ажлын дугаар</th>
           <th>Дээжний нэр</th>
           <th>Төрөл</th>
@@ -104,14 +113,12 @@
           {% set st = s['status'] or '' %}
           {% if st == 'pending' %}
             <span class="badge" style="background:#faeeda;color:#854f0b">🟡 Хүлээгдэж байна</span>
-          {% elif ps == 'received' or st == 'prepared' %}
-            <span class="badge" style="background:#e6f1fb;color:#185fa5">🔵 Хүлээн авсан</span>
-          {% elif ps == 'preparing' %}
-            <span class="badge" style="background:#fff0e0;color:#c05000">🟠 Бэлтгэгдэж байна</span>
-          {% elif ps == 'ready' or st == 'ready' %}
+          {% elif ps == 'ready' %}
             <span class="badge" style="background:#f0e6ff;color:#6020a0">🟣 Шинжилгээнд бэлэн</span>
-          {% elif st == 'analysing' %}
+          {% elif ps == 'done' or st == 'analysing' %}
             <span class="badge badge-repair">🔴 Шинжилгээнд</span>
+          {% elif st == 'received' or st == 'prepared' %}
+            <span class="badge" style="background:#e6f1fb;color:#185fa5">🔵 Хүлээн авсан</span>
           {% elif st == 'done' %}
             <span class="badge badge-active">🟢 Дууссан</span>
           {% endif %}
@@ -122,9 +129,6 @@
             {% set st = s['status'] or '' %}
             {% set rid = s['receipt_id'] %}
             {% set role = current_user['role'] %}
-            {# prepared = хүлээн авсан хуучин статус #}
-            {% set ps = 'received' if (st == 'prepared' and ps == '') else ps %}
-            {% set ps = 'ready' if (st == 'ready' and ps == '') else ps %}
 
             {% if st == 'pending' %}
               {% if role in ('admin','senior','staff','preparer') %}
@@ -134,7 +138,7 @@
               </a>
               {% endif %}
 
-            {% elif ps in ('received', 'preparing') %}
+            {% elif ps != 'ready' and ps != 'done' and st in ('received', 'prepared') %}
               {% if role in ('admin','senior','preparer') %}
               <button onclick="showDoneModal({{ rid }})"
                  class="btn btn-sm" style="background:#f0e6ff;color:#6020a0;border:1px solid #c090e0">
@@ -142,17 +146,15 @@
               </button>
               {% endif %}
 
-            {% elif ps == 'ready' %}
+            {% elif ps == 'ready' or st == 'analysing' %}
               {% if role in ('admin','senior','staff') %}
               <a href="{{ url_for('analysis_measure', receipt_id=rid) }}"
-                 class="btn btn-sm" style="background:#faeeda;color:#854f0b;border:1px solid #f5d48a">
-                🧪 Шинжилгээ хийх
-              </a>
+                 class="btn btn-ghost btn-sm">🧪 Шинжилгээ хийх</a>
               {% endif %}
               <a href="{{ url_for('analysis_result', receipt_id=rid) }}"
                  class="btn btn-ghost btn-sm">📊 Үр дүн</a>
 
-            {% elif st == 'done' or ps == 'done' %}
+            {% elif ps == 'done' %}
               <a href="{{ url_for('analysis_result', receipt_id=rid) }}"
                  class="btn btn-ghost btn-sm">📊 Үр дүн</a>
             {% endif %}
