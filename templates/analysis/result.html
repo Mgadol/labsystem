@@ -263,61 +263,6 @@
   </div>
 </div>
 
-{% if receipt['sample_type'] == 'CRM' %}
-<div style="padding:14px;margin-top:2px">
-  <div class="card">
-    <div style="font-size:13px;font-weight:600;color:#7C3AED;margin-bottom:12px">
-      🔬 CRM Хяналтын харьцуулалт — {{ receipt['crm_name'] or receipt['sample_name'] }}
-    </div>
-    <table style="width:100%;border-collapse:collapse;font-size:12px">
-      <thead>
-        <tr style="background:#f0e6ff">
-          <th style="text-align:left;padding:7px 10px;font-weight:600;color:#7C3AED;border:1px solid #d8b4fe">Үзүүлэлт</th>
-          <th style="padding:7px 10px;font-weight:600;color:#7C3AED;border:1px solid #d8b4fe;text-align:center">Батлагдсан утга</th>
-          <th style="padding:7px 10px;font-weight:600;color:#7C3AED;border:1px solid #d8b4fe;text-align:center">Хэмжсэн утга</th>
-          <th style="padding:7px 10px;font-weight:600;color:#7C3AED;border:1px solid #d8b4fe;text-align:center">Зөрүү (%)</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% set e0 = entries|selectattr('is_duplicate','equalto',0)|first %}
-        {% set crm_rows = [
-          ('Mad — Дотоод чийг', receipt['crm_mad'], e0['mad'] if e0 else none, '%'),
-          ('Aad — Үнслэг', receipt['crm_aad'], e0['aad'] if e0 else none, '%'),
-          ('Vad — Дэгдэмхий бодис', receipt['crm_vad'], e0['vad'] if e0 else none, '%'),
-          ('Sad — Нийт хүхэр', receipt['crm_sulfur'], e0['sulfur'] if e0 else none, '%'),
-          ('Qb,ad — Илчлэг', receipt['crm_cal'], (e0['cal_value']/4.1868)|round(1) if e0 and e0['cal_value'] else none, 'ккал/кг'),
-        ] %}
-        {% for label, cert, meas, unit in crm_rows %}
-        <tr>
-          <td style="padding:7px 10px;border:1px solid #e5e4e0;font-weight:500">{{ label }}</td>
-          <td style="padding:7px 10px;border:1px solid #e5e4e0;text-align:center;font-family:monospace">
-            {% if cert is not none %}{{ '%.2f'|format(cert) }} {{ unit }}{% else %}<span style="color:#ccc">—</span>{% endif %}
-          </td>
-          <td style="padding:7px 10px;border:1px solid #e5e4e0;text-align:center;font-family:monospace;font-weight:600">
-            {% if meas is not none %}{{ '%.2f'|format(meas) }} {{ unit }}{% else %}<span style="color:#ccc">—</span>{% endif %}
-          </td>
-          <td style="padding:7px 10px;border:1px solid #e5e4e0;text-align:center;font-weight:600">
-            {% if cert is not none and meas is not none and cert != 0 %}
-              {% set dev = ((meas - cert) / cert * 100) %}
-              <span style="color:{% if dev|abs <= 5 %}#0f6e56{% else %}#993c1d{% endif %}">
-                {{ '%+.2f'|format(dev) }}%
-                {% if dev|abs <= 5 %} ✓{% else %} ✗{% endif %}
-              </span>
-            {% else %}
-              <span style="color:#ccc">—</span>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    <div style="font-size:11px;color:#6b6b67;margin-top:8px">
-      * Зөрүү ≤ 5% байвал хүлээн зөвшөөрөгдөх (ногоон ✓), &gt; 5% бол хэтэрсэн (улаан ✗)
-    </div>
-  </div>
-</div>
-{% endif %}
-
 {% if crm_cert %}
 <div style="padding:12px 14px;border-top:2px solid #7C3AED33">
   <div style="font-weight:700;font-size:13px;color:#7C3AED;margin-bottom:10px">🔬 CRM Баталгаажсан утгатай харьцуулалт</div>
