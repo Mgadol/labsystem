@@ -285,11 +285,78 @@
           </tbody>
         </table>
       </div>
+    {% if analysis_usage %}
+    <!-- Хэрэглэгчдийн ашиглалтын статистик -->
+    <div class="card" style="margin-top:16px;padding:16px">
+      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:12px">👥 Хэрэглэгчдийн ашиглалт</div>
+      <div style="position:relative;height:{{ [analysis_usage|length * 36, 80]|max }}px;margin-bottom:14px">
+        <canvas id="usageBarChart"></canvas>
+      </div>
+      <table class="table" style="font-size:12px">
+        <thead><tr>
+          <th>Ажилтан</th>
+          <th style="text-align:center">Удаа</th>
+          <th style="text-align:center">Нийт цаг</th>
+          <th style="text-align:center">Сүүлд ашигласан</th>
+        </tr></thead>
+        <tbody>
+        {% for u in analysis_usage %}
+        <tr>
+          <td><a href="{{ url_for('staff_detail', uid=u['user_id']) }}" style="color:var(--navy);font-weight:500">{{ u['user_name'] }}</a></td>
+          <td style="text-align:center">{{ u['sessions'] }}</td>
+          <td style="text-align:center;font-weight:600;font-family:monospace">{{ (u['total_min']//60)|int }}ц {{ (u['total_min']%60)|int }}мин</td>
+          <td style="text-align:center;font-size:11px;color:var(--text-muted)">{{ u['last_used'][:10] if u['last_used'] else '—' }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
     </div>
   </div>
 </div>
 {% endblock %}
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+{% if analysis_usage %}
+<script>
+var AU_LABELS = {{ analysis_usage|map(attribute='user_name')|list|tojson }};
+var AU_MINS   = {{ analysis_usage|map(attribute='total_min')|list|tojson }};
+new Chart(document.getElementById('usageBarChart'), {
+  type: 'bar',
+  data: {
+    labels: AU_LABELS,
+    datasets: [{
+      label: 'Цаг (мин)',
+      data: AU_MINS.map(function(m){ return Math.round(m/60*10)/10; }),
+      backgroundColor: '#185fa5',
+      borderRadius: 4
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: function(ctx) {
+            var m = AU_MINS[ctx.dataIndex];
+            return Math.floor(m/60) + 'ц ' + (m%60) + 'мин';
+          }
+        }
+      }
+    },
+    scales: {
+      x: { beginAtZero: true, ticks: { font: { size: 10 } } },
+      y: { ticks: { font: { size: 11 } } }
+    }
+  }
+});
+</script>
+{% endif %}
 <script>
 async function startUsage(deviceId){
   const r = await fetch(`/usage/start/${deviceId}`,{method:'POST'});

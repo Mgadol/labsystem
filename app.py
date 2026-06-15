@@ -211,11 +211,22 @@ def device_detail(did):
         SELECT COALESCE(SUM(duration_hours),0) as total FROM usage_logs
         WHERE device_id=? AND strftime('%Y-%m', start_time)=?
     """, (did, now.strftime('%Y-%m'))).fetchone()['total']
+    analysis_usage = conn.execute("""
+        SELECT u.id as user_id, u.name as user_name,
+               COUNT(*) as sessions,
+               COALESCE(SUM(CAST((julianday(ul.end_time)-julianday(ul.start_time))*1440 AS INTEGER)),0) as total_min,
+               MAX(ul.start_time) as last_used
+        FROM usage_logs ul
+        JOIN users u ON u.id=ul.user_id
+        WHERE ul.device_id=? AND ul.end_time IS NOT NULL
+        GROUP BY u.id ORDER BY total_min DESC
+    """, (did,)).fetchall()
     conn.close()
     return render_template('device/detail.html',
         device=device, calibrations=cals, repairs=reps,
         usage_logs=logs, active_log=active,
         monthly_hours=round(mhours,2),
+        analysis_usage=analysis_usage,
         lang=lang, today=date.today().isoformat())
 
 @app.route('/devices/add', methods=['GET','POST'])
@@ -447,8 +458,54 @@ def staff_detail(uid):
         JOIN staff_device_permissions p ON p.device_id=d.id
         WHERE p.user_id=?
     """, (uid,)).fetchall()
+    device_usage = conn.execute("""
+        SELECT d.id as device_id, d.name as device_name,
+               COUNT(*) as sessions,
+               COALESCE(SUM(CAST((julianday(ul.end_time)-julianday(ul.start_time))*1440 AS INTEGER)),0) as total_min,
+               MAX(ul.start_time) as last_used
+        FROM usage_logs ul
+        JOIN devices d ON d.id=ul.device_id
+        WHERE ul.user_id=? AND ul.end_time IS NOT NULL
+        GROUP BY d.id ORDER BY total_min DESC
+    """, (uid,)).fetchall()
+    # Stats
+    total_done     = conn.execute("SELECT COUNT(*) FROM sample_entries WHERE done_by=? AND row_status IN ('done','approved')", (uid,)).fetchone()[0]
+    total_approved = conn.execute("SELECT COUNT(*) FROM sample_entries WHERE approved_by=? AND row_status='approved'", (uid,)).fetchone()[0]
+    total_hours    = conn.execute("SELECT COALESCE(SUM(duration_hours),0) FROM usage_logs WHERE user_id=? AND end_time IS NOT NULL", (uid,)).fetchone()[0]
+    # QC radar
+    qc_rows = conn.execute("""
+        SELECT qs.parameter,
+               SUM(CASE WHEN ABS(e.mad - e2.mad) <= qs.tolerance THEN 1 ELSE 0 END)*1.0/COUNT(*)*100 as pct
+        FROM sample_entries e
+        JOIN sample_entries e2 ON e2.receipt_id=e.receipt_id AND e2.row_num=e.row_num AND e2.is_duplicate=1
+        JOIN qc_settings qs ON qs.parameter='Mad'
+        WHERE e.is_duplicate=0 AND e.done_by=? AND e.mad IS NOT NULL AND e2.mad IS NOT NULL
+        LIMIT 1
+    """, (uid,)).fetchall()
+    qc_radar = {}
+    # Monthly analysis counts
+    now = datetime.now()
+    def monthly_counts(months_back):
+        rows = conn.execute("""
+            SELECT strftime('%Y-%m', se.done_at) as month, COUNT(*) as cnt
+            FROM sample_entries se
+            WHERE se.done_by=? AND se.row_status IN ('done','approved')
+              AND se.done_at >= date('now', ?)
+            GROUP BY month ORDER BY month
+        """, (uid, f'-{months_back} months')).fetchall()
+        return rows
+    monthly_6   = monthly_counts(6)
+    monthly_12  = monthly_counts(12)
+    monthly_all = conn.execute("""
+        SELECT strftime('%Y-%m', done_at) as month, COUNT(*) as cnt
+        FROM sample_entries WHERE done_by=? AND row_status IN ('done','approved')
+        GROUP BY month ORDER BY month
+    """, (uid,)).fetchall()
     conn.close()
-    return render_template('staff/detail.html', target=target, logs=logs, my_devices=my_devs, lang=lang)
+    return render_template('staff/detail.html', target=target, logs=logs, my_devices=my_devs,
+                           device_usage=device_usage, lang=lang,
+                           total_done=total_done, total_approved=total_approved, total_hours=total_hours,
+                           qc_radar=qc_radar, monthly_6=monthly_6, monthly_12=monthly_12, monthly_all=monthly_all)
 
 # ── ARCHIVE ─────────────────────────────────────────────
 @app.route('/archive')

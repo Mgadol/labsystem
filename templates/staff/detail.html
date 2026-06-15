@@ -131,6 +131,43 @@
         </table>
       </div>
 
+    <!-- Тоног төхөөрөмжийн ашиглалт -->
+    {% if device_usage %}
+    <div class="card" style="margin-top:16px;padding:16px">
+      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:12px">🔧 Тоног төхөөрөмжийн ашиглалт</div>
+      <div style="display:grid;grid-template-columns:200px 1fr;gap:16px;align-items:center;margin-bottom:14px">
+        <div style="position:relative;height:180px"><canvas id="deviceDonut"></canvas></div>
+        <div>
+          {% for d in device_usage %}
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px">
+            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ ['#185fa5','#0f6e56','#7C3AED','#854f0b','#993c1d','#555'][loop.index0 % 6] }};flex-shrink:0"></span>
+            <span style="flex:1;color:var(--navy)">{{ d['device_name'] }}</span>
+            <span style="font-family:monospace;font-weight:600;color:var(--navy)">{{ (d['total_min']//60)|int }}ц {{ (d['total_min']%60)|int }}мин</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      <table class="table" style="font-size:12px">
+        <thead><tr>
+          <th>Тоног төхөөрөмж</th>
+          <th style="text-align:center">Удаа</th>
+          <th style="text-align:center">Нийт цаг</th>
+          <th style="text-align:center">Сүүлд ашигласан</th>
+        </tr></thead>
+        <tbody>
+        {% for d in device_usage %}
+        <tr>
+          <td><a href="{{ url_for('device_detail', did=d['device_id']) }}" style="color:var(--navy);font-weight:500">{{ d['device_name'] }}</a></td>
+          <td style="text-align:center">{{ d['sessions'] }}</td>
+          <td style="text-align:center;font-weight:600;font-family:monospace">{{ (d['total_min']//60)|int }}ц {{ (d['total_min']%60)|int }}мин</td>
+          <td style="text-align:center;font-size:11px;color:var(--text-muted)">{{ d['last_used'][:10] if d['last_used'] else '—' }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
     </div>
   </div>
 </div>
@@ -221,5 +258,32 @@ function setRange(r) {
   var active = document.getElementById(aid);
   if(active) { active.style.background='var(--navy)'; active.style.color='#fff'; active.classList.remove('btn-ghost'); }
 }
+
+{% if device_usage %}
+var DU_LABELS = {{ device_usage|map(attribute='device_name')|list|tojson }};
+var DU_MINS   = {{ device_usage|map(attribute='total_min')|list|tojson }};
+var DU_COLORS = ['#185fa5','#0f6e56','#7C3AED','#854f0b','#993c1d','#555','#185fa5','#0f6e56'];
+new Chart(document.getElementById('deviceDonut'), {
+  type: 'doughnut',
+  data: {
+    labels: DU_LABELS,
+    datasets: [{ data: DU_MINS, backgroundColor: DU_COLORS.slice(0, DU_LABELS.length), borderWidth: 2 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: function(ctx) {
+            var m = ctx.parsed;
+            return ctx.label + ': ' + Math.floor(m/60) + 'ц ' + (m%60) + 'мин';
+          }
+        }
+      }
+    }
+  }
+});
+{% endif %}
 </script>
 {% endblock %}
