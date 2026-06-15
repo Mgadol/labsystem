@@ -1475,7 +1475,7 @@ def generate_lab_number(sample_type, date_str):
     """Дээжний төрлөөс хамааран лаб дугаар үүсгэнэ"""
     prefix_map = {
         'PIT': 1000, 'STOCKPILE': 2000, 'EXPORT': 3000,
-        'CONTROL': 4000, 'EQ_CONTROL': 5000, 'DP': 6000
+        'CONTROL': 4000, 'EQ_CONTROL': 5000, 'DP': 6000, 'CRM': 9000
     }
     base = prefix_map.get(sample_type, 1000)
     conn = get_db()
@@ -1642,6 +1642,59 @@ def analysis():
         """).fetchall()
     conn.close()
     return render_template('analysis/index.html', samples=samples, lang=lang, today=datetime.now().strftime('%Y-%m-%d'))
+
+@app.route('/analysis/crm/register', methods=['GET', 'POST'])
+@lab_required
+def analysis_crm_register():
+    if request.method == 'POST':
+        crm_name = request.form.get('crm_name', '').strip()
+        crm_mad = request.form.get('crm_mad') or None
+        crm_aad = request.form.get('crm_aad') or None
+        crm_vad = request.form.get('crm_vad') or None
+        crm_sulfur = request.form.get('crm_sulfur') or None
+        crm_cal = request.form.get('crm_cal') or None
+        collected_date = request.form.get('collected_date') or datetime.now().strftime('%Y-%m-%d')
+        notes = request.form.get('notes', '').strip()
+
+        if not crm_name:
+            flash('CRM нэрийг оруулна уу', 'error')
+            return redirect(url_for('analysis_crm_register'))
+
+        conn = get_db()
+        try:
+            cur = conn.execute("""
+                INSERT INTO geo_samples (sample_name, sample_type, location, collected_date, quantity, notes,
+                    registered_by, status, crm_name, crm_mad, crm_aad, crm_vad, crm_sulfur, crm_cal)
+                VALUES (?, 'CRM', 'CRM лаборатори', ?, 1, ?, ?, 'received', ?, ?, ?, ?, ?, ?)
+            """, (crm_name, collected_date, notes, session['user_id'],
+                  crm_name, crm_mad, crm_aad, crm_vad, crm_sulfur, crm_cal))
+            geo_id = cur.lastrowid
+
+            lab_number, lab_serial = generate_lab_number('CRM', collected_date)
+
+            cur2 = conn.execute("""
+                INSERT INTO sample_receipt (geo_sample_id, lab_number, lab_serial, received_date, received_by)
+                VALUES (?, ?, ?, ?, ?)
+            """, (geo_id, lab_number, lab_serial, collected_date, session['user_id']))
+            receipt_id = cur2.lastrowid
+
+            conn.execute("""
+                INSERT INTO sample_entries (receipt_id, row_num, is_duplicate, sample_name, row_status)
+                VALUES (?, 1, 0, ?, 'empty')
+            """, (receipt_id, crm_name))
+
+            conn.commit()
+            flash(f'CRM дээж бүртгэгдлээ: {lab_number}', 'success')
+            return redirect(url_for('analysis_measure', receipt_id=receipt_id))
+        except Exception as e:
+            conn.rollback()
+            flash(f'Алдаа: {e}', 'error')
+            return redirect(url_for('analysis_crm_register'))
+        finally:
+            conn.close()
+
+    return render_template('analysis/crm_register.html', now=datetime.now())
+
 
 @app.route('/analysis/register', methods=['GET','POST'])
 @login_required
@@ -2190,6 +2243,13 @@ def analysis_result(receipt_id):
         WHERE se.receipt_id=?
         ORDER BY se.row_num, se.is_duplicate
     """, (receipt_id,)).fetchall()
+
+    crm_cert = None
+    if receipt and receipt['sample_type'] == 'CRM':
+        geo = conn.execute('SELECT crm_mad, crm_aad, crm_vad, crm_sulfur, crm_cal FROM geo_samples WHERE id=?',
+                           (receipt['geo_sample_id'],)).fetchone()
+        crm_cert = dict(geo) if geo else None
+
     conn.close()
 
     # Mt тооцоолол per entry
@@ -2215,7 +2275,7 @@ def analysis_result(receipt_id):
 
     role = session.get('role')
     return render_template('analysis/result.html',
-        receipt=receipt, entries=entries, lang=lang, role=role)
+        receipt=receipt, entries=entries, lang=lang, role=role, crm_cert=crm_cert)
 
 
 @app.route('/analysis/export/<int:receipt_id>')
