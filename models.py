@@ -1,6 +1,10 @@
-import sqlite3, os
+import sqlite3, os, sys
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
+
+# Windows terminal UTF-8
+if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 DB_PATH = os.path.join(os.path.dirname(__file__), 'instance', 'lab.db')
 
