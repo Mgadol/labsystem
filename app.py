@@ -1643,59 +1643,6 @@ def analysis():
     conn.close()
     return render_template('analysis/index.html', samples=samples, lang=lang, today=datetime.now().strftime('%Y-%m-%d'))
 
-@app.route('/analysis/crm/register', methods=['GET', 'POST'])
-@lab_required
-def analysis_crm_register():
-    if request.method == 'POST':
-        crm_name = request.form.get('crm_name', '').strip()
-        crm_mad = request.form.get('crm_mad') or None
-        crm_aad = request.form.get('crm_aad') or None
-        crm_vad = request.form.get('crm_vad') or None
-        crm_sulfur = request.form.get('crm_sulfur') or None
-        crm_cal = request.form.get('crm_cal') or None
-        collected_date = request.form.get('collected_date') or datetime.now().strftime('%Y-%m-%d')
-        notes = request.form.get('notes', '').strip()
-
-        if not crm_name:
-            flash('CRM нэрийг оруулна уу', 'error')
-            return redirect(url_for('analysis_crm_register'))
-
-        conn = get_db()
-        try:
-            cur = conn.execute("""
-                INSERT INTO geo_samples (sample_name, sample_type, location, collected_date, quantity, notes,
-                    registered_by, status, crm_name, crm_mad, crm_aad, crm_vad, crm_sulfur, crm_cal)
-                VALUES (?, 'CRM', 'CRM лаборатори', ?, 1, ?, ?, 'received', ?, ?, ?, ?, ?, ?)
-            """, (crm_name, collected_date, notes, session['user_id'],
-                  crm_name, crm_mad, crm_aad, crm_vad, crm_sulfur, crm_cal))
-            geo_id = cur.lastrowid
-
-            lab_number, lab_serial = generate_lab_number('CRM', collected_date)
-
-            cur2 = conn.execute("""
-                INSERT INTO sample_receipt (geo_sample_id, lab_number, lab_serial, received_date, received_by)
-                VALUES (?, ?, ?, ?, ?)
-            """, (geo_id, lab_number, lab_serial, collected_date, session['user_id']))
-            receipt_id = cur2.lastrowid
-
-            conn.execute("""
-                INSERT INTO sample_entries (receipt_id, row_num, is_duplicate, sample_name, row_status)
-                VALUES (?, 1, 0, ?, 'empty')
-            """, (receipt_id, crm_name))
-
-            conn.commit()
-            flash(f'CRM дээж бүртгэгдлээ: {lab_number}', 'success')
-            return redirect(url_for('analysis_measure', receipt_id=receipt_id))
-        except Exception as e:
-            conn.rollback()
-            flash(f'Алдаа: {e}', 'error')
-            return redirect(url_for('analysis_crm_register'))
-        finally:
-            conn.close()
-
-    return render_template('analysis/crm_register.html', now=datetime.now())
-
-
 @app.route('/analysis/register', methods=['GET','POST'])
 @login_required
 def analysis_register():
