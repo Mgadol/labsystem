@@ -2661,7 +2661,7 @@ if __name__ == '__main__':
         _mc.close()
     except Exception:
         pass
-    print('Систем эхэллээ!')
-    print('Браузерт нэвтрэх: http://localhost:5000')
-    print('ID: ADMIN  Нууц үг: admin123')
+    print('System started!')
+    print('Open browser: http://localhost:5000')
+    print('ID: ADMIN  Password: admin123')
     app.run(debug=False, host='0.0.0.0', port=5000)
