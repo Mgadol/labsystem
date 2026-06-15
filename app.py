@@ -603,10 +603,17 @@ def archive_result(receipt_id):
         WHERE se.receipt_id=?
         ORDER BY se.row_num, se.is_duplicate
     """, (receipt_id,)).fetchall()
+
+    crm_cert = None
+    if receipt and receipt['sample_type'] == 'CRM':
+        geo = conn.execute('SELECT crm_mad, crm_aad, crm_vad, crm_sulfur, crm_cal FROM geo_samples WHERE id=?',
+                           (receipt['geo_sample_id'],)).fetchone()
+        crm_cert = dict(geo) if geo else None
+
     conn.close()
     role = session.get('role')
     return render_template('analysis/archive_result.html',
-        receipt=receipt, entries=entries, lang=lang, role=role)
+        receipt=receipt, entries=entries, lang=lang, role=role, crm_cert=crm_cert)
 
 @app.route('/archive/reopen/<int:receipt_id>', methods=['POST'])
 @admin_required

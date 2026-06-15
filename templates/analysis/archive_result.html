@@ -224,6 +224,44 @@
 </table>
 </div>
 
+{% if crm_cert %}
+{% set primary = entries | selectattr('is_duplicate', 'eq', 0) | list | first if entries else None %}
+<div class="card" style="margin-top:12px;">
+  <div style="padding:10px 14px;background:#7C3AED;color:#fff;border-radius:6px 6px 0 0;">
+    <h3 style="margin:0;font-size:14px;">🔬 CRM Баталгаажсан утгатай харьцуулалт</h3>
+  </div>
+  <div style="padding:1rem;">
+    <table class="table">
+      <thead><tr><th>Үзүүлэлт</th><th>Баталгаажсан</th><th>Хэмжсэн</th><th>Хазайлт %</th></tr></thead>
+      <tbody>
+        {% set params = [
+          ('Mad %', crm_cert.crm_mad, primary.mad if primary else None),
+          ('Aad %', crm_cert.crm_aad, primary.aad if primary else None),
+          ('Vad %', crm_cert.crm_vad, primary.vad if primary else None),
+          ('Sad %', crm_cert.crm_sulfur, primary.sulfur if primary else None),
+          ('Qb,ad ккал/кг', crm_cert.crm_cal, primary.cal_value if primary else None),
+        ] %}
+        {% for label, cert, meas in params %}
+        <tr>
+          <td>{{ label }}</td>
+          <td>{{ cert if cert is not none else '—' }}</td>
+          <td>{{ meas if meas is not none else '—' }}</td>
+          {% if cert and meas %}
+            {% set dev = ((meas - cert) / cert * 100) | round(2) %}
+            <td style="color:{{ '#16a34a' if dev|abs <= 5 else '#dc2626' }};font-weight:600;">
+              {{ '+' if dev > 0 else '' }}{{ dev }}%
+            </td>
+          {% else %}
+            <td>—</td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 <!-- Корреляцын графикууд -->
 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px;padding-bottom:20px">
   <div class="card" style="padding:14px">
