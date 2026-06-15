@@ -25,6 +25,9 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
       <a href="{{ url_for('analysis_crm_register') }}" class="btn" style="background:#7C3AED;color:#fff;">+ CRM дээж</a>
       {% endif %}
       {% if current_user['role'] in ('admin','senior','staff') %}
+      <a href="{{ url_for('analysis_crm_register') }}" class="btn" style="background:#7C3AED;color:#fff;">🔬 + CRM дээж</a>
+      {% endif %}
+      {% if current_user['role'] in ('admin','senior','staff') %}
       <button onclick="startMulti()" class="btn btn-teal" id="multiBtn" disabled style="opacity:.4;cursor:not-allowed">
         🧪 Шинжилгээ эхлэх
       </button>

@@ -2219,6 +2219,7 @@ def analysis_result(receipt_id):
         row['mt_result'] = calc_mt(e)
         entries.append(row)
 
+
     role = session.get('role')
     return render_template('analysis/result.html',
         receipt=receipt, entries=entries, lang=lang, role=role, crm_cert=crm_cert)
@@ -2763,7 +2764,7 @@ if __name__ == '__main__':
         pass
     # Migration: CRM талбарууд нэмэх
     _mc = get_db()
-    for col in ['crm_name TEXT','crm_mad REAL','crm_aad REAL','crm_vad REAL','crm_sulfur REAL','crm_cal REAL']:
+    for col in ['crm_name TEXT','crm_mad REAL','crm_aad REAL','crm_vad REAL','crm_sulfur REAL','crm_cal REAL','sample_range TEXT']:
         try: _mc.execute(f"ALTER TABLE geo_samples ADD COLUMN {col}")
         except Exception: pass
     # CRM sample type нэмэх
