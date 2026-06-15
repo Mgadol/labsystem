@@ -1791,8 +1791,7 @@ def crm_register():
         flash(f'CRM дээж бүртгэгдлээ! Ажлын дугаар: {lab_num}', 'success')
         return redirect(url_for('analysis_measure', receipt_id=receipt_id))
 
-    return render_template('analysis/crm_register.html', lang=lang,
-        today=datetime.now().strftime('%Y-%m-%d'))
+    return render_template('analysis/crm_register.html', lang=lang, now=datetime.now())
 
 
 @app.route('/analysis/receive/<int:geo_id>', methods=['GET','POST'])
