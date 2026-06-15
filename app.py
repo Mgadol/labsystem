@@ -2,7 +2,10 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 from models import get_db, init_db, hash_password, check_password
 from datetime import datetime, date
 from functools import wraps
-import os, uuid, io
+import os, uuid, io, sys
+
+if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
