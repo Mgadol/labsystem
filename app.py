@@ -496,14 +496,18 @@ def staff_detail(uid):
         "SELECT COALESCE(SUM(duration_hours),0) as t FROM usage_logs WHERE user_id=?",
         (uid,)).fetchone()['t']
 
-    # Сарын шинжилгээний тоо (сүүлийн 6 сар)
-    monthly = conn.execute("""
-        SELECT strftime('%Y-%m', done_at) as month, COUNT(*) as cnt
-        FROM sample_entries
-        WHERE done_by=? AND is_duplicate=0 AND row_status IN ('done','approved')
-          AND done_at >= date('now','-6 months')
-        GROUP BY month ORDER BY month
-    """, (uid,)).fetchall()
+    # Сарын шинжилгээний тоо — 3 хугацаа
+    def get_monthly(uid, date_filter=''):
+        where = f"AND done_at >= date('now','{date_filter}')" if date_filter else ''
+        return conn.execute(f"""
+            SELECT strftime('%Y-%m', done_at) as month, COUNT(*) as cnt
+            FROM sample_entries
+            WHERE done_by=? AND is_duplicate=0 AND row_status IN ('done','approved') {where}
+            GROUP BY month ORDER BY month
+        """, (uid,)).fetchall()
+    monthly_6  = list(get_monthly(uid, '-6 months'))
+    monthly_12 = list(get_monthly(uid, '-12 months'))
+    monthly_all = list(get_monthly(uid, ''))
 
     # QC radar: параметр бүрээр primary/duplicate зөрүүг tolerance-тай харьцуулна
     qc_tol = {r['parameter']: r['tolerance'] for r in conn.execute("SELECT parameter, tolerance FROM qc_settings").fetchall()}
@@ -544,7 +548,8 @@ def staff_detail(uid):
     return render_template('staff/detail.html',
         target=target, logs=logs, my_devices=my_devs, lang=lang,
         total_done=total_done, total_approved=total_approved, total_hours=total_hours,
-        monthly=list(monthly), qc_radar=qc_radar)
+        monthly_6=monthly_6, monthly_12=monthly_12, monthly_all=monthly_all,
+        qc_radar=qc_radar)
 
 # ── ARCHIVE ─────────────────────────────────────────────
 @app.route('/archive/measure/<int:receipt_id>')
