@@ -1,13 +1,7 @@
 {% extends "partial/base.html" %}
 {% block title %}CRM дээж бүртгэх{% endblock %}
 {% block content %}
-<style>
-.crm-card{background:#fff;border-radius:12px;border:1px solid var(--border);padding:24px;max-width:560px}
-.section-title{font-size:11px;font-weight:700;color:#7C3AED;text-transform:uppercase;letter-spacing:.08em;margin:18px 0 10px;padding-bottom:4px;border-bottom:2px solid #ede9fe}
-.cert-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-</style>
-
-<div class="page" style="max-width:580px">
+<div class="page" style="max-width:520px">
   <div style="margin-bottom:16px">
     <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">
       <a href="{{ url_for('analysis') }}">Шинжилгээ</a> /
@@ -16,55 +10,58 @@
     <p class="page-sub">Certified Reference Material — баталгаажсан стандарт дээж</p>
   </div>
 
-  <div class="crm-card">
+  {% if not crm_materials %}
+  <div class="card" style="padding:24px;text-align:center">
+    <div style="font-size:32px;margin-bottom:8px">⚠️</div>
+    <div style="font-weight:500;margin-bottom:8px">CRM материал бүртгэгдээгүй байна</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+      Тохиргоо → CRM материал хэсэгт эхлээд CRM нэмнэ үү.
+    </div>
+    <a href="{{ url_for('lab_settings') }}?tab=crm" class="btn btn-primary">⚙️ Тохиргоо руу очих</a>
+  </div>
+  {% else %}
+  <div class="card" style="padding:20px">
     <form method="POST">
-      <div class="section-title">CRM мэдээлэл</div>
-      <div class="form-group">
-        <label class="form-label">CRM нэр <span style="color:var(--coral)">*</span></label>
-        <input type="text" name="crm_name" class="form-input" required
-          placeholder="Жишээ: SARM-19, GBW11107b"
-          autofocus>
-      </div>
-
-      <div class="section-title">Батлагдсан утгууд</div>
-      <div class="cert-grid">
-        <div class="form-group">
-          <label class="form-label">Mad [%]</label>
-          <input type="number" name="crm_mad" class="form-input" step="0.01" min="0" max="100" placeholder="0.00">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Aad [%]</label>
-          <input type="number" name="crm_aad" class="form-input" step="0.01" min="0" max="100" placeholder="0.00">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Vad [%]</label>
-          <input type="number" name="crm_vad" class="form-input" step="0.01" min="0" max="100" placeholder="0.00">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Sad [%]</label>
-          <input type="number" name="crm_sulfur" class="form-input" step="0.001" min="0" max="10" placeholder="0.000">
-        </div>
-        <div class="form-group" style="grid-column:1/-1">
-          <label class="form-label">Qb,ad [ккал/кг]</label>
-          <input type="number" name="crm_cal" class="form-input" step="0.01" min="0" placeholder="0.00">
+      <div class="form-group" style="margin-bottom:16px">
+        <label class="form-label">CRM материал сонгох <span style="color:var(--coral)">*</span></label>
+        <div style="display:grid;gap:8px">
+          {% for m in crm_materials %}
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:border .15s" class="crm-option">
+            <input type="radio" name="crm_material_id" value="{{ m['id'] }}" required style="margin-top:3px;accent-color:#7C3AED">
+            <div>
+              <div style="font-weight:600;color:#7C3AED">{{ m['crm_name'] }}</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:3px">
+                {% if m['mad_cert'] %}Mad {{ m['mad_cert'] }}%{% endif %}
+                {% if m['aad_cert'] %} · Aad {{ m['aad_cert'] }}%{% endif %}
+                {% if m['vad_cert'] %} · Vad {{ m['vad_cert'] }}%{% endif %}
+                {% if m['sulfur_cert'] %} · Sad {{ m['sulfur_cert'] }}%{% endif %}
+                {% if m['cal_cert'] %} · Qb,ad {{ m['cal_cert'] }} ккал/кг{% endif %}
+                {% if m['notes'] %}<br>{{ m['notes'] }}{% endif %}
+              </div>
+            </div>
+          </label>
+          {% endfor %}
         </div>
       </div>
 
-      <div class="section-title">Нэмэлт мэдээлэл</div>
-      <div class="form-group">
+      <div class="form-group" style="margin-bottom:12px">
         <label class="form-label">Огноо</label>
         <input type="date" name="collected_date" class="form-input" value="{{ today }}">
       </div>
-      <div class="form-group">
+      <div class="form-group" style="margin-bottom:20px">
         <label class="form-label">Тэмдэглэл</label>
-        <textarea name="notes" class="form-input" rows="3" placeholder="Лот дугаар, эх үүсвэр болон бусад тэмдэглэл..."></textarea>
+        <textarea name="notes" class="form-input" rows="2" placeholder="Нэмэлт мэдээлэл..."></textarea>
       </div>
 
-      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+      <div style="display:flex;gap:8px;justify-content:flex-end">
         <a href="{{ url_for('analysis') }}" class="btn btn-ghost">← Буцах</a>
-        <button type="submit" class="btn" style="background:#7C3AED;color:#fff;padding:8px 20px">🔬 CRM бүртгэх</button>
+        <button type="submit" class="btn" style="background:#7C3AED;color:#fff">🔬 Шинжилгээ эхлэх</button>
       </div>
     </form>
   </div>
+  {% endif %}
 </div>
+<style>
+.crm-option:has(input:checked){border-color:#7C3AED;background:#f9f5ff}
+</style>
 {% endblock %}

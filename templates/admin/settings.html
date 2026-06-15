@@ -14,6 +14,7 @@
     <button class="tab-btn active" onclick="switchTab(this,'tab-lab')">🏢 Лабораторийн мэдээлэл</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-qc')">📊 QC стандарт</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-types')">🧪 Дээжний төрөл</button>
+    <button class="tab-btn" onclick="switchTab(this,'tab-crm')">🔬 CRM материал</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-device-map')">🔧 Тоног холбоос</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-profile')">👤 Профайл</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-backup')">💾 Нөөцлөлт</button>
@@ -271,6 +272,89 @@
   </div>
 
   <!-- Нөөцлөлт -->
+  <!-- CRM материал -->
+  <div id="tab-crm" class="tab-pane">
+    <div class="card" style="margin-bottom:16px">
+      <div class="section-title">🔬 CRM материал нэмэх</div>
+      <form method="POST" action="/lab-settings/crm" id="crmAddForm">
+        <input type="hidden" name="action" value="add">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">CRM нэр / код <span style="color:var(--coral)">*</span></label>
+            <input type="text" name="crm_name" class="form-input" placeholder="Жишээ: SARM-18, GBW11107b" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Mad [%]</label>
+            <input type="number" name="mad_cert" class="form-input" step="0.0001" min="0" placeholder="0.0000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Aad [%]</label>
+            <input type="number" name="aad_cert" class="form-input" step="0.0001" min="0" placeholder="0.0000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Vad [%]</label>
+            <input type="number" name="vad_cert" class="form-input" step="0.0001" min="0" placeholder="0.0000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sad [%]</label>
+            <input type="number" name="sulfur_cert" class="form-input" step="0.0001" min="0" placeholder="0.0000">
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">Qb,ad [ккал/кг]</label>
+            <input type="number" name="cal_cert" class="form-input" step="0.01" min="0" placeholder="0.00">
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">Тэмдэглэл</label>
+            <input type="text" name="notes" class="form-input" placeholder="Лот дугаар, эх үүсвэр...">
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:8px">
+          <button type="submit" class="btn" style="background:#7C3AED;color:#fff">🔬 Нэмэх</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="section-title">CRM материалын жагсаалт</div>
+      <table class="table" id="crmList">
+        <thead>
+          <tr>
+            <th>Нэр / код</th>
+            <th style="text-align:center">Mad %</th>
+            <th style="text-align:center">Aad %</th>
+            <th style="text-align:center">Vad %</th>
+            <th style="text-align:center">Sad %</th>
+            <th style="text-align:center">Qb,ad</th>
+            <th>Тэмдэглэл</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for c in crm_materials %}
+        <tr>
+          <td><strong>{{ c['crm_name'] }}</strong></td>
+          <td style="text-align:center">{{ c['mad_cert'] or '—' }}</td>
+          <td style="text-align:center">{{ c['aad_cert'] or '—' }}</td>
+          <td style="text-align:center">{{ c['vad_cert'] or '—' }}</td>
+          <td style="text-align:center">{{ c['sulfur_cert'] or '—' }}</td>
+          <td style="text-align:center">{{ c['cal_cert'] or '—' }}</td>
+          <td style="font-size:12px;color:var(--text-muted)">{{ c['notes'] or '' }}</td>
+          <td>
+            <form method="POST" action="/lab-settings/crm" style="display:inline" onsubmit="return confirm('Устгах уу?')">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="id" value="{{ c['id'] }}">
+              <button class="btn btn-sm" style="background:#faece7;color:#993c1d">Устгах</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-muted)">CRM материал байхгүй</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <div id="tab-backup" class="tab-pane">
     <div class="card">
       <div class="section-title">💾 Мэдээллийн сангийн нөөцлөлт</div>

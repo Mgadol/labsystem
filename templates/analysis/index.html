@@ -22,7 +22,7 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
         Дээж бүртгэх
       </a>
       {% if current_user['role'] in ('admin','senior','staff','preparer') %}
-      <a href="{{ url_for('analysis_crm_register') }}" class="btn" style="background:#7C3AED;color:#fff;">+ CRM дээж</a>
+      <a href="{{ url_for('analysis_crm_register') }}" class="btn" style="background:#7C3AED;color:#fff;">🔬 CRM дээж</a>
       {% endif %}
       {% if current_user['role'] in ('admin','senior','staff') %}
       <button onclick="startMulti()" class="btn btn-teal" id="multiBtn" disabled style="opacity:.4;cursor:not-allowed">
@@ -84,7 +84,9 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
           {% endif %}
         </td>
         <td>
-          {% if s['lab_number'] %}
+          {% if s['sample_type'] == 'CRM' %}
+          <strong style="color:#7C3AED;font-family:monospace">CRM {{ s['crm_name'] or s['sample_name'] }}</strong>
+          {% elif s['lab_number'] %}
           <strong style="color:var(--navy);font-family:monospace">{{ s['lab_number'] }}</strong>
           {% else %}
           <span style="color:var(--text-muted);font-size:12px">— дугаар аваагүй</span>
