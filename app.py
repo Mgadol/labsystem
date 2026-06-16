@@ -207,7 +207,8 @@ def dashboard():
     conn = get_db()
     if session.get('role') in ('admin', 'guest'):
         devices  = conn.execute("SELECT d.*, dm.manufacturer, dm.model FROM devices d LEFT JOIN device_marks dm ON d.mark_id=dm.id ORDER BY d.name").fetchall()
-        users    = conn.execute("SELECT * FROM users WHERE is_active=1").fetchall()
+        users    = conn.execute("SELECT * FROM users WHERE is_active=1 AND role != 'geologist'").fetchall()
+        clients  = conn.execute("SELECT * FROM users WHERE is_active=1 AND role = 'geologist'").fetchall()
         open_rep = conn.execute("SELECT COUNT(*) as c FROM repairs WHERE status='new'").fetchone()['c']
         today    = date.today().isoformat()
         expiring = conn.execute("""
@@ -220,7 +221,7 @@ def dashboard():
         """, (today,)).fetchall()
         conn.close()
         return render_template('admin/dashboard.html',
-            devices=devices, users=users, open_rep=open_rep, expiring=expiring, lang=lang)
+            devices=devices, users=users, clients=clients, open_rep=open_rep, expiring=expiring, lang=lang)
     else:
         uid = session.get('user_id', 0)
         my_devices = conn.execute("""

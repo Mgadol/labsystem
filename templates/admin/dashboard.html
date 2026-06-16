@@ -38,7 +38,11 @@
     </div>
     <div class="stat-card">
       <div class="stat-val" style="color:var(--teal)">{{ users|length }}</div>
-      <div class="stat-lbl">{{ 'Ажилтан' if lang=='mn' else 'Staff' }}</div>
+      <div class="stat-lbl">Ажилтан</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:#7C3AED">{{ clients|length }}</div>
+      <div class="stat-lbl">Харилцагч</div>
     </div>
     <div class="stat-card">
       <div class="stat-val" style="color:var(--coral)">{{ open_rep }}</div>
@@ -82,7 +86,7 @@
       <div class="module-info">
         <div class="module-title">{{ 'Ажилтан' if lang=='mn' else 'Staff' }}</div>
         <div class="module-desc">{{ 'Мэдээлэл, эрх, ашиглалтын түүх' if lang=='mn' else 'Info, permissions, history' }}</div>
-        <span class="module-badge" style="background:#EBF4FF;color:#185FA5">{{ users|length }} {{ 'ажилтан' if lang=='mn' else 'members' }}</span>
+        <span class="module-badge" style="background:#EBF4FF;color:#185FA5">{{ users|length }} ажилтан{% if clients|length %} · {{ clients|length }} харилцагч{% endif %}</span>
       </div>
     </a>
 
