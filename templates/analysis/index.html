@@ -21,8 +21,9 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
         </svg>
         Дээж бүртгэх
       </a>
-      {% if current_user['role'] in ('admin','senior','staff','preparer') %}
+      {% if current_user['role'] in ('admin','senior','staff','preparer','guest') %}
       <a href="{{ url_for('analysis_crm_register') }}" class="btn" style="background:#7C3AED;color:#fff;">🔬 CRM дээж</a>
+      <a href="{{ url_for('crm_control_chart') }}" class="btn" style="background:#ede9fe;color:#7C3AED;border:1px solid #c4b5fd">📈 CRM chart</a>
       {% endif %}
       {% if current_user['role'] in ('admin','senior','staff') %}
       <button onclick="startMulti()" class="btn btn-teal" id="multiBtn" disabled style="opacity:.4;cursor:not-allowed">
