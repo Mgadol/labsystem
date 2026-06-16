@@ -696,6 +696,35 @@ def mark_add():
     conn.commit(); conn.close()
     return jsonify({'success': True, 'id': mid, 'name': name})
 
+# ── DB INIT on first request ────────────────────────────
+@app.before_request
+def ensure_tables():
+    conn = get_db()
+    conn.execute("""CREATE TABLE IF NOT EXISTS lab_report_records (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        period_label TEXT, period_type TEXT, year INTEGER,
+        period_start TEXT, period_end TEXT, report_type TEXT, file_path TEXT,
+        generated_by INTEGER REFERENCES users(id),
+        generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        status TEXT DEFAULT 'active', archived_by INTEGER, archived_at TIMESTAMP
+    )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS crm_materials (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        crm_name TEXT NOT NULL,
+        mad_cert REAL, mad_unc REAL, aad_cert REAL, aad_unc REAL,
+        vad_cert REAL, vad_unc REAL, sulfur_cert REAL, sulfur_unc REAL,
+        cal_cert REAL, cal_unc REAL, notes TEXT,
+        is_active INTEGER DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
+    for col in ['crm_name TEXT','crm_mad REAL','crm_aad REAL','crm_vad REAL',
+                'crm_sulfur REAL','crm_cal REAL','crm_mad_unc REAL','crm_aad_unc REAL',
+                'crm_vad_unc REAL','crm_sulfur_unc REAL','crm_cal_unc REAL','sample_range TEXT']:
+        try: conn.execute(f"ALTER TABLE geo_samples ADD COLUMN {col}")
+        except Exception: pass
+    conn.commit()
+    conn.close()
+
 # ── REPORTS ─────────────────────────────────────────────
 @app.route('/reports')
 @senior_required
