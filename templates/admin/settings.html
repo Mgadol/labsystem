@@ -473,12 +473,15 @@
         {% for t in guest_tokens %}
         <tr>
           <td>
-            <span style="font-family:monospace;font-size:14px;font-weight:700;color:#7C3AED;letter-spacing:1px">
-              DEMO-{{ t['token'] }}
-            </span>
-            <button onclick="copyCode('DEMO-{{ t['token'] }}')"
-              style="margin-left:8px;font-size:11px;padding:2px 8px;background:var(--gray);border:1px solid var(--border);border-radius:4px;cursor:pointer">
-              📋 Хуулах
+            <div style="font-family:monospace;font-size:13px;font-weight:700;color:#7C3AED;letter-spacing:1px">
+              {{ t['token'] }}
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:3px">
+              Нэвтрэх хаяг: /guest/{{ t['token'] }}
+            </div>
+            <button onclick="copyGuestUrl('{{ t['token'] }}')"
+              style="margin-top:4px;font-size:11px;padding:2px 8px;background:var(--gray);border:1px solid var(--border);border-radius:4px;cursor:pointer">
+              📋 Хаяг хуулах
             </button>
           </td>
           <td style="font-size:12px">{{ t['label'] or '—' }}</td>
@@ -519,11 +522,12 @@ function deleteQC(param){
     else alert(d.error || 'Алдаа гарлаа');
   });
 }
-function copyCode(code){
-  navigator.clipboard.writeText(code).then(function(){
-    alert('Код хуулагдлаа: ' + code);
+function copyGuestUrl(token){
+  var url = window.location.origin + '/guest/' + token;
+  navigator.clipboard.writeText(url).then(function(){
+    alert('Хаяг хуулагдлаа:\n' + url);
   }).catch(function(){
-    prompt('Кодыг хуулна уу:', code);
+    prompt('Хаягийг хуулна уу:', url);
   });
 }
 function switchTab(btn, tabId){
