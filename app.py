@@ -714,9 +714,13 @@ def ensure_tables():
         mad_cert REAL, mad_unc REAL, aad_cert REAL, aad_unc REAL,
         vad_cert REAL, vad_unc REAL, sulfur_cert REAL, sulfur_unc REAL,
         cal_cert REAL, cal_unc REAL, notes TEXT,
+        manufacture_date TEXT, expiry_date TEXT, open_date TEXT,
         is_active INTEGER DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""")
+    for col in ['manufacture_date TEXT', 'expiry_date TEXT', 'open_date TEXT']:
+        try: conn.execute(f"ALTER TABLE crm_materials ADD COLUMN {col}")
+        except Exception: pass
     for col in ['crm_name TEXT','crm_mad REAL','crm_aad REAL','crm_vad REAL',
                 'crm_sulfur REAL','crm_cal REAL','crm_mad_unc REAL','crm_aad_unc REAL',
                 'crm_vad_unc REAL','crm_sulfur_unc REAL','crm_cal_unc REAL','sample_range TEXT']:
@@ -1970,7 +1974,7 @@ def lab_settings():
     crm_materials = _crm_conn.execute("SELECT * FROM crm_materials ORDER BY crm_name").fetchall()
     _crm_conn.close()
     return render_template('admin/settings.html', s=s, qc_settings=qc_settings_list, lang=lang,
-                           crm_materials=crm_materials)
+                           crm_materials=crm_materials, today=date.today().isoformat())
 
 @app.route('/lab-settings/crm', methods=['POST'])
 @admin_required
@@ -1983,15 +1987,23 @@ def lab_settings_crm():
             if not name:
                 flash('CRM нэрийг оруулна уу', 'error')
                 return redirect(url_for('lab_settings') + '?tab=crm')
-            conn.execute("""INSERT INTO crm_materials (crm_name, mad_cert, aad_cert, vad_cert, sulfur_cert, cal_cert, notes)
-                VALUES (?,?,?,?,?,?,?)""", (
+            conn.execute("""INSERT INTO crm_materials (crm_name, mad_cert, mad_unc, aad_cert, aad_unc, vad_cert, vad_unc, sulfur_cert, sulfur_unc, cal_cert, cal_unc, notes, manufacture_date, expiry_date, open_date)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
                 name,
                 request.form.get('mad_cert') or None,
+                request.form.get('mad_unc') or None,
                 request.form.get('aad_cert') or None,
+                request.form.get('aad_unc') or None,
                 request.form.get('vad_cert') or None,
+                request.form.get('vad_unc') or None,
                 request.form.get('sulfur_cert') or None,
+                request.form.get('sulfur_unc') or None,
                 request.form.get('cal_cert') or None,
+                request.form.get('cal_unc') or None,
                 request.form.get('notes', '').strip() or None,
+                request.form.get('manufacture_date') or None,
+                request.form.get('expiry_date') or None,
+                request.form.get('open_date') or None,
             ))
             conn.commit()
             flash(f'CRM материал нэмэгдлээ: {name}', 'success')

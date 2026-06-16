@@ -328,7 +328,20 @@
             <label class="form-label">Qb,ad ± хязгаар</label>
             <input type="number" name="cal_unc" class="form-input" step="0.01" min="0" placeholder="0.00">
           </div>
-          <div class="form-group" style="grid-column:1/-1">
+          <!-- Огноонууд -->
+          <div class="form-group">
+            <label class="form-label">Үйлдвэрлэсэн огноо</label>
+            <input type="date" name="manufacture_date" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Хүчинтэй огноо (дуусах)</label>
+            <input type="date" name="expiry_date" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Нээсэн огноо</label>
+            <input type="date" name="open_date" class="form-input">
+          </div>
+          <div class="form-group">
             <label class="form-label">Тэмдэглэл</label>
             <input type="text" name="notes" class="form-input" placeholder="Лот дугаар, эх үүсвэр...">
           </div>
@@ -350,6 +363,7 @@
             <th style="text-align:center">Vad %</th>
             <th style="text-align:center">Sad %</th>
             <th style="text-align:center">Qb,ad</th>
+            <th>Огноонууд</th>
             <th>Тэмдэглэл</th>
             <th></th>
           </tr>
@@ -372,6 +386,11 @@
           </td>
           <td style="text-align:center;font-size:12px">
             {% if c['cal_cert'] %}{{ '%.2f'|format(c['cal_cert']) }}{% if c['cal_unc'] %}<br><span style="color:#7C3AED">±{{ '%.2f'|format(c['cal_unc']) }}</span>{% endif %}{% else %}—{% endif %}
+          </td>
+          <td style="font-size:11px;color:var(--text-muted)">
+            {% if c['manufacture_date'] %}<div>Үйлдвэр: {{ c['manufacture_date'] }}</div>{% endif %}
+            {% if c['open_date'] %}<div>Нээсэн: {{ c['open_date'] }}</div>{% endif %}
+            {% if c['expiry_date'] %}<div style="color:{% if c['expiry_date'] < today %}#993c1d{% else %}#0f6e56{% endif %}">Дуусах: {{ c['expiry_date'] }}</div>{% endif %}
           </td>
           <td style="font-size:12px;color:var(--text-muted)">{{ c['notes'] or '' }}</td>
           <td>
