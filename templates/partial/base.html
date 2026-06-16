@@ -151,6 +151,12 @@ textarea.form-input{resize:vertical;min-height:80px}
   </div>
 </nav>
 {% endif %}
+{% if current_user and current_user['role'] == 'guest' %}
+<div style="background:#854f0b;color:#fff;text-align:center;padding:6px 16px;font-size:12px;font-weight:600">
+  👁 Зочин горим — зөвхөн харах боломжтой. Өөрчлөлт хийх боломжгүй.
+  <a href="{{ url_for('logout') }}" style="color:#fde68a;margin-left:12px;text-decoration:underline">Гарах</a>
+</div>
+{% endif %}
 <main>
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% for cat, msg in messages %}

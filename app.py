@@ -28,7 +28,21 @@ def save_file(file, subfolder):
 def login_required(f):
     @wraps(f)
     def dec(*a, **kw):
-        if 'user_id' not in session: return redirect(url_for('login'))
+        if 'user_id' not in session and session.get('role') != 'guest':
+            return redirect(url_for('login'))
+        if session.get('role') == 'guest' and request.method == 'POST':
+            flash('Зочин горимд өөрчлөлт хийх боломжгүй.', 'error')
+            return redirect(request.referrer or url_for('dashboard'))
+        return f(*a, **kw)
+    return dec
+
+def guest_block(f):
+    """Guest горимд POST үйлдлийг хаах"""
+    @wraps(f)
+    def dec(*a, **kw):
+        if session.get('role') == 'guest' and request.method == 'POST':
+            flash('Зочин горимд өөрчлөлт хийх боломжгүй.', 'error')
+            return redirect(request.referrer or url_for('dashboard'))
         return f(*a, **kw)
     return dec
 
@@ -46,6 +60,11 @@ def senior_required(f):
     """Админ + Ахлах химич хоёулан нэвтэрч болно"""
     @wraps(f)
     def dec(*a, **kw):
+        if session.get('role') == 'guest':
+            if request.method == 'POST':
+                flash('Зочин горимд өөрчлөлт хийх боломжгүй.', 'error')
+                return redirect(request.referrer or url_for('dashboard'))
+            return f(*a, **kw)
         if 'user_id' not in session: return redirect(url_for('login'))
         if session.get('role') not in ('admin', 'senior'):
             flash('Ахлах химич эсвэл админы эрх шаардлагатай.', 'error')
@@ -57,6 +76,11 @@ def lab_required(f):
     """Лабын бүх ажилтан (senior, staff, preparer)"""
     @wraps(f)
     def dec(*a, **kw):
+        if session.get('role') == 'guest':
+            if request.method == 'POST':
+                flash('Зочин горимд өөрчлөлт хийх боломжгүй.', 'error')
+                return redirect(request.referrer or url_for('dashboard'))
+            return f(*a, **kw)
         if 'user_id' not in session: return redirect(url_for('login'))
         if session.get('role') not in ('admin', 'senior', 'staff', 'preparer'):
             flash('Лабын ажилтны эрх шаардлагатай.', 'error')
@@ -84,7 +108,9 @@ def get_user(user_id):
 @app.context_processor
 def inject_user():
     user = None
-    if 'user_id' in session:
+    if session.get('role') == 'guest':
+        user = {'id': 0, 'name': 'Зочин', 'role': 'guest', 'photo': None, 'employee_id': 'GUEST'}
+    elif 'user_id' in session:
         user = get_user(session['user_id'])
     return dict(current_user=user, now=datetime.now())
 
@@ -109,6 +135,13 @@ def login():
             return redirect(url_for('dashboard'))
         error = 'Нэвтрэх нэр эсвэл нууц үг буруу.' if lang=='mn' else 'Invalid ID or password.'
     return render_template('auth/login.html', error=error, lang=lang)
+
+@app.route('/demo')
+def demo_login():
+    session['user_id'] = 0
+    session['role'] = 'guest'
+    session['lang'] = 'mn'
+    return redirect(url_for('dashboard'))
 
 @app.route('/logout')
 def logout():
