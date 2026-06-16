@@ -27,10 +27,10 @@
         <div class="form-group">
           <label class="form-label">{{ 'Эрх' if lang=='mn' else 'Role' }}</label>
           <select name="role" class="form-input">
-            <option value="staff">Химич</option>
-            <option value="preparer">Дээж бэлтгэгч</option>
-            <option value="geologist">Геологи</option>
-            <option value="senior" {% if current_user['role'] in ('staff','preparer','geologist') %}disabled{% endif %}>Ахлах химич</option>
+            <option value="staff">Ажилтан (Химич)</option>
+            <option value="preparer">Бэлтгэгч</option>
+            <option value="geologist">Харилцагч (Геологи)</option>
+            <option value="senior" {% if current_user['role'] in ('staff','preparer','geologist') %}disabled{% endif %}>Дэд Админ</option>
             {% if current_user['role']=='admin' %}
             <option value="admin">Админ</option>
             {% endif %}

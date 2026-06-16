@@ -43,10 +43,10 @@
         <div class="form-group">
           <label class="form-label">Эрх</label>
           <select name="role" class="form-input">
-            <option value="staff" {{ 'selected' if target['role']=='staff' }}>Химич</option>
-            <option value="preparer" {{ 'selected' if target['role']=='preparer' }}>Дээж бэлтгэгч</option>
-            <option value="geologist" {{ 'selected' if target['role']=='geologist' }}>Геологи</option>
-            <option value="senior" {{ 'selected' if target['role']=='senior' }} {% if current_user['role']=='senior' %}disabled{% endif %}>Ахлах химич</option>
+            <option value="staff" {{ 'selected' if target['role']=='staff' }}>Ажилтан (Химич)</option>
+            <option value="preparer" {{ 'selected' if target['role']=='preparer' }}>Бэлтгэгч</option>
+            <option value="geologist" {{ 'selected' if target['role']=='geologist' }}>Харилцагч (Геологи)</option>
+            <option value="senior" {{ 'selected' if target['role']=='senior' }} {% if current_user['role']=='senior' %}disabled{% endif %}>Дэд Админ</option>
             {% if current_user['role']=='admin' %}
             <option value="admin" {{ 'selected' if target['role']=='admin' }}>Админ</option>
             {% endif %}

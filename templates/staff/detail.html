@@ -29,7 +29,11 @@
         {% if target['role']=='admin' %}
         <span class="badge badge-admin" style="margin-top:6px;display:inline-block">Админ</span>
         {% elif target['role']=='senior' %}
-        <span class="badge" style="margin-top:6px;display:inline-block;background:#E1F5EE;color:#0F6E56">Ахлах химич</span>
+        <span class="badge" style="margin-top:6px;display:inline-block;background:#253561;color:#4ade80">Дэд Админ</span>
+        {% elif target['role']=='preparer' %}
+        <span class="badge" style="margin-top:6px;display:inline-block;background:#faeeda;color:#854f0b">Бэлтгэгч</span>
+        {% elif target['role']=='geologist' %}
+        <span class="badge" style="margin-top:6px;display:inline-block;background:#f0e6ff;color:#7C3AED">Харилцагч</span>
         {% else %}
         <span class="badge badge-staff" style="margin-top:6px;display:inline-block">Ажилтан</span>
         {% endif %}
