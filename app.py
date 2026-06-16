@@ -113,7 +113,7 @@ def inject_user():
                 'employee_id': 'GUEST', 'position': 'Зочин', 'phone': None,
                 'email': None, 'joined_date': None, 'is_active': 1}
     elif 'user_id' in session:
-        user = get_user(session['user_id'])
+        user = get_user(session.get('user_id', 0))
     return dict(current_user=user, now=datetime.now())
 
 # ── AUTH ────────────────────────────────────────────────
@@ -192,7 +192,7 @@ def dashboard():
         return render_template('admin/dashboard.html',
             devices=devices, users=users, open_rep=open_rep, expiring=expiring, lang=lang)
     else:
-        uid = session['user_id']
+        uid = session.get('user_id', 0)
         my_devices = conn.execute("""
             SELECT d.*, dm.manufacturer, dm.model FROM devices d
             LEFT JOIN device_marks dm ON d.mark_id=dm.id
@@ -218,7 +218,7 @@ def devices():
             LEFT JOIN device_marks dm ON d.mark_id=dm.id
             JOIN staff_device_permissions p ON p.device_id=d.id
             WHERE p.user_id=? ORDER BY d.name
-        """, (session['user_id'],)).fetchall()
+        """, (session.get('user_id', 0),)).fetchall()
     conn.close()
     return render_template('device/list.html', devices=devs, lang=lang)
 
@@ -231,7 +231,7 @@ def device_detail(did):
     if not device:
         conn.close(); return redirect(url_for('devices'))
     if session.get('role') != 'admin':
-        perm = conn.execute("SELECT 1 FROM staff_device_permissions WHERE user_id=? AND device_id=?", (session['user_id'], did)).fetchone()
+        perm = conn.execute("SELECT 1 FROM staff_device_permissions WHERE user_id=? AND device_id=?", (session.get('user_id', 0), did)).fetchone()
         if not perm:
             conn.close()
             flash('Энэ төхөөрөмжид хандах эрх байхгүй.', 'error')
@@ -333,7 +333,7 @@ def device_edit(did):
 @app.route('/usage/start/<int:did>', methods=['POST'])
 @login_required
 def usage_start(did):
-    uid  = session['user_id']
+    uid  = session.get('user_id', 0)
     conn = get_db()
     if session.get('role') != 'admin':
         perm = conn.execute("SELECT 1 FROM staff_device_permissions WHERE user_id=? AND device_id=?", (uid, did)).fetchone()
@@ -351,7 +351,7 @@ def usage_start(did):
 @app.route('/usage/stop/<int:lid>', methods=['POST'])
 @login_required
 def usage_stop(lid):
-    uid  = session['user_id']
+    uid  = session.get('user_id', 0)
     conn = get_db()
     log  = conn.execute("SELECT * FROM usage_logs WHERE id=?", (lid,)).fetchone()
     if not log or (log['user_id'] != uid and session.get('role') != 'admin'):
@@ -478,7 +478,7 @@ def staff_add():
 @app.route('/staff/<int:uid>')
 @login_required
 def staff_detail(uid):
-    if session.get('role') != 'admin' and session['user_id'] != uid:
+    if session.get('role') not in ('admin','guest') and session.get('user_id') != uid:
         return redirect(url_for('dashboard'))
     lang = session.get('lang','mn')
     conn = get_db()
@@ -629,7 +629,7 @@ def staff_edit(uid):
 @login_required
 def profile():
     lang = session.get('lang','mn')
-    uid  = session['user_id']
+    uid  = session.get('user_id', 0)
     conn = get_db()
     user = conn.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
     if request.method == 'POST':
@@ -676,7 +676,7 @@ def staff_deactivate(uid):
     lang = session.get('lang','mn')
     conn = get_db()
     # Өөрийгөө идэвхгүй болгохоос хамгаалах
-    if uid == session['user_id']:
+    if uid == session.get('user_id', 0):
         conn.close()
         flash('Өөрийгөө идэвхгүй болгох боломжгүй!' if lang=='mn' else 'Cannot deactivate yourself!', 'error')
         return redirect(url_for('staff_list'))
@@ -1115,7 +1115,7 @@ def analysis():
     lang = session.get('lang','mn')
     conn = get_db()
     role = session.get('role')
-    uid = session['user_id']
+    uid = session.get('user_id', 0)
 
     if role == 'geologist':
         samples = conn.execute("""
@@ -1985,7 +1985,7 @@ def lab_settings():
             flash('Профайл шинэчлэгдлээ!', 'success')
 
         elif action == 'change_password':
-            user = conn.execute("SELECT * FROM users WHERE id=?", (session['user_id'],)).fetchone()
+            user = conn.execute("SELECT * FROM users WHERE id=?", (session.get('user_id', 0),)).fetchone()
             old_pw = request.form.get('old_password','')
             new_pw = request.form.get('new_password','')
             confirm = request.form.get('confirm_password','')
