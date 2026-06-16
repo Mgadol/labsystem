@@ -175,7 +175,7 @@ def set_lang(lang):
 def dashboard():
     lang = session.get('lang','mn')
     conn = get_db()
-    if session.get('role') == 'admin':
+    if session.get('role') in ('admin', 'guest'):
         devices  = conn.execute("SELECT d.*, dm.manufacturer, dm.model FROM devices d LEFT JOIN device_marks dm ON d.mark_id=dm.id ORDER BY d.name").fetchall()
         users    = conn.execute("SELECT * FROM users WHERE is_active=1").fetchall()
         open_rep = conn.execute("SELECT COUNT(*) as c FROM repairs WHERE status='new'").fetchone()['c']
