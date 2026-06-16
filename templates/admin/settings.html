@@ -18,6 +18,7 @@
     <button class="tab-btn" onclick="switchTab(this,'tab-device-map')">🔧 Тоног холбоос</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-profile')">👤 Профайл</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-backup')">💾 Нөөцлөлт</button>
+    <button class="tab-btn" onclick="switchTab(this,'tab-guest')">👁 Зочны код</button>
   </div>
 
   <!-- Лабораторийн мэдээлэл -->
@@ -438,6 +439,71 @@
     </div>
   </div>
 
+  <!-- Зочны код -->
+  <div id="tab-guest" class="tab-pane">
+    <div class="card" style="margin-bottom:16px">
+      <div class="section-title">👁 Нэг удаагийн зочны код үүсгэх</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+        Зочны код 24 цаг хүчинтэй. Хугацаа дуусмагц автоматаар устна.<br>
+        Зочин зөвхөн харах боломжтой — өгөгдөл нэмэх, засах эрхгүй.
+      </div>
+      <form method="POST" action="{{ url_for('guest_token_generate') }}" style="display:flex;gap:8px;align-items:flex-end">
+        <div class="form-group" style="flex:1;margin-bottom:0">
+          <label class="form-label">Тэмдэглэл (хэнд өгч байгаа)</label>
+          <input type="text" name="label" class="form-input" placeholder="Жишээ: Удирдлага, Аудит...">
+        </div>
+        <button type="submit" class="btn" style="background:#7C3AED;color:#fff;padding:9px 16px">
+          ➕ Код үүсгэх
+        </button>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Идэвхтэй зочны кодууд</div>
+      {% if guest_tokens %}
+      <table class="table">
+        <thead><tr>
+          <th>Код</th>
+          <th>Тэмдэглэл</th>
+          <th>Үүсгэсэн</th>
+          <th>Дуусах</th>
+          <th></th>
+        </tr></thead>
+        <tbody>
+        {% for t in guest_tokens %}
+        <tr>
+          <td>
+            <span style="font-family:monospace;font-size:14px;font-weight:700;color:#7C3AED;letter-spacing:1px">
+              DEMO-{{ t['token'] }}
+            </span>
+            <button onclick="copyCode('DEMO-{{ t['token'] }}')"
+              style="margin-left:8px;font-size:11px;padding:2px 8px;background:var(--gray);border:1px solid var(--border);border-radius:4px;cursor:pointer">
+              📋 Хуулах
+            </button>
+          </td>
+          <td style="font-size:12px">{{ t['label'] or '—' }}</td>
+          <td style="font-size:11px;color:var(--text-muted)">{{ t['created_at'][:16] if t['created_at'] else '—' }}</td>
+          <td style="font-size:11px;color:
+            {% if t['expires_at'] < now %}var(--coral){% else %}var(--teal){% endif %}">
+            {{ t['expires_at'][:16] }}
+          </td>
+          <td>
+            <form method="POST" action="{{ url_for('guest_token_delete', tid=t['id']) }}" onsubmit="return confirm('Устгах уу?')">
+              <button type="submit" class="btn btn-sm btn-danger">Устгах</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px">
+        Идэвхтэй зочны код байхгүй байна
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
 </div>
 {% endblock %}
 {% block scripts %}
@@ -451,6 +517,13 @@ function deleteQC(param){
   }).then(r=>r.json()).then(function(d){
     if(d.ok) location.reload();
     else alert(d.error || 'Алдаа гарлаа');
+  });
+}
+function copyCode(code){
+  navigator.clipboard.writeText(code).then(function(){
+    alert('Код хуулагдлаа: ' + code);
+  }).catch(function(){
+    prompt('Кодыг хуулна уу:', code);
   });
 }
 function switchTab(btn, tabId){

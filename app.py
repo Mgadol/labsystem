@@ -168,12 +168,46 @@ def login():
         error = 'Нэвтрэх нэр эсвэл нууц үг буруу.' if lang=='mn' else 'Invalid ID or password.'
     return render_template('auth/login.html', error=error, lang=lang)
 
-@app.route('/demo')
-def demo_login():
+@app.route('/guest/<token>')
+def guest_login(token):
+    conn = get_db()
+    now = datetime.now().isoformat()
+    # Хугацаа дууссан токенуудыг устгана
+    conn.execute("DELETE FROM guest_tokens WHERE expires_at < ?", (now,))
+    conn.commit()
+    row = conn.execute("SELECT * FROM guest_tokens WHERE token=? AND expires_at >= ?", (token.upper(), now)).fetchone()
+    conn.close()
+    if not row:
+        return render_template('auth/login.html', error='Зочны код хүчингүй болсон эсвэл буруу байна.', lang='mn'), 403
     session['user_id'] = 0
     session['role'] = 'guest'
     session['lang'] = 'mn'
+    session['guest_label'] = row['label'] or ''
     return redirect(url_for('dashboard'))
+
+@app.route('/guest/token/delete/<int:tid>', methods=['POST'])
+@admin_required
+def guest_token_delete(tid):
+    conn = get_db()
+    conn.execute("DELETE FROM guest_tokens WHERE id=?", (tid,))
+    conn.commit(); conn.close()
+    flash('Зочны код устгагдлаа.', 'success')
+    return redirect(url_for('lab_settings') + '?tab=guest')
+
+@app.route('/guest/generate', methods=['POST'])
+@admin_required
+def guest_token_generate():
+    import random, string
+    label = request.form.get('label', '').strip() or 'Зочин'
+    token = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+    expires_at = (datetime.now().replace(microsecond=0) + __import__('datetime').timedelta(hours=24)).isoformat()
+    conn = get_db()
+    conn.execute("INSERT INTO guest_tokens (token, label, created_by, expires_at) VALUES (?,?,?,?)",
+                 (token, label, session['user_id'], expires_at))
+    conn.commit()
+    conn.close()
+    flash(f'Зочны код үүслээ: DEMO-{token}  (24 цаг хүчинтэй, {expires_at[:16]} хүртэл)', 'success')
+    return redirect(url_for('lab_settings') + '?tab=guest')
 
 @app.route('/logout')
 def logout():
@@ -794,6 +828,14 @@ def ensure_tables():
         manufacture_date TEXT, expiry_date TEXT, open_date TEXT,
         is_active INTEGER DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS guest_tokens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        token TEXT UNIQUE NOT NULL,
+        label TEXT,
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TEXT NOT NULL
     )""")
     for col in ['manufacture_date TEXT', 'expiry_date TEXT', 'open_date TEXT', 'g_cert REAL', 'g_unc REAL', 'standard TEXT']:
         try: conn.execute(f"ALTER TABLE crm_materials ADD COLUMN {col}")
@@ -2076,9 +2118,14 @@ def lab_settings():
     conn.close()
     _crm_conn = get_db()
     crm_materials = _crm_conn.execute("SELECT * FROM crm_materials ORDER BY crm_name").fetchall()
+    now = datetime.now().isoformat()
+    _crm_conn.execute("DELETE FROM guest_tokens WHERE expires_at < ?", (now,))
+    _crm_conn.commit()
+    guest_tokens = _crm_conn.execute("SELECT * FROM guest_tokens ORDER BY created_at DESC").fetchall()
     _crm_conn.close()
     return render_template('admin/settings.html', s=s, qc_settings=qc_settings_list, lang=lang,
-                           crm_materials=crm_materials, today=date.today().isoformat())
+                           crm_materials=crm_materials, today=date.today().isoformat(),
+                           guest_tokens=guest_tokens, now=now)
 
 @app.route('/lab-settings/crm', methods=['POST'])
 @admin_required
