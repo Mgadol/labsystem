@@ -21,7 +21,37 @@ def save_file(file, subfolder):
         name = f"{uuid.uuid4().hex}.{ext}"
         path = os.path.join(app.config['UPLOAD_FOLDER'], subfolder)
         os.makedirs(path, exist_ok=True)
-        file.save(os.path.join(path, name))
+        dest = os.path.join(path, name)
+        # Зураг бол чанарыг хадгалан оновчтой хэмжээнд resize хийнэ
+        if ext in ('jpg','jpeg','png','webp'):
+            try:
+                from PIL import Image as PILImage, ExifTags
+                img = PILImage.open(file.stream)
+                # EXIF rotation засах
+                try:
+                    for key, val in ExifTags.TAGS.items():
+                        if val == 'Orientation':
+                            exif = img._getexif()
+                            if exif and key in exif:
+                                ori = exif[key]
+                                if ori == 3:   img = img.rotate(180, expand=True)
+                                elif ori == 6: img = img.rotate(270, expand=True)
+                                elif ori == 8: img = img.rotate(90,  expand=True)
+                            break
+                except Exception:
+                    pass
+                # Профайл зураг: max 800px хадгалах (чанар алдахгүй)
+                if subfolder == 'staff':
+                    img.thumbnail((800, 1000), PILImage.LANCZOS)
+                else:
+                    img.thumbnail((1200, 1200), PILImage.LANCZOS)
+                save_ext = 'JPEG' if ext in ('jpg','jpeg') else ext.upper()
+                img.save(dest, save_ext, quality=92, optimize=True)
+            except Exception:
+                file.stream.seek(0)
+                file.save(dest)
+        else:
+            file.save(dest)
         return f"{subfolder}/{name}"
     return None
 
