@@ -1269,7 +1269,8 @@ def crm_control_chart():
             """, (selected['crm_name'],)).fetchall()
     conn.close()
     return render_template('analysis/crm_chart.html',
-        materials=materials, selected=selected, selected_id=mat_id, history=history)
+        materials=materials, selected=selected, selected_id=mat_id, history=history,
+        today=date.today().isoformat())
 
 
 @app.route('/analysis/receive/<int:geo_id>', methods=['GET','POST'])
