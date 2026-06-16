@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd /home/user/labsystem && git pull --rebase origin claude/adoring-hamilton-wdvj0b 2>/dev/null || true && python app.py &",
+            "command": "git pull --no-rebase origin claude/upbeat-dijkstra-049k4t 2>/dev/null || true",
             "timeout": 30
           }
         ]
