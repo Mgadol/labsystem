@@ -1245,6 +1245,32 @@ def analysis_crm_register():
     return render_template('analysis/crm_register.html', today=datetime.now().strftime('%Y-%m-%d'),
                            crm_materials=crm_materials)
 
+@app.route('/analysis/crm/chart')
+@login_required
+def crm_control_chart():
+    conn = get_db()
+    materials = conn.execute("SELECT * FROM crm_materials WHERE is_active=1 ORDER BY crm_name").fetchall()
+    mat_id = request.args.get('mat_id', type=int)
+    selected = None
+    history = []
+    if not mat_id and materials:
+        mat_id = materials[0]['id']
+    if mat_id:
+        selected = conn.execute("SELECT * FROM crm_materials WHERE id=?", (mat_id,)).fetchone()
+        if selected:
+            history = conn.execute("""
+                SELECT g.collected_date, g.crm_mad as mad, g.crm_aad as aad,
+                       g.crm_vad as vad, g.crm_sulfur as sulfur, g.crm_cal as cal_value,
+                       sr.received_date
+                FROM geo_samples g
+                LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
+                WHERE g.crm_name=? AND g.sample_type='CRM'
+                ORDER BY COALESCE(sr.received_date, g.collected_date)
+            """, (selected['crm_name'],)).fetchall()
+    conn.close()
+    return render_template('analysis/crm_chart.html',
+        materials=materials, selected=selected, selected_id=mat_id, history=history)
+
 
 @app.route('/analysis/receive/<int:geo_id>', methods=['GET','POST'])
 @preparer_required
