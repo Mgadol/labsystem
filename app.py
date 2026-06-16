@@ -487,7 +487,7 @@ def repair_close(rid):
 
 # ── STAFF ───────────────────────────────────────────────
 @app.route('/staff')
-@admin_required
+@login_required
 def staff_list():
     lang = session.get('lang','mn')
     conn = get_db()
