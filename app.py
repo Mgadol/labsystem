@@ -129,7 +129,7 @@ def login():
         emp_id = request.form.get('employee_id','').strip()
         pw     = request.form.get('password','')
         conn   = get_db()
-        u = conn.execute("SELECT * FROM users WHERE employee_id=? AND is_active=1",(emp_id,)).fetchone()
+        u = conn.execute("SELECT * FROM users WHERE (employee_id=? OR name=?) AND is_active=1",(emp_id,emp_id)).fetchone()
         conn.close()
         if u and check_password(u['password_hash'], pw):
             session['user_id'] = u['id']
@@ -731,8 +731,7 @@ def mark_add():
     conn.commit(); conn.close()
     return jsonify({'success': True, 'id': mid, 'name': name})
 
-# ── DB INIT on first request ────────────────────────────
-@app.before_request
+# ── DB MIGRATION (called once at startup) ───────────────
 def ensure_tables():
     conn = get_db()
     conn.execute("""CREATE TABLE IF NOT EXISTS lab_report_records (
@@ -2090,39 +2089,7 @@ if __name__ == '__main__':
     init_db()
     from models import init_analysis_db
     init_analysis_db()
-
-    # CRM migration
-    _conn = get_db()
-    for _col, _coltype in [
-        ('crm_name', 'TEXT'),
-        ('crm_mad', 'REAL'),
-        ('crm_aad', 'REAL'),
-        ('crm_vad', 'REAL'),
-        ('crm_sulfur', 'REAL'),
-        ('crm_cal', 'REAL'),
-        ('sample_range', 'TEXT'),
-    ]:
-        try:
-            _conn.execute(f'ALTER TABLE geo_samples ADD COLUMN {_col} {_coltype}')
-        except Exception:
-            pass
-    _conn.execute("""INSERT OR IGNORE INTO sample_types (code, name_mn, name_en, icon, color, serial_from, serial_to, is_pit, is_active, sort_order)
-        VALUES ('CRM','CRM дээж','CRM Sample','🔬','#7C3AED',9001,9999,0,1,10)""")
-    _conn.execute("""CREATE TABLE IF NOT EXISTS crm_materials (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        crm_name TEXT NOT NULL,
-        mad_cert REAL,
-        aad_cert REAL,
-        vad_cert REAL,
-        sulfur_cert REAL,
-        cal_cert REAL,
-        notes TEXT,
-        is_active INTEGER DEFAULT 1,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )""")
-    _conn.commit()
-    _conn.close()
+    ensure_tables()
     print('Систем эхэллээ!')
     print('Браузерт нэвтрэх: http://localhost:5000')
-    print('ID: ADMIN  Нууц үг: admin123')
     app.run(debug=False, host='0.0.0.0', port=5000)
