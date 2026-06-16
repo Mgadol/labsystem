@@ -2,13 +2,61 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 from models import get_db, init_db, hash_password, check_password
 from datetime import datetime, date
 from functools import wraps
-import os, uuid, io
+import os, uuid, io, secrets, time
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.secret_key = 'lab-secret-2024'
+
+# ── SECRET KEY: instance/-д хадгалагдана, автоматаар үүснэ ────
+_KEY_FILE = os.path.join(os.path.dirname(__file__), 'instance', 'secret_key')
+os.makedirs(os.path.dirname(_KEY_FILE), exist_ok=True)
+if os.path.exists(_KEY_FILE):
+    with open(_KEY_FILE, 'rb') as _f:
+        app.secret_key = _f.read()
+else:
+    _k = secrets.token_bytes(32)
+    with open(_KEY_FILE, 'wb') as _f:
+        _f.write(_k)
+    app.secret_key = _k
+
+# ── SESSION COOKIE АЮУЛГҮЙ ТОХИРГОО ───────────────────────────
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE']   = False  # HTTPS ашиглах үед True болгоно
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+
+# ── LOGIN BRUTE-FORCE ХАМГААЛАЛТ ──────────────────────────────
+_login_attempts = {}   # {ip: [timestamp, ...]}
+_LOGIN_MAX   = 5       # дээд тоо
+_LOGIN_WINDOW = 300    # 5 минут (секундээр)
+_LOGIN_BLOCK  = 600    # 10 минут блоклоно
+
+def _get_ip():
+    return request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+
+def _is_blocked(ip):
+    now = time.time()
+    attempts = [t for t in _login_attempts.get(ip, []) if now - t < _LOGIN_WINDOW]
+    _login_attempts[ip] = attempts
+    return len(attempts) >= _LOGIN_MAX
+
+def _record_fail(ip):
+    now = time.time()
+    _login_attempts.setdefault(ip, []).append(now)
+
+def _clear_attempts(ip):
+    _login_attempts.pop(ip, None)
+
+# ── SECURITY HEADERS ──────────────────────────────────────────
+@app.after_request
+def security_headers(resp):
+    resp.headers['X-Content-Type-Options']  = 'nosniff'
+    resp.headers['X-Frame-Options']          = 'SAMEORIGIN'
+    resp.headers['X-XSS-Protection']         = '1; mode=block'
+    resp.headers['Referrer-Policy']          = 'strict-origin-when-cross-origin'
+    resp.headers['Permissions-Policy']       = 'geolocation=(), microphone=(), camera=()'
+    return resp
 
 ALLOWED = {'png','jpg','jpeg','gif','webp','pdf','doc','docx'}
 
@@ -156,16 +204,23 @@ def login():
     if request.method == 'POST':
         lang = request.form.get('lang','mn')
         session['lang'] = lang
+        ip = _get_ip()
+        if _is_blocked(ip):
+            error = 'Хэт олон удаа буруу оруулсан. 10 минутын дараа дахин оролдоно уу.'
+            return render_template('auth/login.html', error=error, lang=lang)
         emp_id = request.form.get('employee_id','').strip()
         pw     = request.form.get('password','')
         conn   = get_db()
         u = conn.execute("SELECT * FROM users WHERE (employee_id=? OR name=?) AND is_active=1",(emp_id,emp_id)).fetchone()
         conn.close()
         if u and check_password(u['password_hash'], pw):
+            _clear_attempts(ip)
             session['user_id'] = u['id']
             session['role']    = u['role']
             return redirect(url_for('dashboard'))
-        error = 'Нэвтрэх нэр эсвэл нууц үг буруу.' if lang=='mn' else 'Invalid ID or password.'
+        _record_fail(ip)
+        remaining = _LOGIN_MAX - len(_login_attempts.get(ip, []))
+        error = f'Нэвтрэх нэр эсвэл нууц үг буруу. ({max(0,remaining)} оролдлого үлдлээ)'
     return render_template('auth/login.html', error=error, lang=lang)
 
 @app.route('/guest/<token>')
