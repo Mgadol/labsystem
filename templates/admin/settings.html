@@ -283,25 +283,50 @@
             <label class="form-label">CRM нэр / код <span style="color:var(--coral)">*</span></label>
             <input type="text" name="crm_name" class="form-input" placeholder="Жишээ: SARM-18, GBW11107b" required>
           </div>
+          <!-- Mad -->
           <div class="form-group">
-            <label class="form-label">Mad [%]</label>
+            <label class="form-label">Mad [%] — Баталгаажсан</label>
             <input type="number" name="mad_cert" class="form-input" step="0.0001" min="0" placeholder="0.0000">
           </div>
           <div class="form-group">
-            <label class="form-label">Aad [%]</label>
+            <label class="form-label">Mad ± хязгаар</label>
+            <input type="number" name="mad_unc" class="form-input" step="0.0001" min="0" placeholder="0.0000">
+          </div>
+          <!-- Aad -->
+          <div class="form-group">
+            <label class="form-label">Aad [%] — Баталгаажсан</label>
             <input type="number" name="aad_cert" class="form-input" step="0.0001" min="0" placeholder="0.0000">
           </div>
           <div class="form-group">
-            <label class="form-label">Vad [%]</label>
+            <label class="form-label">Aad ± хязгаар</label>
+            <input type="number" name="aad_unc" class="form-input" step="0.0001" min="0" placeholder="0.0000">
+          </div>
+          <!-- Vad -->
+          <div class="form-group">
+            <label class="form-label">Vad [%] — Баталгаажсан</label>
             <input type="number" name="vad_cert" class="form-input" step="0.0001" min="0" placeholder="0.0000">
           </div>
           <div class="form-group">
-            <label class="form-label">Sad [%]</label>
+            <label class="form-label">Vad ± хязгаар</label>
+            <input type="number" name="vad_unc" class="form-input" step="0.0001" min="0" placeholder="0.0000">
+          </div>
+          <!-- Sad -->
+          <div class="form-group">
+            <label class="form-label">Sad [%] — Баталгаажсан</label>
             <input type="number" name="sulfur_cert" class="form-input" step="0.0001" min="0" placeholder="0.0000">
           </div>
-          <div class="form-group" style="grid-column:1/-1">
-            <label class="form-label">Qb,ad [ккал/кг]</label>
+          <div class="form-group">
+            <label class="form-label">Sad ± хязгаар</label>
+            <input type="number" name="sulfur_unc" class="form-input" step="0.0001" min="0" placeholder="0.0000">
+          </div>
+          <!-- Qb,ad -->
+          <div class="form-group">
+            <label class="form-label">Qb,ad [ккал/кг] — Баталгаажсан</label>
             <input type="number" name="cal_cert" class="form-input" step="0.01" min="0" placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Qb,ad ± хязгаар</label>
+            <input type="number" name="cal_unc" class="form-input" step="0.01" min="0" placeholder="0.00">
           </div>
           <div class="form-group" style="grid-column:1/-1">
             <label class="form-label">Тэмдэглэл</label>
@@ -333,11 +358,21 @@
         {% for c in crm_materials %}
         <tr>
           <td><strong>{{ c['crm_name'] }}</strong></td>
-          <td style="text-align:center">{{ c['mad_cert'] or '—' }}</td>
-          <td style="text-align:center">{{ c['aad_cert'] or '—' }}</td>
-          <td style="text-align:center">{{ c['vad_cert'] or '—' }}</td>
-          <td style="text-align:center">{{ c['sulfur_cert'] or '—' }}</td>
-          <td style="text-align:center">{{ c['cal_cert'] or '—' }}</td>
+          <td style="text-align:center;font-size:12px">
+            {% if c['mad_cert'] %}{{ '%.4f'|format(c['mad_cert']) }}{% if c['mad_unc'] %}<br><span style="color:#7C3AED">±{{ '%.4f'|format(c['mad_unc']) }}</span>{% endif %}{% else %}—{% endif %}
+          </td>
+          <td style="text-align:center;font-size:12px">
+            {% if c['aad_cert'] %}{{ '%.4f'|format(c['aad_cert']) }}{% if c['aad_unc'] %}<br><span style="color:#7C3AED">±{{ '%.4f'|format(c['aad_unc']) }}</span>{% endif %}{% else %}—{% endif %}
+          </td>
+          <td style="text-align:center;font-size:12px">
+            {% if c['vad_cert'] %}{{ '%.4f'|format(c['vad_cert']) }}{% if c['vad_unc'] %}<br><span style="color:#7C3AED">±{{ '%.4f'|format(c['vad_unc']) }}</span>{% endif %}{% else %}—{% endif %}
+          </td>
+          <td style="text-align:center;font-size:12px">
+            {% if c['sulfur_cert'] %}{{ '%.4f'|format(c['sulfur_cert']) }}{% if c['sulfur_unc'] %}<br><span style="color:#7C3AED">±{{ '%.4f'|format(c['sulfur_unc']) }}</span>{% endif %}{% else %}—{% endif %}
+          </td>
+          <td style="text-align:center;font-size:12px">
+            {% if c['cal_cert'] %}{{ '%.2f'|format(c['cal_cert']) }}{% if c['cal_unc'] %}<br><span style="color:#7C3AED">±{{ '%.2f'|format(c['cal_unc']) }}</span>{% endif %}{% else %}—{% endif %}
+          </td>
           <td style="font-size:12px;color:var(--text-muted)">{{ c['notes'] or '' }}</td>
           <td>
             <form method="POST" action="/lab-settings/crm" style="display:inline" onsubmit="return confirm('Устгах уу?')">
