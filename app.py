@@ -109,7 +109,9 @@ def get_user(user_id):
 def inject_user():
     user = None
     if session.get('role') == 'guest':
-        user = {'id': 0, 'name': 'Зочин', 'role': 'guest', 'photo': None, 'employee_id': 'GUEST'}
+        user = {'id': 0, 'name': 'Зочин', 'role': 'guest', 'photo': None,
+                'employee_id': 'GUEST', 'position': 'Зочин', 'phone': None,
+                'email': None, 'joined_date': None, 'is_active': 1}
     elif 'user_id' in session:
         user = get_user(session['user_id'])
     return dict(current_user=user, now=datetime.now())
