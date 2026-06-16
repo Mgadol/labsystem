@@ -101,7 +101,7 @@
           <td>
             <div class="flex gap-8">
               {% if u['photo'] %}
-              <img src="{{ url_for('static',filename='uploads/'+u['photo']) }}" style="width:30px;height:30px;border-radius:50%;object-fit:cover">
+              <img src="{{ url_for('static',filename='uploads/'+u['photo']) }}" style="width:30px;height:30px;border-radius:6px;object-fit:cover">
               {% else %}
               <div style="width:30px;height:30px;border-radius:50%;background:var(--gray);color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600">{{ u['name'][:2] }}</div>
               {% endif %}
