@@ -478,11 +478,14 @@ def staff_add():
 @app.route('/staff/<int:uid>')
 @login_required
 def staff_detail(uid):
-    if session.get('role') not in ('admin','guest') and session.get('user_id') != uid:
+    if session.get('role') not in ('admin','senior','guest') and session.get('user_id') != uid:
         return redirect(url_for('dashboard'))
     lang = session.get('lang','mn')
     conn = get_db()
     target  = conn.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
+    if not target:
+        conn.close()
+        return redirect(url_for('staff_list'))
     logs    = conn.execute("""
         SELECT ul.*, d.name as dname FROM usage_logs ul
         LEFT JOIN devices d ON d.id=ul.device_id
