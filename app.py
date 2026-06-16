@@ -738,7 +738,10 @@ def reports():
     conn.close()
     return render_template('admin/reports.html', lang=session.get('lang','mn'),
         lab_records=lab_records, sample_chart=sample_chart,
-        analysis_chart=analysis_chart, cur_year=cur_year)
+        sample_types=[name for _, name in SAMPLE_TYPES_MAP],
+        analysis_chart=analysis_chart,
+        analysis_types=[name for _, name in ANALYSIS_FIELDS],
+        cur_year=cur_year)
 
 @app.route('/reports/export')
 @senior_required
