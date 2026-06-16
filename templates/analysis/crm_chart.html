@@ -50,7 +50,8 @@
         ('Aad,%','aad_cert','aad_unc','#0f6e56'),
         ('Vad,%','vad_cert','vad_unc','#7C3AED'),
         ('Sad,%','sulfur_cert','sulfur_unc','#854f0b'),
-        ('Qb,ad','cal_cert','cal_unc','#993c1d')
+        ('Qb,ad','cal_cert','cal_unc','#993c1d'),
+        ('G-индекс','g_cert','g_unc','#0f6e56')
       ] %}
       {% for lbl,cert_f,unc_f,color in params %}
       {% set cv = selected[cert_f] %}
@@ -71,6 +72,7 @@
   {% set param_list = [
     ('Mad,%','mad','mad_cert','mad_unc','#185fa5','rgba(24,95,165,0.15)'),
     ('Aad,%','aad','aad_cert','aad_unc','#0f6e56','rgba(15,110,86,0.15)'),
+    ('G-индекс','g_value','g_cert','g_unc','#3C3489','rgba(60,52,137,0.15)'),
     ('Vad,%','vad','vad_cert','vad_unc','#7C3AED','rgba(124,58,237,0.15)'),
     ('Sad,%','sulfur','sulfur_cert','sulfur_unc','#854f0b','rgba(133,79,11,0.15)'),
     ('Qb,ad','cal_value','cal_cert','cal_unc','#993c1d','rgba(153,60,29,0.15)')
@@ -143,6 +145,7 @@ var SELECTED = {{ selected['id'] }};
 {% set param_list = [
   ('mad','mad_cert','mad_unc','#185fa5'),
   ('aad','aad_cert','aad_unc','#0f6e56'),
+  ('g_value','g_cert','g_unc','#3C3489'),
   ('vad','vad_cert','vad_unc','#7C3AED'),
   ('sulfur','sulfur_cert','sulfur_unc','#854f0b'),
   ('cal_value','cal_cert','cal_unc','#993c1d')

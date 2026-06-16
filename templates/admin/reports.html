@@ -321,9 +321,14 @@ var sampleTypes = {{ sample_types  | tojson }};
 var analysisData  = {{ analysis_chart | tojson }};
 var analysisTypes = {{ analysis_types | tojson }};
 
-var sampleTotals = Object.keys(sampleData).map(function(k){
+var sampleTotals = sampleTypes.map(function(k){
   return (sampleData[k]||[]).reduce(function(a,b){ return a+(b||0); }, 0);
 });
+var sampleTotal = sampleTotals.reduce(function(a,b){ return a+b; }, 0);
+if(sampleTotal === 0){
+  var el = document.getElementById('cpane-sample');
+  if(el) el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:13px">Энэ жил дээж байхгүй байна</div>';
+}
 new Chart(document.getElementById('chartSample'), {
   type: 'pie',
   data: {
@@ -341,10 +346,9 @@ new Chart(document.getElementById('chartSample'), {
   }
 });
 
-var analysisTotals = Object.keys(analysisData).map(function(k){
+var analysisTotals = analysisTypes.map(function(k){
   return (analysisData[k]||[]).reduce(function(a,b){ return a+(b||0); }, 0);
 });
-var sampleTotal = sampleTotals.reduce(function(a,b){ return a+b; }, 0);
 new Chart(document.getElementById('chartAnalysis'), {
   type: 'bar',
   data: {

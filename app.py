@@ -752,7 +752,7 @@ def ensure_tables():
         is_active INTEGER DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""")
-    for col in ['manufacture_date TEXT', 'expiry_date TEXT', 'open_date TEXT']:
+    for col in ['manufacture_date TEXT', 'expiry_date TEXT', 'open_date TEXT', 'g_cert REAL', 'g_unc REAL', 'standard TEXT']:
         try: conn.execute(f"ALTER TABLE crm_materials ADD COLUMN {col}")
         except Exception: pass
     for col in ['crm_name TEXT','crm_mad REAL','crm_aad REAL','crm_vad REAL',
@@ -2048,8 +2048,8 @@ def lab_settings_crm():
             if not name:
                 flash('CRM нэрийг оруулна уу', 'error')
                 return redirect(url_for('lab_settings') + '?tab=crm')
-            conn.execute("""INSERT INTO crm_materials (crm_name, mad_cert, mad_unc, aad_cert, aad_unc, vad_cert, vad_unc, sulfur_cert, sulfur_unc, cal_cert, cal_unc, notes, manufacture_date, expiry_date, open_date)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+            conn.execute("""INSERT INTO crm_materials (crm_name, mad_cert, mad_unc, aad_cert, aad_unc, vad_cert, vad_unc, sulfur_cert, sulfur_unc, cal_cert, cal_unc, g_cert, g_unc, notes, standard, manufacture_date, expiry_date, open_date)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
                 name,
                 request.form.get('mad_cert') or None,
                 request.form.get('mad_unc') or None,
@@ -2061,7 +2061,10 @@ def lab_settings_crm():
                 request.form.get('sulfur_unc') or None,
                 request.form.get('cal_cert') or None,
                 request.form.get('cal_unc') or None,
+                request.form.get('g_cert') or None,
+                request.form.get('g_unc') or None,
                 request.form.get('notes', '').strip() or None,
+                request.form.get('standard', '').strip() or None,
                 request.form.get('manufacture_date') or None,
                 request.form.get('expiry_date') or None,
                 request.form.get('open_date') or None,
