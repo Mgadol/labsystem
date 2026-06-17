@@ -12,10 +12,6 @@
       <p class="page-sub" id="sub-label">{{ users|length }} {{ 'хэрэглэгч' if lang=='mn' else 'users' }}</p>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
-        <input type="checkbox" id="showInactive" onchange="applyFilters()" style="width:15px;height:15px">
-        Идэвхгүй харах
-      </label>
       {% if current_user['role'] in ('admin','senior') %}
       <a href="{{ url_for('staff_add') }}" class="btn btn-primary">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -199,14 +195,9 @@ function switchTab(tab){
   updateSubLabel();
 }
 function applyFilters(){
-  var showInactive = document.getElementById('showInactive').checked;
   document.querySelectorAll('.staff-row, .geo-row').forEach(function(r){
     var active = r.dataset.active === '1' || r.dataset.active === 'True';
-    if(active || showInactive){
-      r.style.display = '';
-    } else {
-      r.style.display = 'none';
-    }
+    r.style.display = active ? '' : 'none';
   });
   updateSubLabel();
 }
