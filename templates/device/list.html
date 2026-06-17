@@ -101,15 +101,15 @@
           {% else %}
             <span style="font-size:11px;background:#f0f0f0;color:#555;border-radius:4px;padding:1px 6px">📦🔬 Хоёуланд</span>
           {% endif %}
-          {% if d['location'] %}
-          <span style="font-size:11px;color:var(--text-muted)">📍 {{ d['location'] }}</span>
-          {% endif %}
           {% if d['status']=='active' and current_user['role'] != 'guest' %}
             {% if active_dev == d['id'] %}
             <button onclick="stopUsage({{ active_log_id }})" class="btn btn-stop" style="padding:3px 10px;font-size:11px">⏹ STOP</button>
             {% elif not active_dev %}
             <button onclick="startUsage({{ d['id'] }})" class="btn btn-start" style="padding:3px 10px;font-size:11px">▶ START</button>
             {% endif %}
+          {% endif %}
+          {% if d['location'] %}
+          <span style="font-size:11px;color:var(--text-muted)">📍 {{ d['location'] }}</span>
           {% endif %}
         </div>
 
