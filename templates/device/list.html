@@ -17,6 +17,12 @@
         <option value="archived">{{ 'Архив' if lang=='mn' else 'Archived' }}</option>
         <option value="replaced">{{ 'Солигдсон' if lang=='mn' else 'Replaced' }}</option>
       </select>
+      <select id="filter-stage" onchange="filterDevices()" class="form-input" style="width:auto;font-size:13px;padding:6px 10px">
+        <option value="all">{{ 'Бүх шат' if lang=='mn' else 'All stages' }}</option>
+        <option value="prep">📦 {{ 'Бэлтгэл' if lang=='mn' else 'Prep' }}</option>
+        <option value="analysis">🔬 {{ 'Шинжилгээ' if lang=='mn' else 'Analysis' }}</option>
+        <option value="both">📦🔬 {{ 'Хоёуланд' if lang=='mn' else 'Both' }}</option>
+      </select>
       <a href="{{ url_for('checks_page') }}" class="btn" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">
         ✅ Өдөр тутмын баталгаажуулалт
       </a>
@@ -55,7 +61,7 @@
 
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px" id="device-grid">
     {% for d in devices %}
-    <div class="device-item" data-status="{{ d['status'] }}">
+    <div class="device-item" data-status="{{ d['status'] }}" data-stage="{{ d['stage'] or 'both' }}">
       <div class="card" style="transition:.15s;{% if d['status'] in ('archived','replaced') %}opacity:.6;{% endif %}">
         <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:10px">
           {% if d['photo'] %}
@@ -171,11 +177,16 @@ async function stopUsage(logId){
 }
 function filterDevices(){
   var val = document.getElementById('filter-status').value;
+  var stg = document.getElementById('filter-stage').value;
   document.querySelectorAll('.device-item').forEach(function(el){
     var status = el.dataset.status;
-    if(val==='all') el.style.display='';
-    else if(val==='archived') el.style.display=(status==='archived'||status==='replaced')?'':'none';
-    else el.style.display=(status===val)?'':'none';
+    var stage  = el.dataset.stage;
+    var okStatus;
+    if(val==='all') okStatus=true;
+    else if(val==='archived') okStatus=(status==='archived'||status==='replaced');
+    else okStatus=(status===val);
+    var okStage = (stg==='all') || (stage===stg);
+    el.style.display=(okStatus && okStage)?'':'none';
   });
 }
 function setFilter(val){
