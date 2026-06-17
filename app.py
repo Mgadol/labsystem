@@ -815,8 +815,10 @@ def staff_add():
                 request.form.get('joined_date') or None
             ))
             uid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-            for did in request.form.getlist('device_permissions'):
-                conn.execute("INSERT OR IGNORE INTO staff_device_permissions(user_id,device_id) VALUES(?,?)", (uid, did))
+            # Геологичид (харилцагч) тоног ашиглах эрх олгохгүй
+            if role_to_set != 'geologist':
+                for did in request.form.getlist('device_permissions'):
+                    conn.execute("INSERT OR IGNORE INTO staff_device_permissions(user_id,device_id) VALUES(?,?)", (uid, did))
             conn.commit(); conn.close()
             flash('Ажилтан нэмэгдлээ!' if lang=='mn' else 'Staff added!', 'success')
             return redirect(url_for('staff_list'))
@@ -958,10 +960,11 @@ def staff_edit(uid):
             ))
             if photo:
                 conn.execute("UPDATE users SET photo=? WHERE id=?", (photo, uid))
-            # Эрх шинэчлэх
+            # Эрх шинэчлэх — геологичид (харилцагч) тоног ашиглах эрх олгохгүй
             conn.execute("DELETE FROM staff_device_permissions WHERE user_id=?", (uid,))
-            for did in request.form.getlist('device_permissions'):
-                conn.execute("INSERT OR IGNORE INTO staff_device_permissions(user_id,device_id) VALUES(?,?)", (uid, did))
+            if role_to_set != 'geologist':
+                for did in request.form.getlist('device_permissions'):
+                    conn.execute("INSERT OR IGNORE INTO staff_device_permissions(user_id,device_id) VALUES(?,?)", (uid, did))
             conn.commit()
             flash('Мэдээлэл шинэчлэгдлээ!' if lang=='mn' else 'Updated!', 'success')
             # Хадгалаад жагсаалт руу шилжих
