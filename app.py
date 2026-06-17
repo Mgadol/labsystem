@@ -947,11 +947,21 @@ def archive():
         WHERE r.status IN ('done','replaced')
         ORDER BY r.reported_date DESC
     """).fetchall()
+    completed_samples = conn.execute("""
+        SELECT g.*, sr.lab_number, sr.lab_serial, sr.id as receipt_id,
+               u.name as reg_name
+        FROM geo_samples g
+        JOIN sample_receipt sr ON sr.geo_sample_id=g.id
+        LEFT JOIN users u ON u.id=g.registered_by
+        WHERE g.status='done'
+        ORDER BY sr.lab_serial DESC LIMIT 200
+    """).fetchall()
     conn.close()
     return render_template('admin/archive.html',
         archived_devices=archived_devices,
         archived_staff=archived_staff,
         completed_repairs=completed_repairs,
+        done_samples=completed_samples,
         lang=lang)
 
 # ── STAFF EDIT (admin/senior) ───────────────────────────
@@ -1534,20 +1544,21 @@ def analysis():
     if role == 'geologist':
         samples = conn.execute("""
             SELECT g.*, u.name as reg_name,
-                   sr.lab_number, sr.received_date, sr.mass_kg, sr.id as receipt_id, sr.prep_status
+                   sr.lab_number, sr.lab_serial, sr.received_date, sr.mass_kg, sr.id as receipt_id, sr.prep_status
             FROM geo_samples g
             LEFT JOIN users u ON u.id=g.registered_by
             LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
-            WHERE g.registered_by=? ORDER BY g.created_at DESC LIMIT 50
+            WHERE g.registered_by=?
+            ORDER BY sr.lab_serial DESC, g.created_at DESC LIMIT 50
         """, (uid,)).fetchall()
     else:
         samples = conn.execute("""
             SELECT g.*, u.name as reg_name,
-                   sr.lab_number, sr.received_date, sr.mass_kg, sr.id as receipt_id, sr.prep_status
+                   sr.lab_number, sr.lab_serial, sr.received_date, sr.mass_kg, sr.id as receipt_id, sr.prep_status
             FROM geo_samples g
             LEFT JOIN users u ON u.id=g.registered_by
             LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
-            ORDER BY g.created_at DESC LIMIT 200
+            ORDER BY sr.lab_serial DESC, g.created_at DESC LIMIT 200
         """).fetchall()
     conn.close()
     return render_template('analysis/index.html', samples=samples, lang=lang, today=datetime.now().strftime('%Y-%m-%d'))
