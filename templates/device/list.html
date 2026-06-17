@@ -137,12 +137,12 @@
               </button>
             </form>
             {% else %}
-            <!-- Архивлах dropdown -->
+            <!-- Үйлдлийн цэс (⋮) -->
             <div style="position:relative" id="arch-wrap-{{ d['id'] }}">
-              <button onclick="toggleArchMenu({{ d['id'] }})" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">
-                🗄️ {{ 'Архивлах' if lang=='mn' else 'Archive' }}
+              <button onclick="toggleArchMenu({{ d['id'] }})" class="btn btn-sm btn-ghost" style="padding:4px 10px;font-size:18px;line-height:1" title="Үйлдэл">
+                ⋮
               </button>
-              <div id="arch-menu-{{ d['id'] }}" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:10;min-width:160px">
+              <div id="arch-menu-{{ d['id'] }}" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:10;min-width:170px">
                 <form method="POST" action="{{ url_for('device_archive', did=d['id']) }}">
                   <input type="hidden" name="reason" value="standby">
                   <button type="submit" style="width:100%;text-align:left;padding:8px 12px;font-size:13px;background:none;border:none;cursor:pointer;color:var(--text)">
