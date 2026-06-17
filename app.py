@@ -615,7 +615,7 @@ def repair_add(did):
           request.form.get('repair_date') or None,
           float(request.form.get('cost') or 0),
           photo, status, request.form.get('notes')))
-    if status == 'new':
+    if status in ('new', 'repair'):
         conn.execute("UPDATE devices SET status='repair' WHERE id=?", (did,))
     conn.commit(); conn.close()
     flash('Засварын бүртгэл нэмэгдлээ!' if lang=='mn' else 'Repair added!', 'success')
