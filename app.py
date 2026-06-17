@@ -1859,8 +1859,9 @@ def analysis_measure(receipt_id):
         conn.commit(); conn.close()
         flash('Шинжилгээ бүртгэгдлээ! Үр дүн тооцоологдлоо.', 'success')
         return redirect(url_for('analysis_result', receipt_id=receipt_id))
+    qc_map = {r['parameter']: r['tolerance'] for r in conn.execute("SELECT parameter, tolerance FROM qc_settings").fetchall()}
     conn.close()
-    return render_template('analysis/measure.html', receipt=receipt, lang=lang, today=datetime.now().strftime('%Y-%m-%d'))
+    return render_template('analysis/measure.html', receipt=receipt, lang=lang, qc_map=qc_map, today=datetime.now().strftime('%Y-%m-%d'))
 
 @app.route('/analysis/approve/<int:receipt_id>', methods=['POST'])
 @senior_required
