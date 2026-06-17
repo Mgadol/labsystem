@@ -120,6 +120,20 @@
                 🔄 {{ 'Сэргээх' if lang=='mn' else 'Restore' }}
               </button>
             </form>
+            {% elif d['status']=='standby' %}
+            <!-- Нөөцөөс буцаах (идэвхжүүлэх) -->
+            <form method="POST" action="{{ url_for('device_restore', did=d['id']) }}">
+              <button type="submit" class="btn btn-sm" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">
+                ✅ {{ 'Идэвхжүүлэх' if lang=='mn' else 'Activate' }}
+              </button>
+            </form>
+            <!-- Нөөцөөс архивлах -->
+            <form method="POST" action="{{ url_for('device_archive', did=d['id']) }}" onsubmit="return confirm('Архивлах уу?')">
+              <input type="hidden" name="reason" value="archived">
+              <button type="submit" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">
+                🗄️ {{ 'Архивлах' if lang=='mn' else 'Archive' }}
+              </button>
+            </form>
             {% else %}
             <!-- Архивлах dropdown -->
             <div style="position:relative" id="arch-wrap-{{ d['id'] }}">
@@ -205,9 +219,10 @@ document.addEventListener('click', function(e){
     document.querySelectorAll('[id^=arch-menu-]').forEach(function(m){ m.style.display='none'; });
   }
 });
-// Анхдагч: архив нуух
+// Анхдагч: архив болон нөөцийг үндсэн цэснээс нуух
 document.querySelectorAll('.device-item').forEach(function(el){
-  if(el.dataset.status==='archived'||el.dataset.status==='replaced') el.style.display='none';
+  var s = el.dataset.status;
+  if(s==='archived'||s==='replaced'||s==='standby') el.style.display='none';
 });
 </script>
 {% endblock %}
