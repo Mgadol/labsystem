@@ -2218,8 +2218,8 @@ def device_map():
         conn.close()
         return jsonify({'ok': True})
     
-    devices = conn.execute("SELECT * FROM devices WHERE status='active' ORDER BY name").fetchall()
-    mapping = {r['analysis_type']: r['device_id'] for r in 
+    devices = conn.execute("SELECT * FROM devices WHERE status='active' AND (stage='analysis' OR stage='both' OR stage IS NULL) ORDER BY name").fetchall()
+    mapping = {r['analysis_type']: r['device_id'] for r in
                conn.execute("SELECT * FROM analysis_device_map WHERE is_active=1").fetchall()}
     conn.close()
     return jsonify({'devices': [dict(d) for d in devices], 'mapping': mapping})
