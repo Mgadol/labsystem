@@ -75,6 +75,78 @@
         </div>
       </div>
 
+      <div class="section-title">Дэлгэрэнгүй паспорт (заавал биш)</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Лабораторийн дугаар</label>
+          <input type="text" name="lab_id" class="form-input" placeholder="...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Арга (Method)</label>
+          <input type="text" name="method" class="form-input" placeholder="Шинжилгээний жин">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Нарийвчлал (Particular)</label>
+          <input type="text" name="particular" class="form-input" placeholder="0.0001 g">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Хэмжилт хийх хугацаа</label>
+          <input type="text" name="measuring_time" class="form-input" placeholder="2 second">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Хэмжилтийн хязгаар</label>
+          <input type="text" name="measuring_limit" class="form-input" placeholder="220 g">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Дээд температур</label>
+          <input type="text" name="max_temp" class="form-input" placeholder="...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Хэмжээ (W×D×H)</label>
+          <input type="text" name="dimension" class="form-input" placeholder="210×344×344 mm">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Багтаамж</label>
+          <input type="text" name="capacity" class="form-input" placeholder="...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Жин</label>
+          <input type="text" name="weight_kg" class="form-input" placeholder="4.5 kg">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Бусад үзүүлэлт</label>
+          <input type="text" name="other_spec" class="form-input" placeholder="Pan size Ø 90 mm">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Чадал (Power)</label>
+          <input type="text" name="power" class="form-input" placeholder="10W">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Давтамж (Frequency)</label>
+          <input type="text" name="frequency" class="form-input" placeholder="50/60Hz">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Хүчдэл (Voltage)</label>
+          <input type="text" name="voltage" class="form-input" placeholder="100-240V">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ажиллагаа</label>
+          <input type="text" name="operating_state" class="form-input" placeholder="Working">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Хүлээн авсан огноо</label>
+          <input type="date" name="received_date" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Веб линк</label>
+          <input type="text" name="web_link" class="form-input" placeholder="https://...">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Дэлгэрэнгүй тодорхойлолт (Specification)</label>
+        <textarea name="specification" class="form-input" rows="2" placeholder="Solid Diecast Metal, Weighing Pan..."></textarea>
+      </div>
+
       <div class="section-title">{{ 'Файл хавсаргах' if lang=='mn' else 'Attachments' }}</div>
       <div class="form-grid">
         <div class="form-group">

@@ -56,6 +56,79 @@
           <option value="standby" {{ 'selected' if device['status']=='standby' }}>{{ 'Хүлээгдэж байна' if lang=='mn' else 'Standby' }}</option>
         </select>
       </div>
+      <div class="section-title">Дэлгэрэнгүй паспорт</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Лабораторийн дугаар</label>
+          <input type="text" name="lab_id" class="form-input" value="{{ device['lab_id'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Арга (Method)</label>
+          <input type="text" name="method" class="form-input" value="{{ device['method'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Нарийвчлал (Particular)</label>
+          <input type="text" name="particular" class="form-input" value="{{ device['particular'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Хэмжилт хийх хугацаа</label>
+          <input type="text" name="measuring_time" class="form-input" value="{{ device['measuring_time'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Хэмжилтийн хязгаар</label>
+          <input type="text" name="measuring_limit" class="form-input" value="{{ device['measuring_limit'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Дээд температур</label>
+          <input type="text" name="max_temp" class="form-input" value="{{ device['max_temp'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Хэмжээ (W×D×H)</label>
+          <input type="text" name="dimension" class="form-input" value="{{ device['dimension'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Багтаамж</label>
+          <input type="text" name="capacity" class="form-input" value="{{ device['capacity'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Жин</label>
+          <input type="text" name="weight_kg" class="form-input" value="{{ device['weight_kg'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Бусад үзүүлэлт</label>
+          <input type="text" name="other_spec" class="form-input" value="{{ device['other_spec'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Чадал (Power)</label>
+          <input type="text" name="power" class="form-input" value="{{ device['power'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Давтамж (Frequency)</label>
+          <input type="text" name="frequency" class="form-input" value="{{ device['frequency'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Хүчдэл (Voltage)</label>
+          <input type="text" name="voltage" class="form-input" value="{{ device['voltage'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ажиллагаа</label>
+          <input type="text" name="operating_state" class="form-input" value="{{ device['operating_state'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Хүлээн авсан огноо</label>
+          <input type="date" name="received_date" class="form-input" value="{{ device['received_date'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Веб линк</label>
+          <input type="text" name="web_link" class="form-input" value="{{ device['web_link'] or '' }}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Дэлгэрэнгүй тодорхойлолт (Specification)</label>
+        <textarea name="specification" class="form-input" rows="2">{{ device['specification'] or '' }}</textarea>
+      </div>
+
+      <div class="section-title">{{ 'Файл хавсаргах' if lang=='mn' else 'Attachments' }}</div>
       <div class="form-grid">
         <div class="form-group">
           <label class="form-label">{{ 'Шинэ зураг (заавал биш)' if lang=='mn' else 'New Photo (optional)' }}</label>

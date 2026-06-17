@@ -376,10 +376,15 @@ def device_detail(did):
         WHERE ul.device_id=? AND ul.end_time IS NOT NULL
         GROUP BY u.id ORDER BY total_min DESC
     """, (did,)).fetchall()
+    checks = conn.execute("""
+        SELECT ch.*, u.name as uname FROM device_checks ch
+        LEFT JOIN users u ON u.id=ch.checked_by
+        WHERE ch.device_id=? ORDER BY ch.check_date DESC, ch.id DESC LIMIT 60
+    """, (did,)).fetchall()
     conn.close()
     return render_template('device/detail.html',
         device=device, calibrations=cals, repairs=reps,
-        usage_logs=logs, active_log=active,
+        usage_logs=logs, active_log=active, checks=checks,
         monthly_hours=round(mhours,2),
         analysis_usage=analysis_usage,
         lang=lang, today=date.today().isoformat())
@@ -395,8 +400,11 @@ def device_add():
         pdf   = save_file(request.files.get('passport_pdf'), 'passports')
         conn.execute("""
             INSERT INTO devices(name,serial_number,mark_id,location,purchase_date,
-            warranty_expiry,calibration_interval,photo,passport_pdf,status,notes)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?)
+            warranty_expiry,calibration_interval,photo,passport_pdf,status,notes,
+            lab_id,web_link,method,max_temp,particular,measuring_time,measuring_limit,
+            dimension,capacity,weight_kg,other_spec,power,frequency,voltage,
+            specification,operating_state,received_date)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             request.form['name'],
             request.form.get('serial_number') or None,
@@ -406,7 +414,24 @@ def device_add():
             request.form.get('warranty_expiry') or None,
             int(request.form.get('calibration_interval') or 90),
             photo, pdf, 'active',
-            request.form.get('notes')
+            request.form.get('notes'),
+            request.form.get('lab_id') or None,
+            request.form.get('web_link') or None,
+            request.form.get('method') or None,
+            request.form.get('max_temp') or None,
+            request.form.get('particular') or None,
+            request.form.get('measuring_time') or None,
+            request.form.get('measuring_limit') or None,
+            request.form.get('dimension') or None,
+            request.form.get('capacity') or None,
+            request.form.get('weight_kg') or None,
+            request.form.get('other_spec') or None,
+            request.form.get('power') or None,
+            request.form.get('frequency') or None,
+            request.form.get('voltage') or None,
+            request.form.get('specification') or None,
+            request.form.get('operating_state') or None,
+            request.form.get('received_date') or None,
         ))
         did = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
         conn.commit(); conn.close()
@@ -428,7 +453,10 @@ def device_edit(did):
         conn.execute("""
             UPDATE devices SET name=?,serial_number=?,mark_id=?,location=?,
             purchase_date=?,warranty_expiry=?,calibration_interval=?,
-            status=?,notes=?
+            status=?,notes=?,lab_id=?,web_link=?,method=?,max_temp=?,particular=?,
+            measuring_time=?,measuring_limit=?,dimension=?,capacity=?,weight_kg=?,
+            other_spec=?,power=?,frequency=?,voltage=?,specification=?,
+            operating_state=?,received_date=?
             WHERE id=?
         """, (
             request.form['name'],
@@ -439,7 +467,25 @@ def device_edit(did):
             request.form.get('warranty_expiry') or None,
             int(request.form.get('calibration_interval') or 90),
             request.form.get('status','active'),
-            request.form.get('notes'), did
+            request.form.get('notes'),
+            request.form.get('lab_id') or None,
+            request.form.get('web_link') or None,
+            request.form.get('method') or None,
+            request.form.get('max_temp') or None,
+            request.form.get('particular') or None,
+            request.form.get('measuring_time') or None,
+            request.form.get('measuring_limit') or None,
+            request.form.get('dimension') or None,
+            request.form.get('capacity') or None,
+            request.form.get('weight_kg') or None,
+            request.form.get('other_spec') or None,
+            request.form.get('power') or None,
+            request.form.get('frequency') or None,
+            request.form.get('voltage') or None,
+            request.form.get('specification') or None,
+            request.form.get('operating_state') or None,
+            request.form.get('received_date') or None,
+            did
         ))
         if photo: conn.execute("UPDATE devices SET photo=? WHERE id=?", (photo, did))
         if pdf:   conn.execute("UPDATE devices SET passport_pdf=? WHERE id=?", (pdf, did))
@@ -527,6 +573,39 @@ def repair_add(did):
     conn.commit(); conn.close()
     flash('Засварын бүртгэл нэмэгдлээ!' if lang=='mn' else 'Repair added!', 'success')
     return redirect(url_for('device_detail', did=did))
+
+# ── INTERNAL DAILY CHECK (жин г.м. дотоод шалгалт) ──────
+@app.route('/devices/<int:did>/check/add', methods=['POST'])
+@login_required
+def device_check_add(did):
+    lang = session.get('lang','mn')
+    conn = get_db()
+    conn.execute("""
+        INSERT INTO device_checks(device_id,checked_by,check_date,standard_value,
+        measured_value,tolerance,result,notes)
+        VALUES(?,?,?,?,?,?,?,?)
+    """, (did, session.get('user_id', 0),
+          request.form.get('check_date') or date.today().isoformat(),
+          request.form.get('standard_value') or None,
+          request.form.get('measured_value') or None,
+          request.form.get('tolerance') or None,
+          request.form.get('result','pass'),
+          request.form.get('notes') or None))
+    conn.commit(); conn.close()
+    flash('Дотоод шалгалт бүртгэгдлээ!' if lang=='mn' else 'Internal check recorded!', 'success')
+    return redirect(url_for('device_detail', did=did) + '#tab-check')
+
+@app.route('/devices/check/<int:cid>/delete', methods=['POST'])
+@senior_required
+def device_check_delete(cid):
+    conn = get_db()
+    row = conn.execute("SELECT device_id FROM device_checks WHERE id=?", (cid,)).fetchone()
+    did = row['device_id'] if row else None
+    conn.execute("DELETE FROM device_checks WHERE id=?", (cid,))
+    conn.commit(); conn.close()
+    if did:
+        return redirect(url_for('device_detail', did=did) + '#tab-check')
+    return redirect(url_for('devices'))
 
 @app.route('/repair/<int:rid>/close', methods=['POST'])
 @login_required
@@ -900,6 +979,26 @@ def ensure_tables():
                 'crm_vad_unc REAL','crm_sulfur_unc REAL','crm_cal_unc REAL','sample_range TEXT']:
         try: conn.execute(f"ALTER TABLE geo_samples ADD COLUMN {col}")
         except Exception: pass
+    # Төхөөрөмжийн дэлгэрэнгүй паспорт талбарууд
+    for col in ['web_link TEXT','method TEXT','max_temp TEXT','particular TEXT',
+                'measuring_time TEXT','measuring_limit TEXT','dimension TEXT','capacity TEXT',
+                'weight_kg TEXT','other_spec TEXT','power TEXT','frequency TEXT','voltage TEXT',
+                'specification TEXT','operating_state TEXT','received_date TEXT','lab_id TEXT']:
+        try: conn.execute(f"ALTER TABLE devices ADD COLUMN {col}")
+        except Exception: pass
+    # Дотоод өдөр тутмын шалгалт (жин г.м.)
+    conn.execute("""CREATE TABLE IF NOT EXISTS device_checks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        device_id INTEGER NOT NULL REFERENCES devices(id),
+        checked_by INTEGER REFERENCES users(id),
+        check_date TEXT NOT NULL,
+        standard_value TEXT,
+        measured_value TEXT,
+        tolerance TEXT,
+        result TEXT DEFAULT 'pass',
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
     conn.commit()
     conn.close()
 
