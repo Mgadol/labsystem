@@ -25,14 +25,19 @@
           <input type="text" name="location" class="form-input" value="{{ device['location'] or '' }}">
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Mark</label>
-        <select name="mark_id" class="form-input">
-          <option value="">—</option>
-          {% for m in marks %}
-          <option value="{{ m['id'] }}" {{ 'selected' if device['mark_id']==m['id'] }}>{{ m['manufacturer'] }} {{ m['model'] }}</option>
-          {% endfor %}
-        </select>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Үйлдвэрлэгч</label>
+          <input type="text" name="manufacturer" class="form-input" value="{{ device['manufacturer'] or '' }}" placeholder="Mettler Toledo">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Загвар</label>
+          <input type="text" name="model" class="form-input" value="{{ device['model'] or '' }}" placeholder="ME204E">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ангилал</label>
+          <input type="text" name="category" class="form-input" value="{{ device['category'] or '' }}" placeholder="Жин хэмжих">
+        </div>
       </div>
       <div class="form-row">
         <div class="form-group">

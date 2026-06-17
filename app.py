@@ -389,6 +389,23 @@ def device_detail(did):
         analysis_usage=analysis_usage,
         lang=lang, today=date.today().isoformat())
 
+def _resolve_mark(conn, manufacturer, model, category):
+    """Үйлдвэрлэгч/загвараар mark олох, байхгүй бол шинээр үүсгэж id буцаана."""
+    manufacturer = (manufacturer or '').strip()
+    model = (model or '').strip()
+    category = (category or '').strip() or None
+    if not manufacturer and not model:
+        return None
+    row = conn.execute(
+        "SELECT id FROM device_marks WHERE manufacturer=? AND model=?",
+        (manufacturer, model)).fetchone()
+    if row:
+        return row['id']
+    cur = conn.execute(
+        "INSERT INTO device_marks(manufacturer,model,category) VALUES(?,?,?)",
+        (manufacturer, model, category))
+    return cur.lastrowid
+
 @app.route('/devices/add', methods=['GET','POST'])
 @senior_required
 def device_add():
@@ -398,6 +415,11 @@ def device_add():
     if request.method == 'POST':
         photo = save_file(request.files.get('photo'), 'devices')
         pdf   = save_file(request.files.get('passport_pdf'), 'passports')
+        # Үйлдвэрлэгч/загвараас mark олох эсвэл шинээр үүсгэх
+        mark_id = _resolve_mark(conn,
+            request.form.get('manufacturer'),
+            request.form.get('model'),
+            request.form.get('category'))
         conn.execute("""
             INSERT INTO devices(name,serial_number,mark_id,location,purchase_date,
             warranty_expiry,calibration_interval,photo,passport_pdf,status,notes,
@@ -408,7 +430,7 @@ def device_add():
         """, (
             request.form['name'],
             request.form.get('serial_number') or None,
-            request.form.get('mark_id') or None,
+            mark_id,
             request.form.get('location'),
             request.form.get('purchase_date') or None,
             request.form.get('warranty_expiry') or None,
@@ -445,11 +467,15 @@ def device_add():
 def device_edit(did):
     lang = session.get('lang','mn')
     conn = get_db()
-    device = conn.execute("SELECT * FROM devices WHERE id=?", (did,)).fetchone()
+    device = conn.execute("SELECT d.*, dm.manufacturer, dm.model, dm.category FROM devices d LEFT JOIN device_marks dm ON d.mark_id=dm.id WHERE d.id=?", (did,)).fetchone()
     marks  = conn.execute("SELECT * FROM device_marks").fetchall()
     if request.method == 'POST':
         photo = save_file(request.files.get('photo'), 'devices')
         pdf   = save_file(request.files.get('passport_pdf'), 'passports')
+        mark_id = _resolve_mark(conn,
+            request.form.get('manufacturer'),
+            request.form.get('model'),
+            request.form.get('category'))
         conn.execute("""
             UPDATE devices SET name=?,serial_number=?,mark_id=?,location=?,
             purchase_date=?,warranty_expiry=?,calibration_interval=?,
@@ -461,7 +487,7 @@ def device_edit(did):
         """, (
             request.form['name'],
             request.form.get('serial_number') or None,
-            request.form.get('mark_id') or None,
+            mark_id,
             request.form.get('location'),
             request.form.get('purchase_date') or None,
             request.form.get('warranty_expiry') or None,

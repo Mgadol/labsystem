@@ -25,38 +25,20 @@
         </div>
       </div>
 
-      <div class="section-title">Mark / {{ 'Загвар' if lang=='mn' else 'Model' }}</div>
-      <div class="form-grid">
+      <div class="section-title">Үйлдвэрлэгч / Загвар</div>
+      <div class="form-row">
         <div class="form-group">
-          <label class="form-label">{{ 'Одоо байгаа mark сонгох' if lang=='mn' else 'Select existing mark' }}</label>
-          <select name="mark_id" class="form-input">
-            <option value="">— {{ 'сонгох' if lang=='mn' else 'select' }} —</option>
-            {% for m in marks %}
-            <option value="{{ m['id'] }}">{{ m['manufacturer'] }} {{ m['model'] }} {% if m['category'] %}({{ m['category'] }}){% endif %}</option>
-            {% endfor %}
-          </select>
+          <label class="form-label">Үйлдвэрлэгч</label>
+          <input type="text" name="manufacturer" class="form-input" placeholder="Mettler Toledo">
         </div>
         <div class="form-group">
-          <label class="form-label">{{ 'Эсвэл шинэ mark нэмэх' if lang=='mn' else 'Or add new mark' }}</label>
-          <button type="button" onclick="showMarkForm()" class="btn btn-ghost" style="width:100%">+ {{ 'Шинэ mark' if lang=='mn' else 'New mark' }}</button>
+          <label class="form-label">Загвар</label>
+          <input type="text" name="model" class="form-input" placeholder="ME204E">
         </div>
-      </div>
-      <div id="mark-form" style="display:none;background:var(--gray);border-radius:8px;padding:12px;margin-bottom:14px">
-        <div class="form-row">
-          <div>
-            <label class="form-label">{{ 'Үйлдвэрлэгч' if lang=='mn' else 'Manufacturer' }}</label>
-            <input type="text" id="new-mfr" class="form-input" placeholder="Shimadzu">
-          </div>
-          <div>
-            <label class="form-label">{{ 'Загвар' if lang=='mn' else 'Model' }}</label>
-            <input type="text" id="new-model" class="form-input" placeholder="AUW220D">
-          </div>
-          <div>
-            <label class="form-label">{{ 'Ангилал' if lang=='mn' else 'Category' }}</label>
-            <input type="text" id="new-cat" class="form-input" placeholder="{{ 'Жин хэмжих' if lang=='mn' else 'Weighing' }}">
-          </div>
+        <div class="form-group">
+          <label class="form-label">Ангилал</label>
+          <input type="text" name="category" class="form-input" placeholder="Жин хэмжих">
         </div>
-        <button type="button" onclick="saveMark()" class="btn btn-teal btn-sm" style="margin-top:8px">{{ 'Хадгалах' if lang=='mn' else 'Save' }}</button>
       </div>
 
       <div class="section-title">{{ 'Огноо / Хугацаа' if lang=='mn' else 'Dates' }}</div>
@@ -171,26 +153,4 @@
     </form>
   </div>
 </div>
-{% endblock %}
-{% block scripts %}
-<script>
-function showMarkForm(){ document.getElementById('mark-form').style.display='block'; }
-async function saveMark(){
-  const mfr=document.getElementById('new-mfr').value;
-  const model=document.getElementById('new-model').value;
-  const cat=document.getElementById('new-cat').value;
-  if(!mfr||!model){ alert('Үйлдвэрлэгч болон загварыг оруулна уу!'); return; }
-  const fd=new FormData();
-  fd.append('manufacturer',mfr); fd.append('model',model); fd.append('category',cat);
-  const r=await fetch('/marks/add',{method:'POST',body:fd});
-  const d=await r.json();
-  if(d.success){
-    const sel=document.querySelector('select[name=mark_id]');
-    const opt=new Option(d.name,d.id,true,true);
-    sel.add(opt);
-    document.getElementById('mark-form').style.display='none';
-    alert('{{ "Mark нэмэгдлээ!" if lang=="mn" else "Mark added!" }}');
-  }
-}
-</script>
 {% endblock %}
