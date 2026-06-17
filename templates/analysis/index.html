@@ -3,6 +3,8 @@
 {% block content %}
 <style>
 input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
+.tab-btn{padding:8px 18px;border:none;background:none;border-bottom:3px solid transparent;font-size:13px;font-weight:600;cursor:pointer;color:var(--text-muted);transition:.15s}
+.tab-btn.active{color:var(--navy);border-bottom-color:var(--navy)}
 </style>
 <div class="page">
   <div class="flex justify-between gap-12" style="margin-bottom:20px;flex-wrap:wrap">
@@ -10,7 +12,7 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
       <h1 class="page-title">🧪 Шинжилгээ</h1>
       <p class="page-sub">Дээжний бүртгэл, хүлээн авалт, шинжилгээ</p>
     </div>
-    <div style="display:flex;gap:8px;align-items:center">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <!-- Огноо шүүлтүүр -->
       <input type="date" id="filter-date" class="form-input"
         style="width:150px;font-size:13px;padding:6px 10px"
@@ -33,29 +35,19 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
     </div>
   </div>
 
-  <!-- Статус тоолуур -->
-  <div class="stat-grid" style="margin-bottom:16px">
-    {% set pending = samples|selectattr('status','eq','pending')|list|length %}
-    {% set prepared = samples|selectattr('status','eq','prepared')|list|length %}
-    {% set done = samples|selectattr('status','eq','done')|list|length %}
-    <div class="stat-card" onclick="filterStatus('pending')" style="cursor:pointer">
-      <div class="stat-val" style="color:var(--amber)">{{ pending }}</div>
-      <div class="stat-lbl">🟡 Хүлээгдэж байна</div>
-    </div>
-    <div class="stat-card" onclick="filterStatus('prepared')" style="cursor:pointer">
-      <div class="stat-val" style="color:#185FA5">{{ prepared }}</div>
-      <div class="stat-lbl">🔵 Хүлээн авсан</div>
-    </div>
-    <div class="stat-card" onclick="filterStatus('analysing')" style="cursor:pointer">
-      <div class="stat-val" style="color:var(--coral)">
-        {{ samples|selectattr('status','eq','analysing')|list|length }}
-      </div>
-      <div class="stat-lbl">🔴 Шинжилгээнд</div>
-    </div>
-    <div class="stat-card" onclick="filterStatus('done')" style="cursor:pointer">
-      <div class="stat-val" style="color:var(--teal)">{{ done }}</div>
-      <div class="stat-lbl">🟢 Дууссан</div>
-    </div>
+  <!-- Таб -->
+  {% set prep_samples = samples|selectattr('prep_status','ne','ready')|selectattr('prep_status','ne','done')|selectattr('status','ne','analysing')|list %}
+  {% set prep_count = prep_samples|length %}
+  {% set anal_count = samples|length - prep_count %}
+  <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:16px">
+    <button class="tab-btn active" id="tab-prep" onclick="switchTab('prep')">
+      📦 Дээж бэлтгэл
+      <span style="background:#faeeda;color:#854f0b;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px" id="cnt-prep">{{ prep_count }}</span>
+    </button>
+    <button class="tab-btn" id="tab-anal" onclick="switchTab('anal')">
+      🔬 Шинжилгээ
+      <span style="background:#ffe4e4;color:#993c1d;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px" id="cnt-anal">{{ anal_count }}</span>
+    </button>
   </div>
 
   <div class="card">
@@ -78,7 +70,8 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
       {% set ps2 = s['prep_status'] or '' %}
       {% set st2 = s['status'] or '' %}
       {% set is_ready = ps2=='ready' or st2=='ready' %}
-      <tr class="sample-row" data-status="{{ s['status'] }}" data-date="{{ s['collected_date'] or '' }}" data-rid="{{ s['receipt_id'] or '' }}">
+      {% set cat = 'anal' if (ps2 in ('ready','done') or st2 == 'analysing') else 'prep' %}
+      <tr class="sample-row" data-status="{{ s['status'] }}" data-date="{{ s['collected_date'] or '' }}" data-rid="{{ s['receipt_id'] or '' }}" data-cat="{{ cat }}">
         <td style="width:36px;text-align:center">
           {% if is_ready and s['receipt_id'] and current_user['role'] in ('admin','senior','staff') %}
           <input type="checkbox" class="lot-cb" value="{{ s['receipt_id'] }}" onchange="updateMultiBtn()" style="width:15px;height:15px;cursor:pointer">
@@ -198,18 +191,41 @@ function showDoneModal(rid){
   document.getElementById('doneForm').action='/analysis/prep/done/'+rid;
   document.getElementById('doneModal').style.display='flex';
 }
+// Анхдагч таб харуулах
+applyFilters();
 </script>
 <script>
-function filterStatus(status){
-  document.querySelectorAll('.sample-row').forEach(function(r){
-    r.style.display = (status==='all' || r.dataset.status===status) ? '' : 'none';
-  });
+var curTab = 'prep';
+function switchTab(tab){
+  curTab = tab;
+  document.getElementById('tab-prep').classList.toggle('active', tab==='prep');
+  document.getElementById('tab-anal').classList.toggle('active', tab==='anal');
+  applyFilters();
 }
 function filterDate(){
+  applyFilters();
+}
+function applyFilters(){
   var d = document.getElementById('filter-date').value;
   document.querySelectorAll('.sample-row').forEach(function(r){
-    r.style.display = (!d || r.dataset.date===d) ? '' : 'none';
+    var catOk = r.dataset.cat === curTab;
+    var dateOk = !d || r.dataset.date === d;
+    r.style.display = (catOk && dateOk) ? '' : 'none';
   });
+  updateCounts();
+}
+function updateCounts(){
+  var d = document.getElementById('filter-date').value;
+  var prep=0, anal=0;
+  document.querySelectorAll('.sample-row').forEach(function(r){
+    var dateOk = !d || r.dataset.date === d;
+    if(dateOk){
+      if(r.dataset.cat==='prep') prep++;
+      else anal++;
+    }
+  });
+  document.getElementById('cnt-prep').textContent = prep;
+  document.getElementById('cnt-anal').textContent = anal;
 }
 
 function updateMultiBtn(){
