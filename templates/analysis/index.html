@@ -171,10 +171,73 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
 
 {% block scripts %}
 <!-- Бэлтгэж дууслаа modal -->
-<div id="doneModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:10px;padding:24px;max-width:400px;width:90%">
-    <h3 style="margin-bottom:16px">✅ Дээж бэлтгэж дууслаа</h3>
+<div id="doneModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center;overflow-y:auto">
+  <div style="background:#fff;border-radius:10px;padding:24px;max-width:560px;width:94%;margin:20px auto">
+    <h3 style="margin-bottom:4px">✅ Дээж бэлтгэж дууслаа</h3>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px">FM болон MT хэмжилтийн утгуудыг оруулна (заавал биш)</p>
     <form id="doneForm" method="POST">
+
+      <!-- Чийгшилт (FM) -->
+      <div style="background:var(--gray);border-radius:8px;padding:12px;margin-bottom:12px">
+        <div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:8px">💧 Чийгшилт (FM)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="form-group" style="margin:0">
+            <label class="form-label" style="font-size:11px">Дээжний жин (г)</label>
+            <input type="number" step="0.0001" name="fm_sample_mass" class="form-input" style="font-size:12px;padding:5px 8px" placeholder="0.0000">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label" style="font-size:11px">Хатаасан жин (г)</label>
+            <input type="number" step="0.0001" name="fm_dried_mass" class="form-input" style="font-size:12px;padding:5px 8px" placeholder="0.0000">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label" style="font-size:11px">Огноо</label>
+            <input type="date" name="fm_date" class="form-input" style="font-size:12px;padding:5px 8px">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label" style="font-size:11px">Оператор</label>
+            <input type="text" name="fm_operator" class="form-input" style="font-size:12px;padding:5px 8px" placeholder="Нэр">
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:6px">
+          FM = <span id="fm_calc" style="font-weight:600;color:var(--navy)">—</span> %
+        </div>
+      </div>
+
+      <!-- Нийт чийг (MT) -->
+      <div style="background:var(--gray);border-radius:8px;padding:12px;margin-bottom:12px">
+        <div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:8px">🧪 Нийт чийг (MT) — 2 давталт</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px">
+          <div style="font-size:11px;color:var(--text-muted);text-align:center">Тавган жин</div>
+          <div style="font-size:11px;color:var(--text-muted);text-align:center">Дээжний жин</div>
+          <div style="font-size:11px;color:var(--text-muted);text-align:center">Хатаасан жин</div>
+          <input type="number" step="0.0001" name="mt_tare1" class="form-input mt-inp" style="font-size:12px;padding:5px 8px" placeholder="1">
+          <input type="number" step="0.0001" name="mt_sample1" class="form-input mt-inp" style="font-size:12px;padding:5px 8px" placeholder="1">
+          <input type="number" step="0.0001" name="mt_dried1" class="form-input mt-inp" style="font-size:12px;padding:5px 8px" placeholder="1">
+          <input type="number" step="0.0001" name="mt_tare2" class="form-input mt-inp" style="font-size:12px;padding:5px 8px" placeholder="2">
+          <input type="number" step="0.0001" name="mt_sample2" class="form-input mt-inp" style="font-size:12px;padding:5px 8px" placeholder="2">
+          <input type="number" step="0.0001" name="mt_dried2" class="form-input mt-inp" style="font-size:12px;padding:5px 8px" placeholder="2">
+        </div>
+        <div style="font-size:11px;color:var(--text-muted)">
+          MT₁ = <span id="mt1_calc" style="font-weight:600;color:var(--navy)">—</span> %,
+          MT₂ = <span id="mt2_calc" style="font-weight:600;color:var(--navy)">—</span> %,
+          Дундаж = <span id="mt_avg" style="font-weight:600;color:var(--teal)">—</span> %
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px">
+          <div class="form-group" style="margin:0">
+            <label class="form-label" style="font-size:11px">Огноо</label>
+            <input type="date" name="mt_date" class="form-input" style="font-size:12px;padding:5px 8px">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label" style="font-size:11px">Ээлж</label>
+            <input type="text" name="mt_shift" class="form-input" style="font-size:12px;padding:5px 8px" placeholder="Өглөө/Орой">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label" style="font-size:11px">Оператор</label>
+            <input type="text" name="mt_operator" class="form-input" style="font-size:12px;padding:5px 8px" placeholder="Нэр">
+          </div>
+        </div>
+      </div>
+
       <div class="form-group">
         <label class="form-label">Тэмдэглэл (заавал биш)</label>
         <textarea name="notes" class="form-input" rows="2" placeholder="Аналитик дээж бэлэн..."></textarea>
@@ -190,7 +253,38 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
 function showDoneModal(rid){
   document.getElementById('doneForm').action='/analysis/prep/done/'+rid;
   document.getElementById('doneModal').style.display='flex';
+  // Формыг цэвэрлэх
+  document.getElementById('doneForm').reset();
+  document.getElementById('fm_calc').textContent='—';
+  document.getElementById('mt1_calc').textContent='—';
+  document.getElementById('mt2_calc').textContent='—';
+  document.getElementById('mt_avg').textContent='—';
 }
+function calcFM(){
+  var s=parseFloat(document.querySelector('[name=fm_sample_mass]').value);
+  var d=parseFloat(document.querySelector('[name=fm_dried_mass]').value);
+  var el=document.getElementById('fm_calc');
+  if(s>0&&d>0&&d<=s) el.textContent=((s-d)/s*100).toFixed(2);
+  else el.textContent='—';
+}
+function calcMT(){
+  function mt(t,s,d){return(s>0&&t>=0&&d>=0)?(t+s-d)/s*100:null;}
+  var t1=parseFloat(document.querySelector('[name=mt_tare1]').value);
+  var s1=parseFloat(document.querySelector('[name=mt_sample1]').value);
+  var d1=parseFloat(document.querySelector('[name=mt_dried1]').value);
+  var t2=parseFloat(document.querySelector('[name=mt_tare2]').value);
+  var s2=parseFloat(document.querySelector('[name=mt_sample2]').value);
+  var d2=parseFloat(document.querySelector('[name=mt_dried2]').value);
+  var r1=mt(t1,s1,d1), r2=mt(t2,s2,d2);
+  document.getElementById('mt1_calc').textContent=r1!=null?r1.toFixed(2):'—';
+  document.getElementById('mt2_calc').textContent=r2!=null?r2.toFixed(2):'—';
+  if(r1!=null&&r2!=null) document.getElementById('mt_avg').textContent=((r1+r2)/2).toFixed(2);
+  else document.getElementById('mt_avg').textContent='—';
+}
+document.querySelector('[name=fm_sample_mass]') && document.addEventListener('input',function(e){
+  if(e.target.name==='fm_sample_mass'||e.target.name==='fm_dried_mass') calcFM();
+  if(e.target.classList.contains('mt-inp')) calcMT();
+});
 // Анхдагч таб харуулах
 applyFilters();
 </script>
