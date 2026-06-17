@@ -91,6 +91,7 @@
             ('Давтамж (Frequency)', device['frequency']),
             ('Хүчдэл (Voltage)', device['voltage']),
             ('Ажиллагаа', device['operating_state']),
+            ('Ашиглах шат', {'both':'📦🔬 Хоёуланд', 'prep':'📦 Бэлтгэл', 'analysis':'🔬 Шинжилгээ'}.get(device['stage'] or 'both')),
             ('Худалдан авсан огноо', device['purchase_date']),
             ('Хүлээн авсан огноо', device['received_date']),
             ('Баталгааны хугацаа', device['warranty_expiry']),
