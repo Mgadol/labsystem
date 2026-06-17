@@ -331,13 +331,18 @@ def devices():
     lang = session.get('lang','mn')
     conn = get_db()
     if session.get('role') == 'admin':
-        devs = conn.execute("SELECT d.*, dm.manufacturer, dm.model, dm.category FROM devices d LEFT JOIN device_marks dm ON d.mark_id=dm.id ORDER BY d.name").fetchall()
+        devs = conn.execute("""
+            SELECT d.*, dm.manufacturer, dm.model, dm.category FROM devices d
+            LEFT JOIN device_marks dm ON d.mark_id=dm.id
+            ORDER BY (d.lab_id IS NULL OR d.lab_id=''), d.lab_id, d.name
+        """).fetchall()
     else:
         devs = conn.execute("""
             SELECT d.*, dm.manufacturer, dm.model, dm.category FROM devices d
             LEFT JOIN device_marks dm ON d.mark_id=dm.id
             JOIN staff_device_permissions p ON p.device_id=d.id
-            WHERE p.user_id=? ORDER BY d.name
+            WHERE p.user_id=?
+            ORDER BY (d.lab_id IS NULL OR d.lab_id=''), d.lab_id, d.name
         """, (session.get('user_id', 0),)).fetchall()
     # Хэрэглэгчийн идэвхтэй ашиглалт (нэг л төхөөрөмж дээр ажиллаж болно)
     active = conn.execute("SELECT id, device_id FROM usage_logs WHERE user_id=? AND end_time IS NULL",
