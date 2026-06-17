@@ -339,8 +339,14 @@ def devices():
             JOIN staff_device_permissions p ON p.device_id=d.id
             WHERE p.user_id=? ORDER BY d.name
         """, (session.get('user_id', 0),)).fetchall()
+    # Хэрэглэгчийн идэвхтэй ашиглалт (нэг л төхөөрөмж дээр ажиллаж болно)
+    active = conn.execute("SELECT id, device_id FROM usage_logs WHERE user_id=? AND end_time IS NULL",
+                          (session.get('user_id', 0),)).fetchone()
     conn.close()
-    return render_template('device/list.html', devices=devs, lang=lang)
+    active_dev = active['device_id'] if active else None
+    active_log_id = active['id'] if active else None
+    return render_template('device/list.html', devices=devs, lang=lang,
+        active_dev=active_dev, active_log_id=active_log_id)
 
 @app.route('/devices/<int:did>')
 @login_required
@@ -425,8 +431,9 @@ def device_add():
             warranty_expiry,calibration_interval,photo,passport_pdf,status,notes,
             lab_id,web_link,method,max_temp,particular,measuring_time,measuring_limit,
             dimension,capacity,weight_kg,other_spec,power,frequency,voltage,
-            specification,operating_state,received_date)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            specification,operating_state,received_date,
+            check_standard,check_tolerance,check_enabled)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             request.form['name'],
             request.form.get('serial_number') or None,
@@ -454,6 +461,9 @@ def device_add():
             request.form.get('specification') or None,
             request.form.get('operating_state') or None,
             request.form.get('received_date') or None,
+            request.form.get('check_standard') or None,
+            request.form.get('check_tolerance') or None,
+            1 if request.form.get('check_enabled') else 0,
         ))
         did = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
         conn.commit(); conn.close()
@@ -482,7 +492,8 @@ def device_edit(did):
             status=?,notes=?,lab_id=?,web_link=?,method=?,max_temp=?,particular=?,
             measuring_time=?,measuring_limit=?,dimension=?,capacity=?,weight_kg=?,
             other_spec=?,power=?,frequency=?,voltage=?,specification=?,
-            operating_state=?,received_date=?
+            operating_state=?,received_date=?,
+            check_standard=?,check_tolerance=?,check_enabled=?
             WHERE id=?
         """, (
             request.form['name'],
@@ -511,6 +522,9 @@ def device_edit(did):
             request.form.get('specification') or None,
             request.form.get('operating_state') or None,
             request.form.get('received_date') or None,
+            request.form.get('check_standard') or None,
+            request.form.get('check_tolerance') or None,
+            1 if request.form.get('check_enabled') else 0,
             did
         ))
         if photo: conn.execute("UPDATE devices SET photo=? WHERE id=?", (photo, did))
@@ -632,6 +646,110 @@ def device_check_delete(cid):
     if did:
         return redirect(url_for('device_detail', did=did) + '#tab-check')
     return redirect(url_for('devices'))
+
+# ── НЭГДСЭН ӨДӨР ТУТМЫН БАТАЛГААЖУУЛАЛТ ──────────────────
+@app.route('/checks')
+@login_required
+def checks_page():
+    """Бүх тоног төхөөрөмжийн өдөр тутмын баталгаажуулалтыг нэг хуудсанд."""
+    lang = session.get('lang','mn')
+    sel_date = request.args.get('date') or date.today().isoformat()
+    conn = get_db()
+    devices = conn.execute("""
+        SELECT d.*, dm.manufacturer, dm.model FROM devices d
+        LEFT JOIN device_marks dm ON d.mark_id=dm.id
+        WHERE COALESCE(d.check_enabled,1)=1 AND d.status NOT IN ('archived','replaced')
+        ORDER BY d.name
+    """).fetchall()
+    # Сонгосон өдрийн шалгалтуудыг device_id-аар индекслэх
+    rows = conn.execute("""
+        SELECT ch.*, u.name as uname FROM device_checks ch
+        LEFT JOIN users u ON u.id=ch.checked_by
+        WHERE ch.check_date=? ORDER BY ch.id DESC
+    """, (sel_date,)).fetchall()
+    conn.close()
+    today_checks = {}
+    for r in rows:
+        today_checks.setdefault(r['device_id'], r)  # хамгийн сүүлийнх
+    return render_template('device/checks.html',
+        devices=devices, today_checks=today_checks,
+        sel_date=sel_date, today=date.today().isoformat(), lang=lang)
+
+@app.route('/checks/save', methods=['POST'])
+@login_required
+def checks_save():
+    """Нэг өдрийн бүх төхөөрөмжийн шалгалтыг нэг дор хадгална."""
+    lang = session.get('lang','mn')
+    if session.get('role') == 'guest':
+        return redirect(url_for('checks_page'))
+    sel_date = request.form.get('check_date') or date.today().isoformat()
+    uid = session.get('user_id', 0)
+    conn = get_db()
+    saved = 0
+    for did in request.form.getlist('device_id'):
+        measured = (request.form.get(f'measured_{did}') or '').strip()
+        if not measured:
+            continue  # хэмжсэн утга оруулаагүй бол алгасна
+        # Тухайн өдрийн хуучин бичлэгийг устгаад шинээр бичих (давхардахгүй)
+        conn.execute("DELETE FROM device_checks WHERE device_id=? AND check_date=?", (did, sel_date))
+        conn.execute("""
+            INSERT INTO device_checks(device_id,checked_by,check_date,standard_value,
+            measured_value,tolerance,result,notes)
+            VALUES(?,?,?,?,?,?,?,?)
+        """, (did, uid, sel_date,
+              request.form.get(f'standard_{did}') or None,
+              measured,
+              request.form.get(f'tolerance_{did}') or None,
+              request.form.get(f'result_{did}','pass'),
+              request.form.get(f'notes_{did}') or None))
+        saved += 1
+    conn.commit(); conn.close()
+    flash(f'{saved} төхөөрөмжийн баталгаажуулалт хадгалагдлаа!', 'success')
+    return redirect(url_for('checks_page', date=sel_date))
+
+@app.route('/checks/export')
+@login_required
+def checks_export():
+    """Баталгаажуулалтын бүртгэлийг Excel болгон татах."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    d_from = request.args.get('from') or date.today().replace(day=1).isoformat()
+    d_to   = request.args.get('to') or date.today().isoformat()
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT ch.check_date, d.name as device_name, d.lab_id,
+               ch.standard_value, ch.measured_value, ch.tolerance,
+               ch.result, ch.notes, u.name as uname
+        FROM device_checks ch
+        LEFT JOIN devices d ON d.id=ch.device_id
+        LEFT JOIN users u ON u.id=ch.checked_by
+        WHERE ch.check_date BETWEEN ? AND ?
+        ORDER BY ch.check_date DESC, d.name
+    """, (d_from, d_to)).fetchall()
+    conn.close()
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Баталгаажуулалт'
+    headers = ['Огноо','Төхөөрөмж','Лаб дугаар','Стандарт','Хэмжсэн','Зөвшөөрөх зөрүү','Үр дүн','Шалгасан','Тэмдэглэл']
+    ws.append(headers)
+    hf = Font(bold=True, color='FFFFFF')
+    fill = PatternFill('solid', fgColor='1A2744')
+    for c in ws[1]:
+        c.font = hf; c.fill = fill; c.alignment = Alignment(horizontal='center')
+    for r in rows:
+        ws.append([r['check_date'], r['device_name'], r['lab_id'] or '',
+                   r['standard_value'] or '', r['measured_value'] or '',
+                   r['tolerance'] or '',
+                   'Тэнцсэн' if r['result']=='pass' else 'Тэнцээгүй',
+                   r['uname'] or '', r['notes'] or ''])
+    widths = [12, 24, 12, 14, 14, 16, 12, 18, 24]
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+    buf = io.BytesIO()
+    wb.save(buf); buf.seek(0)
+    fname = f'baталгаажуулалт_{d_from}_{d_to}.xlsx'
+    return send_file(buf, as_attachment=True, download_name=fname,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 @app.route('/repair/<int:rid>/close', methods=['POST'])
 @login_required
@@ -1009,7 +1127,9 @@ def ensure_tables():
     for col in ['web_link TEXT','method TEXT','max_temp TEXT','particular TEXT',
                 'measuring_time TEXT','measuring_limit TEXT','dimension TEXT','capacity TEXT',
                 'weight_kg TEXT','other_spec TEXT','power TEXT','frequency TEXT','voltage TEXT',
-                'specification TEXT','operating_state TEXT','received_date TEXT','lab_id TEXT']:
+                'specification TEXT','operating_state TEXT','received_date TEXT','lab_id TEXT',
+                'check_standard TEXT','check_tolerance TEXT','check_unit TEXT',
+                'check_enabled INTEGER DEFAULT 1']:
         try: conn.execute(f"ALTER TABLE devices ADD COLUMN {col}")
         except Exception: pass
     # Дотоод өдөр тутмын шалгалт (жин г.м.)

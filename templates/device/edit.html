@@ -61,6 +61,25 @@
           <option value="standby" {{ 'selected' if device['status']=='standby' }}>{{ 'Хүлээгдэж байна' if lang=='mn' else 'Standby' }}</option>
         </select>
       </div>
+      <div class="section-title">Өдөр тутмын шалгалтын тохиргоо</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Стандарт утга (нэрлэсэн)</label>
+          <input type="text" name="check_standard" class="form-input" value="{{ device['check_standard'] or '' }}" placeholder="Ж: 100.0000 г">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Зөвшөөрөх зөрүү</label>
+          <input type="text" name="check_tolerance" class="form-input" value="{{ device['check_tolerance'] or '' }}" placeholder="Ж: ±0.0005">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Өдөр тутмын шалгалтад оруулах</label>
+          <label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer">
+            <input type="checkbox" name="check_enabled" {{ 'checked' if device['check_enabled'] or device['check_enabled'] is none }} style="width:16px;height:16px">
+            <span style="font-size:13px">Тийм</span>
+          </label>
+        </div>
+      </div>
+
       <div class="section-title">Дэлгэрэнгүй паспорт</div>
       <div class="form-grid">
         <div class="form-group">

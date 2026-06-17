@@ -41,6 +41,28 @@
         </div>
       </div>
 
+      <div class="section-title">Өдөр тутмын шалгалтын тохиргоо</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">
+        Энэ багажийг өдөр тутмын баталгаажуулалтын хуудсанд гаргах эсэх, стандарт утга болон зөвшөөрөх зөрүүг урьдчилан тохируулна.
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Стандарт утга (нэрлэсэн)</label>
+          <input type="text" name="check_standard" class="form-input" placeholder="Ж: 100.0000 г">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Зөвшөөрөх зөрүү</label>
+          <input type="text" name="check_tolerance" class="form-input" placeholder="Ж: ±0.0005">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Өдөр тутмын шалгалтад оруулах</label>
+          <label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer">
+            <input type="checkbox" name="check_enabled" checked style="width:16px;height:16px">
+            <span style="font-size:13px">Тийм</span>
+          </label>
+        </div>
+      </div>
+
       <div class="section-title">{{ 'Огноо / Хугацаа' if lang=='mn' else 'Dates' }}</div>
       <div class="form-row">
         <div class="form-group">

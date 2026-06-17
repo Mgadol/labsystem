@@ -1,0 +1,124 @@
+{% extends "partial/base.html" %}
+{% block title %}Өдөр тутмын баталгаажуулалт{% endblock %}
+{% block content %}
+<div class="page">
+  <div class="flex justify-between gap-12" style="margin-bottom:20px;flex-wrap:wrap">
+    <div>
+      <h1 class="page-title">✅ Өдөр тутмын баталгаажуулалт</h1>
+      <p class="page-sub">Бүх тоног төхөөрөмжийн дотоод шалгалтыг нэг дор бүртгэнэ</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <a href="{{ url_for('devices') }}" class="btn btn-ghost">← Төхөөрөмж</a>
+      <button onclick="document.getElementById('exportModal').style.display='flex'" class="btn btn-teal">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Excel татах
+      </button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;padding:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <label class="form-label" style="margin:0">Огноо:</label>
+    <input type="date" id="dateSel" class="form-input" style="width:170px" value="{{ sel_date }}"
+      onchange="window.location.href='{{ url_for('checks_page') }}?date='+this.value">
+    {% if sel_date == today %}
+    <span class="badge badge-active">Өнөөдөр</span>
+    {% else %}
+    <a href="{{ url_for('checks_page') }}?date={{ today }}" class="badge badge-standby" style="text-decoration:none">→ Өнөөдөр рүү</a>
+    {% endif %}
+  </div>
+
+  <form method="POST" action="{{ url_for('checks_save') }}">
+    <input type="hidden" name="check_date" value="{{ sel_date }}">
+    <div class="card" style="padding:0;overflow-x:auto">
+      <table class="table" style="min-width:900px">
+        <thead>
+          <tr>
+            <th style="width:30px"></th>
+            <th>Төхөөрөмж</th>
+            <th style="width:140px">Стандарт утга</th>
+            <th style="width:140px">Хэмжсэн утга</th>
+            <th style="width:130px">Зөвшөөрөх зөрүү</th>
+            <th style="width:130px">Үр дүн</th>
+            <th>Тэмдэглэл</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for d in devices %}
+        {% set chk = today_checks.get(d['id']) %}
+        <tr>
+          <td style="text-align:center">
+            <input type="hidden" name="device_id" value="{{ d['id'] }}">
+            {% if chk %}<span title="Бүртгэгдсэн" style="color:#0f6e56;font-size:16px">●</span>
+            {% else %}<span title="Бүртгээгүй" style="color:#ccc;font-size:16px">○</span>{% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('device_detail', did=d['id']) }}" style="font-weight:500;color:var(--navy)">{{ d['name'] }}</a>
+            {% if d['manufacturer'] %}<div style="font-size:11px;color:var(--text-muted)">{{ d['manufacturer'] }} {{ d['model'] or '' }}</div>{% endif %}
+          </td>
+          <td>
+            <input type="text" name="standard_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+              value="{{ chk['standard_value'] if chk else (d['check_standard'] or '') }}"
+              placeholder="{{ d['check_standard'] or '—' }}">
+          </td>
+          <td>
+            <input type="text" name="measured_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+              value="{{ chk['measured_value'] if chk else '' }}" placeholder="хэмжсэн утга">
+          </td>
+          <td>
+            <input type="text" name="tolerance_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+              value="{{ chk['tolerance'] if chk else (d['check_tolerance'] or '') }}"
+              placeholder="{{ d['check_tolerance'] or '±...' }}">
+          </td>
+          <td>
+            <select name="result_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px">
+              <option value="pass" {{ 'selected' if chk and chk['result']=='pass' }}>✓ Тэнцсэн</option>
+              <option value="fail" {{ 'selected' if chk and chk['result']=='fail' }}>✗ Тэнцээгүй</option>
+            </select>
+          </td>
+          <td>
+            <input type="text" name="notes_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+              value="{{ chk['notes'] if chk and chk['notes'] else '' }}" placeholder="...">
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted)">
+          <div style="font-size:32px;margin-bottom:8px">🔧</div>
+          Баталгаажуулах тоног төхөөрөмж байхгүй байна
+        </td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if devices and current_user['role'] != 'guest' %}
+    <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">
+      <button type="submit" class="btn btn-primary">💾 Бүгдийг хадгалах</button>
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:8px">
+      Зөвхөн "Хэмжсэн утга" бөглөсөн мөрүүд хадгалагдана.
+    </div>
+    {% endif %}
+  </form>
+</div>
+
+<!-- Excel татах modal -->
+<div id="exportModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:10px;padding:24px;max-width:400px;width:90%">
+    <h3 style="margin-bottom:16px">📊 Баталгаажуулалт татах</h3>
+    <form method="GET" action="{{ url_for('checks_export') }}">
+      <div class="form-group">
+        <label class="form-label">Эхлэх огноо</label>
+        <input type="date" name="from" class="form-input" value="{{ sel_date }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Дуусах огноо</label>
+        <input type="date" name="to" class="form-input" value="{{ sel_date }}">
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button type="button" onclick="document.getElementById('exportModal').style.display='none'" class="btn btn-ghost">Буцах</button>
+        <button type="submit" class="btn btn-teal">📥 Татах</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

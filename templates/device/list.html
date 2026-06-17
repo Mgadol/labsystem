@@ -17,6 +17,9 @@
         <option value="archived">{{ 'Архив' if lang=='mn' else 'Archived' }}</option>
         <option value="replaced">{{ 'Солигдсон' if lang=='mn' else 'Replaced' }}</option>
       </select>
+      <a href="{{ url_for('checks_page') }}" class="btn" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">
+        ✅ Өдөр тутмын баталгаажуулалт
+      </a>
       {% if current_user['role'] in ('admin','senior') %}
       <a href="{{ url_for('device_add') }}" class="btn btn-primary">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -83,6 +86,13 @@
           {% if d['location'] %}
           <span style="font-size:11px;color:var(--text-muted)">📍 {{ d['location'] }}</span>
           {% endif %}
+          {% if d['status']=='active' and current_user['role'] != 'guest' %}
+            {% if active_dev == d['id'] %}
+            <button onclick="stopUsage({{ active_log_id }})" class="btn btn-stop" style="padding:3px 10px;font-size:11px">⏹ STOP</button>
+            {% elif not active_dev %}
+            <button onclick="startUsage({{ d['id'] }})" class="btn btn-start" style="padding:3px 10px;font-size:11px">▶ START</button>
+            {% endif %}
+          {% endif %}
         </div>
 
         <div style="display:flex;gap:6px">
@@ -139,6 +149,19 @@
 {% endblock %}
 {% block scripts %}
 <script>
+async function startUsage(deviceId){
+  const r = await fetch('/usage/start/'+deviceId,{method:'POST'});
+  const d = await r.json();
+  if(d.success) location.reload();
+  else alert(d.error || 'Алдаа гарлаа');
+}
+async function stopUsage(logId){
+  const notes = prompt('Тэмдэглэл (заавал биш):','');
+  const r = await fetch('/usage/stop/'+logId,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({notes:notes||''})});
+  const d = await r.json();
+  if(d.success) location.reload();
+  else alert(d.error || 'Алдаа гарлаа');
+}
 function filterDevices(){
   var val = document.getElementById('filter-status').value;
   document.querySelectorAll('.device-item').forEach(function(el){
