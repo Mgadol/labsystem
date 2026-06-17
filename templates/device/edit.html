@@ -61,6 +61,16 @@
           <option value="standby" {{ 'selected' if device['status']=='standby' }}>{{ 'Хүлээгдэж байна' if lang=='mn' else 'Standby' }}</option>
         </select>
       </div>
+      <div class="section-title">Ашиглах шат</div>
+      <div class="form-group">
+        <label class="form-label">Энэ багаж аль шатанд ашиглагдах вэ?</label>
+        <select name="stage" class="form-input" style="width:auto">
+          <option value="both" {{ 'selected' if (device['stage'] or 'both')=='both' }}>📦🔬 Хоёуланд (бэлтгэл болон шинжилгээ)</option>
+          <option value="prep" {{ 'selected' if device['stage']=='prep' }}>📦 Зөвхөн дээж бэлтгэлд</option>
+          <option value="analysis" {{ 'selected' if device['stage']=='analysis' }}>🔬 Зөвхөн шинжилгээнд</option>
+        </select>
+      </div>
+
       <div class="section-title">Өдөр тутмын шалгалтын тохиргоо</div>
       <div class="form-row">
         <div class="form-group">

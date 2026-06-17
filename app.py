@@ -432,8 +432,8 @@ def device_add():
             lab_id,web_link,method,max_temp,particular,measuring_time,measuring_limit,
             dimension,capacity,weight_kg,other_spec,power,frequency,voltage,
             specification,operating_state,received_date,
-            check_standard,check_tolerance,check_enabled)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            check_standard,check_tolerance,check_enabled,stage)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             request.form['name'],
             request.form.get('serial_number') or None,
@@ -464,6 +464,7 @@ def device_add():
             request.form.get('check_standard') or None,
             request.form.get('check_tolerance') or None,
             1 if request.form.get('check_enabled') else 0,
+            request.form.get('stage') or 'both',
         ))
         did = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
         conn.commit(); conn.close()
@@ -493,7 +494,7 @@ def device_edit(did):
             measuring_time=?,measuring_limit=?,dimension=?,capacity=?,weight_kg=?,
             other_spec=?,power=?,frequency=?,voltage=?,specification=?,
             operating_state=?,received_date=?,
-            check_standard=?,check_tolerance=?,check_enabled=?
+            check_standard=?,check_tolerance=?,check_enabled=?,stage=?
             WHERE id=?
         """, (
             request.form['name'],
@@ -525,6 +526,7 @@ def device_edit(did):
             request.form.get('check_standard') or None,
             request.form.get('check_tolerance') or None,
             1 if request.form.get('check_enabled') else 0,
+            request.form.get('stage') or 'both',
             did
         ))
         if photo: conn.execute("UPDATE devices SET photo=? WHERE id=?", (photo, did))
@@ -1129,7 +1131,7 @@ def ensure_tables():
                 'weight_kg TEXT','other_spec TEXT','power TEXT','frequency TEXT','voltage TEXT',
                 'specification TEXT','operating_state TEXT','received_date TEXT','lab_id TEXT',
                 'check_standard TEXT','check_tolerance TEXT','check_unit TEXT',
-                'check_enabled INTEGER DEFAULT 1']:
+                'check_enabled INTEGER DEFAULT 1','stage TEXT DEFAULT \'both\'']:
         try: conn.execute(f"ALTER TABLE devices ADD COLUMN {col}")
         except Exception: pass
     # Дотоод өдөр тутмын шалгалт (жин г.м.)

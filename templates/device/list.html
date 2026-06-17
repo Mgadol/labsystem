@@ -83,6 +83,13 @@
           {% elif d['status']=='replaced' %}
             <span class="badge" style="background:#eeedfe;color:#3c3489">🔄 {{ 'Солигдсон' if lang=='mn' else 'Replaced' }}</span>
           {% endif %}
+          {% if d['stage']=='prep' %}
+            <span style="font-size:11px;background:#e1f5ee;color:#0f6e56;border-radius:4px;padding:1px 6px">📦 Бэлтгэл</span>
+          {% elif d['stage']=='analysis' %}
+            <span style="font-size:11px;background:#ede9fe;color:#6020a0;border-radius:4px;padding:1px 6px">🔬 Шинжилгээ</span>
+          {% else %}
+            <span style="font-size:11px;background:#f0f0f0;color:#555;border-radius:4px;padding:1px 6px">📦🔬 Хоёуланд</span>
+          {% endif %}
           {% if d['location'] %}
           <span style="font-size:11px;color:var(--text-muted)">📍 {{ d['location'] }}</span>
           {% endif %}
