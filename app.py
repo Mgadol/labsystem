@@ -1106,7 +1106,17 @@ def device_archive(did):
     reason = request.form.get('reason', 'archived')
     conn.execute("UPDATE devices SET status=? WHERE id=?", (reason, did))
     conn.commit(); conn.close()
-    flash('Төхөөрөмж архивлагдлаа.' if lang=='mn' else 'Device archived.', 'success')
+    msgs = {
+        'standby':        'Төхөөрөмж нөөцөд шилжлээ.',
+        'repair':         'Төхөөрөмж засварт шилжлээ. Дэлгэрэнгүйг бүртгэнэ үү.',
+        'replaced':       'Төхөөрөмж солигдсон гэж тэмдэглэгдлээ.',
+        'decommissioned': 'Төхөөрөмж акталагдлаа.',
+        'archived':       'Төхөөрөмж архивлагдлаа.',
+    }
+    flash(msgs.get(reason, 'Төхөөрөмжийн төлөв шинэчлэгдлээ.') if lang=='mn' else 'Device status updated.', 'success')
+    # Засварт шилжүүлсэн бол detail хуудас руу (дэлгэрэнгүй бүртгэхэд)
+    if reason == 'repair':
+        return redirect(url_for('device_detail', did=did) + '#tab-repair')
     return redirect(url_for('devices'))
 
 @app.route('/devices/<int:did>/restore', methods=['POST'])

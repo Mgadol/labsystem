@@ -147,6 +147,12 @@
               </button>
               <div id="arch-menu-{{ d['id'] }}" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:10;min-width:170px">
                 <form method="POST" action="{{ url_for('device_archive', did=d['id']) }}">
+                  <input type="hidden" name="reason" value="repair">
+                  <button type="submit" style="width:100%;text-align:left;padding:8px 12px;font-size:13px;background:none;border:none;cursor:pointer;color:#854f0b;border-bottom:1px solid var(--border)">
+                    🔧 {{ 'Засварт шилжүүлэх' if lang=='mn' else 'Move to Repair' }}
+                  </button>
+                </form>
+                <form method="POST" action="{{ url_for('device_archive', did=d['id']) }}">
                   <input type="hidden" name="reason" value="standby">
                   <button type="submit" style="width:100%;text-align:left;padding:8px 12px;font-size:13px;background:none;border:none;cursor:pointer;color:var(--text)">
                     📦 {{ 'Нөөцөд шилжүүлэх' if lang=='mn' else 'Move to Standby' }}
