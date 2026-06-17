@@ -83,30 +83,30 @@
         <div style="margin-bottom:10px">
           <div style="display:flex;gap:5px;align-items:center;flex-wrap:nowrap">
             {% if d['status']=='active' %}
-              <span class="badge badge-active" style="font-size:11px;padding:2px 7px;white-space:nowrap">✅ {{ 'Идэвхтэй' if lang=='mn' else 'Active' }}</span>
+              <span class="badge badge-active" style="font-size:10px;padding:2px 6px;white-space:nowrap">✅ {{ 'Идэвхтэй' if lang=='mn' else 'Active' }}</span>
             {% elif d['status']=='repair' %}
-              <span class="badge badge-repair" style="font-size:11px;padding:2px 7px;white-space:nowrap">🔧 {{ 'Засварт' if lang=='mn' else 'In Repair' }}</span>
+              <span class="badge badge-repair" style="font-size:10px;padding:2px 6px;white-space:nowrap">🔧 {{ 'Засварт' if lang=='mn' else 'In Repair' }}</span>
             {% elif d['status']=='standby' %}
-              <span class="badge badge-standby" style="font-size:11px;padding:2px 7px;white-space:nowrap">📦 {{ 'Нөөц' if lang=='mn' else 'Standby' }}</span>
+              <span class="badge badge-standby" style="font-size:10px;padding:2px 6px;white-space:nowrap">📦 {{ 'Нөөц' if lang=='mn' else 'Standby' }}</span>
             {% elif d['status']=='archived' %}
-              <span class="badge" style="background:#eee;color:#888;font-size:11px;padding:2px 7px;white-space:nowrap">🗄️ {{ 'Архив' if lang=='mn' else 'Archived' }}</span>
+              <span class="badge" style="background:#eee;color:#888;font-size:10px;padding:2px 6px;white-space:nowrap">🗄️ {{ 'Архив' if lang=='mn' else 'Archived' }}</span>
             {% elif d['status']=='replaced' %}
-              <span class="badge" style="background:#eeedfe;color:#3c3489;font-size:11px;padding:2px 7px;white-space:nowrap">🔄 {{ 'Солигдсон' if lang=='mn' else 'Replaced' }}</span>
+              <span class="badge" style="background:#eeedfe;color:#3c3489;font-size:10px;padding:2px 6px;white-space:nowrap">🔄 {{ 'Солигдсон' if lang=='mn' else 'Replaced' }}</span>
             {% elif d['status']=='decommissioned' %}
-              <span class="badge" style="background:#fde8e8;color:#b91c1c;font-size:11px;padding:2px 7px;white-space:nowrap">🛑 {{ 'Акталсан' if lang=='mn' else 'Decommissioned' }}</span>
+              <span class="badge" style="background:#fde8e8;color:#b91c1c;font-size:10px;padding:2px 6px;white-space:nowrap">🛑 {{ 'Акталсан' if lang=='mn' else 'Decommissioned' }}</span>
             {% endif %}
             {% if d['stage']=='prep' %}
-              <span style="font-size:11px;background:#e1f5ee;color:#0f6e56;border-radius:4px;padding:2px 6px;white-space:nowrap">📦 Бэлтгэл</span>
+              <span style="font-size:10px;background:#e1f5ee;color:#0f6e56;border-radius:4px;padding:2px 5px;white-space:nowrap">📦 Бэлтгэл</span>
             {% elif d['stage']=='analysis' %}
-              <span style="font-size:11px;background:#ede9fe;color:#6020a0;border-radius:4px;padding:2px 6px;white-space:nowrap">🔬 Шинжилгээ</span>
+              <span style="font-size:10px;background:#ede9fe;color:#6020a0;border-radius:4px;padding:2px 5px;white-space:nowrap">🔬 Шинжилгээ</span>
             {% else %}
-              <span style="font-size:11px;background:#f0f0f0;color:#555;border-radius:4px;padding:2px 6px;white-space:nowrap">📦🔬 Хоёуланд</span>
+              <span style="font-size:10px;background:#f0f0f0;color:#555;border-radius:4px;padding:2px 5px;white-space:nowrap">📦🔬 Хоёуланд</span>
             {% endif %}
             {% if d['status']=='active' and current_user['role'] != 'guest' %}
               {% if active_dev == d['id'] %}
-              <button onclick="stopUsage({{ active_log_id }})" class="btn btn-stop" style="padding:1px 8px;font-size:11px;line-height:1.6;height:auto">⏹ STOP</button>
+              <button onclick="stopUsage({{ active_log_id }})" class="btn btn-stop" style="padding:1px 6px;font-size:9px;line-height:1.5;height:auto;flex-shrink:0;font-weight:600">⏹ STOP</button>
               {% elif not active_dev %}
-              <button onclick="startUsage({{ d['id'] }})" class="btn btn-start" style="padding:1px 8px;font-size:11px;line-height:1.6;height:auto">▶ START</button>
+              <button onclick="startUsage({{ d['id'] }})" class="btn btn-start" style="padding:1px 6px;font-size:9px;line-height:1.5;height:auto;flex-shrink:0;font-weight:600">▶ START</button>
               {% endif %}
             {% endif %}
           </div>
