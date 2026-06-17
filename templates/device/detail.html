@@ -1,6 +1,10 @@
 {% extends "partial/base.html" %}
 {% block title %}{{ device['name'] }}{% endblock %}
 {% block content %}
+<style>
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+</style>
 <div class="page">
   <div class="flex justify-between gap-12" style="margin-bottom:16px;flex-wrap:wrap">
     <div>
