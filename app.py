@@ -842,6 +842,31 @@ def staff_detail(uid):
     if not target:
         conn.close()
         return redirect(url_for('staff_list'))
+
+    # ── ГЕОЛОГИЧ (харилцагч): зөвхөн дээж бүртгэлийн мэдээлэл ──
+    if target['role'] == 'geologist':
+        geo_total = conn.execute("SELECT COUNT(*) FROM geo_samples WHERE registered_by=?", (uid,)).fetchone()[0]
+        geo_done  = conn.execute("SELECT COUNT(*) FROM geo_samples WHERE registered_by=? AND status='done'", (uid,)).fetchone()[0]
+        geo_active = geo_total - geo_done
+        geo_by_type = conn.execute("""
+            SELECT sample_type, COUNT(*) as cnt FROM geo_samples
+            WHERE registered_by=? GROUP BY sample_type ORDER BY cnt DESC
+        """, (uid,)).fetchall()
+        geo_recent = conn.execute("""
+            SELECT g.*, sr.lab_number FROM geo_samples g
+            LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
+            WHERE g.registered_by=? ORDER BY g.created_at DESC LIMIT 30
+        """, (uid,)).fetchall()
+        geo_monthly = conn.execute("""
+            SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as cnt
+            FROM geo_samples WHERE registered_by=?
+            GROUP BY month ORDER BY month
+        """, (uid,)).fetchall()
+        conn.close()
+        return render_template('staff/detail_geologist.html', target=target, lang=lang,
+                               geo_total=geo_total, geo_done=geo_done, geo_active=geo_active,
+                               geo_by_type=geo_by_type, geo_recent=geo_recent, geo_monthly=geo_monthly)
+
     logs    = conn.execute("""
         SELECT ul.*, d.name as dname FROM usage_logs ul
         LEFT JOIN devices d ON d.id=ul.device_id
