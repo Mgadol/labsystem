@@ -16,6 +16,7 @@
         <option value="standby">{{ 'Нөөц' if lang=='mn' else 'Standby' }}</option>
         <option value="archived">{{ 'Архив' if lang=='mn' else 'Archived' }}</option>
         <option value="replaced">{{ 'Солигдсон' if lang=='mn' else 'Replaced' }}</option>
+        <option value="decommissioned">{{ 'Акталсан' if lang=='mn' else 'Decommissioned' }}</option>
       </select>
       <select id="filter-stage" onchange="filterDevices()" class="form-input" style="width:auto;font-size:13px;padding:6px 10px">
         <option value="all">{{ 'Бүх шат' if lang=='mn' else 'All stages' }}</option>
@@ -40,7 +41,7 @@
     {% set active_count = devices|selectattr('status','eq','active')|list|length %}
     {% set repair_count = devices|selectattr('status','eq','repair')|list|length %}
     {% set standby_count = devices|selectattr('status','eq','standby')|list|length %}
-    {% set archived_count = devices|selectattr('status','in',['archived','replaced'])|list|length %}
+    {% set archived_count = devices|selectattr('status','in',['archived','replaced','decommissioned'])|list|length %}
     <div class="stat-card" style="cursor:pointer" onclick="setFilter('active')">
       <div class="stat-val" style="color:var(--teal)">{{ active_count }}</div>
       <div class="stat-lbl">{{ 'Идэвхтэй' if lang=='mn' else 'Active' }}</div>
@@ -62,7 +63,7 @@
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px" id="device-grid">
     {% for d in devices %}
     <div class="device-item" data-status="{{ d['status'] }}" data-stage="{{ d['stage'] or 'both' }}">
-      <div class="card" style="transition:.15s;{% if d['status'] in ('archived','replaced') %}opacity:.6;{% endif %}">
+      <div class="card" style="transition:.15s;{% if d['status'] in ('archived','replaced','decommissioned') %}opacity:.6;{% endif %}">
         <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:10px">
           {% if d['photo'] %}
           <img src="{{ url_for('static',filename='uploads/'+d['photo']) }}" style="width:52px;height:52px;border-radius:8px;object-fit:contain;background:#fff;flex-shrink:0">
@@ -90,6 +91,8 @@
             <span class="badge" style="background:#eee;color:#888">🗄️ {{ 'Архив' if lang=='mn' else 'Archived' }}</span>
           {% elif d['status']=='replaced' %}
             <span class="badge" style="background:#eeedfe;color:#3c3489">🔄 {{ 'Солигдсон' if lang=='mn' else 'Replaced' }}</span>
+          {% elif d['status']=='decommissioned' %}
+            <span class="badge" style="background:#fde8e8;color:#b91c1c">🛑 {{ 'Акталсан' if lang=='mn' else 'Decommissioned' }}</span>
           {% endif %}
           {% if d['stage']=='prep' %}
             <span style="font-size:11px;background:#e1f5ee;color:#0f6e56;border-radius:4px;padding:1px 6px">📦 Бэлтгэл</span>
@@ -115,7 +118,7 @@
             {{ 'Харах' if lang=='mn' else 'View' }}
           </a>
           {% if current_user['role'] in ('admin','senior') %}
-            {% if d['status'] in ('archived','replaced') %}
+            {% if d['status'] in ('archived','replaced','decommissioned') %}
             <!-- Сэргээх -->
             <form method="POST" action="{{ url_for('device_restore', did=d['id']) }}">
               <button type="submit" class="btn btn-sm" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">
@@ -161,6 +164,12 @@
                     🔄 {{ 'Солигдсон' if lang=='mn' else 'Mark Replaced' }}
                   </button>
                 </form>
+                <form method="POST" action="{{ url_for('device_archive', did=d['id']) }}" onsubmit="return confirm('Засагдашгүй эвдэрсэн — акталах уу?')">
+                  <input type="hidden" name="reason" value="decommissioned">
+                  <button type="submit" style="width:100%;text-align:left;padding:8px 12px;font-size:13px;background:none;border:none;cursor:pointer;color:#b91c1c">
+                    🛑 {{ 'Акталах (засагдашгүй)' if lang=='mn' else 'Decommission' }}
+                  </button>
+                </form>
               </div>
             </div>
             {% endif %}
@@ -199,7 +208,7 @@ function filterDevices(){
     var stage  = el.dataset.stage;
     var okStatus;
     if(val==='all') okStatus=true;
-    else if(val==='archived') okStatus=(status==='archived'||status==='replaced');
+    else if(val==='archived') okStatus=(status==='archived'||status==='replaced'||status==='decommissioned');
     else okStatus=(status===val);
     var okStage = (stg==='all') || (stage===stg);
     el.style.display=(okStatus && okStage)?'':'none';
@@ -224,7 +233,7 @@ document.addEventListener('click', function(e){
 // Анхдагч: архив болон нөөцийг үндсэн цэснээс нуух
 document.querySelectorAll('.device-item').forEach(function(el){
   var s = el.dataset.status;
-  if(s==='archived'||s==='replaced'||s==='standby') el.style.display='none';
+  if(s==='archived'||s==='replaced'||s==='standby'||s==='decommissioned') el.style.display='none';
 });
 </script>
 {% endblock %}

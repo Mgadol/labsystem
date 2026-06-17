@@ -56,6 +56,8 @@
             <span class="badge" style="background:#eeedfe;color:#3c3489">🔄 {{ 'Солигдсон' if lang=='mn' else 'Replaced' }}</span>
             {% elif d['status']=='standby' %}
             <span class="badge badge-standby">📦 {{ 'Нөөц' if lang=='mn' else 'Standby' }}</span>
+            {% elif d['status']=='decommissioned' %}
+            <span class="badge" style="background:#fde8e8;color:#b91c1c">🛑 {{ 'Акталсан' if lang=='mn' else 'Decommissioned' }}</span>
             {% endif %}
           </td>
           <td>

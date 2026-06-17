@@ -940,7 +940,7 @@ def archive():
     archived_devices = conn.execute("""
         SELECT d.*, dm.manufacturer, dm.model FROM devices d
         LEFT JOIN device_marks dm ON d.mark_id=dm.id
-        WHERE d.status IN ('archived','replaced')
+        WHERE d.status IN ('archived','replaced','decommissioned')
         ORDER BY d.name
     """).fetchall()
     archived_staff = conn.execute(
