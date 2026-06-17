@@ -1972,25 +1972,8 @@ def prep_start(receipt_id):
 def prep_done(receipt_id):
     conn = get_db()
     notes = request.form.get('notes','')
-    def flt(k): return float(request.form.get(k)) if request.form.get(k) else None
-    conn.execute("""UPDATE sample_receipt SET
-        prep_status='ready', prep_done_at=?, prep_notes=?,
-        fm_sample_mass=?, fm_dried_mass=?, fm_date=?, fm_operator=?,
-        mt_tare1=?, mt_sample1=?, mt_dried1=?,
-        mt_tare2=?, mt_sample2=?, mt_dried2=?,
-        mt_date=?, mt_shift=?, mt_operator=?
-        WHERE id=?""", (
-        datetime.now().isoformat(), notes,
-        flt('fm_sample_mass'), flt('fm_dried_mass'),
-        request.form.get('fm_date') or None,
-        request.form.get('fm_operator') or None,
-        flt('mt_tare1'), flt('mt_sample1'), flt('mt_dried1'),
-        flt('mt_tare2'), flt('mt_sample2'), flt('mt_dried2'),
-        request.form.get('mt_date') or None,
-        request.form.get('mt_shift') or None,
-        request.form.get('mt_operator') or None,
-        receipt_id
-    ))
+    conn.execute("""UPDATE sample_receipt SET prep_status='ready', prep_done_at=?, prep_notes=?
+                   WHERE id=?""", (datetime.now().isoformat(), notes, receipt_id))
     conn.execute("UPDATE geo_samples SET status='ready' WHERE id=(SELECT geo_sample_id FROM sample_receipt WHERE id=?)", (receipt_id,))
     lab_num = conn.execute('SELECT lab_number FROM sample_receipt WHERE id=?', (receipt_id,)).fetchone()
     lab_str = lab_num[0] if lab_num else ''
