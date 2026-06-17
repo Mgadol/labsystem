@@ -303,7 +303,8 @@ function applyFilters(){
   var d = document.getElementById('filter-date').value;
   document.querySelectorAll('.sample-row').forEach(function(r){
     var catOk = r.dataset.cat === curTab;
-    var dateOk = !d || r.dataset.date === d;
+    // Огнооны шүүлтүүр зөвхөн "Бэлтгэл" табд хэрэгжинэ; Шинжилгээ табд бүх бэлэн дээж харагдана
+    var dateOk = (curTab !== 'prep') || !d || r.dataset.date === d;
     r.style.display = (catOk && dateOk) ? '' : 'none';
   });
   updateCounts();
@@ -312,10 +313,12 @@ function updateCounts(){
   var d = document.getElementById('filter-date').value;
   var prep=0, anal=0;
   document.querySelectorAll('.sample-row').forEach(function(r){
-    var dateOk = !d || r.dataset.date === d;
-    if(dateOk){
-      if(r.dataset.cat==='prep') prep++;
-      else anal++;
+    if(r.dataset.cat==='prep'){
+      // Бэлтгэлийг огноогоор шүүж тоолно
+      if(!d || r.dataset.date === d) prep++;
+    } else {
+      // Шинжилгээг огноогоор шүүхгүй, бүгдийг тоолно
+      anal++;
     }
   });
   document.getElementById('cnt-prep').textContent = prep;
