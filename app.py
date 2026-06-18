@@ -294,7 +294,7 @@ def set_lang(lang):
 def dashboard():
     lang = session.get('lang','mn')
     conn = get_db()
-    if session.get('role') in ('admin', 'guest'):
+    if session.get('role') in ('admin', 'senior', 'guest'):
         devices  = conn.execute("SELECT d.*, dm.manufacturer, dm.model FROM devices d LEFT JOIN device_marks dm ON d.mark_id=dm.id ORDER BY d.name").fetchall()
         users    = conn.execute("SELECT * FROM users WHERE is_active=1 AND role != 'geologist'").fetchall()
         clients  = conn.execute("SELECT * FROM users WHERE is_active=1 AND role = 'geologist'").fetchall()
