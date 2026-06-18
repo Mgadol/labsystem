@@ -1250,6 +1250,14 @@ def ensure_tables():
     for col in ['prep_operator TEXT', 'prep_position TEXT', 'prep_devices TEXT']:
         try: conn.execute(f"ALTER TABLE sample_receipt ADD COLUMN {col}")
         except Exception: pass
+    # Барабан (Эргэдэг хүрд) тохиргоо — лаб дугаар 11-14
+    conn.execute("""
+        UPDATE devices SET
+            check_standard='50', check_tolerance='±1',
+            check_freq='weekly', check_enabled=1
+        WHERE lab_id IN ('11','12','13','14')
+          AND (check_standard IS NULL OR check_standard='')
+    """)
     # Төхөөрөмжийн дэлгэрэнгүй паспорт талбарууд
     for col in ['web_link TEXT','method TEXT','max_temp TEXT','particular TEXT',
                 'measuring_time TEXT','measuring_limit TEXT','dimension TEXT','capacity TEXT',
