@@ -1186,7 +1186,10 @@ def ensure_tables():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         expires_at TEXT NOT NULL
     )""")
-    for col in ['manufacture_date TEXT', 'expiry_date TEXT', 'open_date TEXT', 'g_cert REAL', 'g_unc REAL', 'standard TEXT']:
+    for col in ['manufacture_date TEXT', 'expiry_date TEXT', 'open_date TEXT', 'g_cert REAL', 'g_unc REAL', 'standard TEXT',
+                'mad_cert REAL', 'mad_unc REAL',
+                'aad_cert REAL', 'aad_unc REAL', 'vad_cert REAL', 'vad_unc REAL',
+                'sulfur_cert REAL', 'sulfur_unc REAL', 'cal_cert REAL', 'cal_unc REAL']:
         try: conn.execute(f"ALTER TABLE crm_materials ADD COLUMN {col}")
         except Exception: pass
     for col in ['crm_name TEXT','crm_mad REAL','crm_aad REAL','crm_vad REAL',
@@ -1663,10 +1666,10 @@ def analysis_crm_register():
         try:
             cur = conn.execute("""
                 INSERT INTO geo_samples (sample_name, sample_type, location, collected_date, quantity, notes,
-                    registered_by, status, crm_name, crm_mad, crm_aad, crm_vad, crm_sulfur, crm_cal)
-                VALUES (?, 'CRM', 'CRM', ?, 1, ?, ?, 'received', ?, ?, ?, ?, ?, ?)
+                    registered_by, status, crm_name, crm_aad, crm_vad, crm_sulfur, crm_cal)
+                VALUES (?, 'CRM', 'CRM', ?, 1, ?, ?, 'received', ?, ?, ?, ?, ?)
             """, (crm_name, collected_date, notes, session['user_id'],
-                  crm_name, mat['mad_cert'], mat['aad_cert'], mat['vad_cert'], mat['sulfur_cert'], mat['cal_cert']))
+                  crm_name, mat['aad_cert'], mat['vad_cert'], mat['sulfur_cert'], mat['cal_cert']))
             geo_id = cur.lastrowid
 
             crm_lab_num = f"CRM {crm_name} {collected_date.replace('-','')}"
