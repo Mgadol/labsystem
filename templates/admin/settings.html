@@ -398,11 +398,28 @@
           </td>
           <td style="font-size:12px;color:var(--text-muted)">{{ c['notes'] or '' }}</td>
           <td>
-            <form method="POST" action="/lab-settings/crm" style="display:inline" onsubmit="return confirm('Устгах уу?')">
-              <input type="hidden" name="action" value="delete">
-              <input type="hidden" name="id" value="{{ c['id'] }}">
-              <button class="btn btn-sm" style="background:#faece7;color:#993c1d">Устгах</button>
-            </form>
+            <div style="position:relative" id="crm-wrap-{{ c['id'] }}">
+              <button onclick="toggleCrmMenu({{ c['id'] }})" class="btn btn-sm btn-ghost" style="padding:4px 10px;font-size:18px;line-height:1">⋮</button>
+              <div id="crm-menu-{{ c['id'] }}" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:50;min-width:150px">
+                <a href="{{ url_for('crm_edit', mid=c['id']) }}" style="display:block;padding:8px 12px;font-size:13px;color:var(--text);text-decoration:none;border-bottom:1px solid var(--border)">
+                  ✏️ Засах
+                </a>
+                <form method="POST" action="/lab-settings/crm" onsubmit="return confirm('Дуусгах уу? Жагсаалтаас алга болно.')">
+                  <input type="hidden" name="action" value="deactivate">
+                  <input type="hidden" name="id" value="{{ c['id'] }}">
+                  <button type="submit" style="width:100%;text-align:left;padding:8px 12px;font-size:13px;background:none;border:none;cursor:pointer;color:#0f6e56;border-bottom:1px solid var(--border)">
+                    ✅ Дуусгах
+                  </button>
+                </form>
+                <form method="POST" action="/lab-settings/crm" onsubmit="return confirm('Бүрэн устгах уу?')">
+                  <input type="hidden" name="action" value="delete">
+                  <input type="hidden" name="id" value="{{ c['id'] }}">
+                  <button type="submit" style="width:100%;text-align:left;padding:8px 12px;font-size:13px;background:none;border:none;cursor:pointer;color:#993c1d">
+                    🗑 Устгах
+                  </button>
+                </form>
+              </div>
+            </div>
           </td>
         </tr>
         {% else %}
@@ -501,6 +518,17 @@
 {% endblock %}
 {% block scripts %}
 <script>
+function toggleCrmMenu(id){
+  var el = document.getElementById('crm-menu-'+id);
+  var isOpen = el.style.display !== 'none';
+  document.querySelectorAll('[id^="crm-menu-"]').forEach(function(m){ m.style.display='none'; });
+  el.style.display = isOpen ? 'none' : 'block';
+}
+document.addEventListener('click', function(e){
+  if(!e.target.closest('[id^="crm-wrap-"]')) {
+    document.querySelectorAll('[id^="crm-menu-"]').forEach(function(m){ m.style.display='none'; });
+  }
+});
 function deleteQC(param){
   if(!confirm(param + ' параметрийг устгах уу?')) return;
   fetch('/lab-settings/qc-delete', {

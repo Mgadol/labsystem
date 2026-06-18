@@ -2566,9 +2566,49 @@ def lab_settings_crm():
             conn.execute("DELETE FROM crm_materials WHERE id=?", (mid,))
             conn.commit()
             flash('CRM материал устгагдлаа', 'success')
+        elif action == 'deactivate':
+            mid = request.form.get('id')
+            conn.execute("UPDATE crm_materials SET is_active=0 WHERE id=?", (mid,))
+            conn.commit()
+            flash('CRM материал дуусгагдлаа', 'success')
     finally:
         conn.close()
     return redirect(url_for('lab_settings') + '?tab=crm')
+
+@app.route('/lab-settings/crm/<int:mid>/edit', methods=['GET','POST'])
+@admin_required
+def crm_edit(mid):
+    conn = get_db()
+    mat = conn.execute("SELECT * FROM crm_materials WHERE id=?", (mid,)).fetchone()
+    if not mat:
+        conn.close()
+        flash('CRM материал олдсонгүй', 'error')
+        return redirect(url_for('lab_settings') + '?tab=crm')
+    if request.method == 'POST':
+        conn.execute("""UPDATE crm_materials SET
+            crm_name=?, aad_cert=?, aad_unc=?, vad_cert=?, vad_unc=?,
+            sulfur_cert=?, sulfur_unc=?, cal_cert=?, cal_unc=?,
+            g_cert=?, g_unc=?, notes=?, standard=?,
+            manufacture_date=?, expiry_date=?, open_date=?
+            WHERE id=?""", (
+            request.form.get('crm_name','').strip(),
+            request.form.get('aad_cert') or None, request.form.get('aad_unc') or None,
+            request.form.get('vad_cert') or None, request.form.get('vad_unc') or None,
+            request.form.get('sulfur_cert') or None, request.form.get('sulfur_unc') or None,
+            request.form.get('cal_cert') or None, request.form.get('cal_unc') or None,
+            request.form.get('g_cert') or None, request.form.get('g_unc') or None,
+            request.form.get('notes','').strip() or None,
+            request.form.get('standard','').strip() or None,
+            request.form.get('manufacture_date') or None,
+            request.form.get('expiry_date') or None,
+            request.form.get('open_date') or None,
+            mid
+        ))
+        conn.commit(); conn.close()
+        flash('CRM материал шинэчлэгдлээ', 'success')
+        return redirect(url_for('lab_settings') + '?tab=crm')
+    conn.close()
+    return render_template('admin/crm_edit.html', mat=mat, today=date.today().isoformat())
 
 @app.route('/backup')
 @admin_required

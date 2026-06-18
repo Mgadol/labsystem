@@ -1,0 +1,89 @@
+{% extends "partial/base.html" %}
+{% block title %}CRM засах — {{ mat['crm_name'] }}{% endblock %}
+{% block content %}
+<div class="page" style="max-width:600px">
+  <div style="margin-bottom:16px">
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">
+      <a href="{{ url_for('lab_settings') }}?tab=crm">CRM материал</a> /
+    </div>
+    <h1 class="page-title">✏️ CRM засах — {{ mat['crm_name'] }}</h1>
+  </div>
+  <div class="card">
+    <form method="POST">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">CRM нэр / код <span style="color:var(--coral)">*</span></label>
+          <input type="text" name="crm_name" class="form-input" value="{{ mat['crm_name'] }}" required>
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Стандарт</label>
+          <input type="text" name="standard" class="form-input" value="{{ mat['standard'] or '' }}" placeholder="Жишээ: GBW11107w">
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <p style="font-size:12px;color:var(--text-muted);margin:0">Бүх үзүүлэлт агаарт хатаасан суурь (dry basis) дээр байна.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Adb [%] — Баталгаажсан</label>
+          <input type="number" name="aad_cert" class="form-input" step="0.0001" value="{{ mat['aad_cert'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Adb ± хязгаар</label>
+          <input type="number" name="aad_unc" class="form-input" step="0.0001" value="{{ mat['aad_unc'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Vdb [%] — Баталгаажсан</label>
+          <input type="number" name="vad_cert" class="form-input" step="0.0001" value="{{ mat['vad_cert'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Vdb ± хязгаар</label>
+          <input type="number" name="vad_unc" class="form-input" step="0.0001" value="{{ mat['vad_unc'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Sdb [%] — Баталгаажсан</label>
+          <input type="number" name="sulfur_cert" class="form-input" step="0.0001" value="{{ mat['sulfur_cert'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Sdb ± хязгаар</label>
+          <input type="number" name="sulfur_unc" class="form-input" step="0.0001" value="{{ mat['sulfur_unc'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Qb,d [МЖ/кг] — Баталгаажсан</label>
+          <input type="number" name="cal_cert" class="form-input" step="0.001" value="{{ mat['cal_cert'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Qb,d ± хязгаар</label>
+          <input type="number" name="cal_unc" class="form-input" step="0.001" value="{{ mat['cal_unc'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">G-индекс — Баталгаажсан</label>
+          <input type="number" name="g_cert" class="form-input" step="0.01" value="{{ mat['g_cert'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">G-индекс ± хязгаар</label>
+          <input type="number" name="g_unc" class="form-input" step="0.01" value="{{ mat['g_unc'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Үйлдвэрлэсэн огноо</label>
+          <input type="date" name="manufacture_date" class="form-input" value="{{ mat['manufacture_date'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Хүчинтэй огноо (дуусах)</label>
+          <input type="date" name="expiry_date" class="form-input" value="{{ mat['expiry_date'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Нээсэн огноо</label>
+          <input type="date" name="open_date" class="form-input" value="{{ mat['open_date'] or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Тэмдэглэл</label>
+          <input type="text" name="notes" class="form-input" value="{{ mat['notes'] or '' }}">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <a href="{{ url_for('lab_settings') }}?tab=crm" class="btn btn-ghost">← Буцах</a>
+        <button type="submit" class="btn btn-primary">💾 Хадгалах</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
