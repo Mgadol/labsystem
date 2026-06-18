@@ -267,9 +267,9 @@
       <tbody>
         {% set e0 = entries|selectattr('is_duplicate','equalto',0)|first %}
         {% set crm_rows = [
-          ('Aad — Үнслэг', crm_cert['crm_aad'], e0['aad'] if e0 else none, '%'),
-          ('Vad — Дэгдэмхий бодис', crm_cert['crm_vad'], e0['vad'] if e0 else none, '%'),
-          ('Sad — Нийт хүхэр', crm_cert['crm_sulfur'], e0['sulfur'] if e0 else none, '%'),
+          ('Adb — Үнслэг', crm_cert['crm_aad'], e0['aad'] if e0 else none, '%'),
+          ('Vdb — Дэгдэмхий бодис', crm_cert['crm_vad'], e0['vad'] if e0 else none, '%'),
+          ('Sdb — Нийт хүхэр', crm_cert['crm_sulfur'], e0['sulfur'] if e0 else none, '%'),
           ('Qb,ad — Илчлэг МЖ/кг', crm_cert['crm_cal'], (e0['cal_value']/1000)|round(3) if e0 and e0['cal_value'] else none, 'МЖ/кг'),
         ] %}
         {% for label, cert, meas, unit in crm_rows %}

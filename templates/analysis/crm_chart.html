@@ -46,9 +46,9 @@
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">
       {% set params = [
-        ('Aad,%','aad_cert','aad_unc','#0f6e56'),
-        ('Vad,%','vad_cert','vad_unc','#7C3AED'),
-        ('Sad,%','sulfur_cert','sulfur_unc','#854f0b'),
+        ('Adb,%','aad_cert','aad_unc','#0f6e56'),
+        ('Vdb,%','vad_cert','vad_unc','#7C3AED'),
+        ('Sdb,%','sulfur_cert','sulfur_unc','#854f0b'),
         ('Qb,ad МЖ/кг','cal_cert','cal_unc','#993c1d'),
         ('G-индекс','g_cert','g_unc','#0f6e56')
       ] %}
@@ -69,10 +69,10 @@
   {% if history %}
   <!-- Charts -->
   {% set param_list = [
-    ('Aad,%','aad','aad_cert','aad_unc','#0f6e56','rgba(15,110,86,0.15)'),
+    ('Adb,%','aad','aad_cert','aad_unc','#0f6e56','rgba(15,110,86,0.15)'),
     ('G-индекс','g_value','g_cert','g_unc','#3C3489','rgba(60,52,137,0.15)'),
-    ('Vad,%','vad','vad_cert','vad_unc','#7C3AED','rgba(124,58,237,0.15)'),
-    ('Sad,%','sulfur','sulfur_cert','sulfur_unc','#854f0b','rgba(133,79,11,0.15)'),
+    ('Vdb,%','vad','vad_cert','vad_unc','#7C3AED','rgba(124,58,237,0.15)'),
+    ('Sdb,%','sulfur','sulfur_cert','sulfur_unc','#854f0b','rgba(133,79,11,0.15)'),
     ('Qb,ad МЖ/кг','cal_value','cal_cert','cal_unc','#993c1d','rgba(153,60,29,0.15)')
   ] %}
 
@@ -96,9 +96,9 @@
     <table class="table">
       <thead><tr>
         <th>Огноо</th>
-        <th style="text-align:center">Aad,%</th>
-        <th style="text-align:center">Vad,%</th>
-        <th style="text-align:center">Sad,%</th>
+        <th style="text-align:center">Adb,%</th>
+        <th style="text-align:center">Vdb,%</th>
+        <th style="text-align:center">Sdb,%</th>
         <th style="text-align:center">Qb,ad МЖ/кг</th>
       </tr></thead>
       <tbody>
