@@ -230,8 +230,6 @@ function showDoneModal(rid){
   document.getElementById('doneForm').reset();
   document.getElementById('doneModal').style.display='flex';
 }
-// Анхдагч таб харуулах
-applyFilters();
 </script>
 <script>
 var curTab = 'prep';
@@ -302,5 +300,7 @@ function startMulti(){
     window.location.href = '/analysis/measure/multi?ids=' + ids.join(',');
   }
 }
+// Анхдагч таб харуулах — функцүүд тодорхойлогдсоны дараа дуудна
+applyFilters();
 </script>
 {% endblock %}
