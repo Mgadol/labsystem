@@ -87,7 +87,7 @@
             <td>
               <div style="display:flex;gap:6px;flex-wrap:wrap">
                 <a href="{{ url_for('staff_detail', uid=u['id']) }}" class="btn btn-ghost btn-sm">Харах</a>
-                {% if current_user['role'] in ('admin','senior') %}
+                {% if current_user['role'] == 'admin' %}
                 <a href="{{ url_for('staff_edit', uid=u['id']) }}" class="btn btn-ghost btn-sm">✏️ Засах</a>
                 {% if u['id'] != session['user_id'] %}
                   {% if u['is_active'] %}
@@ -100,6 +100,8 @@
                   </form>
                   {% endif %}
                 {% endif %}
+                {% elif current_user['role'] == 'senior' %}
+                <a href="{{ url_for('staff_edit', uid=u['id']) }}" class="btn btn-ghost btn-sm">✏️ Засах</a>
                 {% endif %}
               </div>
             </td>
@@ -154,7 +156,7 @@
             <td>
               <div style="display:flex;gap:6px;flex-wrap:wrap">
                 <a href="{{ url_for('staff_detail', uid=u['id']) }}" class="btn btn-ghost btn-sm">Харах</a>
-                {% if current_user['role'] in ('admin','senior') %}
+                {% if current_user['role'] == 'admin' %}
                 <a href="{{ url_for('staff_edit', uid=u['id']) }}" class="btn btn-ghost btn-sm">✏️ Засах</a>
                 {% if u['id'] != session['user_id'] %}
                   {% if u['is_active'] %}
@@ -167,6 +169,8 @@
                   </form>
                   {% endif %}
                 {% endif %}
+                {% elif current_user['role'] == 'senior' %}
+                <a href="{{ url_for('staff_edit', uid=u['id']) }}" class="btn btn-ghost btn-sm">✏️ Засах</a>
                 {% endif %}
               </div>
             </td>
@@ -211,7 +215,7 @@
           <td>
             <div style="display:flex;gap:6px;flex-wrap:wrap">
               <a href="{{ url_for('staff_detail', uid=u['id']) }}" class="btn btn-ghost btn-sm">Харах</a>
-              {% if current_user['role'] in ('admin','senior') %}
+              {% if current_user['role'] == 'admin' %}
               <a href="{{ url_for('staff_edit', uid=u['id']) }}" class="btn btn-ghost btn-sm">✏️ Засах</a>
               {% if u['id'] != session['user_id'] %}
                 {% if u['is_active'] %}
@@ -224,6 +228,8 @@
                 </form>
                 {% endif %}
               {% endif %}
+              {% elif current_user['role'] == 'senior' %}
+              <a href="{{ url_for('staff_edit', uid=u['id']) }}" class="btn btn-ghost btn-sm">✏️ Засах</a>
               {% endif %}
             </div>
           </td>
