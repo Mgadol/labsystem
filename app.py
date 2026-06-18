@@ -2815,24 +2815,36 @@ def backup_db():
     return send_file(db_path, as_attachment=True, download_name=fname)
 
 def _auto_backup():
-    """7 хоног тутам автоматаар backup хийнэ. Сүүлийн 4-ийг хадгална."""
+    """Даваа гаригт 08:00-д автоматаар backup хийнэ. Сүүлийн 4-ийг хадгална."""
     import threading, shutil, glob
-    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'lab.db')
-    backup_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'backups')
-    os.makedirs(backup_dir, exist_ok=True)
-    fname = datetime.now().strftime('lab_backup_%Y%m%d_%H%M%S.db')
-    dest = os.path.join(backup_dir, fname)
-    try:
-        shutil.copy2(db_path, dest)
-        # Хуучин backup-уудыг устгах — 4-с дээш бол хамгийн хуучныг устгана
-        files = sorted(glob.glob(os.path.join(backup_dir, 'lab_backup_*.db')))
-        for old in files[:-4]:
-            os.remove(old)
-        print(f'✓ Автомат backup: {fname}')
-    except Exception as e:
-        print(f'Backup алдаа: {e}')
-    # 7 хоногийн дараа дахин дуудна
-    threading.Timer(7 * 24 * 3600, _auto_backup).start()
+    now = datetime.now()
+    # Дараагийн Даваа гариг 08:00 цагийг тооцно
+    days_until_monday = (7 - now.weekday()) % 7  # weekday(): Даваа=0 ... Ням=6
+    if days_until_monday == 0 and now.hour >= 8:
+        days_until_monday = 7  # Өнөөдөр Даваа боловч 08:00 өнгөрсөн → дараагийн Даваа
+    next_monday = now.replace(hour=8, minute=0, second=0, microsecond=0)
+    from datetime import timedelta
+    next_monday += timedelta(days=days_until_monday)
+    wait_seconds = (next_monday - now).total_seconds()
+
+    def do_backup():
+        db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'lab.db')
+        backup_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'backups')
+        os.makedirs(backup_dir, exist_ok=True)
+        fname = datetime.now().strftime('lab_backup_%Y%m%d_%H%M%S.db')
+        dest = os.path.join(backup_dir, fname)
+        try:
+            shutil.copy2(db_path, dest)
+            files = sorted(glob.glob(os.path.join(backup_dir, 'lab_backup_*.db')))
+            for old in files[:-4]:
+                os.remove(old)
+            print(f'✓ Автомат backup (Даваа): {fname}')
+        except Exception as e:
+            print(f'Backup алдаа: {e}')
+        _auto_backup()  # Дараагийн Даваа товлоно
+
+    threading.Timer(wait_seconds, do_backup).start()
+    print(f'  Дараагийн backup: {next_monday.strftime("%Y-%m-%d %H:%M")} (Даваа)')
 
 if __name__ == '__main__':
     init_db()
