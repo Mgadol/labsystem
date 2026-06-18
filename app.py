@@ -490,9 +490,14 @@ def device_edit(did):
     if request.method == 'POST':
         # Зөвхөн шалгалтын тохиргоо хадгалах (check tab-аас дуудагдана)
         if request.form.get('_check_config_only'):
-            conn.execute("UPDATE devices SET check_standard=?, check_tolerance=? WHERE id=?", (
+            conn.execute("""UPDATE devices SET
+                check_standard=?, check_tolerance=?,
+                check_standard2=?, check_tolerance2=?
+                WHERE id=?""", (
                 request.form.get('check_standard') or None,
                 request.form.get('check_tolerance') or None,
+                request.form.get('check_standard2') or None,
+                request.form.get('check_tolerance2') or None,
                 did))
             conn.commit(); conn.close()
             flash('Шалгалтын тохиргоо хадгалагдлаа!', 'success')
@@ -642,14 +647,17 @@ def device_check_add(did):
     conn = get_db()
     conn.execute("""
         INSERT INTO device_checks(device_id,checked_by,check_date,standard_value,
-        measured_value,tolerance,result,notes)
-        VALUES(?,?,?,?,?,?,?,?)
+        measured_value,tolerance,result,standard_value2,measured_value2,tolerance2,notes)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?)
     """, (did, session.get('user_id', 0),
           request.form.get('check_date') or date.today().isoformat(),
           request.form.get('standard_value') or None,
           request.form.get('measured_value') or None,
           request.form.get('tolerance') or None,
           request.form.get('result','pass'),
+          request.form.get('standard_value2') or None,
+          request.form.get('measured_value2') or None,
+          request.form.get('tolerance2') or None,
           request.form.get('notes') or None))
     conn.commit(); conn.close()
     flash('Дотоод шалгалт бүртгэгдлээ!' if lang=='mn' else 'Internal check recorded!', 'success')
@@ -1253,10 +1261,11 @@ def ensure_tables():
     # Барабан (Эргэдэг хүрд) тохиргоо — лаб дугаар 11-14
     conn.execute("""
         UPDATE devices SET
-            check_standard='50', check_tolerance='±1',
+            check_param1='Дотоод диаметр', check_standard='200', check_tolerance='',
+            check_param2='Гүн', check_standard2='70', check_tolerance2='',
             check_freq='weekly', check_enabled=1
         WHERE lab_id IN ('11','12','13','14')
-          AND (check_standard IS NULL OR check_standard='')
+          AND (check_param1 IS NULL OR check_param1='')
     """)
     # Төхөөрөмжийн дэлгэрэнгүй паспорт талбарууд
     for col in ['web_link TEXT','method TEXT','max_temp TEXT','particular TEXT',
@@ -1282,8 +1291,13 @@ def ensure_tables():
         notes TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""")
-    for col in ['calibration_adjusted INTEGER DEFAULT 0']:
+    for col in ['calibration_adjusted INTEGER DEFAULT 0',
+                'measured_value2 TEXT', 'standard_value2 TEXT', 'tolerance2 TEXT']:
         try: conn.execute(f"ALTER TABLE device_checks ADD COLUMN {col}")
+        except Exception: pass
+    for col in ['check_standard2 TEXT', 'check_tolerance2 TEXT',
+                'check_param1 TEXT', 'check_param2 TEXT']:
+        try: conn.execute(f"ALTER TABLE devices ADD COLUMN {col}")
         except Exception: pass
     conn.commit()
     conn.close()
