@@ -490,24 +490,37 @@ new Chart(document.getElementById('usageBarChart'), {
   var raw = {{ chart_checks|reverse|list|tojson }};
   var labels = raw.map(function(r){ return r.check_date; });
   var measured = raw.map(function(r){ return parseFloat(r.measured_value) || null; });
-  var standard = raw.map(function(r){ return r.standard_value ? parseFloat(r.standard_value) : null; });
 
-  // Зөвшөөрөх хязгаар: стандарт ± зөрүү
-  var ucl = raw.map(function(r){
+  // Тогтмол стандарт болон зөрүү — төхөөрөмжийн тохиргооноос авна
+  var devStd = {{ device['check_standard']|tojson }};
+  var devTol = {{ device['check_tolerance']|tojson }};
+  var stdVal = devStd ? parseFloat(devStd) : null;
+  var tolVal = devTol ? parseFloat(devTol.toString().replace(/[±+]/g,'').trim()) : null;
+  var uclVal = (stdVal!==null && tolVal!==null) ? stdVal + Math.abs(tolVal) : null;
+  var lclVal = (stdVal!==null && tolVal!==null) ? stdVal - Math.abs(tolVal) : null;
+
+  var n = raw.length;
+  var stdLine = stdVal !== null ? Array(n).fill(stdVal) : raw.map(function(r){ return r.standard_value ? parseFloat(r.standard_value) : null; });
+  var uclLine = uclVal !== null ? Array(n).fill(uclVal) : raw.map(function(r){
     if(!r.standard_value || !r.tolerance) return null;
-    var t = parseFloat(r.tolerance.toString().replace('±','').replace('±','').trim());
+    var t = parseFloat(r.tolerance.toString().replace(/[±+]/g,'').trim());
     var s = parseFloat(r.standard_value);
     return isNaN(t)||isNaN(s) ? null : s + Math.abs(t);
   });
-  var lcl = raw.map(function(r){
+  var lclLine = lclVal !== null ? Array(n).fill(lclVal) : raw.map(function(r){
     if(!r.standard_value || !r.tolerance) return null;
-    var t = parseFloat(r.tolerance.toString().replace('±','').replace('±','').trim());
+    var t = parseFloat(r.tolerance.toString().replace(/[±+]/g,'').trim());
     var s = parseFloat(r.standard_value);
     return isNaN(t)||isNaN(s) ? null : s - Math.abs(t);
   });
 
-  // Тэнцсэн/тэнцээгүй өнгө
+  // Тэнцсэн/тэнцээгүй өнгө — хэмжсэн утга хязгаараас гарсан бол улаан
   var ptColors = raw.map(function(r){
+    var v = parseFloat(r.measured_value);
+    if(isNaN(v)) return '#6b7280';
+    if(uclVal!==null && lclVal!==null){
+      return (v > uclVal || v < lclVal) ? '#ef4444' : '#10b981';
+    }
     return r.result==='fail' ? '#ef4444' : '#10b981';
   });
 
@@ -528,8 +541,8 @@ new Chart(document.getElementById('usageBarChart'), {
           fill: false
         },
         {
-          label: 'Стандарт',
-          data: standard,
+          label: 'Стандарт' + (devStd ? ' (' + devStd + ')' : ''),
+          data: stdLine,
           borderColor: '#6b7280',
           borderDash: [6,3],
           tension: 0,
@@ -537,8 +550,8 @@ new Chart(document.getElementById('usageBarChart'), {
           fill: false
         },
         {
-          label: 'Дээд хязгаар (UCL)',
-          data: ucl,
+          label: 'UCL' + (uclVal !== null ? ' +' + (devTol||'') : ''),
+          data: uclLine,
           borderColor: '#ef4444',
           borderDash: [3,3],
           tension: 0,
@@ -546,8 +559,8 @@ new Chart(document.getElementById('usageBarChart'), {
           fill: false
         },
         {
-          label: 'Доод хязгаар (LCL)',
-          data: lcl,
+          label: 'LCL' + (lclVal !== null ? ' ' + (devTol||'') : ''),
+          data: lclLine,
           borderColor: '#ef4444',
           borderDash: [3,3],
           tension: 0,
@@ -566,7 +579,7 @@ new Chart(document.getElementById('usageBarChart'), {
           callbacks: {
             label: function(ctx){
               var r = raw[ctx.dataIndex];
-              if(ctx.dataset.label==='Хэмжсэн утга'){
+              if(ctx.dataset.label.startsWith('Хэмжсэн')){
                 return 'Хэмжсэн: ' + ctx.parsed.y + (r.result==='fail' ? ' ✗' : ' ✓');
               }
               return ctx.dataset.label + ': ' + ctx.parsed.y;
