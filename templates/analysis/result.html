@@ -115,7 +115,7 @@
       <th>Vad<br>[%]</th><th>Vdb<br>[%]</th><th>Vdaf<br>[%]</th><th>Var<br>[%]</th>
       <th>FCad<br>[%]</th>
       <th>Sad<br>[%]</th><th>Sdb<br>[%]</th>
-      <th>Qb,ad<br>[Ккал/кг]</th><th>Qgr,ad<br>[Ккал/кг]</th><th>Qgr,ar<br>[Ккал/кг]</th><th>Qnet,ar<br>[Ккал/кг]</th>
+      <th>Qb,d<br>[Ккал/кг]</th><th>Qgr,ad<br>[Ккал/кг]</th><th>Qgr,ar<br>[Ккал/кг]</th><th>Qnet,ar<br>[Ккал/кг]</th>
       <th>G<br>[1:5]</th>
       <th>CSN<br>[1-9]</th>
     </tr>
@@ -243,7 +243,7 @@
   <div class="card" style="padding:14px">
     <div style="font-size:11px;font-weight:600;color:#1a2744;margin-bottom:8px;display:flex;align-items:center;gap:6px">
       <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#185fa5"></span>
-      Qb,ad ~ Aad корреляц
+      Qb,d ~ Aad корреляц
     </div>
     <div style="position:relative;height:200px"><canvas id="chartQA"></canvas></div>
   </div>
@@ -284,7 +284,7 @@
           ('Adb — Үнслэг', crm_cert['crm_aad'] if crm_cert else none, e0['aad'] if e0 else none, '%'),
           ('Vdb — Дэгдэмхий бодис', crm_cert['crm_vad'] if crm_cert else none, e0['vad'] if e0 else none, '%'),
           ('Sdb — Нийт хүхэр', crm_cert['crm_sulfur'] if crm_cert else none, e0['sulfur'] if e0 else none, '%'),
-          ('Qb,ad — Илчлэг МЖ/кг', crm_cert['crm_cal'] if crm_cert else none, (e0['cal_value']/1000)|round(3) if e0 and e0['cal_value'] else none, 'МЖ/кг'),
+          ('Qb,d — Илчлэг МЖ/кг', crm_cert['crm_cal'] if crm_cert else none, (e0['cal_value']/1000)|round(3) if e0 and e0['cal_value'] else none, 'МЖ/кг'),
         ] %}
         {% for label, cert, meas, unit in crm_rows %}
         <tr>
@@ -330,7 +330,7 @@ function mk(id,pts,xl,yl,clr){
     {type:'line',data:[{x:mn,y:r.m*mn+r.b},{x:mx,y:r.m*mx+r.b}],borderColor:'#e05252',borderWidth:1,borderDash:[3,2],pointRadius:0,fill:false}
   ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.dataset.type==='line'?null:c.raw.n+' ('+c.raw.x.toFixed(2)+', '+c.raw.y.toFixed(0)+')';}}}},scales:{x:{title:{display:true,text:xl,font:{size:9}},ticks:{font:{size:8}}},y:{title:{display:true,text:yl,font:{size:9}},ticks:{font:{size:8}}}}}});
 }
-mk('chartQA',CD.filter(function(d){return d.q!==null;}).map(function(d){return{x:d.a,y:d.q,n:d.n};}), 'Aad [%]','Qb,ad [ккал/кг]','rgba(24,95,165,0.7)');
+mk('chartQA',CD.filter(function(d){return d.q!==null;}).map(function(d){return{x:d.a,y:d.q,n:d.n};}), 'Aad [%]','Qb,d [ккал/кг]','rgba(24,95,165,0.7)');
 mk('chartVA',CD.filter(function(d){return d.v!==null;}).map(function(d){return{x:d.a,y:d.v,n:d.n};}), 'Aad [%]','Vad [%]','rgba(15,110,86,0.7)');
 mk('chartSA',CD.filter(function(d){return d.s!==null;}).map(function(d){return{x:d.a,y:d.s,n:d.n};}), 'Aad [%]','Sad [%]','rgba(133,79,11,0.7)');
 </script>

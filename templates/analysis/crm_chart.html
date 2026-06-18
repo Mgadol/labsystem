@@ -49,7 +49,7 @@
         ('Adb,%','aad_cert','aad_unc','#0f6e56'),
         ('Vdb,%','vad_cert','vad_unc','#7C3AED'),
         ('Sdb,%','sulfur_cert','sulfur_unc','#854f0b'),
-        ('Qb,ad МЖ/кг','cal_cert','cal_unc','#993c1d'),
+        ('Qb,d МЖ/кг','cal_cert','cal_unc','#993c1d'),
         ('G-индекс','g_cert','g_unc','#0f6e56')
       ] %}
       {% for lbl,cert_f,unc_f,color in params %}
@@ -73,7 +73,7 @@
     ('G-индекс','g_value','g_cert','g_unc','#3C3489','rgba(60,52,137,0.15)'),
     ('Vdb,%','vad','vad_cert','vad_unc','#7C3AED','rgba(124,58,237,0.15)'),
     ('Sdb,%','sulfur','sulfur_cert','sulfur_unc','#854f0b','rgba(133,79,11,0.15)'),
-    ('Qb,ad МЖ/кг','cal_value','cal_cert','cal_unc','#993c1d','rgba(153,60,29,0.15)')
+    ('Qb,d МЖ/кг','cal_value','cal_cert','cal_unc','#993c1d','rgba(153,60,29,0.15)')
   ] %}
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
@@ -99,7 +99,7 @@
         <th style="text-align:center">Adb,%</th>
         <th style="text-align:center">Vdb,%</th>
         <th style="text-align:center">Sdb,%</th>
-        <th style="text-align:center">Qb,ad МЖ/кг</th>
+        <th style="text-align:center">Qb,d МЖ/кг</th>
       </tr></thead>
       <tbody>
       {% for h in history %}
