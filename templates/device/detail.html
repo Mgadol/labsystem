@@ -273,36 +273,49 @@
           <button type="submit" class="btn btn-teal btn-sm">Бүртгэх</button>
         </form>
         {% endif %}
-        <table class="table">
+        <div style="overflow-x:auto">
+        <table class="table" style="min-width:700px">
           {% set p1 = device['check_param1'] or 'Хэмжсэн' %}
           {% set p2 = device['check_param2'] %}
           {% set p3 = device['check_param3'] %}
           {% set p4 = device['check_param4'] %}
           {% set tbl_cols = 7 + (2 if p2 else 1) + (2 if p3 else 0) + (2 if p4 else 0) + (1 if current_user['role'] in ('admin','senior') else 0) %}
-          <thead><tr>
-            <th>Огноо</th>
-            <th>{{ p1 }} стандарт</th>
-            <th>{{ p1 }} хэмжсэн</th>
-            {% if p2 %}
-            <th>{{ p2 }} стандарт</th>
-            <th>{{ p2 }} хэмжсэн</th>
+          <thead>
+            {% if p2 or p3 or p4 %}
+            <tr>
+              <th rowspan="2">Огноо</th>
+              {% if p2 or p3 or p4 %}
+              <th colspan="2" style="text-align:center;border-bottom:1px solid var(--border)">{{ p1 }}</th>
+              {% if p2 %}<th colspan="2" style="text-align:center;border-bottom:1px solid var(--border)">{{ p2 }}</th>{% endif %}
+              {% if p3 %}<th colspan="2" style="text-align:center;border-bottom:1px solid var(--border)">{{ p3 }}</th>{% endif %}
+              {% if p4 %}<th colspan="2" style="text-align:center;border-bottom:1px solid var(--border)">{{ p4 }}</th>{% endif %}
+              {% endif %}
+              <th rowspan="2">Үр дүн</th>
+              <th rowspan="2" style="text-align:center">Тохир</th>
+              <th rowspan="2">Шалгасан</th>
+              <th rowspan="2">Тэмдэглэл</th>
+              {% if current_user['role'] in ('admin','senior') %}<th rowspan="2"></th>{% endif %}
+            </tr>
+            <tr>
+              <th>Стандарт</th><th>Хэмжсэн</th>
+              {% if p2 %}<th>Стандарт</th><th>Хэмжсэн</th>{% endif %}
+              {% if p3 %}<th>Стандарт</th><th>Хэмжсэн</th>{% endif %}
+              {% if p4 %}<th>Стандарт</th><th>Хэмжсэн</th>{% endif %}
+            </tr>
             {% else %}
-            <th>Зөрүү</th>
+            <tr>
+              <th>Огноо</th>
+              <th>{{ p1 }} стандарт</th>
+              <th>{{ p1 }} хэмжсэн</th>
+              <th>Зөрүү</th>
+              <th>Үр дүн</th>
+              <th style="text-align:center">Тохируулга</th>
+              <th>Шалгасан</th>
+              <th>Тэмдэглэл</th>
+              {% if current_user['role'] in ('admin','senior') %}<th></th>{% endif %}
+            </tr>
             {% endif %}
-            {% if p3 %}
-            <th>{{ p3 }} стандарт</th>
-            <th>{{ p3 }} хэмжсэн</th>
-            {% endif %}
-            {% if p4 %}
-            <th>{{ p4 }} стандарт</th>
-            <th>{{ p4 }} хэмжсэн</th>
-            {% endif %}
-            <th>Үр дүн</th>
-            <th style="text-align:center">Тохируулга</th>
-            <th>Шалгасан</th>
-            <th>Тэмдэглэл</th>
-            {% if current_user['role'] in ('admin','senior') %}<th></th>{% endif %}
-          </tr></thead>
+          </thead>
           <tbody>
           {% for ch in checks %}
           <tr>
@@ -345,6 +358,7 @@
           {% endfor %}
           </tbody>
         </table>
+        </div>
       </div>
 
       <!-- CALIBRATION (жилийн баталгаажуулалт) -->
