@@ -387,11 +387,11 @@ def device_detail(did):
         WHERE ul.device_id=? AND ul.end_time IS NOT NULL
         GROUP BY u.id ORDER BY total_min DESC
     """, (did,)).fetchall()
-    checks = conn.execute("""
+    checks = [dict(r) for r in conn.execute("""
         SELECT ch.*, u.name as uname FROM device_checks ch
         LEFT JOIN users u ON u.id=ch.checked_by
         WHERE ch.device_id=? ORDER BY ch.check_date DESC, ch.id DESC LIMIT 60
-    """, (did,)).fetchall()
+    """, (did,)).fetchall()]
     conn.close()
     return render_template('device/detail.html',
         device=device, calibrations=cals, repairs=reps,
