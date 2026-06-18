@@ -261,7 +261,7 @@ def guest_token_generate():
                  (token, label, session['user_id'], expires_at))
     conn.commit()
     conn.close()
-    flash(f'Зочны код үүслээ: DEMO-{token}  (24 цаг хүчинтэй, {expires_at[:16]} хүртэл)', 'success')
+    flash(f'Зочны код үүслээ: {token}  (24 цаг хүчинтэй, {expires_at[:16]} хүртэл)', 'success')
     return redirect(url_for('lab_settings') + '?tab=guest')
 
 @app.route('/logout')
