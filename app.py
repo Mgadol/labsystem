@@ -882,15 +882,17 @@ def repair_close(rid):
 def staff_list():
     lang = session.get('lang','mn')
     conn = get_db()
+    is_admin = session.get('role') == 'admin'
     users = conn.execute("""
-        SELECT * FROM users WHERE is_active=1 AND role != 'admin'
+        SELECT * FROM users WHERE is_active=1 {}
         ORDER BY CASE role
-            WHEN 'senior' THEN 1
-            WHEN 'staff' THEN 2
-            WHEN 'preparer' THEN 3
-            WHEN 'geologist' THEN 4
-            ELSE 5 END, name
-    """).fetchall()
+            WHEN 'admin' THEN 1
+            WHEN 'senior' THEN 2
+            WHEN 'staff' THEN 3
+            WHEN 'preparer' THEN 4
+            WHEN 'geologist' THEN 5
+            ELSE 6 END, name
+    """.format('' if is_admin else "AND role != 'admin'")).fetchall()
     conn.close()
     return render_template('admin/staff_list.html', users=users, lang=lang)
 
