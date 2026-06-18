@@ -136,6 +136,8 @@
         {% set p2 = device['check_param2'] %}
         {% set p3 = device['check_param3'] %}
         {% set p4 = device['check_param4'] %}
+        {% if p2 %}
+        <!-- Олон параметртэй (барабан гэх мэт): зураг + хүснэгт загвар -->
         <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px">
           <!-- Зургийн хэсэг -->
           {% if device['photo'] %}
@@ -215,6 +217,32 @@
           </details>
           {% endif %}
         </div>
+        {% else %}
+        <!-- Нэг параметртэй (жин гэх мэт): хуучин энгийн маягт -->
+        {% if current_user['role'] in ('admin','senior') %}
+        <div style="background:#f8f9fa;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px">
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">⚙️ Шалгалтын тохиргоо</div>
+          <form method="POST" action="{{ url_for('device_edit', did=device['id']) }}" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+            <input type="hidden" name="_check_config_only" value="1">
+            <div>
+              <label class="form-label" style="font-size:11px">{{ p1 or 'Нэрлэсэн утга' }} — стандарт</label>
+              <input type="text" name="check_standard" class="form-input" style="width:120px;padding:5px 8px;font-size:12px" value="{{ device['check_standard'] or '' }}" placeholder="Ж: 1.0000">
+            </div>
+            <div>
+              <label class="form-label" style="font-size:11px">Зөвшөөрөх зөрүү</label>
+              <input type="text" name="check_tolerance" class="form-input" style="width:100px;padding:5px 8px;font-size:12px" value="{{ device['check_tolerance'] or '' }}" placeholder="±0.0003">
+            </div>
+            <input type="hidden" name="check_standard2" value="">
+            <input type="hidden" name="check_tolerance2" value="">
+            <input type="hidden" name="check_standard3" value="">
+            <input type="hidden" name="check_tolerance3" value="">
+            <input type="hidden" name="check_standard4" value="">
+            <input type="hidden" name="check_tolerance4" value="">
+            <button type="submit" class="btn btn-sm" style="padding:5px 14px;font-size:12px">Хадгалах</button>
+          </form>
+        </div>
+        {% endif %}
+        {% endif %}
 
         <!-- КОНТРОЛ ЧАРТ -->
         {% set chart_checks = checks|selectattr('measured_value')|list %}
