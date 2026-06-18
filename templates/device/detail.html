@@ -131,6 +131,32 @@
           Өдөр тутмын дотоод шалгалт — стандарт жин/утгаар өөрсдөө шалгана. (Жилийн нэг удаагийн хэмжил зүйн баталгаажуулалт нь "Баталгаажуулалт" хэсэгт)
         </div>
 
+        <!-- ШАЛГАЛТЫН ТОХИРГОО -->
+        {% if current_user['role'] in ('admin','senior') %}
+        <div style="background:#f8f9fa;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px">
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">⚙️ Шалгалтын тохиргоо</div>
+          <form method="POST" action="{{ url_for('device_edit', did=device['id']) }}" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+            <input type="hidden" name="_check_config_only" value="1">
+            <div>
+              <label class="form-label" style="font-size:11px">Нэрлэсэн утга</label>
+              <input type="text" name="check_standard" class="form-input" style="width:110px;padding:5px 8px;font-size:12px"
+                value="{{ device['check_standard'] or '' }}" placeholder="Ж: 1">
+            </div>
+            <div>
+              <label class="form-label" style="font-size:11px">Зөвшөөрөх зөрүү</label>
+              <input type="text" name="check_tolerance" class="form-input" style="width:110px;padding:5px 8px;font-size:12px"
+                value="{{ device['check_tolerance'] or '' }}" placeholder="±0.0003">
+            </div>
+            <button type="submit" class="btn btn-sm" style="padding:5px 14px;font-size:12px">Хадгалах</button>
+            {% if device['check_standard'] or device['check_tolerance'] %}
+            <span style="font-size:11px;color:var(--text-muted);align-self:center">
+              Одоогийн: <b>{{ device['check_standard'] or '—' }}</b> ± <b>{{ device['check_tolerance'] or '—' }}</b>
+            </span>
+            {% endif %}
+          </form>
+        </div>
+        {% endif %}
+
         <!-- КОНТРОЛ ЧАРТ -->
         {% set chart_checks = checks|selectattr('measured_value')|list %}
         {% if chart_checks|length > 1 %}

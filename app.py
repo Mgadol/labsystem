@@ -487,6 +487,15 @@ def device_edit(did):
     device = conn.execute("SELECT d.*, dm.manufacturer, dm.model, dm.category FROM devices d LEFT JOIN device_marks dm ON d.mark_id=dm.id WHERE d.id=?", (did,)).fetchone()
     marks  = conn.execute("SELECT * FROM device_marks").fetchall()
     if request.method == 'POST':
+        # Зөвхөн шалгалтын тохиргоо хадгалах (check tab-аас дуудагдана)
+        if request.form.get('_check_config_only'):
+            conn.execute("UPDATE devices SET check_standard=?, check_tolerance=? WHERE id=?", (
+                request.form.get('check_standard') or None,
+                request.form.get('check_tolerance') or None,
+                did))
+            conn.commit(); conn.close()
+            flash('Шалгалтын тохиргоо хадгалагдлаа!', 'success')
+            return redirect(url_for('device_detail', did=did) + '#tab-check')
         photo = save_file(request.files.get('photo'), 'devices')
         pdf   = save_file(request.files.get('passport_pdf'), 'passports')
         mark_id = _resolve_mark(conn,
