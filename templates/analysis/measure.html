@@ -332,14 +332,17 @@ var deviceMap = {};
 // Дээжний нэр автомат
 function autoNames(){
   var nm = "{{ receipt['sample_name'] }}";
+  // Цэг таслалаар тусгаарласан нэрс: "a1; a2; b3"
+  var parts = nm.indexOf(';') !== -1 ? nm.split(';').map(function(s){return s.trim();}) : null;
   var m1 = nm.match(/^(.*?)(\d+)\s*[-–]\s*(\d+)\s*$/);
   var m2 = nm.match(/^(.*?)(\d+)$/);
   for(var i=1;i<=ROWS;i++){
     var inp = document.getElementById('n'+i);
     if(!inp||inp.value) continue;
-    if(m1) inp.value = m1[1]+(parseInt(m1[2])+i-1);
+    if(parts && parts[i-1]) inp.value = parts[i-1];
+    else if(m1) inp.value = m1[1]+(parseInt(m1[2])+i-1);
     else if(m2) inp.value = m2[1]+(parseInt(m2[2])+i-1);
-    else inp.value = nm+'-'+i;
+    else inp.value = nm+(ROWS>1?'-'+i:'');
   }
 }
 

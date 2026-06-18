@@ -1708,8 +1708,12 @@ def analysis_register():
         sample_name = request.form['sample_name']
         quantity    = int(request.form.get('quantity', 1))
 
+        # Цэг таслалаар тусгаарласан нэрс: "a1; a2; b3" → тоог автоматаар тооцно
+        if ';' in sample_name:
+            parts = [p.strip() for p in sample_name.split(';') if p.strip()]
+            quantity = len(parts)
         # PIT бол "1-100" хэлбэрийг задлах
-        if sample_type == 'PIT':
+        elif sample_type == 'PIT':
             import re as _re; m = _re.match(r'^([0-9]+)-([0-9]+)$', sample_name.strip())
             if m:
                 from_n = int(m.group(1))
