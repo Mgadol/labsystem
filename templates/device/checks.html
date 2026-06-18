@@ -4,7 +4,7 @@
 <div class="page">
   <div class="flex justify-between gap-12" style="margin-bottom:20px;flex-wrap:wrap">
     <div>
-      <h1 class="page-title">✅ Өдөр тутмын баталгаажуулалт</h1>
+      <h1 class="page-title">✅ Тохиур уулга / Баталгаажуулалт</h1>
       <p class="page-sub">Бүх тоног төхөөрөмжийн дотоод шалгалтыг нэг дор бүртгэнэ</p>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -25,76 +25,161 @@
     {% else %}
     <a href="{{ url_for('checks_page') }}?date={{ today }}" class="badge badge-standby" style="text-decoration:none">→ Өнөөдөр рүү</a>
     {% endif %}
+    <span style="font-size:12px;color:var(--text-muted)">7 хоног: {{ week_start }} – {{ week_end }}</span>
   </div>
+
+  {% set daily_devs = devices|selectattr('check_freq','ne','weekly')|list %}
+  {% set weekly_devs = devices|selectattr('check_freq','eq','weekly')|list %}
 
   <form method="POST" action="{{ url_for('checks_save') }}">
     <input type="hidden" name="check_date" value="{{ sel_date }}">
-    <div class="card" style="padding:0;overflow-x:auto">
-      <table class="table" style="min-width:900px">
-        <thead>
-          <tr>
-            <th style="width:30px"></th>
-            <th>Төхөөрөмж</th>
-            <th style="width:140px">Стандарт утга</th>
-            <th style="width:140px">Хэмжсэн утга</th>
-            <th style="width:130px">Зөвшөөрөх зөрүү</th>
-            <th style="width:130px">Үр дүн</th>
-            <th>Тэмдэглэл</th>
+
+    <!-- ӨДӨР БҮРИЙН ШАЛГАЛТ -->
+    {% if daily_devs %}
+    <div style="margin-bottom:8px">
+      <h3 style="font-size:14px;font-weight:600;color:var(--navy);margin-bottom:8px">
+        📅 Өдөр бүр шалгадаг
+        <span style="font-size:12px;font-weight:400;color:var(--text-muted)">— {{ sel_date }}</span>
+      </h3>
+      <div class="card" style="padding:0;overflow-x:auto;margin-bottom:16px">
+        <table class="table" style="min-width:900px">
+          <thead>
+            <tr>
+              <th style="width:30px"></th>
+              <th>Төхөөрөмж</th>
+              <th style="width:140px">Стандарт утга</th>
+              <th style="width:140px">Хэмжсэн утга</th>
+              <th style="width:130px">Зөвшөөрөх зөрүү</th>
+              <th style="width:130px">Үр дүн</th>
+              <th>Тэмдэглэл</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for d in daily_devs %}
+          {% set chk = today_checks.get(d['id']) %}
+          <tr style="{% if chk and chk['result']=='fail' %}background:#fff5f5{% elif chk %}background:#f0fbf7{% endif %}">
+            <td style="text-align:center">
+              <input type="hidden" name="device_id" value="{{ d['id'] }}">
+              {% if chk and chk['result']=='pass' %}<span title="Тэнцсэн" style="color:#0f6e56;font-size:16px">✓</span>
+              {% elif chk and chk['result']=='fail' %}<span title="Тэнцээгүй" style="color:#b91c1c;font-size:16px">✗</span>
+              {% else %}<span title="Бүртгээгүй" style="color:#ccc;font-size:16px">○</span>{% endif %}
+            </td>
+            <td>
+              <a href="{{ url_for('device_detail', did=d['id']) }}" style="font-weight:500;color:var(--navy)">{{ d['name'] }}</a>
+              {% if d['manufacturer'] %}<div style="font-size:11px;color:var(--text-muted)">{{ d['manufacturer'] }} {{ d['model'] or '' }}</div>{% endif %}
+              {% if chk %}<div style="font-size:11px;color:var(--text-muted)">{{ chk['uname'] }}, {{ chk['check_date'] }}</div>{% endif %}
+            </td>
+            <td>
+              <input type="text" name="standard_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk['standard_value'] if chk else (d['check_standard'] or '') }}"
+                placeholder="{{ d['check_standard'] or '—' }}">
+            </td>
+            <td>
+              <input type="text" name="measured_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk['measured_value'] if chk else '' }}" placeholder="хэмжсэн утга">
+            </td>
+            <td>
+              <input type="text" name="tolerance_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk['tolerance'] if chk else (d['check_tolerance'] or '') }}"
+                placeholder="{{ d['check_tolerance'] or '±...' }}">
+            </td>
+            <td>
+              <select name="result_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px">
+                <option value="pass" {{ 'selected' if not chk or chk['result']=='pass' }}>✓ Тэнцсэн</option>
+                <option value="fail" {{ 'selected' if chk and chk['result']=='fail' }}>✗ Тэнцээгүй</option>
+              </select>
+            </td>
+            <td>
+              <input type="text" name="notes_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk['notes'] if chk and chk['notes'] else '' }}" placeholder="...">
+            </td>
           </tr>
-        </thead>
-        <tbody>
-        {% for d in devices %}
-        {% set chk = today_checks.get(d['id']) %}
-        <tr>
-          <td style="text-align:center">
-            <input type="hidden" name="device_id" value="{{ d['id'] }}">
-            {% if chk %}<span title="Бүртгэгдсэн" style="color:#0f6e56;font-size:16px">●</span>
-            {% else %}<span title="Бүртгээгүй" style="color:#ccc;font-size:16px">○</span>{% endif %}
-          </td>
-          <td>
-            <a href="{{ url_for('device_detail', did=d['id']) }}" style="font-weight:500;color:var(--navy)">{{ d['name'] }}</a>
-            {% if d['manufacturer'] %}<div style="font-size:11px;color:var(--text-muted)">{{ d['manufacturer'] }} {{ d['model'] or '' }}</div>{% endif %}
-          </td>
-          <td>
-            <input type="text" name="standard_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
-              value="{{ chk['standard_value'] if chk else (d['check_standard'] or '') }}"
-              placeholder="{{ d['check_standard'] or '—' }}">
-          </td>
-          <td>
-            <input type="text" name="measured_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
-              value="{{ chk['measured_value'] if chk else '' }}" placeholder="хэмжсэн утга">
-          </td>
-          <td>
-            <input type="text" name="tolerance_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
-              value="{{ chk['tolerance'] if chk else (d['check_tolerance'] or '') }}"
-              placeholder="{{ d['check_tolerance'] or '±...' }}">
-          </td>
-          <td>
-            <select name="result_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px">
-              <option value="pass" {{ 'selected' if chk and chk['result']=='pass' }}>✓ Тэнцсэн</option>
-              <option value="fail" {{ 'selected' if chk and chk['result']=='fail' }}>✗ Тэнцээгүй</option>
-            </select>
-          </td>
-          <td>
-            <input type="text" name="notes_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
-              value="{{ chk['notes'] if chk and chk['notes'] else '' }}" placeholder="...">
-          </td>
-        </tr>
-        {% else %}
-        <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted)">
-          <div style="font-size:32px;margin-bottom:8px">🔧</div>
-          Баталгаажуулах тоног төхөөрөмж байхгүй байна
-        </td></tr>
-        {% endfor %}
-        </tbody>
-      </table>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
+    {% endif %}
+
+    <!-- 7 ХОНОГТ НЭГ УДАА -->
+    {% if weekly_devs %}
+    <div style="margin-bottom:8px">
+      <h3 style="font-size:14px;font-weight:600;color:#7C3AED;margin-bottom:8px">
+        📆 7 хоногт нэг удаа шалгадаг
+        <span style="font-size:12px;font-weight:400;color:var(--text-muted)">— долоо хоног: {{ week_start }} – {{ week_end }}</span>
+      </h3>
+      <div class="card" style="padding:0;overflow-x:auto;margin-bottom:16px">
+        <table class="table" style="min-width:900px">
+          <thead>
+            <tr>
+              <th style="width:30px"></th>
+              <th>Төхөөрөмж</th>
+              <th style="width:140px">Стандарт утга</th>
+              <th style="width:140px">Хэмжсэн утга</th>
+              <th style="width:130px">Зөвшөөрөх зөрүү</th>
+              <th style="width:130px">Үр дүн</th>
+              <th>Тэмдэглэл</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for d in weekly_devs %}
+          {% set chk = week_checks.get(d['id']) %}
+          <tr style="{% if chk and chk['result']=='fail' %}background:#fff5f5{% elif chk %}background:#f5f0ff{% endif %}">
+            <td style="text-align:center">
+              <input type="hidden" name="device_id" value="{{ d['id'] }}">
+              {% if chk and chk['result']=='pass' %}<span title="Тэнцсэн ({{ chk['check_date'] }})" style="color:#7C3AED;font-size:16px">✓</span>
+              {% elif chk and chk['result']=='fail' %}<span title="Тэнцээгүй" style="color:#b91c1c;font-size:16px">✗</span>
+              {% else %}<span title="Энэ долоо хоногт бүртгээгүй" style="color:#ccc;font-size:16px">○</span>{% endif %}
+            </td>
+            <td>
+              <a href="{{ url_for('device_detail', did=d['id']) }}" style="font-weight:500;color:#7C3AED">{{ d['name'] }}</a>
+              {% if d['manufacturer'] %}<div style="font-size:11px;color:var(--text-muted)">{{ d['manufacturer'] }} {{ d['model'] or '' }}</div>{% endif %}
+              {% if chk %}<div style="font-size:11px;color:#7C3AED">{{ chk['uname'] }}, {{ chk['check_date'] }}</div>{% endif %}
+            </td>
+            <td>
+              <input type="text" name="standard_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk['standard_value'] if chk else (d['check_standard'] or '') }}"
+                placeholder="{{ d['check_standard'] or '—' }}">
+            </td>
+            <td>
+              <input type="text" name="measured_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk['measured_value'] if chk else '' }}" placeholder="хэмжсэн утга">
+            </td>
+            <td>
+              <input type="text" name="tolerance_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk['tolerance'] if chk else (d['check_tolerance'] or '') }}"
+                placeholder="{{ d['check_tolerance'] or '±...' }}">
+            </td>
+            <td>
+              <select name="result_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px">
+                <option value="pass" {{ 'selected' if not chk or chk['result']=='pass' }}>✓ Тэнцсэн</option>
+                <option value="fail" {{ 'selected' if chk and chk['result']=='fail' }}>✗ Тэнцээгүй</option>
+              </select>
+            </td>
+            <td>
+              <input type="text" name="notes_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk['notes'] if chk and chk['notes'] else '' }}" placeholder="...">
+            </td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if not daily_devs and not weekly_devs %}
+    <div class="card" style="text-align:center;padding:60px;color:var(--text-muted)">
+      <div style="font-size:40px;margin-bottom:12px">🔧</div>
+      Баталгаажуулах тоног төхөөрөмж байхгүй байна
+    </div>
+    {% endif %}
 
     {% if devices and current_user['role'] != 'guest' %}
-    <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">
+    <div style="margin-top:8px;display:flex;justify-content:flex-end;gap:8px">
       <button type="submit" class="btn btn-primary">💾 Бүгдийг хадгалах</button>
     </div>
-    <div style="font-size:12px;color:var(--text-muted);margin-top:8px">
+    <div style="font-size:12px;color:var(--text-muted);margin-top:8px;text-align:right">
       Зөвхөн "Хэмжсэн утга" бөглөсөн мөрүүд хадгалагдана.
     </div>
     {% endif %}

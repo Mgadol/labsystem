@@ -65,7 +65,14 @@
           <input type="text" name="check_tolerance" class="form-input" placeholder="Ж: ±0.0005">
         </div>
         <div class="form-group">
-          <label class="form-label">Өдөр тутмын шалгалтад оруулах</label>
+          <label class="form-label">Шалгах давтамж</label>
+          <select name="check_freq" class="form-input">
+            <option value="daily">📅 Өдөр бүр</option>
+            <option value="weekly">📆 7 хоногт нэг удаа</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Шалгалтад оруулах</label>
           <label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer">
             <input type="checkbox" name="check_enabled" checked style="width:16px;height:16px">
             <span style="font-size:13px">Тийм</span>

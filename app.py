@@ -437,8 +437,8 @@ def device_add():
             lab_id,web_link,method,max_temp,particular,measuring_time,measuring_limit,
             dimension,capacity,weight_kg,other_spec,power,frequency,voltage,
             specification,operating_state,received_date,
-            check_standard,check_tolerance,check_enabled,stage)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            check_standard,check_tolerance,check_enabled,stage,check_freq)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             request.form['name'],
             request.form.get('serial_number') or None,
@@ -470,6 +470,7 @@ def device_add():
             request.form.get('check_tolerance') or None,
             1 if request.form.get('check_enabled') else 0,
             request.form.get('stage') or 'both',
+            request.form.get('check_freq') or 'daily',
         ))
         did = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
         conn.commit(); conn.close()
@@ -499,7 +500,7 @@ def device_edit(did):
             measuring_time=?,measuring_limit=?,dimension=?,capacity=?,weight_kg=?,
             other_spec=?,power=?,frequency=?,voltage=?,specification=?,
             operating_state=?,received_date=?,
-            check_standard=?,check_tolerance=?,check_enabled=?,stage=?
+            check_standard=?,check_tolerance=?,check_enabled=?,stage=?,check_freq=?
             WHERE id=?
         """, (
             request.form['name'],
@@ -532,6 +533,7 @@ def device_edit(did):
             request.form.get('check_tolerance') or None,
             1 if request.form.get('check_enabled') else 0,
             request.form.get('stage') or 'both',
+            request.form.get('check_freq') or 'daily',
             did
         ))
         if photo: conn.execute("UPDATE devices SET photo=? WHERE id=?", (photo, did))
@@ -665,22 +667,36 @@ def checks_page():
     devices = conn.execute("""
         SELECT d.*, dm.manufacturer, dm.model FROM devices d
         LEFT JOIN device_marks dm ON d.mark_id=dm.id
-        WHERE COALESCE(d.check_enabled,1)=1 AND d.status NOT IN ('archived','replaced')
-        ORDER BY d.name
+        WHERE COALESCE(d.check_enabled,1)=1 AND d.status NOT IN ('archived','replaced','decommissioned')
+        ORDER BY COALESCE(d.check_freq,'daily'), d.name
     """).fetchall()
+    # Weekly-д сонгосон өдрийн долоо хоногийн эхний өдрийг тооцно
+    from datetime import datetime, timedelta
+    sel_dt = datetime.strptime(sel_date, '%Y-%m-%d').date()
+    week_start = (sel_dt - timedelta(days=sel_dt.weekday())).isoformat()
+    week_end   = (sel_dt + timedelta(days=6 - sel_dt.weekday())).isoformat()
     # Сонгосон өдрийн шалгалтуудыг device_id-аар индекслэх
     rows = conn.execute("""
         SELECT ch.*, u.name as uname FROM device_checks ch
         LEFT JOIN users u ON u.id=ch.checked_by
         WHERE ch.check_date=? ORDER BY ch.id DESC
     """, (sel_date,)).fetchall()
+    week_rows = conn.execute("""
+        SELECT ch.*, u.name as uname FROM device_checks ch
+        LEFT JOIN users u ON u.id=ch.checked_by
+        WHERE ch.check_date BETWEEN ? AND ? ORDER BY ch.check_date DESC, ch.id DESC
+    """, (week_start, week_end)).fetchall()
     conn.close()
     today_checks = {}
     for r in rows:
-        today_checks.setdefault(r['device_id'], r)  # хамгийн сүүлийнх
+        today_checks.setdefault(r['device_id'], r)
+    week_checks = {}
+    for r in week_rows:
+        week_checks.setdefault(r['device_id'], r)
     return render_template('device/checks.html',
-        devices=devices, today_checks=today_checks,
-        sel_date=sel_date, today=date.today().isoformat(), lang=lang)
+        devices=devices, today_checks=today_checks, week_checks=week_checks,
+        sel_date=sel_date, today=date.today().isoformat(),
+        week_start=week_start, week_end=week_end, lang=lang)
 
 @app.route('/checks/save', methods=['POST'])
 @login_required
@@ -1184,7 +1200,8 @@ def ensure_tables():
                 'weight_kg TEXT','other_spec TEXT','power TEXT','frequency TEXT','voltage TEXT',
                 'specification TEXT','operating_state TEXT','received_date TEXT','lab_id TEXT',
                 'check_standard TEXT','check_tolerance TEXT','check_unit TEXT',
-                'check_enabled INTEGER DEFAULT 1','stage TEXT DEFAULT \'both\'']:
+                'check_enabled INTEGER DEFAULT 1','stage TEXT DEFAULT \'both\'',
+                'check_freq TEXT DEFAULT \'daily\'']:
         try: conn.execute(f"ALTER TABLE devices ADD COLUMN {col}")
         except Exception: pass
     # Дотоод өдөр тутмын шалгалт (жин г.м.)
