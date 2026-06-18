@@ -715,15 +715,17 @@ def checks_save():
             continue  # хэмжсэн утга оруулаагүй бол алгасна
         # Тухайн өдрийн хуучин бичлэгийг устгаад шинээр бичих (давхардахгүй)
         conn.execute("DELETE FROM device_checks WHERE device_id=? AND check_date=?", (did, sel_date))
+        cal_adj = 1 if request.form.get(f'cal_adj_{did}') else 0
         conn.execute("""
             INSERT INTO device_checks(device_id,checked_by,check_date,standard_value,
-            measured_value,tolerance,result,notes)
-            VALUES(?,?,?,?,?,?,?,?)
+            measured_value,tolerance,result,calibration_adjusted,notes)
+            VALUES(?,?,?,?,?,?,?,?,?)
         """, (did, uid, sel_date,
               request.form.get(f'standard_{did}') or None,
               measured,
               request.form.get(f'tolerance_{did}') or None,
               request.form.get(f'result_{did}','pass'),
+              cal_adj,
               request.form.get(f'notes_{did}') or None))
         saved += 1
     conn.commit(); conn.close()
@@ -742,7 +744,7 @@ def checks_export():
     rows = conn.execute("""
         SELECT ch.check_date, d.name as device_name, d.lab_id,
                ch.standard_value, ch.measured_value, ch.tolerance,
-               ch.result, ch.notes, u.name as uname
+               ch.result, ch.calibration_adjusted, ch.notes, u.name as uname
         FROM device_checks ch
         LEFT JOIN devices d ON d.id=ch.device_id
         LEFT JOIN users u ON u.id=ch.checked_by
@@ -753,7 +755,7 @@ def checks_export():
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = 'Баталгаажуулалт'
-    headers = ['Огноо','Төхөөрөмж','Лаб дугаар','Стандарт','Хэмжсэн','Зөвшөөрөх зөрүү','Үр дүн','Шалгасан','Тэмдэглэл']
+    headers = ['Огноо','Төхөөрөмж','Лаб дугаар','Стандарт','Хэмжсэн','Зөвшөөрөх зөрүү','Үр дүн','Тохируулга','Шалгасан','Тэмдэглэл']
     ws.append(headers)
     hf = Font(bold=True, color='FFFFFF')
     fill = PatternFill('solid', fgColor='1A2744')
@@ -764,8 +766,9 @@ def checks_export():
                    r['standard_value'] or '', r['measured_value'] or '',
                    r['tolerance'] or '',
                    'Тэнцсэн' if r['result']=='pass' else 'Тэнцээгүй',
+                   'Тийм' if r['calibration_adjusted'] else '',
                    r['uname'] or '', r['notes'] or ''])
-    widths = [12, 24, 12, 14, 14, 16, 12, 18, 24]
+    widths = [12, 24, 12, 14, 14, 16, 12, 10, 18, 24]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
     buf = io.BytesIO()
@@ -1217,9 +1220,13 @@ def ensure_tables():
         measured_value TEXT,
         tolerance TEXT,
         result TEXT DEFAULT 'pass',
+        calibration_adjusted INTEGER DEFAULT 0,
         notes TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""")
+    for col in ['calibration_adjusted INTEGER DEFAULT 0']:
+        try: conn.execute(f"ALTER TABLE device_checks ADD COLUMN {col}")
+        except Exception: pass
     conn.commit()
     conn.close()
 

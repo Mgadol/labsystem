@@ -184,6 +184,7 @@
             <th>Хэмжсэн</th>
             <th>Зөрүү</th>
             <th>Үр дүн</th>
+            <th style="text-align:center">Тохируулга</th>
             <th>Шалгасан</th>
             <th>Тэмдэглэл</th>
             {% if current_user['role'] in ('admin','senior') %}<th></th>{% endif %}
@@ -199,6 +200,9 @@
               {% if ch['result']=='pass' %}<span class="badge badge-active">✓ Тэнцсэн</span>
               {% else %}<span class="badge badge-failed">✗ Тэнцээгүй</span>{% endif %}
             </td>
+            <td style="text-align:center;font-size:14px">
+              {% if ch['calibration_adjusted'] %}<span style="color:#d97706" title="Тохируулга хийсэн">✔</span>{% else %}<span style="color:#ddd">—</span>{% endif %}
+            </td>
             <td style="font-size:12px">{{ ch['uname'] or '—' }}</td>
             <td style="font-size:12px;color:var(--text-muted)">{{ ch['notes'] or '' }}</td>
             {% if current_user['role'] in ('admin','senior') %}
@@ -210,7 +214,7 @@
             {% endif %}
           </tr>
           {% else %}
-          <tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:20px">Дотоод шалгалтын бүртгэл байхгүй</td></tr>
+          <tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:20px">Дотоод шалгалтын бүртгэл байхгүй</td></tr>
           {% endfor %}
           </tbody>
         </table>
