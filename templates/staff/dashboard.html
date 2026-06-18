@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page">
   <h1 class="page-title">{{ 'Сайн байна уу, ' + current_user['name'].split()[0] + '!' if lang=='mn' else 'Hello, ' + current_user['name'].split()[0] + '!' }}</h1>
-  <p class="page-sub">{{ 'Өнөөдөр: ' + now().strftime('%Y.%m.%d') if lang=='mn' else 'Today: ' + now().strftime('%Y.%m.%d') }}</p>
+  <p class="page-sub">{{ 'Өнөөдөр: ' + now.strftime('%Y.%m.%d') if lang=='mn' else 'Today: ' + now.strftime('%Y.%m.%d') }}</p>
 
   {% if active_map %}
   <div class="card" style="margin-bottom:16px;border-left:3px solid var(--teal);border-radius:0 var(--radius) var(--radius) 0">
