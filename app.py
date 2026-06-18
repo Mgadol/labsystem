@@ -1284,17 +1284,6 @@ def ensure_tables():
     for col in ['prep_operator TEXT', 'prep_position TEXT', 'prep_devices TEXT']:
         try: conn.execute(f"ALTER TABLE sample_receipt ADD COLUMN {col}")
         except Exception: pass
-    # Барабан (Эргэдэг хүрд) тохиргоо — лаб дугаар 11-14 (4 параметр)
-    conn.execute("""
-        UPDATE devices SET
-            check_param1='Дотоод диаметр', check_standard='200', check_tolerance='',
-            check_param2='Гүн', check_standard2='70', check_tolerance2='',
-            check_param3='Эргэлтийн хурд', check_standard3='50', check_tolerance3='±1',
-            check_param4='Ачааны жин', check_standard4='112.5', check_tolerance4='±2.5',
-            check_freq='weekly', check_enabled=1
-        WHERE lab_id IN ('11','12','13','14')
-          AND (check_param1 IS NULL OR check_param1='')
-    """)
     # Төхөөрөмжийн дэлгэрэнгүй паспорт талбарууд
     for col in ['web_link TEXT','method TEXT','max_temp TEXT','particular TEXT',
                 'measuring_time TEXT','measuring_limit TEXT','dimension TEXT','capacity TEXT',
@@ -1333,6 +1322,17 @@ def ensure_tables():
                 'measured_value4 TEXT', 'standard_value4 TEXT', 'tolerance4 TEXT']:
         try: conn.execute(f"ALTER TABLE device_checks ADD COLUMN {col}")
         except Exception: pass
+    # Барабан (Эргэдэг хүрд) тохиргоо — лаб дугаар 11-14 (4 параметр)
+    conn.execute("""
+        UPDATE devices SET
+            check_param1='Дотоод диаметр', check_standard='200', check_tolerance='',
+            check_param2='Гүн', check_standard2='70', check_tolerance2='',
+            check_param3='Эргэлтийн хурд', check_standard3='50', check_tolerance3='±1',
+            check_param4='Ачааны жин', check_standard4='112.5', check_tolerance4='±2.5',
+            check_freq='weekly', check_enabled=1
+        WHERE lab_id IN ('11','12','13','14')
+          AND (check_param1 IS NULL OR check_param1='')
+    """)
     conn.commit()
     conn.close()
 
