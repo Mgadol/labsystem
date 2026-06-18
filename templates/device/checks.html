@@ -121,14 +121,15 @@
         <span style="font-size:12px;font-weight:400;color:var(--text-muted)">— долоо хоног: {{ week_start }} – {{ week_end }}</span>
       </h3>
       <div class="card" style="padding:0;overflow-x:auto;margin-bottom:16px">
-        <table class="table" style="min-width:900px">
+        <table class="table" style="min-width:1000px">
           <thead>
             <tr>
               <th style="width:30px"></th>
               <th>Төхөөрөмж</th>
-              <th style="width:130px">Стандарт утга</th>
-              <th style="width:130px">Хэмжсэн утга</th>
-              <th style="width:120px">Зөвшөөрөх зөрүү</th>
+              <th style="width:110px">Параметр</th>
+              <th style="width:120px">Стандарт утга</th>
+              <th style="width:120px">Хэмжсэн утга</th>
+              <th style="width:110px">Зөвшөөрөх зөрүү</th>
               <th style="width:110px">Үр дүн</th>
               <th style="width:90px;text-align:center">Тохируулга</th>
               <th>Тэмдэглэл</th>
@@ -137,18 +138,22 @@
           <tbody>
           {% for d in weekly_devs %}
           {% set chk = week_checks.get(d['id']) %}
+          {% set has_p2 = d['check_param2'] %}
+          {% set has_p3 = d['check_param3'] %}
+          {% set has_p4 = d['check_param4'] %}
           <tr style="{% if chk and chk['result']=='fail' %}background:#fff5f5{% elif chk %}background:#f5f0ff{% endif %}">
-            <td style="text-align:center">
+            <td style="text-align:center" rowspan="{{ 1 + (1 if has_p2 else 0) + (1 if has_p3 else 0) + (1 if has_p4 else 0) }}">
               <input type="hidden" name="device_id" value="{{ d['id'] }}">
               {% if chk and chk['result']=='pass' %}<span title="Тэнцсэн ({{ chk['check_date'] }})" style="color:#7C3AED;font-size:16px">✓</span>
               {% elif chk and chk['result']=='fail' %}<span title="Тэнцээгүй" style="color:#b91c1c;font-size:16px">✗</span>
               {% else %}<span title="Энэ долоо хоногт бүртгээгүй" style="color:#ccc;font-size:16px">○</span>{% endif %}
             </td>
-            <td>
+            <td rowspan="{{ 1 + (1 if has_p2 else 0) + (1 if has_p3 else 0) + (1 if has_p4 else 0) }}">
               <a href="{{ url_for('device_detail', did=d['id']) }}" style="font-weight:500;color:#7C3AED">{{ d['name'] }}</a>
               {% if d['manufacturer'] %}<div style="font-size:11px;color:var(--text-muted)">{{ d['manufacturer'] }} {{ d['model'] or '' }}</div>{% endif %}
               {% if chk %}<div style="font-size:11px;color:#7C3AED">{{ chk['uname'] }}, {{ chk['check_date'] }}</div>{% endif %}
             </td>
+            <td style="font-size:11px;color:var(--text-muted)">{{ d['check_param1'] or 'Стандарт' }}</td>
             <td>
               <input type="text" name="standard_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
                 value="{{ chk['standard_value'] if chk else (d['check_standard'] or '') }}"
@@ -163,13 +168,13 @@
                 value="{{ chk['tolerance'] if chk else (d['check_tolerance'] or '') }}"
                 placeholder="{{ d['check_tolerance'] or '±...' }}">
             </td>
-            <td>
+            <td rowspan="{{ 1 + (1 if has_p2 else 0) + (1 if has_p3 else 0) + (1 if has_p4 else 0) }}">
               <select name="result_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px">
                 <option value="pass" {{ 'selected' if not chk or chk['result']=='pass' }}>✓ Тэнцсэн</option>
                 <option value="fail" {{ 'selected' if chk and chk['result']=='fail' }}>✗ Тэнцээгүй</option>
               </select>
             </td>
-            <td style="text-align:center">
+            <td rowspan="{{ 1 + (1 if has_p2 else 0) + (1 if has_p3 else 0) + (1 if has_p4 else 0) }}" style="text-align:center">
               <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
                 <input type="checkbox" name="cal_adj_{{ d['id'] }}" value="1"
                   style="accent-color:#f59e0b;width:16px;height:16px"
@@ -179,11 +184,68 @@
                 </span>
               </label>
             </td>
-            <td>
+            <td rowspan="{{ 1 + (1 if has_p2 else 0) + (1 if has_p3 else 0) + (1 if has_p4 else 0) }}">
               <input type="text" name="notes_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
                 value="{{ chk['notes'] if chk and chk['notes'] else '' }}" placeholder="...">
             </td>
           </tr>
+          {% if has_p2 %}
+          <tr style="{% if chk and chk['result']=='fail' %}background:#fff5f5{% elif chk %}background:#f5f0ff{% endif %}">
+            <td style="font-size:11px;color:var(--text-muted)">{{ d['check_param2'] }}</td>
+            <td>
+              <input type="text" name="standard2_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk['standard_value2'] if chk else (d['check_standard2'] or '') }}"
+                placeholder="{{ d['check_standard2'] or '—' }}">
+            </td>
+            <td>
+              <input type="text" name="measured2_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk['measured_value2'] if chk else '' }}" placeholder="хэмжсэн утга">
+            </td>
+            <td>
+              <input type="text" name="tolerance2_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk['tolerance2'] if chk else (d['check_tolerance2'] or '') }}"
+                placeholder="{{ d['check_tolerance2'] or '±...' }}">
+            </td>
+          </tr>
+          {% endif %}
+          {% if has_p3 %}
+          <tr style="{% if chk and chk['result']=='fail' %}background:#fff5f5{% elif chk %}background:#f5f0ff{% endif %}">
+            <td style="font-size:11px;color:var(--text-muted)">{{ d['check_param3'] }}</td>
+            <td>
+              <input type="text" name="standard3_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk.get('standard_value3','') if chk else (d['check_standard3'] or '') }}"
+                placeholder="{{ d['check_standard3'] or '—' }}">
+            </td>
+            <td>
+              <input type="text" name="measured3_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk.get('measured_value3','') if chk else '' }}" placeholder="хэмжсэн утга">
+            </td>
+            <td>
+              <input type="text" name="tolerance3_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk.get('tolerance3','') if chk else (d['check_tolerance3'] or '') }}"
+                placeholder="{{ d['check_tolerance3'] or '±...' }}">
+            </td>
+          </tr>
+          {% endif %}
+          {% if has_p4 %}
+          <tr style="{% if chk and chk['result']=='fail' %}background:#fff5f5{% elif chk %}background:#f5f0ff{% endif %}">
+            <td style="font-size:11px;color:var(--text-muted)">{{ d['check_param4'] }}</td>
+            <td>
+              <input type="text" name="standard4_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk.get('standard_value4','') if chk else (d['check_standard4'] or '') }}"
+                placeholder="{{ d['check_standard4'] or '—' }}">
+            </td>
+            <td>
+              <input type="text" name="measured4_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk.get('measured_value4','') if chk else '' }}" placeholder="хэмжсэн утга">
+            </td>
+            <td>
+              <input type="text" name="tolerance4_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk.get('tolerance4','') if chk else (d['check_tolerance4'] or '') }}"
+                placeholder="{{ d['check_tolerance4'] or '±...' }}">
+            </td>
+          </tr>
+          {% endif %}
           {% endfor %}
           </tbody>
         </table>

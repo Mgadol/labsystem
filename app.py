@@ -492,12 +492,18 @@ def device_edit(did):
         if request.form.get('_check_config_only'):
             conn.execute("""UPDATE devices SET
                 check_standard=?, check_tolerance=?,
-                check_standard2=?, check_tolerance2=?
+                check_standard2=?, check_tolerance2=?,
+                check_standard3=?, check_tolerance3=?,
+                check_standard4=?, check_tolerance4=?
                 WHERE id=?""", (
                 request.form.get('check_standard') or None,
                 request.form.get('check_tolerance') or None,
                 request.form.get('check_standard2') or None,
                 request.form.get('check_tolerance2') or None,
+                request.form.get('check_standard3') or None,
+                request.form.get('check_tolerance3') or None,
+                request.form.get('check_standard4') or None,
+                request.form.get('check_tolerance4') or None,
                 did))
             conn.commit(); conn.close()
             flash('Шалгалтын тохиргоо хадгалагдлаа!', 'success')
@@ -647,8 +653,10 @@ def device_check_add(did):
     conn = get_db()
     conn.execute("""
         INSERT INTO device_checks(device_id,checked_by,check_date,standard_value,
-        measured_value,tolerance,result,standard_value2,measured_value2,tolerance2,notes)
-        VALUES(?,?,?,?,?,?,?,?,?,?,?)
+        measured_value,tolerance,result,standard_value2,measured_value2,tolerance2,
+        standard_value3,measured_value3,tolerance3,
+        standard_value4,measured_value4,tolerance4,notes)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, (did, session.get('user_id', 0),
           request.form.get('check_date') or date.today().isoformat(),
           request.form.get('standard_value') or None,
@@ -658,6 +666,12 @@ def device_check_add(did):
           request.form.get('standard_value2') or None,
           request.form.get('measured_value2') or None,
           request.form.get('tolerance2') or None,
+          request.form.get('standard_value3') or None,
+          request.form.get('measured_value3') or None,
+          request.form.get('tolerance3') or None,
+          request.form.get('standard_value4') or None,
+          request.form.get('measured_value4') or None,
+          request.form.get('tolerance4') or None,
           request.form.get('notes') or None))
     conn.commit(); conn.close()
     flash('Дотоод шалгалт бүртгэгдлээ!' if lang=='mn' else 'Internal check recorded!', 'success')
@@ -737,14 +751,26 @@ def checks_save():
         cal_adj = 1 if request.form.get(f'cal_adj_{did}') else 0
         conn.execute("""
             INSERT INTO device_checks(device_id,checked_by,check_date,standard_value,
-            measured_value,tolerance,result,calibration_adjusted,notes)
-            VALUES(?,?,?,?,?,?,?,?,?)
+            measured_value,tolerance,result,calibration_adjusted,
+            standard_value2,measured_value2,tolerance2,
+            standard_value3,measured_value3,tolerance3,
+            standard_value4,measured_value4,tolerance4,notes)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (did, uid, sel_date,
               request.form.get(f'standard_{did}') or None,
               measured,
               request.form.get(f'tolerance_{did}') or None,
               request.form.get(f'result_{did}','pass'),
               cal_adj,
+              request.form.get(f'standard2_{did}') or None,
+              request.form.get(f'measured2_{did}') or None,
+              request.form.get(f'tolerance2_{did}') or None,
+              request.form.get(f'standard3_{did}') or None,
+              request.form.get(f'measured3_{did}') or None,
+              request.form.get(f'tolerance3_{did}') or None,
+              request.form.get(f'standard4_{did}') or None,
+              request.form.get(f'measured4_{did}') or None,
+              request.form.get(f'tolerance4_{did}') or None,
               request.form.get(f'notes_{did}') or None))
         saved += 1
     conn.commit(); conn.close()
@@ -1258,11 +1284,13 @@ def ensure_tables():
     for col in ['prep_operator TEXT', 'prep_position TEXT', 'prep_devices TEXT']:
         try: conn.execute(f"ALTER TABLE sample_receipt ADD COLUMN {col}")
         except Exception: pass
-    # Барабан (Эргэдэг хүрд) тохиргоо — лаб дугаар 11-14
+    # Барабан (Эргэдэг хүрд) тохиргоо — лаб дугаар 11-14 (4 параметр)
     conn.execute("""
         UPDATE devices SET
             check_param1='Дотоод диаметр', check_standard='200', check_tolerance='',
             check_param2='Гүн', check_standard2='70', check_tolerance2='',
+            check_param3='Эргэлтийн хурд', check_standard3='50', check_tolerance3='±1',
+            check_param4='Ачааны жин', check_standard4='112.5', check_tolerance4='±2.5',
             check_freq='weekly', check_enabled=1
         WHERE lab_id IN ('11','12','13','14')
           AND (check_param1 IS NULL OR check_param1='')
@@ -1296,8 +1324,14 @@ def ensure_tables():
         try: conn.execute(f"ALTER TABLE device_checks ADD COLUMN {col}")
         except Exception: pass
     for col in ['check_standard2 TEXT', 'check_tolerance2 TEXT',
-                'check_param1 TEXT', 'check_param2 TEXT']:
+                'check_param1 TEXT', 'check_param2 TEXT',
+                'check_param3 TEXT', 'check_standard3 TEXT', 'check_tolerance3 TEXT',
+                'check_param4 TEXT', 'check_standard4 TEXT', 'check_tolerance4 TEXT']:
         try: conn.execute(f"ALTER TABLE devices ADD COLUMN {col}")
+        except Exception: pass
+    for col in ['measured_value3 TEXT', 'standard_value3 TEXT', 'tolerance3 TEXT',
+                'measured_value4 TEXT', 'standard_value4 TEXT', 'tolerance4 TEXT']:
+        try: conn.execute(f"ALTER TABLE device_checks ADD COLUMN {col}")
         except Exception: pass
     conn.commit()
     conn.close()
