@@ -454,7 +454,7 @@
         Зочны код 24 цаг хүчинтэй. Хугацаа дуусмагц автоматаар устна.<br>
         Зочин зөвхөн харах боломжтой — өгөгдөл нэмэх, засах эрхгүй.
       </div>
-      <form method="POST" action="{{ url_for('guest_token_generate') }}" style="display:flex;gap:8px;align-items:flex-end">
+      <form method="POST" action="/guest/generate" style="display:flex;gap:8px;align-items:flex-end">
         <div class="form-group" style="flex:1;margin-bottom:0">
           <label class="form-label">Тэмдэглэл (хэнд өгч байгаа)</label>
           <input type="text" name="label" class="form-input" placeholder="Жишээ: Удирдлага, Аудит...">
