@@ -244,22 +244,18 @@
                 </table>
                 <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">
                   <div>
-                    <label class="form-label" style="font-size:11px">{{ p1 }} зураг</label>
+                    <label class="form-label" style="font-size:11px">1. {{ g1 or p1 }} зураг</label>
                     <input type="file" name="check_photo1" accept="image/*" style="font-size:12px">
                   </div>
+                  {% if g2 or p3 %}
                   <div>
-                    <label class="form-label" style="font-size:11px">{{ p2 }} зураг</label>
-                    <input type="file" name="check_photo2" accept="image/*" style="font-size:12px">
-                  </div>
-                  {% if p3 %}
-                  <div>
-                    <label class="form-label" style="font-size:11px">{{ p3 }} зураг</label>
+                    <label class="form-label" style="font-size:11px">2. {{ g2 or p3 }} зураг</label>
                     <input type="file" name="check_photo3" accept="image/*" style="font-size:12px">
                   </div>
                   {% endif %}
-                  {% if p4 %}
+                  {% if g3 or p4 %}
                   <div>
-                    <label class="form-label" style="font-size:11px">{{ p4 }} зураг</label>
+                    <label class="form-label" style="font-size:11px">3. {{ g3 or p4 }} зураг</label>
                     <input type="file" name="check_photo4" accept="image/*" style="font-size:12px">
                   </div>
                   {% endif %}
