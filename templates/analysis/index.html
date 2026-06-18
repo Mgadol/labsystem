@@ -172,20 +172,58 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
 {% block scripts %}
 <!-- Бэлтгэж дууслаа modal -->
 <div id="doneModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:10px;padding:24px;max-width:400px;width:90%">
+  <div style="background:#fff;border-radius:10px;padding:24px;max-width:480px;width:95%;max-height:90vh;overflow-y:auto">
     <h3 style="margin-bottom:16px">✅ Дээж бэлтгэж дууслаа</h3>
     <form id="doneForm" method="POST">
-      <div class="form-group">
+      <!-- Бэлтгэгчийн мэдээлэл -->
+      <div style="background:#f8f9fa;border-radius:8px;padding:12px;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">👤 Бэлтгэгч</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="form-group" style="margin:0">
+            <label class="form-label" style="font-size:11px">Нэр</label>
+            <input type="text" name="prep_operator" class="form-input" style="font-size:13px"
+              value="{{ current_user['name'] }}" required>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label" style="font-size:11px">Албан тушаал</label>
+            <input type="text" name="prep_position" class="form-input" style="font-size:13px"
+              value="{{ current_user['position'] or '' }}" placeholder="Дээж бэлтгэгч">
+          </div>
+        </div>
+      </div>
+
+      <!-- Ашигласан тоног төхөөрөмж -->
+      {% if prep_devices %}
+      <div style="margin-bottom:14px">
+        <label class="form-label">🔧 Ашигласан тоног төхөөрөмж</label>
+        <div style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:8px">
+          {% for d in prep_devices %}
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:3px 4px;border-radius:4px" class="dev-check-row">
+            <input type="checkbox" name="prep_device" value="{{ d['name'] }}" style="accent-color:var(--teal);width:15px;height:15px">
+            {{ d['name'] }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Тэмдэглэл -->
+      <div class="form-group" style="margin-bottom:14px">
         <label class="form-label">Тэмдэглэл (заавал биш)</label>
         <textarea name="notes" class="form-input" rows="2" placeholder="Аналитик дээж бэлэн..."></textarea>
       </div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+
+      <div style="display:flex;gap:8px;justify-content:flex-end">
         <button type="button" onclick="document.getElementById('doneModal').style.display='none'" class="btn btn-ghost">Буцах</button>
         <button type="submit" class="btn btn-primary">✅ Химичид шилжүүлэх</button>
       </div>
     </form>
   </div>
 </div>
+<style>
+.dev-check-row:hover{background:#f0f9f6}
+.dev-check-row:has(input:checked){background:#e8f5f1;font-weight:500}
+</style>
 <script>
 function showDoneModal(rid){
   document.getElementById('doneForm').action='/analysis/prep/done/'+rid;

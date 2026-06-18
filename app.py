@@ -1247,6 +1247,9 @@ def ensure_tables():
                 'crm_vad_unc REAL','crm_sulfur_unc REAL','crm_cal_unc REAL','sample_range TEXT']:
         try: conn.execute(f"ALTER TABLE geo_samples ADD COLUMN {col}")
         except Exception: pass
+    for col in ['prep_operator TEXT', 'prep_position TEXT', 'prep_devices TEXT']:
+        try: conn.execute(f"ALTER TABLE sample_receipt ADD COLUMN {col}")
+        except Exception: pass
     # Төхөөрөмжийн дэлгэрэнгүй паспорт талбарууд
     for col in ['web_link TEXT','method TEXT','max_temp TEXT','particular TEXT',
                 'measuring_time TEXT','measuring_limit TEXT','dimension TEXT','capacity TEXT',
@@ -1692,8 +1695,14 @@ def analysis():
             LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
             ORDER BY sr.lab_serial DESC, g.created_at DESC LIMIT 200
         """).fetchall()
+    prep_devices = conn.execute("""
+        SELECT id, name FROM devices
+        WHERE status='active' AND COALESCE(stage,'both') IN ('prep','both')
+        ORDER BY name
+    """).fetchall()
     conn.close()
-    return render_template('analysis/index.html', samples=samples, lang=lang, today=datetime.now().strftime('%Y-%m-%d'))
+    return render_template('analysis/index.html', samples=samples, lang=lang,
+        today=datetime.now().strftime('%Y-%m-%d'), prep_devices=prep_devices)
 
 @app.route('/analysis/register', methods=['GET','POST'])
 @login_required
@@ -2119,13 +2128,19 @@ def prep_start(receipt_id):
 def prep_done(receipt_id):
     conn = get_db()
     notes = request.form.get('notes','')
-    conn.execute("""UPDATE sample_receipt SET prep_status='ready', prep_done_at=?, prep_notes=?
-                   WHERE id=?""", (datetime.now().isoformat(), notes, receipt_id))
+    prep_operator = request.form.get('prep_operator','').strip()
+    prep_position = request.form.get('prep_position','').strip()
+    prep_devices  = ', '.join(filter(None, request.form.getlist('prep_device')))
+    conn.execute("""UPDATE sample_receipt
+        SET prep_status='ready', prep_done_at=?, prep_notes=?,
+            prep_operator=?, prep_position=?, prep_devices=?
+        WHERE id=?""", (datetime.now().isoformat(), notes,
+                        prep_operator, prep_position, prep_devices,
+                        receipt_id))
     conn.execute("UPDATE geo_samples SET status='ready' WHERE id=(SELECT geo_sample_id FROM sample_receipt WHERE id=?)", (receipt_id,))
     lab_num = conn.execute('SELECT lab_number FROM sample_receipt WHERE id=?', (receipt_id,)).fetchone()
     lab_str = lab_num[0] if lab_num else ''
-    conn.commit()
-    conn.close()
+    conn.commit(); conn.close()
     flash(f'✅ Дээж бэлтгэж дууслаа! Химичид шилжлээ. Ажлын дугаар: {lab_str}', 'success')
     return redirect(url_for('analysis'))
 
