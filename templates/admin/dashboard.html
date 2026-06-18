@@ -72,7 +72,8 @@
   </div>
   {% endif %}
 
-  <!-- Модулиуд -->
+  <!-- Модулиуд — зөвхөн admin -->
+  {% if current_user['role'] == 'admin' %}
   <div class="modules">
 
     <!-- Ажилтан -->
@@ -175,6 +176,7 @@
     </a>
 
   </div>
+  {% endif %}
 </div>
 {% endblock %}
 {% block scripts %}
