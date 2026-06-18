@@ -130,6 +130,16 @@
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
           Өдөр тутмын дотоод шалгалт — стандарт жин/утгаар өөрсдөө шалгана. (Жилийн нэг удаагийн хэмжил зүйн баталгаажуулалт нь "Баталгаажуулалт" хэсэгт)
         </div>
+
+        <!-- КОНТРОЛ ЧАРТ -->
+        {% set chart_checks = checks|selectattr('measured_value')|list %}
+        {% if chart_checks|length > 1 %}
+        <div class="card" style="padding:16px;margin-bottom:20px">
+          <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:12px">📈 Контрол чарт — хэмжсэн утгын хандлага</div>
+          <canvas id="controlChart" height="90"></canvas>
+        </div>
+        {% endif %}
+
         {% if current_user['role'] != 'guest' %}
         <form method="POST" action="{{ url_for('device_check_add', did=device['id']) }}" style="background:var(--gray);border-radius:8px;padding:14px;margin-bottom:16px">
           <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em">Шинэ дотоод шалгалт</div>
@@ -140,7 +150,7 @@
             </div>
             <div>
               <label class="form-label">Нэрлэсэн утга (стандарт)</label>
-              <input type="text" name="standard_value" class="form-input" placeholder="Ж: 100.0000 г">
+              <input type="text" name="standard_value" class="form-input" placeholder="Ж: 100.0000 г" value="{{ device['check_standard'] or '' }}">
             </div>
             <div>
               <label class="form-label">Хэмжсэн утга</label>
@@ -148,7 +158,7 @@
             </div>
             <div>
               <label class="form-label">Зөвшөөрөх зөрүү</label>
-              <input type="text" name="tolerance" class="form-input" placeholder="Ж: ±0.0005">
+              <input type="text" name="tolerance" class="form-input" placeholder="Ж: ±0.0005" value="{{ device['check_tolerance'] or '' }}">
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;margin-bottom:10px">
@@ -468,6 +478,108 @@ new Chart(document.getElementById('usageBarChart'), {
 });
 </script>
 {% endif %}
+
+{% set chart_checks = checks|selectattr('measured_value')|list %}
+{% if chart_checks|length > 1 %}
+<script>
+(function(){
+  var raw = {{ chart_checks|reverse|list|tojson }};
+  var labels = raw.map(function(r){ return r.check_date; });
+  var measured = raw.map(function(r){ return parseFloat(r.measured_value) || null; });
+  var standard = raw.map(function(r){ return r.standard_value ? parseFloat(r.standard_value) : null; });
+
+  // Зөвшөөрөх хязгаар: стандарт ± зөрүү
+  var ucl = raw.map(function(r){
+    if(!r.standard_value || !r.tolerance) return null;
+    var t = parseFloat(r.tolerance.toString().replace('±','').replace('±','').trim());
+    var s = parseFloat(r.standard_value);
+    return isNaN(t)||isNaN(s) ? null : s + Math.abs(t);
+  });
+  var lcl = raw.map(function(r){
+    if(!r.standard_value || !r.tolerance) return null;
+    var t = parseFloat(r.tolerance.toString().replace('±','').replace('±','').trim());
+    var s = parseFloat(r.standard_value);
+    return isNaN(t)||isNaN(s) ? null : s - Math.abs(t);
+  });
+
+  // Тэнцсэн/тэнцээгүй өнгө
+  var ptColors = raw.map(function(r){
+    return r.result==='fail' ? '#ef4444' : '#10b981';
+  });
+
+  new Chart(document.getElementById('controlChart'), {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Хэмжсэн утга',
+          data: measured,
+          borderColor: '#185fa5',
+          backgroundColor: 'rgba(24,95,165,.08)',
+          tension: 0.25,
+          pointRadius: 5,
+          pointBackgroundColor: ptColors,
+          pointBorderColor: ptColors,
+          fill: false
+        },
+        {
+          label: 'Стандарт',
+          data: standard,
+          borderColor: '#6b7280',
+          borderDash: [6,3],
+          tension: 0,
+          pointRadius: 0,
+          fill: false
+        },
+        {
+          label: 'Дээд хязгаар (UCL)',
+          data: ucl,
+          borderColor: '#ef4444',
+          borderDash: [3,3],
+          tension: 0,
+          pointRadius: 0,
+          fill: false
+        },
+        {
+          label: 'Доод хязгаар (LCL)',
+          data: lcl,
+          borderColor: '#ef4444',
+          borderDash: [3,3],
+          tension: 0,
+          pointRadius: 0,
+          fill: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 16 } },
+        tooltip: {
+          callbacks: {
+            label: function(ctx){
+              var r = raw[ctx.dataIndex];
+              if(ctx.dataset.label==='Хэмжсэн утга'){
+                return 'Хэмжсэн: ' + ctx.parsed.y + (r.result==='fail' ? ' ✗' : ' ✓');
+              }
+              return ctx.dataset.label + ': ' + ctx.parsed.y;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { font: { size: 10 }, maxRotation: 45 } },
+        y: { ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+})();
+</script>
+{% endif %}
+
 <script>
 async function startUsage(deviceId){
   const r = await fetch(`/usage/start/${deviceId}`,{method:'POST'});
