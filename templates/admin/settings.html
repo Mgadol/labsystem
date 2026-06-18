@@ -480,14 +480,15 @@
         {% for t in guest_tokens %}
         <tr>
           <td>
-            <div style="font-family:monospace;font-size:13px;font-weight:700;color:#7C3AED;letter-spacing:1px">
+            <div style="font-family:monospace;font-size:14px;font-weight:700;color:#7C3AED;letter-spacing:1px">
               {{ t['token'] }}
             </div>
-            <div style="font-size:11px;color:var(--text-muted);margin-top:3px">
-              Нэвтрэх хаяг: /guest/{{ t['token'] }}
-            </div>
+            <a href="/guest/{{ t['token'] }}" target="_blank"
+              style="display:inline-block;margin-top:5px;font-size:12px;font-weight:600;background:#7C3AED;color:#fff;padding:4px 12px;border-radius:6px;text-decoration:none">
+              🔗 Зочноор нэвтрэх
+            </a>
             <button onclick="copyGuestUrl('{{ t['token'] }}')"
-              style="margin-top:4px;font-size:11px;padding:2px 8px;background:var(--gray);border:1px solid var(--border);border-radius:4px;cursor:pointer">
+              style="margin-top:4px;font-size:11px;padding:3px 8px;background:var(--gray);border:1px solid var(--border);border-radius:4px;cursor:pointer;display:block">
               📋 Хаяг хуулах
             </button>
           </td>
