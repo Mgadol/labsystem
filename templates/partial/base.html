@@ -116,9 +116,6 @@ textarea.form-input{resize:vertical;min-height:80px}
       <a href="{{ url_for('reports') }}" class="{% if 'report' in request.endpoint or 'lab_report' in request.endpoint %}active{% endif %}">Тайлан</a>
       <a href="{{ url_for('archive') }}" class="{% if request.endpoint=='archive' %}active{% endif %}">Нэгдсэн архив</a>
       <a href="{{ url_for('lab_settings') }}" class="{% if request.endpoint in ('lab_settings','profile') %}active{% endif %}">Тохиргоо</a>
-      {% if cur and cur['role'] in ('admin','senior') %}
-      <a href="{{ url_for('backup_db') }}" style="background:#e8f5ee;color:#0f6e56;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;text-decoration:none" title="Долоо хоног бүр нөөцлөхийг зөвлөж байна">💾 Backup</a>
-      {% endif %}
     </div>
   </div>
   <div class="topbar-right">

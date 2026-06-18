@@ -2807,7 +2807,7 @@ def crm_edit(mid):
     return render_template('admin/crm_edit.html', mat=mat, today=date.today().isoformat())
 
 @app.route('/backup')
-@senior_required
+@admin_required
 def backup_db():
     db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'lab.db')
     from datetime import datetime as dt
