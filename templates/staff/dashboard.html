@@ -2,7 +2,7 @@
 {% block title %}Dashboard{% endblock %}
 {% block content %}
 <div class="page">
-  <h1 class="page-title">{{ 'Сайн байна уу, ' + current_user['name'].split()[0] + '!' if lang=='mn' else 'Hello, ' + current_user['name'].split()[0] + '!' }}</h1>
+  <h1 class="page-title">{{ 'Сайн байна уу, ' + current_user['name'] + '!' if lang=='mn' else 'Hello, ' + current_user['name'] + '!' }}</h1>
   <p class="page-sub">{{ 'Өнөөдөр: ' + now.strftime('%Y.%m.%d') if lang=='mn' else 'Today: ' + now.strftime('%Y.%m.%d') }}</p>
 
   {% if active_map %}
