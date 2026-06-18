@@ -1688,14 +1688,15 @@ def analysis_crm_register():
             """, (receipt_id, crm_name))
 
             conn.commit()
+            conn.close()
             flash(f'CRM дээж бүртгэгдлээ: {crm_name}', 'success')
             return redirect(url_for('analysis_measure', receipt_id=receipt_id))
         except Exception as e:
+            import traceback; traceback.print_exc()
             conn.rollback()
+            conn.close()
             flash(f'Алдаа: {e}', 'error')
             return redirect(url_for('analysis_crm_register'))
-        finally:
-            conn.close()
 
     crm_materials = conn.execute("SELECT * FROM crm_materials WHERE is_active=1 ORDER BY crm_name").fetchall()
     conn.close()
@@ -1717,7 +1718,7 @@ def crm_control_chart():
         if selected:
             rows = conn.execute("""
                 SELECT g.collected_date, sr.received_date, sr.lab_number,
-                       se.mad, se.aad, se.vad, se.sulfur, se.cal_value, se.g_value
+                       se.mad, se.aad, se.vad, se.sulfur, se.cal_value, se.g_val as g_value
                 FROM geo_samples g
                 JOIN sample_receipt sr ON sr.geo_sample_id=g.id
                 JOIN sample_entries se ON se.receipt_id=sr.id AND se.is_duplicate=0 AND se.row_num=1
