@@ -548,6 +548,16 @@ function copyGuestUrl(token){
     prompt('Хаягийг хуулна уу:', url);
   });
 }
+// URL-н ?tab= параметрээр идэвхтэй табыг тохируулна
+document.addEventListener('DOMContentLoaded', function(){
+  var params = new URLSearchParams(window.location.search);
+  var tab = params.get('tab');
+  if(tab){
+    var btn = document.querySelector('.tab-btn[onclick*="tab-'+tab+'"]');
+    if(btn) btn.click();
+  }
+});
+
 function switchTab(btn, tabId){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.tab-pane').forEach(function(p){
