@@ -1342,7 +1342,6 @@ def ensure_tables():
             check_group1='Эргэдэг хүрд', check_group2='Эргэлдэх барабан', check_group3='Ачаа',
             check_freq='weekly', check_enabled=1
         WHERE lab_id IN ('11','12','13','14')
-          AND (check_param1 IS NULL OR check_param1='')
     """)
     conn.commit()
     conn.close()
