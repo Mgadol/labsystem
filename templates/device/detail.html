@@ -133,62 +133,60 @@
 
         <!-- ШАЛГАЛТЫН ТОХИРГОО -->
         {% if current_user['role'] in ('admin','senior') %}
-        <div style="background:#f8f9fa;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px">
-          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">⚙️ Шалгалтын тохиргоо</div>
-          <form method="POST" action="{{ url_for('device_edit', did=device['id']) }}" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
-            <input type="hidden" name="_check_config_only" value="1">
-            {% set p1 = device['check_param1'] or 'Нэрлэсэн утга' %}
-            {% set p2 = device['check_param2'] %}
-            {% set p3 = device['check_param3'] %}
-            {% set p4 = device['check_param4'] %}
-            <div>
-              <label class="form-label" style="font-size:11px">{{ p1 }} — стандарт</label>
-              <input type="text" name="check_standard" class="form-input" style="width:110px;padding:5px 8px;font-size:12px"
-                value="{{ device['check_standard'] or '' }}" placeholder="Ж: 200">
-            </div>
-            <div>
-              <label class="form-label" style="font-size:11px">{{ p1 }} — зөрүү</label>
-              <input type="text" name="check_tolerance" class="form-input" style="width:100px;padding:5px 8px;font-size:12px"
-                value="{{ device['check_tolerance'] or '' }}" placeholder="±...">
-            </div>
-            {% if p2 %}
-            <div>
-              <label class="form-label" style="font-size:11px">{{ p2 }} — стандарт</label>
-              <input type="text" name="check_standard2" class="form-input" style="width:110px;padding:5px 8px;font-size:12px"
-                value="{{ device['check_standard2'] or '' }}" placeholder="Ж: 70">
-            </div>
-            <div>
-              <label class="form-label" style="font-size:11px">{{ p2 }} — зөрүү</label>
-              <input type="text" name="check_tolerance2" class="form-input" style="width:100px;padding:5px 8px;font-size:12px"
-                value="{{ device['check_tolerance2'] or '' }}" placeholder="±...">
-            </div>
-            {% endif %}
-            {% if p3 %}
-            <div>
-              <label class="form-label" style="font-size:11px">{{ p3 }} — стандарт</label>
-              <input type="text" name="check_standard3" class="form-input" style="width:110px;padding:5px 8px;font-size:12px"
-                value="{{ device['check_standard3'] or '' }}" placeholder="Ж: 50">
-            </div>
-            <div>
-              <label class="form-label" style="font-size:11px">{{ p3 }} — зөрүү</label>
-              <input type="text" name="check_tolerance3" class="form-input" style="width:100px;padding:5px 8px;font-size:12px"
-                value="{{ device['check_tolerance3'] or '' }}" placeholder="±...">
-            </div>
-            {% endif %}
-            {% if p4 %}
-            <div>
-              <label class="form-label" style="font-size:11px">{{ p4 }} — стандарт</label>
-              <input type="text" name="check_standard4" class="form-input" style="width:110px;padding:5px 8px;font-size:12px"
-                value="{{ device['check_standard4'] or '' }}" placeholder="Ж: 112.5">
-            </div>
-            <div>
-              <label class="form-label" style="font-size:11px">{{ p4 }} — зөрүү</label>
-              <input type="text" name="check_tolerance4" class="form-input" style="width:100px;padding:5px 8px;font-size:12px"
-                value="{{ device['check_tolerance4'] or '' }}" placeholder="±...">
-            </div>
-            {% endif %}
-            <button type="submit" class="btn btn-sm" style="padding:5px 14px;font-size:12px">Хадгалах</button>
-          </form>
+        <div style="background:#f8f9fa;border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:16px">
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:12px">⚙️ Шалгалтын тохиргоо</div>
+          {% if device['photo'] %}
+          <div style="text-align:center;margin-bottom:12px">
+            <img src="{{ url_for('static',filename='uploads/'+device['photo']) }}"
+              style="max-height:140px;max-width:100%;object-fit:contain;background:#fff;border:1px solid var(--border);border-radius:6px">
+          </div>
+          {% endif %}
+          <form method="POST" action="{{ url_for('device_edit', did=device['id']) }}">
+              <input type="hidden" name="_check_config_only" value="1">
+              {% set p1 = device['check_param1'] or 'Нэрлэсэн утга' %}
+              {% set p2 = device['check_param2'] %}
+              {% set p3 = device['check_param3'] %}
+              {% set p4 = device['check_param4'] %}
+              <table style="border-collapse:collapse;width:100%;margin-bottom:10px">
+                <thead>
+                  <tr style="font-size:11px;color:var(--text-muted)">
+                    <th style="padding:3px 8px;text-align:left;width:160px">Параметр</th>
+                    <th style="padding:3px 8px;text-align:left;width:140px">Стандарт утга</th>
+                    <th style="padding:3px 8px;text-align:left;width:120px">Зөвшөөрөх зөрүү</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style="padding:3px 8px;font-size:12px;font-weight:500">{{ p1 }}</td>
+                    <td style="padding:3px 8px"><input type="text" name="check_standard" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_standard'] or '' }}" placeholder="Ж: 200"></td>
+                    <td style="padding:3px 8px"><input type="text" name="check_tolerance" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_tolerance'] or '' }}" placeholder="±..."></td>
+                  </tr>
+                  {% if p2 %}
+                  <tr>
+                    <td style="padding:3px 8px;font-size:12px;font-weight:500">{{ p2 }}</td>
+                    <td style="padding:3px 8px"><input type="text" name="check_standard2" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_standard2'] or '' }}" placeholder="Ж: 70"></td>
+                    <td style="padding:3px 8px"><input type="text" name="check_tolerance2" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_tolerance2'] or '' }}" placeholder="±..."></td>
+                  </tr>
+                  {% endif %}
+                  {% if p3 %}
+                  <tr>
+                    <td style="padding:3px 8px;font-size:12px;font-weight:500">{{ p3 }}</td>
+                    <td style="padding:3px 8px"><input type="text" name="check_standard3" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_standard3'] or '' }}" placeholder="Ж: 50"></td>
+                    <td style="padding:3px 8px"><input type="text" name="check_tolerance3" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_tolerance3'] or '' }}" placeholder="±..."></td>
+                  </tr>
+                  {% endif %}
+                  {% if p4 %}
+                  <tr>
+                    <td style="padding:3px 8px;font-size:12px;font-weight:500">{{ p4 }}</td>
+                    <td style="padding:3px 8px"><input type="text" name="check_standard4" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_standard4'] or '' }}" placeholder="Ж: 112.5"></td>
+                    <td style="padding:3px 8px"><input type="text" name="check_tolerance4" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_tolerance4'] or '' }}" placeholder="±..."></td>
+                  </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+              <button type="submit" class="btn btn-sm" style="padding:5px 14px;font-size:12px">Хадгалах</button>
+            </form>
+          </div>
         </div>
         {% endif %}
 
@@ -226,42 +224,46 @@
               <input type="text" name="notes" class="form-input" placeholder="...">
             </div>
           </div>
-          <!-- Параметрүүд: нэг параметр = нэг мөр -->
+          <!-- Стандарт утгуудыг hidden-аар дамжуулна -->
+          <input type="hidden" name="standard_value" value="{{ device['check_standard'] or '' }}">
+          <input type="hidden" name="tolerance" value="{{ device['check_tolerance'] or '' }}">
+          {% if p2 %}<input type="hidden" name="standard_value2" value="{{ device['check_standard2'] or '' }}">{% endif %}
+          {% if p3 %}<input type="hidden" name="standard_value3" value="{{ device['check_standard3'] or '' }}">{% endif %}
+          {% if p4 %}<input type="hidden" name="standard_value4" value="{{ device['check_standard4'] or '' }}">{% endif %}
+          <!-- Параметрүүд: зөвхөн хэмжсэн утга бичнэ -->
           <table style="width:100%;border-collapse:collapse;margin-bottom:12px">
             <thead>
               <tr style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em">
-                <th style="padding:4px 8px;width:180px;text-align:left;font-weight:600">Параметр</th>
-                <th style="padding:4px 8px;width:160px;text-align:left;font-weight:600">Стандарт</th>
+                <th style="padding:4px 8px;width:200px;text-align:left;font-weight:600">Параметр</th>
+                <th style="padding:4px 8px;width:110px;text-align:left;font-weight:600;color:#888">Стандарт</th>
                 <th style="padding:4px 8px;text-align:left;font-weight:600">Хэмжсэн утга</th>
-                {% if not p2 %}<th style="padding:4px 8px;width:140px;text-align:left;font-weight:600">Зөвшөөрөх зөрүү</th>{% endif %}
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td style="padding:4px 8px;font-size:13px;font-weight:500">{{ p1 }}</td>
-                <td style="padding:4px 8px"><input type="text" name="standard_value" class="form-input" style="padding:5px 8px" value="{{ device['check_standard'] or '' }}"></td>
-                <td style="padding:4px 8px"><input type="text" name="measured_value" class="form-input" style="padding:5px 8px" placeholder="хэмжсэн..."></td>
-                {% if not p2 %}<td style="padding:4px 8px"><input type="text" name="tolerance" class="form-input" style="padding:5px 8px" value="{{ device['check_tolerance'] or '' }}"></td>{% endif %}
+                <td style="padding:5px 8px;font-size:13px;font-weight:500">{{ p1 }}</td>
+                <td style="padding:5px 8px;font-size:12px;color:#888">{{ device['check_standard'] or '—' }}{% if device['check_tolerance'] %} <span style="font-size:11px">({{ device['check_tolerance'] }})</span>{% endif %}</td>
+                <td style="padding:5px 8px"><input type="text" name="measured_value" class="form-input" style="padding:5px 8px;max-width:200px" placeholder="хэмжсэн..."></td>
               </tr>
               {% if p2 %}
               <tr>
-                <td style="padding:4px 8px;font-size:13px;font-weight:500">{{ p2 }}</td>
-                <td style="padding:4px 8px"><input type="text" name="standard_value2" class="form-input" style="padding:5px 8px" value="{{ device['check_standard2'] or '' }}"></td>
-                <td style="padding:4px 8px"><input type="text" name="measured_value2" class="form-input" style="padding:5px 8px" placeholder="хэмжсэн..."></td>
+                <td style="padding:5px 8px;font-size:13px;font-weight:500">{{ p2 }}</td>
+                <td style="padding:5px 8px;font-size:12px;color:#888">{{ device['check_standard2'] or '—' }}{% if device['check_tolerance2'] %} <span style="font-size:11px">({{ device['check_tolerance2'] }})</span>{% endif %}</td>
+                <td style="padding:5px 8px"><input type="text" name="measured_value2" class="form-input" style="padding:5px 8px;max-width:200px" placeholder="хэмжсэн..."></td>
               </tr>
               {% endif %}
               {% if p3 %}
               <tr>
-                <td style="padding:4px 8px;font-size:13px;font-weight:500">{{ p3 }}</td>
-                <td style="padding:4px 8px"><input type="text" name="standard_value3" class="form-input" style="padding:5px 8px" value="{{ device['check_standard3'] or '' }}"></td>
-                <td style="padding:4px 8px"><input type="text" name="measured_value3" class="form-input" style="padding:5px 8px" placeholder="хэмжсэн..."></td>
+                <td style="padding:5px 8px;font-size:13px;font-weight:500">{{ p3 }}</td>
+                <td style="padding:5px 8px;font-size:12px;color:#888">{{ device['check_standard3'] or '—' }}{% if device['check_tolerance3'] %} <span style="font-size:11px">({{ device['check_tolerance3'] }})</span>{% endif %}</td>
+                <td style="padding:5px 8px"><input type="text" name="measured_value3" class="form-input" style="padding:5px 8px;max-width:200px" placeholder="хэмжсэн..."></td>
               </tr>
               {% endif %}
               {% if p4 %}
               <tr>
-                <td style="padding:4px 8px;font-size:13px;font-weight:500">{{ p4 }}</td>
-                <td style="padding:4px 8px"><input type="text" name="standard_value4" class="form-input" style="padding:5px 8px" value="{{ device['check_standard4'] or '' }}"></td>
-                <td style="padding:4px 8px"><input type="text" name="measured_value4" class="form-input" style="padding:5px 8px" placeholder="хэмжсэн..."></td>
+                <td style="padding:5px 8px;font-size:13px;font-weight:500">{{ p4 }}</td>
+                <td style="padding:5px 8px;font-size:12px;color:#888">{{ device['check_standard4'] or '—' }}{% if device['check_tolerance4'] %} <span style="font-size:11px">({{ device['check_tolerance4'] }})</span>{% endif %}</td>
+                <td style="padding:5px 8px"><input type="text" name="measured_value4" class="form-input" style="padding:5px 8px;max-width:200px" placeholder="хэмжсэн..."></td>
               </tr>
               {% endif %}
             </tbody>
