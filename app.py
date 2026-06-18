@@ -308,9 +308,21 @@ def dashboard():
             WHERE c.id=(SELECT id FROM calibrations WHERE device_id=d.id ORDER BY calibration_date DESC LIMIT 1)
             AND days<=30 ORDER BY days
         """, (today,)).fetchall()
+        my_devices, active_map = [], {}
+        if session.get('role') == 'senior':
+            uid = session.get('user_id', 0)
+            my_devices = conn.execute("""
+                SELECT d.*, dm.manufacturer, dm.model FROM devices d
+                LEFT JOIN device_marks dm ON d.mark_id=dm.id
+                JOIN staff_device_permissions p ON p.device_id=d.id
+                WHERE p.user_id=? ORDER BY d.name
+            """, (uid,)).fetchall()
+            active_logs = conn.execute("SELECT * FROM usage_logs WHERE user_id=? AND end_time IS NULL", (uid,)).fetchall()
+            active_map = {r['device_id']: r for r in active_logs}
         conn.close()
         return render_template('admin/dashboard.html',
-            devices=devices, users=users, clients=clients, open_rep=open_rep, expiring=expiring, lang=lang)
+            devices=devices, users=users, clients=clients, open_rep=open_rep, expiring=expiring,
+            my_devices=my_devices, active_map=active_map, lang=lang)
     else:
         uid = session.get('user_id', 0)
         my_devices = conn.execute("""

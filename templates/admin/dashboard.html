@@ -72,6 +72,43 @@
   </div>
   {% endif %}
 
+  <!-- Миний төхөөрөмжүүд — senior -->
+  {% if current_user['role'] == 'senior' %}
+  <div class="card" style="margin-bottom:20px">
+    <div class="section-title">Миний төхөөрөмжүүд</div>
+    {% if my_devices %}
+    <div style="display:flex;flex-direction:column;gap:8px">
+      {% for d in my_devices %}
+      <div style="background:var(--gray);border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:12px">
+        {% if d['photo'] %}
+        <img src="{{ url_for('static',filename='uploads/'+d['photo']) }}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0">
+        {% else %}
+        <div style="width:44px;height:44px;border-radius:8px;background:var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/></svg>
+        </div>
+        {% endif %}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d['name'] }}</div>
+          <div style="font-size:11px;color:var(--text-muted)">{{ (d['manufacturer'] or '') + ' ' + (d['model'] or '') }}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <a href="{{ url_for('device_detail', did=d['id']) }}" class="btn btn-ghost btn-sm">Харах</a>
+          {% set log = active_map.get(d['id']) %}
+          {% if log %}
+          <button onclick="stopUsage({{ log['id'] }})" class="btn btn-stop btn-sm">STOP</button>
+          {% else %}
+          <button onclick="startUsage({{ d['id'] }})" class="btn btn-start btn-sm">START</button>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px">Танд хуваарилагдсан төхөөрөмж байхгүй байна.</div>
+    {% endif %}
+  </div>
+  {% endif %}
+
   <!-- Модулиуд — зөвхөн admin -->
   {% if current_user['role'] == 'admin' %}
   <div class="modules">
@@ -206,6 +243,21 @@ new Chart(document.getElementById('monthlyChart'), {
     }
   }
 });
+</script>
+{% endif %}
+{% if current_user['role'] == 'senior' %}
+<script>
+async function startUsage(did){
+  const r=await fetch(`/usage/start/${did}`,{method:'POST'});
+  const d=await r.json();
+  if(d.success) location.reload(); else alert(d.error);
+}
+async function stopUsage(lid){
+  const notes=prompt('Тэмдэглэл (заавал биш):','');
+  const r=await fetch(`/usage/stop/${lid}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({notes:notes||''})});
+  const d=await r.json();
+  if(d.success) location.reload(); else alert(d.error);
+}
 </script>
 {% endif %}
 {% endblock %}
