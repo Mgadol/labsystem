@@ -1715,15 +1715,39 @@ def crm_control_chart():
     if mat_id:
         selected = conn.execute("SELECT * FROM crm_materials WHERE id=?", (mat_id,)).fetchone()
         if selected:
-            history = conn.execute("""
-                SELECT g.collected_date, g.crm_mad as mad, g.crm_aad as aad,
-                       g.crm_vad as vad, g.crm_sulfur as sulfur, g.crm_cal as cal_value,
-                       sr.received_date
+            rows = conn.execute("""
+                SELECT g.collected_date, sr.received_date, sr.lab_number,
+                       se.mad, se.aad, se.vad, se.sulfur, se.cal_value, se.g_value
                 FROM geo_samples g
-                LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
+                JOIN sample_receipt sr ON sr.geo_sample_id=g.id
+                JOIN sample_entries se ON se.receipt_id=sr.id AND se.is_duplicate=0 AND se.row_num=1
                 WHERE g.crm_name=? AND g.sample_type='CRM'
+                  AND se.row_status IN ('done','approved')
                 ORDER BY COALESCE(sr.received_date, g.collected_date)
             """, (selected['crm_name'],)).fetchall()
+            # ad → db хувиргалт
+            history = []
+            for r in rows:
+                mad = r['mad'] or 0
+                factor = 1 - mad / 100 if mad < 100 else 1
+                def to_db(v):
+                    if v is None or factor == 0: return None
+                    return round(v / factor, 4)
+                history.append({
+                    'collected_date': r['collected_date'] or r['received_date'],
+                    'lab_number':     r['lab_number'],
+                    'mad':            r['mad'],
+                    'aad':            r['aad'],
+                    'vad':            r['vad'],
+                    'sulfur':         r['sulfur'],
+                    'cal_value':      r['cal_value'],
+                    'g_value':        r['g_value'],
+                    # dry basis
+                    'adb':  to_db(r['aad']),
+                    'vdb':  to_db(r['vad']),
+                    'sdb':  to_db(r['sulfur']),
+                    'qbd':  round(r['cal_value'] / factor / 1000, 4) if r['cal_value'] and factor else None,
+                })
     conn.close()
     return render_template('analysis/crm_chart.html',
         materials=materials, selected=selected, selected_id=mat_id, history=history,

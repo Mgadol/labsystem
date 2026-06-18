@@ -69,11 +69,11 @@
   {% if history %}
   <!-- Charts -->
   {% set param_list = [
-    ('Adb,%','aad','aad_cert','aad_unc','#0f6e56','rgba(15,110,86,0.15)'),
+    ('Adb,%','adb','aad_cert','aad_unc','#0f6e56','rgba(15,110,86,0.15)'),
     ('G-индекс','g_value','g_cert','g_unc','#3C3489','rgba(60,52,137,0.15)'),
-    ('Vdb,%','vad','vad_cert','vad_unc','#7C3AED','rgba(124,58,237,0.15)'),
-    ('Sdb,%','sulfur','sulfur_cert','sulfur_unc','#854f0b','rgba(133,79,11,0.15)'),
-    ('Qb,d МЖ/кг','cal_value','cal_cert','cal_unc','#993c1d','rgba(153,60,29,0.15)')
+    ('Vdb,%','vdb','vad_cert','vad_unc','#7C3AED','rgba(124,58,237,0.15)'),
+    ('Sdb,%','sdb','sulfur_cert','sulfur_unc','#854f0b','rgba(133,79,11,0.15)'),
+    ('Qb,d МЖ/кг','qbd','cal_cert','cal_unc','#993c1d','rgba(153,60,29,0.15)')
   ] %}
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
@@ -104,14 +104,14 @@
       <tbody>
       {% for h in history %}
       <tr>
-        <td style="font-size:12px">{{ h['collected_date'] or h['received_date'] or '—' }}</td>
-        {% for f,cert_f,unc_f in [('aad','aad_cert','aad_unc'),('vad','vad_cert','vad_unc'),('sulfur','sulfur_cert','sulfur_unc'),('cal_value','cal_cert','cal_unc')] %}
+        <td style="font-size:12px">{{ h['collected_date'] or '—' }}{% if h['lab_number'] %}<br><span style="color:var(--text-muted)">{{ h['lab_number'] }}</span>{% endif %}</td>
+        {% for f,cert_f,unc_f,fmt in [('adb','aad_cert','aad_unc','%.4f'),('vdb','vad_cert','vad_unc','%.4f'),('sdb','sulfur_cert','sulfur_unc','%.4f'),('qbd','cal_cert','cal_unc','%.3f')] %}
         {% set v = h[f] %}
         {% set cv = selected[cert_f] %}
         {% set uv = selected[unc_f] %}
         <td style="text-align:center;font-family:monospace;font-size:12px;
           {% if v and cv and uv and (v < cv - uv or v > cv + uv) %}color:#993c1d;font-weight:700{% elif v and cv %}color:#0f6e56{% endif %}">
-          {{ '%.2f'|format(v) if v else '—' }}
+          {{ (fmt)|format(v) if v else '—' }}
         </td>
         {% endfor %}
       </tr>
@@ -140,11 +140,11 @@ var LABELS = {{ history|map(attribute='collected_date')|list|tojson }};
 var SELECTED = {{ selected['id'] }};
 
 {% set param_list = [
-  ('aad','aad_cert','aad_unc','#0f6e56'),
+  ('adb','aad_cert','aad_unc','#0f6e56'),
   ('g_value','g_cert','g_unc','#3C3489'),
-  ('vad','vad_cert','vad_unc','#7C3AED'),
-  ('sulfur','sulfur_cert','sulfur_unc','#854f0b'),
-  ('cal_value','cal_cert','cal_unc','#993c1d')
+  ('vdb','vad_cert','vad_unc','#7C3AED'),
+  ('sdb','sulfur_cert','sulfur_unc','#854f0b'),
+  ('qbd','cal_cert','cal_unc','#993c1d')
 ] %}
 {% for field,cert_f,unc_f,color in param_list %}
 {% set cv = selected[cert_f] %}
