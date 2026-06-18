@@ -341,10 +341,9 @@ def devices():
         devs = conn.execute("""
             SELECT d.*, dm.manufacturer, dm.model, dm.category FROM devices d
             LEFT JOIN device_marks dm ON d.mark_id=dm.id
-            JOIN staff_device_permissions p ON p.device_id=d.id
-            WHERE p.user_id=?
+            WHERE d.status != 'archived'
             ORDER BY (d.lab_id IS NULL OR d.lab_id=''), d.lab_id, d.name
-        """, (session.get('user_id', 0),)).fetchall()
+        """).fetchall()
     # Хэрэглэгчийн бүх идэвхтэй ашиглалт (олон төхөөрөмж зэрэг ашиглаж болно)
     active_rows = conn.execute("SELECT id, device_id FROM usage_logs WHERE user_id=? AND end_time IS NULL",
                           (session.get('user_id', 0),)).fetchall()
