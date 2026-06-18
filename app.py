@@ -1428,7 +1428,50 @@ def report_export():
     for ci,w in enumerate([5,26,12,32,18,14,12],1):
         ws4.column_dimensions[get_column_letter(ci)].width=w
 
-    for ws in [ws1,ws2,ws3,ws4]:
+    ws5=wb.create_sheet('Дотоод шалгалт')
+    ws5.sheet_view.showGridLines=False
+    title(ws5,'ДОТООД ШАЛГАЛТЫН БҮРТГЭЛ',8)
+    for ci,h in enumerate(['№','Огноо','Төхөөрөмж','Стандарт','Хэмжсэн','Зөрүү зөвшөөрөл','Үр дүн','Тохируулга'],1):
+        hdr(ws5,2,ci,h,bg='2D6A4F')
+    wch = f"strftime('%Y-%m',ch.check_date) IN ({ym_list})"
+    chks=conn.execute(f'''SELECT ch.*,d.name as dname,u.name as uname
+        FROM device_checks ch
+        LEFT JOIN devices d ON d.id=ch.device_id
+        LEFT JOIN users u ON u.id=ch.checked_by
+        WHERE {wch} ORDER BY ch.check_date,d.name''').fetchall()
+    pass_c=fail_c=adj_c=0
+    for ri,ch in enumerate(chks,3):
+        bg=WHITE if ri%2==0 else GRAY
+        is_pass=ch['result']=='pass'
+        is_adj=ch['calibration_adjusted'] if ch['calibration_adjusted'] else 0
+        if is_pass: pass_c+=1
+        else: fail_c+=1
+        if is_adj: adj_c+=1
+        dat(ws5,ri,1,ri-2,bg=bg)
+        dat(ws5,ri,2,ch['check_date'] or '',bg=bg)
+        dat(ws5,ri,3,ch['dname'] or '',bg=bg,left=True)
+        dat(ws5,ri,4,ch['standard_value'] or '—',bg=bg)
+        dat(ws5,ri,5,ch['measured_value'] or '—',bg=bg)
+        dat(ws5,ri,6,ch['tolerance'] or '—',bg=bg)
+        cell=ws5.cell(row=ri,column=7,value='Тэнцсэн' if is_pass else 'Тэнцээгүй')
+        cell.font=Font(name='Arial',size=10,color='0F6E56' if is_pass else '993C1D',bold=True)
+        cell.fill=PatternFill('solid',fgColor=bg); cell.border=th()
+        cell.alignment=Alignment(horizontal='center',vertical='center')
+        cell2=ws5.cell(row=ri,column=8,value='Тийм' if is_adj else '')
+        cell2.font=Font(name='Arial',size=10,color='D97706' if is_adj else '999999',bold=bool(is_adj))
+        cell2.fill=PatternFill('solid',fgColor=bg); cell2.border=th()
+        cell2.alignment=Alignment(horizontal='center',vertical='center')
+    # Дүгнэлт мөр
+    lr5=3+len(chks)
+    total=len(chks)
+    ws5.merge_cells(start_row=lr5,start_column=1,end_row=lr5,end_column=3)
+    dat(ws5,lr5,1,f'Нийт: {total}  |  Тэнцсэн: {pass_c}  |  Тэнцээгүй: {fail_c}  |  Тохируулга: {adj_c}',bold=True,bg='E8F5E9',left=True)
+    for ci in range(4,9):
+        dat(ws5,lr5,ci,'',bg='E8F5E9')
+    for ci,w in enumerate([5,14,28,14,14,16,14,12],1):
+        ws5.column_dimensions[get_column_letter(ci)].width=w
+
+    for ws in [ws1,ws2,ws3,ws4,ws5]:
         ws.page_setup.orientation='landscape'
         ws.page_setup.fitToPage=True; ws.page_setup.fitToWidth=1
 
