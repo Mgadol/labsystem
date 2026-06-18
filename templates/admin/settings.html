@@ -284,14 +284,8 @@
             <label class="form-label">CRM нэр / код <span style="color:var(--coral)">*</span></label>
             <input type="text" name="crm_name" class="form-input" placeholder="Жишээ: SARM-18, GBW11107b" required>
           </div>
-          <!-- Mad -->
-          <div class="form-group">
-            <label class="form-label">Mad [%] — Баталгаажсан</label>
-            <input type="number" name="mad_cert" class="form-input" step="0.0001" min="0" placeholder="0.0000">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Mad ± хязгаар</label>
-            <input type="number" name="mad_unc" class="form-input" step="0.0001" min="0" placeholder="0.0000">
+          <div class="form-group" style="grid-column:1/-1">
+            <p style="font-size:12px;color:var(--text-muted);margin:0">Бүх үзүүлэлт агаарт хатаасан дээжийн суурь (ad) дээр байна. Дотоод чийг (Mad) CRM-д байхгүй.</p>
           </div>
           <!-- Aad -->
           <div class="form-group">
@@ -320,14 +314,14 @@
             <label class="form-label">Sad ± хязгаар</label>
             <input type="number" name="sulfur_unc" class="form-input" step="0.0001" min="0" placeholder="0.0000">
           </div>
-          <!-- Qb,ad -->
+          <!-- Qb,ad — МЖ/кг -->
           <div class="form-group">
-            <label class="form-label">Qb,ad [ккал/кг] — Баталгаажсан</label>
-            <input type="number" name="cal_cert" class="form-input" step="0.01" min="0" placeholder="0.00">
+            <label class="form-label">Qb,ad [МЖ/кг] — Баталгаажсан</label>
+            <input type="number" name="cal_cert" class="form-input" step="0.001" min="0" placeholder="0.000">
           </div>
           <div class="form-group">
-            <label class="form-label">Qb,ad ± хязгаар</label>
-            <input type="number" name="cal_unc" class="form-input" step="0.01" min="0" placeholder="0.00">
+            <label class="form-label">Qb,ad ± хязгаар [МЖ/кг]</label>
+            <input type="number" name="cal_unc" class="form-input" step="0.001" min="0" placeholder="0.000">
           </div>
           <!-- G-индекс -->
           <div class="form-group">
@@ -368,11 +362,10 @@
         <thead>
           <tr>
             <th>Нэр / код</th>
-            <th style="text-align:center">Mad %</th>
             <th style="text-align:center">Aad %</th>
             <th style="text-align:center">Vad %</th>
             <th style="text-align:center">Sad %</th>
-            <th style="text-align:center">Qb,ad</th>
+            <th style="text-align:center">Qb,ad МЖ/кг</th>
             <th style="text-align:center">G-индекс</th>
             <th>Огноонууд</th>
             <th>Тэмдэглэл</th>
@@ -384,9 +377,6 @@
         <tr>
           <td><strong>{{ c['crm_name'] }}</strong></td>
           <td style="text-align:center;font-size:12px">
-            {% if c['mad_cert'] %}{{ '%.4f'|format(c['mad_cert']) }}{% if c['mad_unc'] %}<br><span style="color:#7C3AED">±{{ '%.4f'|format(c['mad_unc']) }}</span>{% endif %}{% else %}—{% endif %}
-          </td>
-          <td style="text-align:center;font-size:12px">
             {% if c['aad_cert'] %}{{ '%.4f'|format(c['aad_cert']) }}{% if c['aad_unc'] %}<br><span style="color:#7C3AED">±{{ '%.4f'|format(c['aad_unc']) }}</span>{% endif %}{% else %}—{% endif %}
           </td>
           <td style="text-align:center;font-size:12px">
@@ -396,7 +386,7 @@
             {% if c['sulfur_cert'] %}{{ '%.4f'|format(c['sulfur_cert']) }}{% if c['sulfur_unc'] %}<br><span style="color:#7C3AED">±{{ '%.4f'|format(c['sulfur_unc']) }}</span>{% endif %}{% else %}—{% endif %}
           </td>
           <td style="text-align:center;font-size:12px">
-            {% if c['cal_cert'] %}{{ '%.2f'|format(c['cal_cert']) }}{% if c['cal_unc'] %}<br><span style="color:#7C3AED">±{{ '%.2f'|format(c['cal_unc']) }}</span>{% endif %}{% else %}—{% endif %}
+            {% if c['cal_cert'] %}{{ '%.3f'|format(c['cal_cert']) }}{% if c['cal_unc'] %}<br><span style="color:#7C3AED">±{{ '%.3f'|format(c['cal_unc']) }}</span>{% endif %}{% else %}—{% endif %}
           </td>
           <td style="text-align:center;font-size:12px">
             {% if c['g_cert'] %}{{ '%.2f'|format(c['g_cert']) }}{% if c['g_unc'] %}<br><span style="color:#7C3AED">±{{ '%.2f'|format(c['g_unc']) }}</span>{% endif %}{% else %}—{% endif %}
@@ -416,7 +406,7 @@
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-muted)">CRM материал байхгүй</td></tr>
+        <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-muted)">CRM материал байхгүй</td></tr>
         {% endfor %}
         </tbody>
       </table>

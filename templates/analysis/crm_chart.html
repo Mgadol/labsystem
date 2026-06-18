@@ -46,11 +46,10 @@
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">
       {% set params = [
-        ('Mad,%','mad_cert','mad_unc','#185fa5'),
         ('Aad,%','aad_cert','aad_unc','#0f6e56'),
         ('Vad,%','vad_cert','vad_unc','#7C3AED'),
         ('Sad,%','sulfur_cert','sulfur_unc','#854f0b'),
-        ('Qb,ad','cal_cert','cal_unc','#993c1d'),
+        ('Qb,ad МЖ/кг','cal_cert','cal_unc','#993c1d'),
         ('G-индекс','g_cert','g_unc','#0f6e56')
       ] %}
       {% for lbl,cert_f,unc_f,color in params %}
@@ -70,12 +69,11 @@
   {% if history %}
   <!-- Charts -->
   {% set param_list = [
-    ('Mad,%','mad','mad_cert','mad_unc','#185fa5','rgba(24,95,165,0.15)'),
     ('Aad,%','aad','aad_cert','aad_unc','#0f6e56','rgba(15,110,86,0.15)'),
     ('G-индекс','g_value','g_cert','g_unc','#3C3489','rgba(60,52,137,0.15)'),
     ('Vad,%','vad','vad_cert','vad_unc','#7C3AED','rgba(124,58,237,0.15)'),
     ('Sad,%','sulfur','sulfur_cert','sulfur_unc','#854f0b','rgba(133,79,11,0.15)'),
-    ('Qb,ad','cal_value','cal_cert','cal_unc','#993c1d','rgba(153,60,29,0.15)')
+    ('Qb,ad МЖ/кг','cal_value','cal_cert','cal_unc','#993c1d','rgba(153,60,29,0.15)')
   ] %}
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
@@ -98,17 +96,16 @@
     <table class="table">
       <thead><tr>
         <th>Огноо</th>
-        <th style="text-align:center">Mad,%</th>
         <th style="text-align:center">Aad,%</th>
         <th style="text-align:center">Vad,%</th>
         <th style="text-align:center">Sad,%</th>
-        <th style="text-align:center">Qb,ad</th>
+        <th style="text-align:center">Qb,ad МЖ/кг</th>
       </tr></thead>
       <tbody>
       {% for h in history %}
       <tr>
         <td style="font-size:12px">{{ h['collected_date'] or h['received_date'] or '—' }}</td>
-        {% for f,cert_f,unc_f in [('mad','mad_cert','mad_unc'),('aad','aad_cert','aad_unc'),('vad','vad_cert','vad_unc'),('sulfur','sulfur_cert','sulfur_unc'),('cal_value','cal_cert','cal_unc')] %}
+        {% for f,cert_f,unc_f in [('aad','aad_cert','aad_unc'),('vad','vad_cert','vad_unc'),('sulfur','sulfur_cert','sulfur_unc'),('cal_value','cal_cert','cal_unc')] %}
         {% set v = h[f] %}
         {% set cv = selected[cert_f] %}
         {% set uv = selected[unc_f] %}
@@ -143,7 +140,6 @@ var LABELS = {{ history|map(attribute='collected_date')|list|tojson }};
 var SELECTED = {{ selected['id'] }};
 
 {% set param_list = [
-  ('mad','mad_cert','mad_unc','#185fa5'),
   ('aad','aad_cert','aad_unc','#0f6e56'),
   ('g_value','g_cert','g_unc','#3C3489'),
   ('vad','vad_cert','vad_unc','#7C3AED'),
