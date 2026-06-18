@@ -743,6 +743,42 @@ def checks_save():
     flash(f'{saved} төхөөрөмжийн баталгаажуулалт хадгалагдлаа!', 'success')
     return redirect(url_for('checks_page', date=sel_date))
 
+@app.route('/checks/monthly')
+@login_required
+def checks_monthly():
+    """Сарын харагдац — бүх жингийн шалгалтыг нэг хүснэгтэд (Excel Sheet 1 загвараар)."""
+    import calendar as cal_mod
+    lang = session.get('lang', 'mn')
+    today = date.today()
+    year  = int(request.args.get('year',  today.year))
+    month = int(request.args.get('month', today.month))
+    _, days_in_month = cal_mod.monthrange(year, month)
+    d_from = f"{year}-{month:02d}-01"
+    d_to   = f"{year}-{month:02d}-{days_in_month:02d}"
+    conn = get_db()
+    devices = conn.execute("""
+        SELECT d.*, dm.manufacturer, dm.model FROM devices d
+        LEFT JOIN device_marks dm ON d.mark_id=dm.id
+        WHERE COALESCE(d.check_enabled,1)=1
+          AND d.status NOT IN ('archived','replaced','decommissioned')
+        ORDER BY COALESCE(d.check_freq,'daily'), d.name
+    """).fetchall()
+    rows = conn.execute("""
+        SELECT ch.*, u.name as uname FROM device_checks ch
+        LEFT JOIN users u ON u.id=ch.checked_by
+        WHERE ch.check_date BETWEEN ? AND ?
+    """, (d_from, d_to)).fetchall()
+    conn.close()
+    # (device_id, day) → check record
+    grid = {}
+    for r in rows:
+        day = int(r['check_date'].split('-')[2])
+        grid[(r['device_id'], day)] = r
+    return render_template('device/checks_monthly.html',
+        devices=devices, grid=grid,
+        year=year, month=month, days_in_month=days_in_month,
+        today=today, lang=lang)
+
 @app.route('/checks/export')
 @login_required
 def checks_export():
