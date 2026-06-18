@@ -255,13 +255,25 @@ def guest_token_generate():
     import random, string
     label = request.form.get('label', '').strip() or 'Зочин'
     token = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-    expires_at = (datetime.now().replace(microsecond=0) + __import__('datetime').timedelta(hours=24)).isoformat()
+    from datetime import timedelta
+    expires_at = (datetime.now().replace(microsecond=0) + timedelta(hours=24)).isoformat()
     conn = get_db()
-    conn.execute("INSERT INTO guest_tokens (token, label, created_by, expires_at) VALUES (?,?,?,?)",
-                 (token, label, session['user_id'], expires_at))
-    conn.commit()
+    conn.execute("""CREATE TABLE IF NOT EXISTS guest_tokens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        token TEXT UNIQUE NOT NULL,
+        label TEXT,
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TEXT NOT NULL
+    )""")
+    try:
+        conn.execute("INSERT INTO guest_tokens (token, label, created_by, expires_at) VALUES (?,?,?,?)",
+                     (token, label, session['user_id'], expires_at))
+        conn.commit()
+        flash(f'Зочны код үүслээ: {token}  (24 цаг хүчинтэй, {expires_at[:16]} хүртэл)', 'success')
+    except Exception as e:
+        flash(f'Алдаа гарлаа: {e}', 'error')
     conn.close()
-    flash(f'Зочны код үүслээ: {token}  (24 цаг хүчинтэй, {expires_at[:16]} хүртэл)', 'success')
     return redirect(url_for('lab_settings') + '?tab=guest')
 
 @app.route('/logout')
