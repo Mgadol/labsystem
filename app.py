@@ -883,18 +883,27 @@ def staff_list():
     lang = session.get('lang','mn')
     conn = get_db()
     is_admin = session.get('role') == 'admin'
-    users = conn.execute("""
-        SELECT * FROM users WHERE is_active=1 {}
+    role_filter = '' if is_admin else "AND role != 'admin'"
+    users_a = conn.execute(f"""
+        SELECT * FROM users WHERE is_active=1 AND shift='A' {role_filter}
         ORDER BY CASE role
-            WHEN 'admin' THEN 1
-            WHEN 'senior' THEN 2
-            WHEN 'staff' THEN 3
-            WHEN 'preparer' THEN 4
-            WHEN 'geologist' THEN 5
-            ELSE 6 END, name
-    """.format('' if is_admin else "AND role != 'admin'")).fetchall()
+            WHEN 'admin' THEN 1 WHEN 'senior' THEN 2 WHEN 'staff' THEN 3
+            WHEN 'preparer' THEN 4 WHEN 'geologist' THEN 5 ELSE 6 END, name
+    """).fetchall()
+    users_b = conn.execute(f"""
+        SELECT * FROM users WHERE is_active=1 AND shift='B' {role_filter}
+        ORDER BY CASE role
+            WHEN 'admin' THEN 1 WHEN 'senior' THEN 2 WHEN 'staff' THEN 3
+            WHEN 'preparer' THEN 4 WHEN 'geologist' THEN 5 ELSE 6 END, name
+    """).fetchall()
+    users_none = conn.execute(f"""
+        SELECT * FROM users WHERE is_active=1 AND (shift IS NULL OR shift='') {role_filter}
+        ORDER BY CASE role
+            WHEN 'admin' THEN 1 WHEN 'senior' THEN 2 WHEN 'staff' THEN 3
+            WHEN 'preparer' THEN 4 WHEN 'geologist' THEN 5 ELSE 6 END, name
+    """).fetchall()
     conn.close()
-    return render_template('admin/staff_list.html', users=users, lang=lang)
+    return render_template('admin/staff_list.html', users_a=users_a, users_b=users_b, users_none=users_none, lang=lang)
 
 @app.route('/staff/add', methods=['GET','POST'])
 @senior_required
@@ -917,14 +926,15 @@ def staff_add():
             if session.get('role') == 'senior' and role_to_set in ('admin','senior'):
                 role_to_set = 'staff'
             conn.execute("""
-                INSERT INTO users(employee_id,name,position,phone,email,photo,role,password_hash,joined_date)
-                VALUES(?,?,?,?,?,?,?,?,?)
+                INSERT INTO users(employee_id,name,position,phone,email,photo,role,password_hash,joined_date,shift)
+                VALUES(?,?,?,?,?,?,?,?,?,?)
             """, (
                 request.form['employee_id'], request.form['name'],
                 request.form.get('position'), request.form.get('phone'),
                 request.form.get('email'), photo,
                 role_to_set, pw,
-                request.form.get('joined_date') or None
+                request.form.get('joined_date') or None,
+                request.form.get('shift') or None
             ))
             uid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
             # Геологичид (харилцагч) тоног ашиглах эрх олгохгүй
@@ -1094,7 +1104,7 @@ def staff_edit(uid):
             if session.get('role') == 'senior' and role_to_set in ('admin','senior'):
                 role_to_set = target['role']
             conn.execute("""
-                UPDATE users SET name=?,position=?,phone=?,email=?,role=?,joined_date=?
+                UPDATE users SET name=?,position=?,phone=?,email=?,role=?,joined_date=?,shift=?
                 WHERE id=?
             """, (
                 request.form.get('name', target['name']),
@@ -1103,6 +1113,7 @@ def staff_edit(uid):
                 request.form.get('email'),
                 role_to_set,
                 request.form.get('joined_date') or None,
+                request.form.get('shift') or None,
                 uid
             ))
             if photo:
@@ -1333,6 +1344,8 @@ def ensure_tables():
                 'measured_value4 TEXT', 'standard_value4 TEXT', 'tolerance4 TEXT']:
         try: conn.execute(f"ALTER TABLE device_checks ADD COLUMN {col}")
         except Exception: pass
+    try: conn.execute("ALTER TABLE users ADD COLUMN shift TEXT")
+    except Exception: pass
     # Барабан (Эргэдэг хүрд) тохиргоо — лаб дугаар 11-14 (4 параметр)
     conn.execute("""
         UPDATE devices SET

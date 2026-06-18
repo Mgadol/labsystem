@@ -41,6 +41,14 @@
           <input type="date" name="joined_date" class="form-input" value="{{ target['joined_date'] or '' }}">
         </div>
         <div class="form-group">
+          <label class="form-label">Ээлж</label>
+          <select name="shift" class="form-input">
+            <option value="" {{ 'selected' if not target['shift'] }}>— Тодорхойгүй —</option>
+            <option value="A" {{ 'selected' if target['shift']=='A' }}>А-ээлж</option>
+            <option value="B" {{ 'selected' if target['shift']=='B' }}>Б-ээлж</option>
+          </select>
+        </div>
+        <div class="form-group">
           <label class="form-label">Эрх</label>
           <select name="role" class="form-input" id="roleSelect" onchange="toggleDevicePerm()">
             <option value="staff" {{ 'selected' if target['role']=='staff' }}>Ажилтан (Химич)</option>

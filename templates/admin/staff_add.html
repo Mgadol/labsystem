@@ -25,6 +25,14 @@
           <input type="text" name="position" class="form-input" placeholder="{{ 'Лаборант' if lang=='mn' else 'Lab Technician' }}">
         </div>
         <div class="form-group">
+          <label class="form-label">Ээлж</label>
+          <select name="shift" class="form-input">
+            <option value="">— Тодорхойгүй —</option>
+            <option value="A">А-ээлж</option>
+            <option value="B">Б-ээлж</option>
+          </select>
+        </div>
+        <div class="form-group">
           <label class="form-label">{{ 'Эрх' if lang=='mn' else 'Role' }}</label>
           <select name="role" class="form-input" id="roleSelect" onchange="toggleDevicePerm()">
             <option value="staff">Ажилтан (Химич)</option>
