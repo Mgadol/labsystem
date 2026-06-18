@@ -148,10 +148,10 @@
             </colgroup>
             <!-- Группийн гарчиг -->
             <thead>
-              <tr style="background:#f0f4f8;font-size:13px;font-weight:700;text-align:center">
-                <th colspan="2" style="padding:10px 12px;border-right:2px solid #999">{{ g1 or '—' }}</th>
-                <th style="padding:10px 12px;border-right:2px solid #999">{{ g2 or '—' }}</th>
-                <th style="padding:10px 12px">{{ g3 or '—' }}</th>
+              <tr style="background:#e8edf3;font-size:12px;font-weight:700;text-align:center;color:var(--navy)">
+                <td colspan="2" style="padding:7px 12px;border-right:2px solid #999">{% if g1 %}1. {{ g1 }}{% endif %}</td>
+                <td style="padding:7px 12px;border-right:2px solid #999">{% if g2 %}2. {{ g2 }}{% endif %}</td>
+                <td style="padding:7px 12px">{% if g3 %}3. {{ g3 }}{% endif %}</td>
               </tr>
             </thead>
             <tbody>
@@ -234,7 +234,6 @@
                   </tbody>
                 </table>
                 <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">
-                  {% if g1 %}
                   <div>
                     <label class="form-label" style="font-size:11px">{{ p1 }} зураг</label>
                     <input type="file" name="check_photo1" accept="image/*" style="font-size:12px">
@@ -254,7 +253,6 @@
                     <label class="form-label" style="font-size:11px">{{ p4 }} зураг</label>
                     <input type="file" name="check_photo4" accept="image/*" style="font-size:12px">
                   </div>
-                  {% endif %}
                   {% endif %}
                 </div>
                 <button type="submit" class="btn btn-sm" style="padding:5px 14px;font-size:12px">Хадгалах</button>
