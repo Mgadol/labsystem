@@ -100,9 +100,10 @@
               <span style="font-size:10px;background:#f0f0f0;color:#555;border-radius:4px;padding:2px 5px;white-space:nowrap">📦🔬 Хоёуланд</span>
             {% endif %}
             {% if d['status']=='active' and current_user['role'] != 'guest' %}
-              {% if active_dev == d['id'] %}
-              <button onclick="stopUsage({{ active_log_id }})" class="btn btn-stop" style="padding:1px 6px;font-size:9px;line-height:1.5;height:auto;flex-shrink:0;font-weight:600">⏹ STOP</button>
-              {% elif not active_dev %}
+              {% set log_id = active_map.get(d['id']) %}
+              {% if log_id %}
+              <button onclick="stopUsage({{ log_id }})" class="btn btn-stop" style="padding:1px 6px;font-size:9px;line-height:1.5;height:auto;flex-shrink:0;font-weight:600">⏹ STOP</button>
+              {% else %}
               <button onclick="startUsage({{ d['id'] }})" class="btn btn-start" style="padding:1px 6px;font-size:9px;line-height:1.5;height:auto;flex-shrink:0;font-weight:600">▶ START</button>
               {% endif %}
             {% endif %}

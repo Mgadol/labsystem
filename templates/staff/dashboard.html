@@ -5,11 +5,14 @@
   <h1 class="page-title">{{ 'Сайн байна уу, ' + current_user['name'].split()[0] + '!' if lang=='mn' else 'Hello, ' + current_user['name'].split()[0] + '!' }}</h1>
   <p class="page-sub">{{ 'Өнөөдөр: ' + now().strftime('%Y.%m.%d') if lang=='mn' else 'Today: ' + now().strftime('%Y.%m.%d') }}</p>
 
-  {% if active_log %}
+  {% if active_map %}
   <div class="card" style="margin-bottom:16px;border-left:3px solid var(--teal);border-radius:0 var(--radius) var(--radius) 0">
-    <div style="font-size:12px;color:var(--teal);font-weight:600;margin-bottom:4px">{{ 'Одоо ажиллаж байна' if lang=='mn' else 'Currently working' }}</div>
-    <div style="font-size:13px">{{ 'Эхэлсэн цаг:' if lang=='mn' else 'Started:' }} <strong>{{ active_log['start_time'][11:16] }}</strong></div>
-    <button onclick="stopUsage({{ active_log['id'] }})" class="btn btn-stop btn-sm" style="margin-top:8px">STOP</button>
+    <div style="font-size:12px;color:var(--teal);font-weight:600;margin-bottom:6px">{{ 'Одоо ажиллаж байна' if lang=='mn' else 'Currently working' }}</div>
+    {% for dev_id, lg in active_map.items() %}
+    <div style="font-size:13px;margin-bottom:4px">{{ 'Эхэлсэн:' if lang=='mn' else 'Started:' }} <strong>{{ lg['start_time'][11:16] }}</strong>
+      <button onclick="stopUsage({{ lg['id'] }})" class="btn btn-stop btn-sm" style="margin-left:8px;padding:1px 8px;font-size:11px">STOP</button>
+    </div>
+    {% endfor %}
   </div>
   {% endif %}
 
@@ -32,10 +35,11 @@
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0">
           <a href="{{ url_for('device_detail', did=d['id']) }}" class="btn btn-ghost btn-sm">{{ 'Харах' if lang=='mn' else 'View' }}</a>
-          {% if not active_log %}
+          {% set log = active_map.get(d['id']) %}
+          {% if log %}
+          <button onclick="stopUsage({{ log['id'] }})" class="btn btn-stop btn-sm">STOP</button>
+          {% else %}
           <button onclick="startUsage({{ d['id'] }})" class="btn btn-start btn-sm">START</button>
-          {% elif active_log['device_id'] == d['id'] %}
-          <button onclick="stopUsage({{ active_log['id'] }})" class="btn btn-stop btn-sm">STOP</button>
           {% endif %}
         </div>
       </div>

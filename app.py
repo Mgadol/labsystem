@@ -319,10 +319,11 @@ def dashboard():
             JOIN staff_device_permissions p ON p.device_id=d.id
             WHERE p.user_id=? ORDER BY d.name
         """, (uid,)).fetchall()
-        active_log = conn.execute("SELECT * FROM usage_logs WHERE user_id=? AND end_time IS NULL", (uid,)).fetchone()
+        active_logs = conn.execute("SELECT * FROM usage_logs WHERE user_id=? AND end_time IS NULL", (uid,)).fetchall()
         conn.close()
+        active_map = {r['device_id']: r for r in active_logs}
         return render_template('staff/dashboard.html',
-            devices=my_devices, active_log=active_log, lang=lang)
+            devices=my_devices, active_map=active_map, lang=lang)
 
 # ── DEVICES ─────────────────────────────────────────────
 @app.route('/devices')
@@ -344,14 +345,14 @@ def devices():
             WHERE p.user_id=?
             ORDER BY (d.lab_id IS NULL OR d.lab_id=''), d.lab_id, d.name
         """, (session.get('user_id', 0),)).fetchall()
-    # Хэрэглэгчийн идэвхтэй ашиглалт (нэг л төхөөрөмж дээр ажиллаж болно)
-    active = conn.execute("SELECT id, device_id FROM usage_logs WHERE user_id=? AND end_time IS NULL",
-                          (session.get('user_id', 0),)).fetchone()
+    # Хэрэглэгчийн бүх идэвхтэй ашиглалт (олон төхөөрөмж зэрэг ашиглаж болно)
+    active_rows = conn.execute("SELECT id, device_id FROM usage_logs WHERE user_id=? AND end_time IS NULL",
+                          (session.get('user_id', 0),)).fetchall()
     conn.close()
-    active_dev = active['device_id'] if active else None
-    active_log_id = active['id'] if active else None
+    # device_id → log_id харгалзаа
+    active_map = {r['device_id']: r['id'] for r in active_rows}
     return render_template('device/list.html', devices=devs, lang=lang,
-        active_dev=active_dev, active_log_id=active_log_id)
+        active_map=active_map)
 
 @app.route('/devices/<int:did>')
 @login_required
@@ -563,9 +564,10 @@ def usage_start(did):
         perm = conn.execute("SELECT 1 FROM staff_device_permissions WHERE user_id=? AND device_id=?", (uid, did)).fetchone()
         if not perm:
             conn.close(); return jsonify({'error': 'Эрх байхгүй'}), 403
-    active = conn.execute("SELECT id FROM usage_logs WHERE user_id=? AND end_time IS NULL", (uid,)).fetchone()
-    if active:
-        conn.close(); return jsonify({'error': 'Та аль хэдийн өөр төхөөрөмж дээр ажиллаж байна!'}), 400
+    # Тухайн төхөөрөмж дээр аль хэдийн идэвхтэй сесси байвал давхардуулахгүй
+    already = conn.execute("SELECT id FROM usage_logs WHERE user_id=? AND device_id=? AND end_time IS NULL", (uid, did)).fetchone()
+    if already:
+        conn.close(); return jsonify({'error': 'Та энэ төхөөрөмж дээр аль хэдийн ажиллаж байна!'}), 400
     now = datetime.now().isoformat()
     conn.execute("INSERT INTO usage_logs(device_id,user_id,start_time) VALUES(?,?,?)", (did, uid, now))
     lid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
