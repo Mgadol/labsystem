@@ -1039,7 +1039,7 @@ def staff_detail(uid):
 
 # ── ARCHIVE ─────────────────────────────────────────────
 @app.route('/archive')
-@login_required
+@senior_required
 def archive():
     lang = session.get('lang','mn')
     conn = get_db()
