@@ -2807,4 +2807,4 @@ if __name__ == '__main__':
     ensure_tables()
     print('Систем эхэллээ!')
     print('Браузерт нэвтрэх: http://localhost:5000')
-    app.run(debug=False, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000)
