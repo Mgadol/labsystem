@@ -2537,11 +2537,9 @@ def lab_settings_crm():
             if not name:
                 flash('CRM нэрийг оруулна уу', 'error')
                 return redirect(url_for('lab_settings') + '?tab=crm')
-            conn.execute("""INSERT INTO crm_materials (crm_name, mad_cert, mad_unc, aad_cert, aad_unc, vad_cert, vad_unc, sulfur_cert, sulfur_unc, cal_cert, cal_unc, g_cert, g_unc, notes, standard, manufacture_date, expiry_date, open_date)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+            conn.execute("""INSERT INTO crm_materials (crm_name, aad_cert, aad_unc, vad_cert, vad_unc, sulfur_cert, sulfur_unc, cal_cert, cal_unc, g_cert, g_unc, notes, standard, manufacture_date, expiry_date, open_date)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
                 name,
-                request.form.get('mad_cert') or None,
-                request.form.get('mad_unc') or None,
                 request.form.get('aad_cert') or None,
                 request.form.get('aad_unc') or None,
                 request.form.get('vad_cert') or None,
