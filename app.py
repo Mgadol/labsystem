@@ -2807,18 +2807,39 @@ def crm_edit(mid):
     return render_template('admin/crm_edit.html', mat=mat, today=date.today().isoformat())
 
 @app.route('/backup')
-@admin_required
+@senior_required
 def backup_db():
     db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'lab.db')
     from datetime import datetime as dt
     fname = f"lab_backup_{dt.now().strftime('%Y%m%d_%H%M%S')}.db"
     return send_file(db_path, as_attachment=True, download_name=fname)
 
+def _auto_backup():
+    """7 хоног тутам автоматаар backup хийнэ. Сүүлийн 4-ийг хадгална."""
+    import threading, shutil, glob
+    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'lab.db')
+    backup_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'backups')
+    os.makedirs(backup_dir, exist_ok=True)
+    fname = datetime.now().strftime('lab_backup_%Y%m%d_%H%M%S.db')
+    dest = os.path.join(backup_dir, fname)
+    try:
+        shutil.copy2(db_path, dest)
+        # Хуучин backup-уудыг устгах — 4-с дээш бол хамгийн хуучныг устгана
+        files = sorted(glob.glob(os.path.join(backup_dir, 'lab_backup_*.db')))
+        for old in files[:-4]:
+            os.remove(old)
+        print(f'✓ Автомат backup: {fname}')
+    except Exception as e:
+        print(f'Backup алдаа: {e}')
+    # 7 хоногийн дараа дахин дуудна
+    threading.Timer(7 * 24 * 3600, _auto_backup).start()
+
 if __name__ == '__main__':
     init_db()
     from models import init_analysis_db
     init_analysis_db()
     ensure_tables()
+    _auto_backup()
     print('Систем эхэллээ!')
     print('Браузерт нэвтрэх: http://localhost:5000')
     app.run(debug=False, host='0.0.0.0', port=5000)
