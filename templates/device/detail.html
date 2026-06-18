@@ -128,7 +128,7 @@
       <!-- INTERNAL CHECK (дотоод өдөр тутмын шалгалт) -->
       <div id="tab-check" class="tab-pane" style="padding:20px">
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
-          Өдөр тутмын дотоод шалгалт — стандарт жин/утгаар өөрсдөө шалгана. (Жилийн нэг удаагийн хэмжил зүйн баталгаажуулалт нь "Баталгаажуулалт" хэсэгт)
+          Дотоод шалгалт — стандарт жин/утгаар өөрсдөө шалгана. (Жилийн нэг удаагийн хэмжил зүйн баталгаажуулалт нь "Баталгаажуулалт" хэсэгт)
         </div>
 
         <!-- ШАЛГАЛТЫН ТОХИРГОО -->
@@ -206,53 +206,52 @@
         {% set p2 = device['check_param2'] %}
         {% set p3 = device['check_param3'] %}
         {% set p4 = device['check_param4'] %}
-        {% set ncols = 3 + (2 if p2 else 1) + (2 if p3 else 0) + (2 if p4 else 0) %}
         <form method="POST" action="{{ url_for('device_check_add', did=device['id']) }}" style="background:var(--gray);border-radius:8px;padding:14px;margin-bottom:16px">
           <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em">Шинэ дотоод шалгалт</div>
-          <div style="display:grid;grid-template-columns:repeat({{ ncols }},1fr);gap:10px;margin-bottom:10px">
-            <div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+            <div style="min-width:130px;flex:1">
               <label class="form-label">Огноо</label>
               <input type="date" name="check_date" class="form-input" value="{{ today }}" required>
             </div>
-            <div>
+            <div style="min-width:120px;flex:1">
               <label class="form-label">{{ p1 }} — стандарт</label>
               <input type="text" name="standard_value" class="form-input" value="{{ device['check_standard'] or '' }}">
             </div>
-            <div>
+            <div style="min-width:120px;flex:1">
               <label class="form-label">{{ p1 }} — хэмжсэн</label>
               <input type="text" name="measured_value" class="form-input" placeholder="{{ device['check_standard'] or '...' }}">
             </div>
             {% if p2 %}
-            <div>
+            <div style="min-width:120px;flex:1">
               <label class="form-label">{{ p2 }} — стандарт</label>
               <input type="text" name="standard_value2" class="form-input" value="{{ device['check_standard2'] or '' }}">
             </div>
-            <div>
+            <div style="min-width:120px;flex:1">
               <label class="form-label">{{ p2 }} — хэмжсэн</label>
               <input type="text" name="measured_value2" class="form-input" placeholder="{{ device['check_standard2'] or '...' }}">
             </div>
             {% else %}
-            <div>
+            <div style="min-width:120px;flex:1">
               <label class="form-label">Зөвшөөрөх зөрүү</label>
               <input type="text" name="tolerance" class="form-input" value="{{ device['check_tolerance'] or '' }}">
             </div>
             {% endif %}
             {% if p3 %}
-            <div>
+            <div style="min-width:120px;flex:1">
               <label class="form-label">{{ p3 }} — стандарт</label>
               <input type="text" name="standard_value3" class="form-input" value="{{ device['check_standard3'] or '' }}">
             </div>
-            <div>
+            <div style="min-width:120px;flex:1">
               <label class="form-label">{{ p3 }} — хэмжсэн</label>
               <input type="text" name="measured_value3" class="form-input" placeholder="{{ device['check_standard3'] or '...' }}">
             </div>
             {% endif %}
             {% if p4 %}
-            <div>
+            <div style="min-width:120px;flex:1">
               <label class="form-label">{{ p4 }} — стандарт</label>
               <input type="text" name="standard_value4" class="form-input" value="{{ device['check_standard4'] or '' }}">
             </div>
-            <div>
+            <div style="min-width:120px;flex:1">
               <label class="form-label">{{ p4 }} — хэмжсэн</label>
               <input type="text" name="measured_value4" class="form-input" placeholder="{{ device['check_standard4'] or '...' }}">
             </div>
