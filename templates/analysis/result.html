@@ -43,7 +43,7 @@
 
 <!-- Явц + баталгаажуулах -->
 {% set total = receipt['quantity'] %}
-{% set done_entries = entries|selectattr('row_status','in',['done','approved'])|selectattr('is_duplicate','equalto',0)|list %}
+{% set done_entries = entries|selectattr('row_status','ne','empty')|selectattr('is_duplicate','equalto',0)|list %}
 {% set approved_entries = entries|selectattr('row_status','equalto','approved')|selectattr('is_duplicate','equalto',0)|list %}
 {% set done_count = done_entries|length %}
 {% set approved_count = approved_entries|length %}
@@ -138,7 +138,7 @@
     {% endif %}
     <td style="color:#666;font-size:11px">{{ ri }}</td>
     <td style="text-align:left;font-weight:500;padding-left:8px">
-      {{ e.sample_name if e and e.sample_name else '—' }}
+      {{ e.sample_name if e and e.sample_name else (receipt['sample_name'] ~ '-' ~ ri) }}
     </td>
     <td class="val">{{ '%.3f'|format(e['mass_kg']) if e and e['mass_kg'] else '—' }}</td>
     {% if is_done %}
