@@ -515,17 +515,23 @@ def device_edit(did):
         # Зөвхөн шалгалтын тохиргоо хадгалах (check tab-аас дуудагдана)
         if request.form.get('_check_config_only'):
             conn.execute("""UPDATE devices SET
-                check_standard=?, check_tolerance=?,
-                check_standard2=?, check_tolerance2=?,
-                check_standard3=?, check_tolerance3=?,
-                check_standard4=?, check_tolerance4=?
+                check_group1=?,
+                check_param1=?, check_standard=?, check_tolerance=?,
+                check_param2=?, check_standard2=?, check_tolerance2=?,
+                check_param3=?, check_standard3=?, check_tolerance3=?,
+                check_param4=?, check_standard4=?, check_tolerance4=?
                 WHERE id=?""", (
+                request.form.get('check_group1') or None,
+                request.form.get('check_param1') or None,
                 request.form.get('check_standard') or None,
                 request.form.get('check_tolerance') or None,
+                request.form.get('check_param2') or None,
                 request.form.get('check_standard2') or None,
                 request.form.get('check_tolerance2') or None,
+                request.form.get('check_param3') or None,
                 request.form.get('check_standard3') or None,
                 request.form.get('check_tolerance3') or None,
+                request.form.get('check_param4') or None,
                 request.form.get('check_standard4') or None,
                 request.form.get('check_tolerance4') or None,
                 did))
@@ -1449,6 +1455,7 @@ def ensure_tables():
     # Зуух — лаб дугаар 6,7,8 (2 параметр: температур)
     conn.execute("""
         UPDATE devices SET
+            check_group1='Зуухны температур', check_group2=NULL, check_group3=NULL,
             check_param1='Температур 1', check_standard='850±10 °C', check_tolerance='6 мин - 850 °C',
             check_param2='Температур 2', check_standard2='900±20 °C', check_tolerance2='3 мин - 900 °C',
             check_param3=NULL, check_standard3=NULL, check_tolerance3=NULL,
