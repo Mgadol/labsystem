@@ -1787,7 +1787,7 @@ def analysis():
             FROM geo_samples g
             LEFT JOIN users u ON u.id=g.registered_by
             LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
-            WHERE g.registered_by=?
+            WHERE g.registered_by=? AND g.status != 'done'
             ORDER BY sr.lab_serial DESC, g.created_at DESC LIMIT 50
         """, (uid,)).fetchall()
     else:
@@ -1797,6 +1797,7 @@ def analysis():
             FROM geo_samples g
             LEFT JOIN users u ON u.id=g.registered_by
             LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
+            WHERE g.status != 'done'
             ORDER BY sr.lab_serial DESC, g.created_at DESC LIMIT 200
         """).fetchall()
     prep_devices = conn.execute("""
