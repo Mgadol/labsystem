@@ -1454,7 +1454,7 @@ def ensure_tables():
             check_param3=NULL, check_standard3=NULL, check_tolerance3=NULL,
             check_param4=NULL, check_standard4=NULL, check_tolerance4=NULL,
             check_freq='daily', check_enabled=1
-        WHERE lab_id IN ('6','7','8')
+        WHERE lab_id IN ('06','07','08')
     """)
     conn.commit()
     conn.close()
