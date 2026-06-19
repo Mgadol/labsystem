@@ -87,6 +87,9 @@
     <button onclick="openDevicePopup()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">
       🔧 <span id="deviceSummary">Тоног</span>
     </button>
+    <a href="{{ url_for('analysis_result', receipt_id=receipt['id']) }}" style="background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.4);border-radius:6px;color:#4ade80;font-size:11px;padding:4px 10px;cursor:pointer;text-decoration:none">
+      📊 Үр дүн
+    </a>
     <div style="display:flex;flex-direction:column;gap:2px;margin-right:8px">
       <button onmousedown="event.preventDefault();increaseDecimal()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:3px;color:#fff;font-size:9px;padding:1px 4px;cursor:pointer;line-height:1.2">0.00</button>
       <button onmousedown="event.preventDefault();decreaseDecimal()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:3px;color:#fff;font-size:9px;padding:1px 4px;cursor:pointer;line-height:1.2">00.0</button>
