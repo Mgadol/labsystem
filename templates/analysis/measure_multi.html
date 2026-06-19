@@ -53,6 +53,10 @@
   {% endfor %}
   <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
     <button id="editModeBtn" onclick="toggleEditMode()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">✏️ Засах</button>
+    <button onclick="openDevicePopup()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">🔧 <span id="deviceSummary">Тоног</span></button>
+    {% for r in receipts %}
+    <a href="{{ url_for('analysis_result', receipt_id=r['id']) }}" style="background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.4);border-radius:6px;color:#4ade80;font-size:11px;padding:4px 10px;cursor:pointer;text-decoration:none">📊 {{ r['lab_number'] }}</a>
+    {% endfor %}
     <div style="display:flex;flex-direction:column;gap:2px">
       <button onmousedown="event.preventDefault();increaseDecimal()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:3px;color:#fff;font-size:9px;padding:1px 4px;cursor:pointer;line-height:1.2">0.00</button>
       <button onmousedown="event.preventDefault();decreaseDecimal()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:3px;color:#fff;font-size:9px;padding:1px 4px;cursor:pointer;line-height:1.2">00.0</button>
@@ -228,10 +232,26 @@
   <a href="{{ url_for('analysis') }}" class="btn btn-ghost btn-sm">← Буцах</a>
 </div>
 
+<!-- Тоногийн popup -->
+<div id="devicePopup" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;padding:24px;width:420px;max-width:95%">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="font-size:15px;font-weight:700">🔧 Өдрийн тоног тохируулах</h3>
+      <button onclick="closeDevicePopup()" style="background:none;border:none;font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div id="deviceMapForm"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button onclick="closeDevicePopup()" class="btn btn-ghost">Хаах</button>
+      <button onclick="saveDeviceSelection()" class="btn btn-primary">✅ Хадгалах</button>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 {% block scripts %}
 <script>
 var QC = {mad:0.20, aad:0.30, vad:0.30};
+var deviceMap = {};
 var editMode = false;
 var pendingChanges = {};
 
@@ -473,6 +493,39 @@ document.addEventListener('keydown',function(e){
 });
 
 document.querySelectorAll('.tbl input').forEach(function(i){i.addEventListener('focus',function(){this.select();});});
+
+// Тоног popup
+var ANALYSIS_LABELS={mad:'💧 Mad',aad:'🔥 Aad',vad:'💨 Vad',st:'⚗️ Sad',q:'🔆 Q',g:'📊 G',fsi:'🔵 FSI'};
+function openDevicePopup(){
+  document.getElementById('devicePopup').style.display='flex';
+  fetch('/analysis/device-map').then(r=>r.json()).then(function(data){
+    var html='';
+    Object.keys(ANALYSIS_LABELS).forEach(function(key){
+      var sel='<select id="dsel_'+key+'" style="width:100%;padding:4px 8px;border:1px solid #ddd;border-radius:6px;font-size:12px">';
+      sel+='<option value="">— сонгоогүй —</option>';
+      data.devices.forEach(function(d){
+        var sel2=(deviceMap[key]&&deviceMap[key].id==d.id)||(data.mapping[key]==d.id&&!deviceMap[key])?'selected':'';
+        sel+='<option value="'+d.id+'" data-name="'+d.name+'" '+sel2+'>'+d.name+'</option>';
+      });
+      sel+='</select>';
+      html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="width:120px;font-size:12px">'+ANALYSIS_LABELS[key]+'</div><div style="flex:1">'+sel+'</div></div>';
+    });
+    document.getElementById('deviceMapForm').innerHTML=html;
+  });
+}
+function closeDevicePopup(){document.getElementById('devicePopup').style.display='none';}
+function saveDeviceSelection(){
+  Object.keys(ANALYSIS_LABELS).forEach(function(key){
+    var sel=document.getElementById('dsel_'+key);
+    if(!sel) return;
+    var opt=sel.options[sel.selectedIndex];
+    if(opt&&opt.value) deviceMap[key]={id:parseInt(opt.value),name:opt.dataset.name};
+    else delete deviceMap[key];
+  });
+  var names=[...new Set(Object.values(deviceMap).map(function(d){return d.name;}))];
+  document.getElementById('deviceSummary').textContent=names.length?names.slice(0,2).join(' | '):'Тоног';
+  closeDevicePopup();
+}
 
 document.addEventListener('DOMContentLoaded',function(){
   autoNames();
