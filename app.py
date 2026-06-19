@@ -1537,6 +1537,60 @@ def reports():
         analysis_types=[name for _, name in ANALYSIS_FIELDS],
         cur_year=cur_year)
 
+@app.route('/reports/chart-data')
+@senior_required
+def reports_chart_data():
+    import calendar as cal_mod
+    rtype  = request.args.get('type', 'month')
+    year   = int(request.args.get('year', datetime.now().year))
+    month  = int(request.args.get('month', datetime.now().month))
+    week   = int(request.args.get('week', 1))
+    half   = int(request.args.get('half', 1))
+    SAMPLE_TYPES_MAP = [
+        ('PIT','Уурхай'),('STOCKPILE','Овоолго'),('EXPORT','Ачилт'),
+        ('CONTROL','Хяналт'),('DP','Баяжуулах'),('EQ_CONTROL','Гадаад хяналт'),
+    ]
+    ANALYSIS_FIELDS = [
+        ('Mad','Дотоод чийг'),('Aad','Үнслэг'),('Vad','Дэгдэмхий'),
+        ('sulfur','Хүхэр'),('cal_value','Илчлэг'),
+    ]
+    conn = get_db()
+    if rtype == 'week':
+        import datetime as dt_mod
+        d0 = dt_mod.date(year, 1, 1) + dt_mod.timedelta(weeks=week-1)
+        d1 = d0 + dt_mod.timedelta(days=6)
+        d0s, d1s = d0.isoformat(), d1.isoformat()
+    elif rtype == 'month':
+        _, ld = cal_mod.monthrange(year, month)
+        d0s = f"{year}-{month:02d}-01"
+        d1s = f"{year}-{month:02d}-{ld:02d}"
+    elif rtype == 'half':
+        if half == 1:
+            d0s, d1s = f"{year}-01-01", f"{year}-06-30"
+        else:
+            d0s, d1s = f"{year}-07-01", f"{year}-12-31"
+    else:
+        d0s, d1s = f"{year}-01-01", f"{year}-12-31"
+    sample_totals = []
+    for code, name in SAMPLE_TYPES_MAP:
+        v = conn.execute(
+            'SELECT COUNT(*) FROM geo_samples WHERE sample_type=? AND collected_date BETWEEN ? AND ?',
+            (code, d0s, d1s)).fetchone()[0]
+        sample_totals.append(v)
+    analysis_totals = []
+    for field, name in ANALYSIS_FIELDS:
+        v = conn.execute(
+            f'SELECT COUNT(*) FROM sample_entries WHERE {field} IS NOT NULL AND done_at BETWEEN ? AND ?',
+            (d0s + ' 00:00:00', d1s + ' 23:59:59')).fetchone()[0]
+        analysis_totals.append(v)
+    conn.close()
+    return jsonify({
+        'sample_labels': [n for _, n in SAMPLE_TYPES_MAP],
+        'sample_data': sample_totals,
+        'analysis_labels': [n for _, n in ANALYSIS_FIELDS],
+        'analysis_data': analysis_totals,
+    })
+
 @app.route('/reports/export')
 @senior_required
 def report_export():

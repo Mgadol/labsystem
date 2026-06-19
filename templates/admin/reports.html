@@ -329,7 +329,7 @@ if(sampleTotal === 0){
   var el = document.getElementById('cpane-sample');
   if(el) el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:13px">Энэ жил дээж байхгүй байна</div>';
 }
-new Chart(document.getElementById('chartSample'), {
+var sampleChart = new Chart(document.getElementById('chartSample'), {
   type: 'pie',
   data: {
     labels: sampleTypes,
@@ -349,7 +349,7 @@ new Chart(document.getElementById('chartSample'), {
 var analysisTotals = analysisTypes.map(function(k){
   return (analysisData[k]||[]).reduce(function(a,b){ return a+(b||0); }, 0);
 });
-new Chart(document.getElementById('chartAnalysis'), {
+var analysisChart = new Chart(document.getElementById('chartAnalysis'), {
   type: 'bar',
   data: {
     labels: analysisTypes,
@@ -387,9 +387,27 @@ new Chart(document.getElementById('chartAnalysis'), {
 
 ['l-year','l-week','l-month','l-half'].forEach(function(id) {
   var el = document.getElementById(id);
-  if (el) el.addEventListener('change', function(){ updateChartLabel(); filterRecords(labType); });
+  if (el) el.addEventListener('change', function(){ updateChartLabel(); filterRecords(labType); fetchChartData(); });
 });
 updateChartLabel();
 filterRecords('week');
+fetchChartData();
+
+function fetchChartData() {
+  var y = document.getElementById('l-year').value;
+  var url = '/reports/chart-data?type='+labType+'&year='+y;
+  if (labType==='week')  url += '&week='+(document.getElementById('l-week')||{value:1}).value;
+  if (labType==='month') url += '&month='+(document.getElementById('l-month')||{value:1}).value;
+  if (labType==='half')  url += '&half='+(document.getElementById('l-half')||{value:1}).value;
+  fetch(url).then(function(r){ return r.json(); }).then(function(d){
+    sampleChart.data.labels = d.sample_labels;
+    sampleChart.data.datasets[0].data = d.sample_data;
+    sampleChart.update();
+    analysisChart.data.datasets[0].data = d.analysis_data;
+    var total = d.sample_data.reduce(function(a,b){ return a+b; },0);
+    analysisChart.data.datasets[1].data = d.analysis_labels.map(function(){ return total; });
+    analysisChart.update();
+  });
+}
 </script>
 {% endblock %}
