@@ -1110,6 +1110,67 @@ def archive():
         done_samples=completed_samples,
         lang=lang)
 
+@app.route('/archive/result/<int:receipt_id>')
+@login_required
+def archive_result(receipt_id):
+    lang = session.get('lang','mn')
+    role = session.get('role','')
+    conn = get_db()
+    receipt = conn.execute("""
+        SELECT sr.*, g.sample_name, g.sample_type, g.location,
+               g.collected_date, g.quantity,
+               ug.name as geo_name, up.name as prep_name
+        FROM sample_receipt sr
+        JOIN geo_samples g ON g.id=sr.geo_sample_id
+        LEFT JOIN users ug ON ug.id=g.registered_by
+        LEFT JOIN users up ON up.id=sr.received_by
+        WHERE sr.id=?
+    """, (receipt_id,)).fetchone()
+    if not receipt:
+        conn.close()
+        flash('Бүртгэл олдсонгүй', 'error')
+        return redirect(url_for('archive'))
+    entries = conn.execute("""
+        SELECT se.*, u1.name as done_name, u2.name as approved_name
+        FROM sample_entries se
+        LEFT JOIN users u1 ON u1.id=se.done_by
+        LEFT JOIN users u2 ON u2.id=se.approved_by
+        WHERE se.receipt_id=?
+        ORDER BY se.row_num, se.is_duplicate
+    """, (receipt_id,)).fetchall()
+    qc = {r['parameter']: r for r in conn.execute("SELECT * FROM qc_settings").fetchall()}
+    conn.close()
+    return render_template('analysis/archive_result.html',
+        receipt=receipt, entries=entries, qc=qc, lang=lang, role=role)
+
+@app.route('/archive/measure/<int:receipt_id>')
+@login_required
+def archive_measure(receipt_id):
+    lang = session.get('lang','mn')
+    conn = get_db()
+    receipt = conn.execute("""
+        SELECT sr.*, g.sample_name, g.sample_type, g.location, g.quantity
+        FROM sample_receipt sr
+        JOIN geo_samples g ON g.id=sr.geo_sample_id
+        WHERE sr.id=?
+    """, (receipt_id,)).fetchone()
+    if not receipt:
+        conn.close()
+        flash('Бүртгэл олдсонгүй', 'error')
+        return redirect(url_for('archive'))
+    entries = conn.execute("""
+        SELECT * FROM sample_entries WHERE receipt_id=?
+        ORDER BY row_num, is_duplicate
+    """, (receipt_id,)).fetchall()
+    conn.close()
+    return render_template('analysis/archive_measure.html',
+        receipt=receipt, entries=entries, lang=lang)
+
+@app.route('/archive/export/<int:receipt_id>')
+@login_required
+def analysis_export_report(receipt_id):
+    return redirect(url_for('analysis_export', receipt_id=receipt_id))
+
 # ── STAFF EDIT (admin/senior) ───────────────────────────
 @app.route('/staff/<int:uid>/edit', methods=['GET','POST'])
 @senior_required
