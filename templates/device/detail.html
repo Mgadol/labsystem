@@ -206,9 +206,19 @@
             <div style="padding:12px;background:#f8f9fa">
               <form method="POST" action="{{ url_for('device_edit', did=device['id']) }}" enctype="multipart/form-data">
                 <input type="hidden" name="_check_config_only" value="1">
-                <div style="margin-bottom:10px">
-                  <label class="form-label" style="font-size:11px">Бүлгийн гарчиг (жишээ: Зуухны температур)</label>
-                  <input type="text" name="check_group1" class="form-input" style="padding:4px 7px;font-size:12px;max-width:300px" value="{{ device['check_group1'] or '' }}" placeholder="Зуухны температур">
+                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+                  <div>
+                    <label class="form-label" style="font-size:11px">1-р бүлгийн гарчиг</label>
+                    <input type="text" name="check_group1" class="form-input" style="padding:4px 7px;font-size:12px;width:180px" value="{{ device['check_group1'] or '' }}" placeholder="Жишээ: Эргэдэг хүрд">
+                  </div>
+                  <div>
+                    <label class="form-label" style="font-size:11px">2-р бүлгийн гарчиг</label>
+                    <input type="text" name="check_group2" class="form-input" style="padding:4px 7px;font-size:12px;width:180px" value="{{ device['check_group2'] or '' }}" placeholder="Жишээ: Эргэлдэх барабан">
+                  </div>
+                  <div>
+                    <label class="form-label" style="font-size:11px">3-р бүлгийн гарчиг</label>
+                    <input type="text" name="check_group3" class="form-input" style="padding:4px 7px;font-size:12px;width:180px" value="{{ device['check_group3'] or '' }}" placeholder="Жишээ: Ачаа">
+                  </div>
                 </div>
                 <table style="border-collapse:collapse;margin-bottom:10px">
                   <thead><tr style="font-size:11px;color:var(--text-muted)">

@@ -515,13 +515,15 @@ def device_edit(did):
         # Зөвхөн шалгалтын тохиргоо хадгалах (check tab-аас дуудагдана)
         if request.form.get('_check_config_only'):
             conn.execute("""UPDATE devices SET
-                check_group1=?,
+                check_group1=?, check_group2=?, check_group3=?,
                 check_param1=?, check_standard=?, check_tolerance=?,
                 check_param2=?, check_standard2=?, check_tolerance2=?,
                 check_param3=?, check_standard3=?, check_tolerance3=?,
                 check_param4=?, check_standard4=?, check_tolerance4=?
                 WHERE id=?""", (
                 request.form.get('check_group1') or None,
+                request.form.get('check_group2') or None,
+                request.form.get('check_group3') or None,
                 request.form.get('check_param1') or None,
                 request.form.get('check_standard') or None,
                 request.form.get('check_tolerance') or None,
