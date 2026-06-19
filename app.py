@@ -2317,6 +2317,39 @@ def row_done():
     conn.close()
     return jsonify({'ok': True})
 
+@app.route('/analysis/row/done-all', methods=['POST'])
+@lab_required
+def row_done_all():
+    """Бүх мөрийг нэгэн зэрэг done/undo хийнэ"""
+    data = request.get_json()
+    rid = data.get('receipt_id')
+    rows = data.get('rows', [])
+    conn = get_db()
+    for r in rows:
+        row = r.get('row_num')
+        dup = r.get('is_duplicate', 0)
+        action = r.get('action', 'done')
+        if action == 'done':
+            existing = conn.execute(
+                "SELECT id FROM sample_entries WHERE receipt_id=? AND row_num=? AND is_duplicate=?",
+                (rid, row, dup)
+            ).fetchone()
+            if existing:
+                conn.execute("""UPDATE sample_entries SET row_status='done', done_by=?, done_at=?
+                               WHERE receipt_id=? AND row_num=? AND is_duplicate=?""",
+                            (session['user_id'], datetime.now().isoformat(), rid, row, dup))
+            else:
+                conn.execute("""INSERT INTO sample_entries(receipt_id,row_num,is_duplicate,row_status,done_by,done_at)
+                               VALUES(?,?,?,'done',?,?)""",
+                            (rid, row, dup, session['user_id'], datetime.now().isoformat()))
+        else:
+            conn.execute("""UPDATE sample_entries SET row_status='empty', done_by=NULL, done_at=NULL
+                           WHERE receipt_id=? AND row_num=? AND is_duplicate=?""",
+                        (rid, row, dup))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
 @app.route('/analysis/row/approve', methods=['POST'])
 @senior_required
 def row_approve():
