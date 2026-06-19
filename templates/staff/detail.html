@@ -2,63 +2,292 @@
 {% block title %}{{ target['name'] }}{% endblock %}
 {% block content %}
 <div class="page">
-  <div style="margin-bottom:16px">
-    {% if current_user['role']=='admin' %}<div style="font-size:12px;color:var(--text-muted);margin-bottom:4px"><a href="{{ url_for('staff_list') }}">{{ 'Ажилтнууд' if lang=='mn' else 'Staff' }}</a> /</div>{% endif %}
-    <h1 class="page-title">{{ target['name'] }}</h1>
+  <div style="margin-bottom:16px;display:flex;align-items:flex-start;justify-content:space-between">
+    <div>
+      {% if current_user['role'] in ('admin','senior') %}
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px"><a href="{{ url_for('staff_list') }}">Ажилтнууд</a> /</div>
+      {% endif %}
+      <h1 class="page-title">{{ target['name'] }}</h1>
+    </div>
+    {% if current_user['role'] in ('admin','senior') %}
+    <a href="{{ url_for('staff_edit', uid=target['id']) }}" class="btn btn-primary">✏️ Засах</a>
+    {% endif %}
   </div>
+
   <div style="display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:start">
+
+    <!-- Зүүн багана: профайл -->
     <div>
       <div class="card" style="padding:14px;text-align:center;margin-bottom:12px">
         {% if target['photo'] %}
-        <img src="{{ url_for('static',filename='uploads/'+target['photo']) }}" style="width:100px;height:100px;border-radius:50%;object-fit:cover;margin:0 auto 10px">
+        <img src="{{ url_for('static',filename='uploads/'+target['photo']) }}" style="width:140px;height:160px;border-radius:10px;object-fit:cover;object-position:top center;margin:0 auto 10px;display:block">
         {% else %}
-        <div style="width:100px;height:100px;border-radius:50%;background:var(--navy);color:#93a8d4;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:600;margin:0 auto 10px">{{ target['name'][:2] }}</div>
+        <div style="width:140px;height:160px;border-radius:10px;background:var(--navy);color:#93a8d4;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:600;margin:0 auto 10px">{{ target['name'][:2] }}</div>
         {% endif %}
         <div style="font-size:14px;font-weight:600">{{ target['name'] }}</div>
         <div style="font-size:12px;color:var(--text-muted);margin-top:2px">{{ target['position'] or '' }}</div>
-        <span class="badge badge-{{ target['role'] }}" style="margin-top:6px;display:inline-block">{{ 'Админ' if target['role']=='admin' else 'Ажилтан' }}</span>
+        {% if target['role']=='admin' %}
+        <span class="badge badge-admin" style="margin-top:6px;display:inline-block">Админ</span>
+        {% elif target['role']=='senior' %}
+        <span class="badge" style="margin-top:6px;display:inline-block;background:#253561;color:#4ade80">Дэд Админ</span>
+        {% elif target['role']=='preparer' %}
+        <span class="badge badge-staff" style="margin-top:6px;display:inline-block">Ажилтан</span>
+        {% elif target['role']=='geologist' %}
+        <span class="badge" style="margin-top:6px;display:inline-block;background:#f0e6ff;color:#7C3AED">Харилцагч</span>
+        {% else %}
+        <span class="badge badge-staff" style="margin-top:6px;display:inline-block">Ажилтан</span>
+        {% endif %}
       </div>
+
       <div class="card-sm">
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.04em">{{ 'Мэдээлэл' if lang=='mn' else 'Info' }}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Мэдээлэл</div>
         {% if target['employee_id'] %}<div style="font-size:12px;margin-bottom:5px"><span style="color:var(--text-muted)">ID:</span> {{ target['employee_id'] }}</div>{% endif %}
-        {% if target['phone'] %}<div style="font-size:12px;margin-bottom:5px"><span style="color:var(--text-muted)">{{ 'Утас:' if lang=='mn' else 'Phone:' }}</span> {{ target['phone'] }}</div>{% endif %}
+        {% if target['phone'] %}<div style="font-size:12px;margin-bottom:5px"><span style="color:var(--text-muted)">Утас:</span> {{ target['phone'] }}</div>{% endif %}
         {% if target['email'] %}<div style="font-size:12px;margin-bottom:5px"><span style="color:var(--text-muted)">Email:</span> {{ target['email'] }}</div>{% endif %}
-        {% if target['joined_date'] %}<div style="font-size:12px"><span style="color:var(--text-muted)">{{ 'Ажилласан:' if lang=='mn' else 'Joined:' }}</span> {{ target['joined_date'] }}</div>{% endif %}
+        {% if target['joined_date'] %}<div style="font-size:12px"><span style="color:var(--text-muted)">Ажилд орсон:</span> {{ target['joined_date'] }}</div>{% endif %}
       </div>
+
       {% if my_devices %}
       <div class="card-sm" style="margin-top:12px">
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.04em">{{ 'Ашиглах эрхтэй төхөөрөмж' if lang=='mn' else 'Allowed Devices' }}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Ашиглах эрхтэй төхөөрөмж</div>
         {% for d in my_devices %}
         <div style="font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)">{{ d['name'] }}</div>
         {% endfor %}
       </div>
       {% endif %}
     </div>
-    <div class="card">
-      <div class="section-title">{{ 'Ашиглалтын түүх' if lang=='mn' else 'Usage History' }}</div>
-      <table class="table">
+
+    <!-- Баруун багана: статистик + chart -->
+    <div>
+
+      <!-- Stat cards -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
+        <div class="card" style="padding:14px;text-align:center">
+          <div style="font-size:28px;font-weight:700;color:var(--navy)">{{ total_done }}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Нийт шинжилгээ</div>
+        </div>
+        <div class="card" style="padding:14px;text-align:center">
+          <div style="font-size:28px;font-weight:700;color:#0f6e56">{{ total_approved }}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Баталгаажуулсан</div>
+        </div>
+        <div class="card" style="padding:14px;text-align:center">
+          <div style="font-size:28px;font-weight:700;color:#854f0b">{{ '%.1f'|format(total_hours) }}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Нийт цаг</div>
+        </div>
+      </div>
+
+      <!-- Графикууд -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+
+        <!-- Radar: QC тэнцсэн хувь -->
+        <div class="card" style="padding:16px">
+          <div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:12px">🕸 QC Тэнцсэн хувь</div>
+          {% if qc_radar %}
+          <div style="position:relative;height:220px">
+            <canvas id="radarChart"></canvas>
+          </div>
+          {% else %}
+          <div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:12px">QC өгөгдөл байхгүй</div>
+          {% endif %}
+        </div>
+
+        <!-- Bar: сарын шинжилгээ -->
+        <div class="card" style="padding:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div style="font-size:12px;font-weight:600;color:var(--navy)">📊 Сарын шинжилгээ</div>
+            <div style="display:flex;gap:4px">
+              <button onclick="setRange('6m')" id="btn6m" class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:var(--navy);color:#fff;border:none">6 сар</button>
+              <button onclick="setRange('12m')" id="btn12m" class="btn btn-sm btn-ghost" style="font-size:10px;padding:2px 8px">1 жил</button>
+              <button onclick="setRange('all')" id="btnAll" class="btn btn-sm btn-ghost" style="font-size:10px;padding:2px 8px">Бүгд</button>
+            </div>
+          </div>
+          <div style="position:relative;height:220px">
+            <canvas id="barChart"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Ашиглалтын түүх -->
+      <div class="card">
+        <div class="section-title">Ашиглалтын түүх</div>
+        <table class="table">
+          <thead><tr>
+            <th>Огноо</th>
+            <th>Төхөөрөмж</th>
+            <th>Эхэлсэн</th>
+            <th>Дууссан</th>
+            <th>Цаг</th>
+          </tr></thead>
+          <tbody>
+          {% for l in logs %}
+          <tr>
+            <td>{{ l['start_time'][:10] if l['start_time'] else '—' }}</td>
+            <td>{{ l['dname'] or '—' }}</td>
+            <td>{{ l['start_time'][11:16] if l['start_time'] else '—' }}</td>
+            <td>{{ l['end_time'][11:16] if l['end_time'] else '—' }}</td>
+            <td><strong>{{ '%.2f'|format(l['duration_hours']) if l['duration_hours'] else '...' }}</strong></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">Бүртгэл байхгүй</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+    <!-- Тоног төхөөрөмжийн ашиглалт -->
+    {% if device_usage %}
+    <div class="card" style="margin-top:16px;padding:16px">
+      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:12px">🔧 Тоног төхөөрөмжийн ашиглалт</div>
+      <div style="display:grid;grid-template-columns:200px 1fr;gap:16px;align-items:center;margin-bottom:14px">
+        <div style="position:relative;height:180px"><canvas id="deviceDonut"></canvas></div>
+        <div>
+          {% for d in device_usage %}
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px">
+            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ ['#185fa5','#0f6e56','#7C3AED','#854f0b','#993c1d','#555'][loop.index0 % 6] }};flex-shrink:0"></span>
+            <span style="flex:1;color:var(--navy)">{{ d['device_name'] }}</span>
+            <span style="font-family:monospace;font-weight:600;color:var(--navy)">{{ (d['total_min']//60)|int }}ц {{ (d['total_min']%60)|int }}мин</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      <table class="table" style="font-size:12px">
         <thead><tr>
-          <th>{{ 'Огноо' if lang=='mn' else 'Date' }}</th>
-          <th>{{ 'Төхөөрөмж' if lang=='mn' else 'Device' }}</th>
-          <th>{{ 'Эхэлсэн' if lang=='mn' else 'Start' }}</th>
-          <th>{{ 'Гүйцэтгэсэн' if lang=='mn' else 'End' }}</th>
-          <th>{{ 'Цаг' if lang=='mn' else 'Hours' }}</th>
+          <th>Тоног төхөөрөмж</th>
+          <th style="text-align:center">Удаа</th>
+          <th style="text-align:center">Нийт цаг</th>
+          <th style="text-align:center">Сүүлд ашигласан</th>
         </tr></thead>
         <tbody>
-        {% for l in logs %}
+        {% for d in device_usage %}
         <tr>
-          <td>{{ l['start_time'][:10] if l['start_time'] else '—' }}</td>
-          <td>{{ l['dname'] or '—' }}</td>
-          <td>{{ l['start_time'][11:16] if l['start_time'] else '—' }}</td>
-          <td>{{ l['end_time'][11:16] if l['end_time'] else '—' }}</td>
-          <td><strong>{{ '%.2f'|format(l['duration_hours']) if l['duration_hours'] else '...' }}</strong></td>
+          <td><a href="{{ url_for('device_detail', did=d['device_id']) }}" style="color:var(--navy);font-weight:500">{{ d['device_name'] }}</a></td>
+          <td style="text-align:center">{{ d['sessions'] }}</td>
+          <td style="text-align:center;font-weight:600;font-family:monospace">{{ (d['total_min']//60)|int }}ц {{ (d['total_min']%60)|int }}мин</td>
+          <td style="text-align:center;font-size:11px;color:var(--text-muted)">{{ d['last_used'][:10] if d['last_used'] else '—' }}</td>
         </tr>
-        {% else %}
-        <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">{{ 'Бүртгэл байхгүй' if lang=='mn' else 'No records' }}</td></tr>
         {% endfor %}
         </tbody>
       </table>
     </div>
+    {% endif %}
+
+    </div>
   </div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+{% if qc_radar %}
+var radarLabels = {{ qc_radar.keys()|list|tojson }};
+var radarData   = {{ qc_radar.values()|list|tojson }};
+new Chart(document.getElementById('radarChart'), {
+  type: 'radar',
+  data: {
+    labels: radarLabels,
+    datasets: [{
+      label: 'QC тэнцсэн %',
+      data: radarData,
+      backgroundColor: 'rgba(24,95,165,0.15)',
+      borderColor: 'rgba(24,95,165,0.8)',
+      borderWidth: 2,
+      pointBackgroundColor: 'rgba(24,95,165,1)',
+      pointRadius: 4,
+      pointHoverRadius: 6
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      r: {
+        min: 0, max: 100,
+        ticks: { stepSize: 25, font: { size: 9 }, color: '#888', backdropColor: 'transparent' },
+        grid: { color: 'rgba(0,0,0,0.08)' },
+        angleLines: { color: 'rgba(0,0,0,0.1)' },
+        pointLabels: { font: { size: 11, weight: '600' }, color: '#1a2744' }
+      }
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: function(c) { return c.raw.toFixed(1) + '%'; }
+        }
+      }
+    }
+  }
+});
+{% endif %}
+
+var RANGES = {
+  '6m':  { months: {{ monthly_6|map(attribute='month')|list|tojson }},  counts: {{ monthly_6|map(attribute='cnt')|list|tojson }} },
+  '12m': { months: {{ monthly_12|map(attribute='month')|list|tojson }}, counts: {{ monthly_12|map(attribute='cnt')|list|tojson }} },
+  'all': { months: {{ monthly_all|map(attribute='month')|list|tojson }},counts: {{ monthly_all|map(attribute='cnt')|list|tojson }} }
+};
+var barChart = new Chart(document.getElementById('barChart'), {
+  type: 'bar',
+  data: {
+    labels: RANGES['6m'].months,
+    datasets: [{
+      label: 'Шинжилгээ',
+      data: RANGES['6m'].counts,
+      backgroundColor: 'rgba(15,110,86,0.75)',
+      borderColor: 'rgba(15,110,86,1)',
+      borderWidth: 1,
+      borderRadius: 4
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { font: { size: 9 } } },
+      y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 9 } } }
+    }
+  }
+});
+function setRange(r) {
+  barChart.data.labels = RANGES[r].months;
+  barChart.data.datasets[0].data = RANGES[r].counts;
+  barChart.update();
+  ['6m','12m','all'].forEach(function(k) {
+    var id = k==='6m'?'btn6m':k==='12m'?'btn12m':'btnAll';
+    var btn = document.getElementById(id);
+    if(btn) { btn.style.background=''; btn.style.color=''; btn.classList.add('btn-ghost'); }
+  });
+  var aid = r==='6m'?'btn6m':r==='12m'?'btn12m':'btnAll';
+  var active = document.getElementById(aid);
+  if(active) { active.style.background='var(--navy)'; active.style.color='#fff'; active.classList.remove('btn-ghost'); }
+}
+
+{% if device_usage %}
+var DU_LABELS = {{ device_usage|map(attribute='device_name')|list|tojson }};
+var DU_MINS   = {{ device_usage|map(attribute='total_min')|list|tojson }};
+var DU_COLORS = ['#185fa5','#0f6e56','#7C3AED','#854f0b','#993c1d','#555','#185fa5','#0f6e56'];
+new Chart(document.getElementById('deviceDonut'), {
+  type: 'doughnut',
+  data: {
+    labels: DU_LABELS,
+    datasets: [{ data: DU_MINS, backgroundColor: DU_COLORS.slice(0, DU_LABELS.length), borderWidth: 2 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: function(ctx) {
+            var m = ctx.parsed;
+            return ctx.label + ': ' + Math.floor(m/60) + 'ц ' + (m%60) + 'мин';
+          }
+        }
+      }
+    }
+  }
+});
+{% endif %}
+</script>
 {% endblock %}

@@ -1,0 +1,294 @@
+{% extends "partial/base.html" %}
+{% block title %}Өдөр тутмын баталгаажуулалт{% endblock %}
+{% block content %}
+<div class="page">
+  <div class="flex justify-between gap-12" style="margin-bottom:20px;flex-wrap:wrap">
+    <div>
+      <h1 class="page-title">✅ Тохиур уулга / Баталгаажуулалт</h1>
+      <p class="page-sub">Бүх тоног төхөөрөмжийн дотоод шалгалтыг нэг дор бүртгэнэ</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <a href="{{ url_for('devices') }}" class="btn btn-ghost">← Төхөөрөмж</a>
+      <a href="{{ url_for('checks_monthly') }}" class="btn btn-ghost">📅 Сарын харагдац</a>
+      <button onclick="document.getElementById('exportModal').style.display='flex'" class="btn btn-teal">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Excel татах
+      </button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;padding:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <label class="form-label" style="margin:0">Огноо:</label>
+    <input type="date" id="dateSel" class="form-input" style="width:170px" value="{{ sel_date }}"
+      onchange="window.location.href='{{ url_for('checks_page') }}?date='+this.value">
+    {% if sel_date == today %}
+    <span class="badge badge-active">Өнөөдөр</span>
+    {% else %}
+    <a href="{{ url_for('checks_page') }}?date={{ today }}" class="badge badge-standby" style="text-decoration:none">→ Өнөөдөр рүү</a>
+    {% endif %}
+    <span style="font-size:12px;color:var(--text-muted)">7 хоног: {{ week_start }} – {{ week_end }}</span>
+  </div>
+
+  {% set daily_devs = devices|selectattr('check_freq','ne','weekly')|list %}
+  {% set weekly_devs = devices|selectattr('check_freq','eq','weekly')|list %}
+
+  <form method="POST" action="{{ url_for('checks_save') }}">
+    <input type="hidden" name="check_date" value="{{ sel_date }}">
+
+    <!-- ӨДӨР БҮРИЙН ШАЛГАЛТ -->
+    {% if daily_devs %}
+    <div style="margin-bottom:8px">
+      <h3 style="font-size:14px;font-weight:600;color:var(--navy);margin-bottom:8px">
+        📅 Өдөр бүр шалгадаг
+        <span style="font-size:12px;font-weight:400;color:var(--text-muted)">— {{ sel_date }}</span>
+      </h3>
+      <div class="card" style="padding:0;overflow-x:auto;margin-bottom:16px">
+        <table class="table" style="min-width:900px">
+          <thead>
+            <tr>
+              <th style="width:30px"></th>
+              <th>Төхөөрөмж</th>
+              <th style="width:130px">Стандарт утга</th>
+              <th style="width:130px">Хэмжсэн утга</th>
+              <th style="width:120px">Зөвшөөрөх зөрүү</th>
+              <th style="width:110px">Үр дүн</th>
+              <th style="width:90px;text-align:center">Тохируулга</th>
+              <th>Тэмдэглэл</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for d in daily_devs %}
+          {% set chk = today_checks.get(d['id']) %}
+          <tr style="{% if chk and chk['result']=='fail' %}background:#fff5f5{% elif chk %}background:#f0fbf7{% endif %}">
+            <td style="text-align:center">
+              <input type="hidden" name="device_id" value="{{ d['id'] }}">
+              {% if chk and chk['result']=='pass' %}<span title="Тэнцсэн" style="color:#0f6e56;font-size:16px">✓</span>
+              {% elif chk and chk['result']=='fail' %}<span title="Тэнцээгүй" style="color:#b91c1c;font-size:16px">✗</span>
+              {% else %}<span title="Бүртгээгүй" style="color:#ccc;font-size:16px">○</span>{% endif %}
+            </td>
+            <td>
+              <a href="{{ url_for('device_detail', did=d['id']) }}" style="font-weight:500;color:var(--navy)">{{ d['name'] }}</a>
+              {% if d['manufacturer'] %}<div style="font-size:11px;color:var(--text-muted)">{{ d['manufacturer'] }} {{ d['model'] or '' }}</div>{% endif %}
+              {% if chk %}<div style="font-size:11px;color:var(--text-muted)">{{ chk['uname'] }}, {{ chk['check_date'] }}</div>{% endif %}
+            </td>
+            <td>
+              <input type="text" name="standard_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk['standard_value'] if chk else (d['check_standard'] or '') }}"
+                placeholder="{{ d['check_standard'] or '—' }}">
+            </td>
+            <td>
+              <input type="text" name="measured_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk['measured_value'] if chk else '' }}" placeholder="хэмжсэн утга">
+            </td>
+            <td>
+              <input type="text" name="tolerance_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk['tolerance'] if chk else (d['check_tolerance'] or '') }}"
+                placeholder="{{ d['check_tolerance'] or '±...' }}">
+            </td>
+            <td>
+              <select name="result_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px">
+                <option value="pass" {{ 'selected' if not chk or chk['result']=='pass' }}>✓ Тэнцсэн</option>
+                <option value="fail" {{ 'selected' if chk and chk['result']=='fail' }}>✗ Тэнцээгүй</option>
+              </select>
+            </td>
+            <td style="text-align:center">
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+                <input type="checkbox" name="cal_adj_{{ d['id'] }}" value="1"
+                  style="accent-color:#f59e0b;width:16px;height:16px"
+                  {{ 'checked' if chk and chk['calibration_adjusted'] }}>
+                <span style="color:{% if chk and chk['calibration_adjusted'] %}#d97706{% else %}var(--text-muted){% endif %}">
+                  {% if chk and chk['calibration_adjusted'] %}✔{% else %}—{% endif %}
+                </span>
+              </label>
+            </td>
+            <td>
+              <input type="text" name="notes_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk['notes'] if chk and chk['notes'] else '' }}" placeholder="...">
+            </td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- 7 ХОНОГТ НЭГ УДАА -->
+    {% if weekly_devs %}
+    <div style="margin-bottom:8px">
+      <h3 style="font-size:14px;font-weight:600;color:#7C3AED;margin-bottom:8px">
+        📆 7 хоногт нэг удаа шалгадаг
+        <span style="font-size:12px;font-weight:400;color:var(--text-muted)">— долоо хоног: {{ week_start }} – {{ week_end }}</span>
+      </h3>
+      <div class="card" style="padding:0;overflow-x:auto;margin-bottom:16px">
+        <table class="table" style="min-width:1000px">
+          <thead>
+            <tr>
+              <th style="width:30px"></th>
+              <th>Төхөөрөмж</th>
+              <th style="width:110px">Параметр</th>
+              <th style="width:120px">Стандарт утга</th>
+              <th style="width:120px">Хэмжсэн утга</th>
+              <th style="width:110px">Зөвшөөрөх зөрүү</th>
+              <th style="width:110px">Үр дүн</th>
+              <th style="width:90px;text-align:center">Тохируулга</th>
+              <th>Тэмдэглэл</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for d in weekly_devs %}
+          {% set chk = week_checks.get(d['id']) %}
+          {% set has_p2 = d['check_param2'] %}
+          {% set has_p3 = d['check_param3'] %}
+          {% set has_p4 = d['check_param4'] %}
+          <tr style="{% if chk and chk['result']=='fail' %}background:#fff5f5{% elif chk %}background:#f5f0ff{% endif %}">
+            <td style="text-align:center" rowspan="{{ 1 + (1 if has_p2 else 0) + (1 if has_p3 else 0) + (1 if has_p4 else 0) }}">
+              <input type="hidden" name="device_id" value="{{ d['id'] }}">
+              {% if chk and chk['result']=='pass' %}<span title="Тэнцсэн ({{ chk['check_date'] }})" style="color:#7C3AED;font-size:16px">✓</span>
+              {% elif chk and chk['result']=='fail' %}<span title="Тэнцээгүй" style="color:#b91c1c;font-size:16px">✗</span>
+              {% else %}<span title="Энэ долоо хоногт бүртгээгүй" style="color:#ccc;font-size:16px">○</span>{% endif %}
+            </td>
+            <td rowspan="{{ 1 + (1 if has_p2 else 0) + (1 if has_p3 else 0) + (1 if has_p4 else 0) }}">
+              <a href="{{ url_for('device_detail', did=d['id']) }}" style="font-weight:500;color:#7C3AED">{{ d['name'] }}</a>
+              {% if d['manufacturer'] %}<div style="font-size:11px;color:var(--text-muted)">{{ d['manufacturer'] }} {{ d['model'] or '' }}</div>{% endif %}
+              {% if chk %}<div style="font-size:11px;color:#7C3AED">{{ chk['uname'] }}, {{ chk['check_date'] }}</div>{% endif %}
+            </td>
+            <td style="font-size:11px;color:var(--text-muted)">{{ d['check_param1'] or 'Стандарт' }}</td>
+            <td>
+              <input type="text" name="standard_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk['standard_value'] if chk else (d['check_standard'] or '') }}"
+                placeholder="{{ d['check_standard'] or '—' }}">
+            </td>
+            <td>
+              <input type="text" name="measured_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk['measured_value'] if chk else '' }}" placeholder="хэмжсэн утга">
+            </td>
+            <td>
+              <input type="text" name="tolerance_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk['tolerance'] if chk else (d['check_tolerance'] or '') }}"
+                placeholder="{{ d['check_tolerance'] or '±...' }}">
+            </td>
+            <td rowspan="{{ 1 + (1 if has_p2 else 0) + (1 if has_p3 else 0) + (1 if has_p4 else 0) }}">
+              <select name="result_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px">
+                <option value="pass" {{ 'selected' if not chk or chk['result']=='pass' }}>✓ Тэнцсэн</option>
+                <option value="fail" {{ 'selected' if chk and chk['result']=='fail' }}>✗ Тэнцээгүй</option>
+              </select>
+            </td>
+            <td rowspan="{{ 1 + (1 if has_p2 else 0) + (1 if has_p3 else 0) + (1 if has_p4 else 0) }}" style="text-align:center">
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+                <input type="checkbox" name="cal_adj_{{ d['id'] }}" value="1"
+                  style="accent-color:#f59e0b;width:16px;height:16px"
+                  {{ 'checked' if chk and chk['calibration_adjusted'] }}>
+                <span style="color:{% if chk and chk['calibration_adjusted'] %}#d97706{% else %}var(--text-muted){% endif %}">
+                  {% if chk and chk['calibration_adjusted'] %}✔{% else %}—{% endif %}
+                </span>
+              </label>
+            </td>
+            <td rowspan="{{ 1 + (1 if has_p2 else 0) + (1 if has_p3 else 0) + (1 if has_p4 else 0) }}">
+              <input type="text" name="notes_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk['notes'] if chk and chk['notes'] else '' }}" placeholder="...">
+            </td>
+          </tr>
+          {% if has_p2 %}
+          <tr style="{% if chk and chk['result']=='fail' %}background:#fff5f5{% elif chk %}background:#f5f0ff{% endif %}">
+            <td style="font-size:11px;color:var(--text-muted)">{{ d['check_param2'] }}</td>
+            <td>
+              <input type="text" name="standard2_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk['standard_value2'] if chk else (d['check_standard2'] or '') }}"
+                placeholder="{{ d['check_standard2'] or '—' }}">
+            </td>
+            <td>
+              <input type="text" name="measured2_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk['measured_value2'] if chk else '' }}" placeholder="хэмжсэн утга">
+            </td>
+            <td>
+              <input type="text" name="tolerance2_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk['tolerance2'] if chk else (d['check_tolerance2'] or '') }}"
+                placeholder="{{ d['check_tolerance2'] or '±...' }}">
+            </td>
+          </tr>
+          {% endif %}
+          {% if has_p3 %}
+          <tr style="{% if chk and chk['result']=='fail' %}background:#fff5f5{% elif chk %}background:#f5f0ff{% endif %}">
+            <td style="font-size:11px;color:var(--text-muted)">{{ d['check_param3'] }}</td>
+            <td>
+              <input type="text" name="standard3_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk.get('standard_value3','') if chk else (d['check_standard3'] or '') }}"
+                placeholder="{{ d['check_standard3'] or '—' }}">
+            </td>
+            <td>
+              <input type="text" name="measured3_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk.get('measured_value3','') if chk else '' }}" placeholder="хэмжсэн утга">
+            </td>
+            <td>
+              <input type="text" name="tolerance3_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk.get('tolerance3','') if chk else (d['check_tolerance3'] or '') }}"
+                placeholder="{{ d['check_tolerance3'] or '±...' }}">
+            </td>
+          </tr>
+          {% endif %}
+          {% if has_p4 %}
+          <tr style="{% if chk and chk['result']=='fail' %}background:#fff5f5{% elif chk %}background:#f5f0ff{% endif %}">
+            <td style="font-size:11px;color:var(--text-muted)">{{ d['check_param4'] }}</td>
+            <td>
+              <input type="text" name="standard4_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk.get('standard_value4','') if chk else (d['check_standard4'] or '') }}"
+                placeholder="{{ d['check_standard4'] or '—' }}">
+            </td>
+            <td>
+              <input type="text" name="measured4_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk.get('measured_value4','') if chk else '' }}" placeholder="хэмжсэн утга">
+            </td>
+            <td>
+              <input type="text" name="tolerance4_{{ d['id'] }}" class="form-input" style="padding:6px 8px;font-size:12px"
+                value="{{ chk.get('tolerance4','') if chk else (d['check_tolerance4'] or '') }}"
+                placeholder="{{ d['check_tolerance4'] or '±...' }}">
+            </td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if not daily_devs and not weekly_devs %}
+    <div class="card" style="text-align:center;padding:60px;color:var(--text-muted)">
+      <div style="font-size:40px;margin-bottom:12px">🔧</div>
+      Баталгаажуулах тоног төхөөрөмж байхгүй байна
+    </div>
+    {% endif %}
+
+    {% if devices and current_user['role'] != 'guest' %}
+    <div style="margin-top:8px;display:flex;justify-content:flex-end;gap:8px">
+      <button type="submit" class="btn btn-primary">💾 Бүгдийг хадгалах</button>
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:8px;text-align:right">
+      Зөвхөн "Хэмжсэн утга" бөглөсөн мөрүүд хадгалагдана.
+    </div>
+    {% endif %}
+  </form>
+</div>
+
+<!-- Excel татах modal -->
+<div id="exportModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:10px;padding:24px;max-width:400px;width:90%">
+    <h3 style="margin-bottom:16px">📊 Баталгаажуулалт татах</h3>
+    <form method="GET" action="{{ url_for('checks_export') }}">
+      <div class="form-group">
+        <label class="form-label">Эхлэх огноо</label>
+        <input type="date" name="from" class="form-input" value="{{ sel_date }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Дуусах огноо</label>
+        <input type="date" name="to" class="form-input" value="{{ sel_date }}">
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button type="button" onclick="document.getElementById('exportModal').style.display='none'" class="btn btn-ghost">Буцах</button>
+        <button type="submit" class="btn btn-teal">📥 Татах</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

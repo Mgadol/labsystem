@@ -38,19 +38,79 @@
     </div>
     <div class="stat-card">
       <div class="stat-val" style="color:var(--teal)">{{ users|length }}</div>
-      <div class="stat-lbl">{{ 'Ажилтан' if lang=='mn' else 'Staff' }}</div>
+      <div class="stat-lbl">Ажилтан</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:#7C3AED">{{ clients|length }}</div>
+      <div class="stat-lbl">Харилцагч</div>
     </div>
     <div class="stat-card">
       <div class="stat-val" style="color:var(--coral)">{{ open_rep }}</div>
       <div class="stat-lbl">{{ 'Нээлттэй засвар' if lang=='mn' else 'Open repairs' }}</div>
     </div>
     <div class="stat-card">
-      <div class="stat-val" style="color:var(--purple)">{{ devices|selectattr('status','eq','active')|list|length }}</div>
-      <div class="stat-lbl">{{ 'Идэвхтэй' if lang=='mn' else 'Active' }}</div>
+      <div class="stat-val" style="color:#854f0b">{{ total_analysis }}</div>
+      <div class="stat-lbl">Нийт шинжилгээ</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:#0f6e56">{{ done_today }}</div>
+      <div class="stat-lbl">Өнөөдөр хийсэн</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:var(--purple)">{{ qc_pct }}%</div>
+      <div class="stat-lbl">QC тэнцсэн хувь</div>
     </div>
   </div>
 
-  <!-- Модулиуд -->
+  <!-- Chart: сарын шинжилгээ -->
+  {% if monthly %}
+  <div class="card" style="padding:16px;margin-bottom:20px">
+    <div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:12px">📊 Сарын шинжилгээний тоо (сүүлийн 6 сар)</div>
+    <div style="position:relative;height:180px">
+      <canvas id="monthlyChart"></canvas>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Миний төхөөрөмжүүд — senior -->
+  {% if current_user['role'] == 'senior' %}
+  <div class="card" style="margin-bottom:20px">
+    <div class="section-title">Миний төхөөрөмжүүд</div>
+    {% if my_devices %}
+    <div style="display:flex;flex-direction:column;gap:8px">
+      {% for d in my_devices %}
+      <div style="background:var(--gray);border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:12px">
+        {% if d['photo'] %}
+        <img src="{{ url_for('static',filename='uploads/'+d['photo']) }}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0">
+        {% else %}
+        <div style="width:44px;height:44px;border-radius:8px;background:var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/></svg>
+        </div>
+        {% endif %}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d['name'] }}</div>
+          <div style="font-size:11px;color:var(--text-muted)">{{ (d['manufacturer'] or '') + ' ' + (d['model'] or '') }}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <a href="{{ url_for('device_detail', did=d['id']) }}" class="btn btn-ghost btn-sm">Харах</a>
+          {% set log = active_map.get(d['id']) %}
+          {% if log %}
+          <button onclick="stopUsage({{ log['id'] }})" class="btn btn-stop btn-sm">STOP</button>
+          {% else %}
+          <button onclick="startUsage({{ d['id'] }})" class="btn btn-start btn-sm">START</button>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px">Танд хуваарилагдсан төхөөрөмж байхгүй байна.</div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Модулиуд — зөвхөн admin -->
+  {% if current_user['role'] == 'admin' %}
   <div class="modules">
 
     <!-- Ажилтан -->
@@ -64,7 +124,7 @@
       <div class="module-info">
         <div class="module-title">{{ 'Ажилтан' if lang=='mn' else 'Staff' }}</div>
         <div class="module-desc">{{ 'Мэдээлэл, эрх, ашиглалтын түүх' if lang=='mn' else 'Info, permissions, history' }}</div>
-        <span class="module-badge" style="background:#EBF4FF;color:#185FA5">{{ users|length }} {{ 'ажилтан' if lang=='mn' else 'members' }}</span>
+        <span class="module-badge" style="background:#EBF4FF;color:#185FA5">{{ users|length }} ажилтан{% if clients|length %} · {{ clients|length }} харилцагч{% endif %}</span>
       </div>
     </a>
 
@@ -153,5 +213,51 @@
     </a>
 
   </div>
+  {% endif %}
 </div>
+{% endblock %}
+{% block scripts %}
+{% if monthly %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+new Chart(document.getElementById('monthlyChart'), {
+  type: 'bar',
+  data: {
+    labels: {{ monthly|map(attribute='month')|list|tojson }},
+    datasets: [{
+      label: 'Шинжилгээ',
+      data: {{ monthly|map(attribute='cnt')|list|tojson }},
+      backgroundColor: 'rgba(24,95,165,0.7)',
+      borderColor: 'rgba(24,95,165,1)',
+      borderWidth: 1,
+      borderRadius: 4
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { font: { size: 10 } } },
+      y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } } }
+    }
+  }
+});
+</script>
+{% endif %}
+{% if current_user['role'] == 'senior' %}
+<script>
+async function startUsage(did){
+  const r=await fetch(`/usage/start/${did}`,{method:'POST'});
+  const d=await r.json();
+  if(d.success) location.reload(); else alert(d.error);
+}
+async function stopUsage(lid){
+  const notes=prompt('Тэмдэглэл (заавал биш):','');
+  const r=await fetch(`/usage/stop/${lid}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({notes:notes||''})});
+  const d=await r.json();
+  if(d.success) location.reload(); else alert(d.error);
+}
+</script>
+{% endif %}
 {% endblock %}

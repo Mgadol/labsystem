@@ -41,12 +41,20 @@
           <input type="date" name="joined_date" class="form-input" value="{{ target['joined_date'] or '' }}">
         </div>
         <div class="form-group">
+          <label class="form-label">Ээлж</label>
+          <select name="shift" class="form-input">
+            <option value="" {{ 'selected' if not target['shift'] }}>— Тодорхойгүй —</option>
+            <option value="A" {{ 'selected' if target['shift']=='A' }}>А-ээлж</option>
+            <option value="B" {{ 'selected' if target['shift']=='B' }}>Б-ээлж</option>
+          </select>
+        </div>
+        <div class="form-group">
           <label class="form-label">Эрх</label>
-          <select name="role" class="form-input">
-            <option value="staff" {{ 'selected' if target['role']=='staff' }}>Химич</option>
-            <option value="preparer" {{ 'selected' if target['role']=='preparer' }}>Дээж бэлтгэгч</option>
-            <option value="geologist" {{ 'selected' if target['role']=='geologist' }}>Геологи</option>
-            <option value="senior" {{ 'selected' if target['role']=='senior' }} {% if current_user['role']=='senior' %}disabled{% endif %}>Ахлах химич</option>
+          <select name="role" class="form-input" id="roleSelect" onchange="toggleDevicePerm()">
+            <option value="staff" {{ 'selected' if target['role']=='staff' }}>Ажилтан (Химич)</option>
+            <option value="preparer" {{ 'selected' if target['role']=='preparer' }}>Бэлтгэгч</option>
+            <option value="geologist" {{ 'selected' if target['role']=='geologist' }}>Харилцагч (Геологи)</option>
+            <option value="senior" {{ 'selected' if target['role']=='senior' }} {% if current_user['role']=='senior' %}disabled{% endif %}>Дэд Админ</option>
             {% if current_user['role']=='admin' %}
             <option value="admin" {{ 'selected' if target['role']=='admin' }}>Админ</option>
             {% endif %}
@@ -58,14 +66,16 @@
         </div>
       </div>
 
-      <div class="section-title" style="margin-top:8px">Ашиглах эрхтэй төхөөрөмж</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">
-        {% for d in devices %}
-        <label style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--gray);border-radius:6px;cursor:pointer;font-size:13px">
-          <input type="checkbox" name="device_permissions" value="{{ d['id'] }}" {{ 'checked' if d['id'] in perms }}>
-          {{ d['name'] }}
-        </label>
-        {% endfor %}
+      <div id="devicePermSection" style="{% if target['role']=='geologist' %}display:none{% endif %}">
+        <div class="section-title" style="margin-top:8px">Ашиглах эрхтэй төхөөрөмж</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">
+          {% for d in devices %}
+          <label style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--gray);border-radius:6px;cursor:pointer;font-size:13px">
+            <input type="checkbox" name="device_permissions" value="{{ d['id'] }}" {{ 'checked' if d['id'] in perms }}>
+            {{ d['name'] }}
+          </label>
+          {% endfor %}
+        </div>
       </div>
 
       <div style="display:flex;gap:8px">
@@ -105,6 +115,17 @@ function togglePw(inputId, btnId){
   var inp = document.getElementById(inputId);
   inp.type = inp.type==='password' ? 'text' : 'password';
   document.getElementById(btnId).textContent = inp.type==='password' ? '👁' : '🙈';
+}
+function toggleDevicePerm(){
+  var role = document.getElementById('roleSelect').value;
+  var sec = document.getElementById('devicePermSection');
+  if(role==='geologist'){
+    sec.style.display='none';
+    // эрх олгохгүй — checkbox-уудыг цэвэрлэх
+    sec.querySelectorAll('input[type=checkbox]').forEach(function(c){ c.checked=false; });
+  } else {
+    sec.style.display='';
+  }
 }
 </script>
 {% endblock %}

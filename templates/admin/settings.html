@@ -2,8 +2,8 @@
 {% block title %}Тохиргоо{% endblock %}
 {% block content %}
 <style>
-.tab-pane{display:none}
-.tab-pane.active{display:block}
+.tab-pane{display:none!important}
+.tab-pane.active{display:block!important}
 </style>
 <div class="page" style="max-width:700px">
   <h1 class="page-title" style="margin-bottom:4px">⚙️ Тохиргоо</h1>
@@ -14,9 +14,11 @@
     <button class="tab-btn active" onclick="switchTab(this,'tab-lab')">🏢 Лабораторийн мэдээлэл</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-qc')">📊 QC стандарт</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-types')">🧪 Дээжний төрөл</button>
+    <button class="tab-btn" onclick="switchTab(this,'tab-crm')">🔬 CRM материал</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-device-map')">🔧 Тоног холбоос</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-profile')">👤 Профайл</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-backup')">💾 Нөөцлөлт</button>
+    <button class="tab-btn" onclick="switchTab(this,'tab-guest')">👁 Зочны код</button>
   </div>
 
   <!-- Лабораторийн мэдээлэл -->
@@ -39,7 +41,7 @@
         </div>
         <div class="section-title" style="margin-top:16px">Лого</div>
         <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;padding:14px;background:var(--gray);border-radius:8px">
-          <img src="{{ url_for('static', filename=s.logo) }}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid var(--border)">
+          <img src="{{ url_for('static', filename=s.logo) }}" style="width:42px;height:64px;object-fit:contain;border:1px solid var(--border);background:#fff">
           <div>
             <div style="font-size:13px;font-weight:500;margin-bottom:4px">Одоогийн лого</div>
             <div style="font-size:12px;color:var(--text-muted)">{{ s.logo }}</div>
@@ -50,11 +52,11 @@
           <input type="file" name="logo" class="form-input" accept=".png,.jpg,.jpeg,.webp">
         </div>
         <div style="background:#EBF4FF;border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#185FA5;line-height:1.7">
-          📐 <strong>Логоны шаардлага:</strong> Дугуй эсвэл квадрат (1:1 харьцаа) · Хамгийн багадаа 200×200px · PNG эсвэл JPG
+          📐 <strong>Логоны шаардлага:</strong> Хамгийн багадаа 200×200px · PNG эсвэл JPG · Аль ч харьцаа зөвшөөрөгдөнө
         </div>
         <!-- Урьдчилан харах -->
         <div style="background:#1a2744;padding:12px 16px;border-radius:8px;display:flex;align-items:center;gap:10px;margin-bottom:16px">
-          <img src="{{ url_for('static', filename=s.logo) }}" style="width:34px;height:34px;border-radius:50%;object-fit:cover">
+          <img src="{{ url_for('static', filename=s.logo) }}" style="width:42px;height:64px;object-fit:contain;flex-shrink:0">
           <div>
             <div style="font-size:13px;font-weight:600;color:#fff">{{ s.lab_name }}</div>
             <div style="font-size:10px;color:#93a8d4">{{ s.lab_subtitle }}</div>
@@ -77,6 +79,7 @@
             <th>Үзүүлэлт</th>
             <th>Зөрүү (±)</th>
             <th>Стандарт</th>
+            <th></th>
           </tr></thead>
           <tbody>
           {% for q in qc_settings %}
@@ -87,12 +90,40 @@
                 value="{{ q['tolerance'] }}" step="0.001"
                 class="form-input" style="width:100px;padding:4px 8px;font-size:13px">
             </td>
-            <td style="color:var(--text-muted);font-size:12px">{{ q['standard'] or '—' }}</td>
+            <td>
+              <input type="text" name="std_{{ q['parameter'] }}"
+                value="{{ q['standard'] or '' }}"
+                class="form-input" style="width:180px;padding:4px 8px;font-size:13px">
+            </td>
+            <td>
+              <button type="button" onclick="deleteQC('{{ q['parameter'] }}')"
+                class="btn btn-danger btn-sm">🗑</button>
+            </td>
           </tr>
           {% endfor %}
           </tbody>
         </table>
         <button type="submit" class="btn btn-primary" style="margin-top:12px">💾 Хадгалах</button>
+      </form>
+
+      <div class="section-title" style="margin-top:20px">➕ Шинэ параметр нэмэх</div>
+      <form method="POST">
+        <input type="hidden" name="action" value="qc_add">
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+          <div>
+            <label class="form-label">Параметр</label>
+            <input type="text" name="new_parameter" class="form-input" placeholder="жишээ: Vad" style="width:120px">
+          </div>
+          <div>
+            <label class="form-label">Зөрүү (±)</label>
+            <input type="number" name="new_tolerance" step="0.001" class="form-input" placeholder="0.3" style="width:100px">
+          </div>
+          <div>
+            <label class="form-label">Стандарт</label>
+            <input type="text" name="new_standard" class="form-input" placeholder="MNS GB/T 212-2015" style="width:180px">
+          </div>
+          <button type="submit" class="btn btn-primary">➕ Нэмэх</button>
+        </div>
       </form>
     </div>
   </div>
@@ -232,8 +263,8 @@
         </div>
         <div class="form-group">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-            <input type="checkbox" name="is_pit"> 
-            <span>PIT дугаарлалт ашиглах (зөвхөн тоон дугаар)</span>
+            <input type="checkbox" name="is_pit">
+            <span>PIT дугаарлалт ашиглах <span style="color:var(--text-muted);font-weight:400">(тоон хүрээ: 1-100) — сонгоогүй бол ;-ээр тусгаарласан нэр ашиглана (B1;B2;B3)</span></span>
           </label>
         </div>
         <button type="submit" class="btn btn-primary">➕ Нэмэх</button>
@@ -242,6 +273,163 @@
   </div>
 
   <!-- Нөөцлөлт -->
+  <!-- CRM материал -->
+  <div id="tab-crm" class="tab-pane">
+    <div class="card" style="margin-bottom:16px">
+      <div class="section-title">🔬 CRM материал нэмэх</div>
+      <form method="POST" action="/lab-settings/crm" id="crmAddForm">
+        <input type="hidden" name="action" value="add">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">CRM нэр / код <span style="color:var(--coral)">*</span></label>
+            <input type="text" name="crm_name" class="form-input" placeholder="Жишээ: SARM-18, GBW11107b" required>
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <p style="font-size:12px;color:var(--text-muted);margin:0">Бүх үзүүлэлт агаарт хатаасан дээжийн суурь (ad) дээр байна. Дотоод чийг (Mad) CRM-д байхгүй.</p>
+          </div>
+          <!-- Aad -->
+          <div class="form-group">
+            <label class="form-label">Adb [%] — Баталгаажсан</label>
+            <input type="number" name="aad_cert" class="form-input" step="0.0001" min="0" placeholder="0.0000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Adb ± хязгаар</label>
+            <input type="number" name="aad_unc" class="form-input" step="0.0001" min="0" placeholder="0.0000">
+          </div>
+          <!-- Vad -->
+          <div class="form-group">
+            <label class="form-label">Vdb [%] — Баталгаажсан</label>
+            <input type="number" name="vad_cert" class="form-input" step="0.0001" min="0" placeholder="0.0000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Vdb ± хязгаар</label>
+            <input type="number" name="vad_unc" class="form-input" step="0.0001" min="0" placeholder="0.0000">
+          </div>
+          <!-- Sad -->
+          <div class="form-group">
+            <label class="form-label">Sdb [%] — Баталгаажсан</label>
+            <input type="number" name="sulfur_cert" class="form-input" step="0.0001" min="0" placeholder="0.0000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sdb ± хязгаар</label>
+            <input type="number" name="sulfur_unc" class="form-input" step="0.0001" min="0" placeholder="0.0000">
+          </div>
+          <!-- Qb,d — МЖ/кг -->
+          <div class="form-group">
+            <label class="form-label">Qb,d [МЖ/кг] — Баталгаажсан</label>
+            <input type="number" name="cal_cert" class="form-input" step="0.001" min="0" placeholder="0.000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Qb,d ± хязгаар [МЖ/кг]</label>
+            <input type="number" name="cal_unc" class="form-input" step="0.001" min="0" placeholder="0.000">
+          </div>
+          <!-- G-индекс -->
+          <div class="form-group">
+            <label class="form-label">G-индекс — Баталгаажсан</label>
+            <input type="number" name="g_cert" class="form-input" step="0.01" min="0" placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label class="form-label">G-индекс ± хязгаар</label>
+            <input type="number" name="g_unc" class="form-input" step="0.01" min="0" placeholder="0.00">
+          </div>
+          <!-- Огноонууд -->
+          <div class="form-group">
+            <label class="form-label">Үйлдвэрлэсэн огноо</label>
+            <input type="date" name="manufacture_date" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Хүчинтэй огноо (дуусах)</label>
+            <input type="date" name="expiry_date" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Нээсэн огноо</label>
+            <input type="date" name="open_date" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Тэмдэглэл</label>
+            <input type="text" name="notes" class="form-input" placeholder="Лот дугаар, эх үүсвэр...">
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:8px">
+          <button type="submit" class="btn" style="background:#7C3AED;color:#fff">🔬 Нэмэх</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="section-title">CRM материалын жагсаалт</div>
+      <table class="table" id="crmList">
+        <thead>
+          <tr>
+            <th>Нэр / код</th>
+            <th style="text-align:center">Adb %</th>
+            <th style="text-align:center">Vdb %</th>
+            <th style="text-align:center">Sdb %</th>
+            <th style="text-align:center">Qb,d МЖ/кг</th>
+            <th style="text-align:center">G-индекс</th>
+            <th>Огноонууд</th>
+            <th>Тэмдэглэл</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for c in crm_materials %}
+        <tr>
+          <td><strong>{{ c['crm_name'] }}</strong></td>
+          <td style="text-align:center;font-size:12px">
+            {% if c['aad_cert'] %}{{ '%.4f'|format(c['aad_cert']) }}{% if c['aad_unc'] %}<br><span style="color:#7C3AED">±{{ '%.4f'|format(c['aad_unc']) }}</span>{% endif %}{% else %}—{% endif %}
+          </td>
+          <td style="text-align:center;font-size:12px">
+            {% if c['vad_cert'] %}{{ '%.4f'|format(c['vad_cert']) }}{% if c['vad_unc'] %}<br><span style="color:#7C3AED">±{{ '%.4f'|format(c['vad_unc']) }}</span>{% endif %}{% else %}—{% endif %}
+          </td>
+          <td style="text-align:center;font-size:12px">
+            {% if c['sulfur_cert'] %}{{ '%.4f'|format(c['sulfur_cert']) }}{% if c['sulfur_unc'] %}<br><span style="color:#7C3AED">±{{ '%.4f'|format(c['sulfur_unc']) }}</span>{% endif %}{% else %}—{% endif %}
+          </td>
+          <td style="text-align:center;font-size:12px">
+            {% if c['cal_cert'] %}{{ '%.3f'|format(c['cal_cert']) }}{% if c['cal_unc'] %}<br><span style="color:#7C3AED">±{{ '%.3f'|format(c['cal_unc']) }}</span>{% endif %}{% else %}—{% endif %}
+          </td>
+          <td style="text-align:center;font-size:12px">
+            {% if c['g_cert'] %}{{ '%.2f'|format(c['g_cert']) }}{% if c['g_unc'] %}<br><span style="color:#7C3AED">±{{ '%.2f'|format(c['g_unc']) }}</span>{% endif %}{% else %}—{% endif %}
+          </td>
+          <td style="font-size:11px;color:var(--text-muted)">
+            {% if c['manufacture_date'] %}<div>Үйлдвэр: {{ c['manufacture_date'] }}</div>{% endif %}
+            {% if c['open_date'] %}<div>Нээсэн: {{ c['open_date'] }}</div>{% endif %}
+            {% if c['expiry_date'] %}<div style="color:{% if c['expiry_date'] < today %}#993c1d{% else %}#0f6e56{% endif %}">Дуусах: {{ c['expiry_date'] }}</div>{% endif %}
+          </td>
+          <td style="font-size:12px;color:var(--text-muted)">{{ c['notes'] or '' }}</td>
+          <td>
+            <div style="position:relative" id="crm-wrap-{{ c['id'] }}">
+              <button onclick="toggleCrmMenu({{ c['id'] }})" class="btn btn-sm btn-ghost" style="padding:4px 10px;font-size:18px;line-height:1">⋮</button>
+              <div id="crm-menu-{{ c['id'] }}" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:50;min-width:150px">
+                <a href="{{ url_for('crm_edit', mid=c['id']) }}" style="display:block;padding:8px 12px;font-size:13px;color:var(--text);text-decoration:none;border-bottom:1px solid var(--border)">
+                  ✏️ Засах
+                </a>
+                <form method="POST" action="/lab-settings/crm" onsubmit="return confirm('Дуусгах уу? Жагсаалтаас алга болно.')">
+                  <input type="hidden" name="action" value="deactivate">
+                  <input type="hidden" name="id" value="{{ c['id'] }}">
+                  <button type="submit" style="width:100%;text-align:left;padding:8px 12px;font-size:13px;background:none;border:none;cursor:pointer;color:#0f6e56;border-bottom:1px solid var(--border)">
+                    ✅ Дуусгах
+                  </button>
+                </form>
+                <form method="POST" action="/lab-settings/crm" onsubmit="return confirm('Бүрэн устгах уу?')">
+                  <input type="hidden" name="action" value="delete">
+                  <input type="hidden" name="id" value="{{ c['id'] }}">
+                  <button type="submit" style="width:100%;text-align:left;padding:8px 12px;font-size:13px;background:none;border:none;cursor:pointer;color:#993c1d">
+                    🗑 Устгах
+                  </button>
+                </form>
+              </div>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-muted)">CRM материал байхгүй</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <div id="tab-backup" class="tab-pane">
     <div class="card">
       <div class="section-title">💾 Мэдээллийн сангийн нөөцлөлт</div>
@@ -258,21 +446,134 @@
     </div>
   </div>
 
+  <!-- Зочны код -->
+  <div id="tab-guest" class="tab-pane">
+    <div class="card" style="margin-bottom:16px">
+      <div class="section-title">👁 Нэг удаагийн зочны код үүсгэх</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+        Зочны код 24 цаг хүчинтэй. Хугацаа дуусмагц автоматаар устна.<br>
+        Зочин зөвхөн харах боломжтой — өгөгдөл нэмэх, засах эрхгүй.
+      </div>
+      <form method="POST" action="/guest/generate" style="display:flex;gap:8px;align-items:flex-end">
+        <div class="form-group" style="flex:1;margin-bottom:0">
+          <label class="form-label">Тэмдэглэл (хэнд өгч байгаа)</label>
+          <input type="text" name="label" class="form-input" placeholder="Жишээ: Удирдлага, Аудит...">
+        </div>
+        <button type="submit" class="btn" style="background:#7C3AED;color:#fff;padding:9px 16px">
+          ➕ Код үүсгэх
+        </button>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Идэвхтэй зочны кодууд</div>
+      {% if guest_tokens %}
+      <table class="table">
+        <thead><tr>
+          <th>Код</th>
+          <th>Тэмдэглэл</th>
+          <th>Үүсгэсэн</th>
+          <th>Дуусах</th>
+          <th></th>
+        </tr></thead>
+        <tbody>
+        {% for t in guest_tokens %}
+        <tr>
+          <td>
+            <div style="font-family:monospace;font-size:14px;font-weight:700;color:#7C3AED;letter-spacing:1px">
+              {{ t['token'] }}
+            </div>
+            <a href="/guest/{{ t['token'] }}" target="_blank"
+              style="display:inline-block;margin-top:5px;font-size:12px;font-weight:600;background:#7C3AED;color:#fff;padding:4px 12px;border-radius:6px;text-decoration:none">
+              🔗 Зочноор нэвтрэх
+            </a>
+            <button onclick="copyGuestUrl('{{ t['token'] }}')"
+              style="margin-top:4px;font-size:11px;padding:3px 8px;background:var(--gray);border:1px solid var(--border);border-radius:4px;cursor:pointer;display:block">
+              📋 Хаяг хуулах
+            </button>
+          </td>
+          <td style="font-size:12px">{{ t['label'] or '—' }}</td>
+          <td style="font-size:11px;color:var(--text-muted)">{{ t['created_at'][:16] if t['created_at'] else '—' }}</td>
+          <td style="font-size:11px;color:
+            {% if t['expires_at'] < now %}var(--coral){% else %}var(--teal){% endif %}">
+            {{ t['expires_at'][:16] }}
+          </td>
+          <td>
+            <form method="POST" action="{{ url_for('guest_token_delete', tid=t['id']) }}" onsubmit="return confirm('Устгах уу?')">
+              <button type="submit" class="btn btn-sm btn-danger">Устгах</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px">
+        Идэвхтэй зочны код байхгүй байна
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
 </div>
 {% endblock %}
 {% block scripts %}
 <script>
+function toggleCrmMenu(id){
+  var el = document.getElementById('crm-menu-'+id);
+  var isOpen = el.style.display !== 'none';
+  document.querySelectorAll('[id^="crm-menu-"]').forEach(function(m){ m.style.display='none'; });
+  el.style.display = isOpen ? 'none' : 'block';
+}
+document.addEventListener('click', function(e){
+  if(!e.target.closest('[id^="crm-wrap-"]')) {
+    document.querySelectorAll('[id^="crm-menu-"]').forEach(function(m){ m.style.display='none'; });
+  }
+});
+function deleteQC(param){
+  if(!confirm(param + ' параметрийг устгах уу?')) return;
+  fetch('/lab-settings/qc-delete', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({parameter: param})
+  }).then(r=>r.json()).then(function(d){
+    if(d.ok) location.reload();
+    else alert(d.error || 'Алдаа гарлаа');
+  });
+}
+function copyGuestUrl(token){
+  var url = window.location.origin + '/guest/' + token;
+  navigator.clipboard.writeText(url).then(function(){
+    alert('Хаяг хуулагдлаа:\n' + url);
+  }).catch(function(){
+    prompt('Хаягийг хуулна уу:', url);
+  });
+}
+// URL-н ?tab= параметрээр идэвхтэй табыг тохируулна
+document.addEventListener('DOMContentLoaded', function(){
+  var params = new URLSearchParams(window.location.search);
+  var tab = params.get('tab');
+  if(tab){
+    var btn = document.querySelector('.tab-btn[onclick*="tab-'+tab+'"]');
+    if(btn) btn.click();
+  }
+});
+
 function switchTab(btn, tabId){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(function(p){
+    p.classList.remove('active');
+    p.style.display='none';
+  });
   btn.classList.add('active');
-  document.getElementById(tabId).classList.add('active');
+  var pane = document.getElementById(tabId);
+  if(pane){
+    pane.classList.add('active');
+    pane.style.display='block';
+  }
   if(tabId==='tab-types') loadTypes();
   if(tabId==='tab-device-map') loadDeviceMap();
-  // URL-д tab хадгалах
-  var url = new URL(window.location);
-  url.searchParams.set('tab', tabId.replace('tab-',''));
-  window.history.replaceState({}, '', url);
+  history.pushState(null, '', '/lab-settings?tab=' + tabId.replace('tab-',''));
 }
 
 var ANALYSIS_TYPES = [
@@ -280,7 +581,7 @@ var ANALYSIS_TYPES = [
   {key:'aad', name:'🔥 Үнс (Aad)'},
   {key:'vad', name:'💨 Дэгдэмхий (Vad)'},
   {key:'st',  name:'⚗️ Нийт хүхэр (Sad)'},
-  {key:'q',   name:'🔆 Илчлэг (Qb,ad)'},
+  {key:'q',   name:'🔆 Илчлэг (Qb,d)'},
   {key:'g',   name:'📊 G индекс'},
   {key:'fsi', name:'🔵 Чөлөөт хөөлт (CSN)'}
 ];
@@ -291,7 +592,7 @@ function loadDeviceMap(){
     var mapping = data.mapping;
     var html = '';
     ANALYSIS_TYPES.forEach(function(at){
-      var sel = '<select class="form-input" style="font-size:12px;padding:4px 8px" onchange="saveDeviceMap(''+at.key+'',this.value)">';
+      var sel = '<select class="form-input" style="font-size:12px;padding:4px 8px" onchange="saveDeviceMap(&quot;'+at.key+'&quot;,this.value)">';
       sel += '<option value="">— тоног сонгоогүй —</option>';
       devices.forEach(function(d){
         var selected = mapping[at.key] == d.id ? 'selected' : '';
@@ -324,12 +625,12 @@ function loadTypes(){
       html += '<td><strong>'+t.code+'</strong></td>';
       html += '<td>'+t.name_mn+'</td>';
       html += '<td style="font-family:monospace;font-size:12px">'+t.serial_from+'-'+t.serial_to+'</td>';
-      html += '<td>'+(t.is_pit?'✅':'—')+'</td>';
+      html += '<td>'+(t.is_pit?'<span style="color:#0f6e56">✅ PIT</span>':'<span style="color:#185fa5">; нэр</span>')+'</td>';
       html += '<td><span class="badge '+(t.is_active?'badge-active':'badge-inactive')+'">'+(t.is_active?'Идэвхтэй':'Идэвхгүй')+'</span></td>';
       html += '<td><div style="display:flex;gap:4px">';
       html += '<form method="POST" action="/sample-types" style="display:inline"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="'+t.id+'"><button class="btn btn-ghost btn-sm">'+(t.is_active?'Идэвхгүй':'Идэвхтэй')+'</button></form>';
       if(!['PIT','STOCKPILE','EXPORT','CONTROL','EQ_CONTROL','DP'].includes(t.code)){
-        html += '<form method="POST" action="/sample-types" style="display:inline" onsubmit="return confirm('Устгах уу?')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="'+t.id+'"><button class="btn btn-sm" style="background:#faece7;color:#993c1d">Устгах</button></form>';
+        html += '<form method="POST" action="/sample-types" style="display:inline" onsubmit="return confirm(\'Delete?\')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="'+t.id+'"><button class="btn btn-sm" style="background:#faece7;color:#993c1d">Устгах</button></form>';
       }
       html += '</div></td></tr>';
     });
@@ -342,10 +643,10 @@ document.addEventListener('DOMContentLoaded', function(){
   var tab = new URLSearchParams(window.location.search).get('tab');
   if(tab){
     var btn = document.querySelector('[onclick*="tab-'+tab+'"]');
-    if(btn){ btn.click(); return; }
+    if(btn){ switchTab(btn, 'tab-'+tab); return; }
   }
-  // Анхдагч: лабораторийн мэдээлэл
-  document.querySelector('.tab-btn').click();
+  var firstBtn = document.querySelector('.tab-btn');
+  if(firstBtn) switchTab(firstBtn, 'tab-lab');
 });
 function togglePw(inputId, btnId){
   var inp = document.getElementById(inputId);

@@ -1,27 +1,31 @@
 {% extends "partial/base.html" %}
-{% block title %}{{ device.name }}{% endblock %}
+{% block title %}{{ device['name'] }}{% endblock %}
 {% block content %}
+<style>
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+</style>
 <div class="page">
   <div class="flex justify-between gap-12" style="margin-bottom:16px;flex-wrap:wrap">
     <div>
       <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">
-        <a href="{{ url_for('devices') }}">{{ 'Төхөөрөмжүүд' if lang=='mn' else 'Devices' }}</a> /
+        <a href="{{ url_for('devices') }}">Төхөөрөмжүүд</a> /
       </div>
-      <h1 class="page-title">{{ device.name }}</h1>
+      <h1 class="page-title">{{ device['name'] }}</h1>
       <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
-        <span class="badge badge-{{ device.status }}">
-          {% if device.status=='active' %}{{ 'Идэвхтэй' if lang=='mn' else 'Active' }}
-          {% elif device.status=='repair' %}{{ 'Засварт' if lang=='mn' else 'In Repair' }}
-          {% else %}{{ 'Хүлээгдэж байна' if lang=='mn' else 'Standby' }}{% endif %}
-        </span>
-        {% if device.serial_number %}<span style="font-size:12px;color:var(--text-muted)">SN: {{ device.serial_number }}</span>{% endif %}
+        {% set st = device['status'] %}
+        {% if st=='active' %}<span class="badge badge-active">🟢 Идэвхтэй</span>
+        {% elif st=='repair' %}<span class="badge" style="background:#faeeda;color:#854f0b">🟡 Засварт</span>
+        {% elif st=='standby' %}<span class="badge badge-standby">⚪ Хүлээгдэж байна</span>
+        {% else %}<span class="badge badge-standby">{{ st }}</span>{% endif %}
+        {% if device['serial_number'] %}<span style="font-size:12px;color:var(--text-muted)">SN: {{ device['serial_number'] }}</span>{% endif %}
       </div>
     </div>
-    {% if get_current_user().role=='admin' %}
+    {% if current_user['role'] in ('admin','senior') %}
     <div class="flex gap-8">
-      <a href="{{ url_for('device_edit', device_id=device.id) }}" class="btn btn-ghost btn-sm">
+      <a href="{{ url_for('device_edit', did=device['id']) }}" class="btn btn-ghost btn-sm">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        {{ 'Засах' if lang=='mn' else 'Edit' }}
+        Засах
       </a>
     </div>
     {% endif %}
@@ -31,95 +35,511 @@
     <!-- Left: Photo + quick info -->
     <div>
       <div class="card" style="padding:14px;text-align:center;margin-bottom:12px">
-        {% if device.photo %}
-        <img src="{{ url_for('static',filename='uploads/'+device.photo) }}" style="width:100%;height:160px;object-fit:cover;border-radius:8px;margin-bottom:10px">
+        {% if device['photo'] %}
+        <img src="{{ url_for('static',filename='uploads/'+device['photo']) }}" style="width:100%;height:160px;object-fit:contain;background:#fff;border-radius:8px;margin-bottom:10px">
         {% else %}
         <div style="width:100%;height:160px;background:var(--gray);border-radius:8px;margin-bottom:10px;display:flex;align-items:center;justify-content:center">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
         </div>
         {% endif %}
-        <div style="font-size:13px;font-weight:600">{{ device.name }}</div>
-        {% if device.mark %}
-        <div style="font-size:12px;color:var(--text-muted);margin-top:2px">{{ device.mark.manufacturer }} {{ device.mark.model }}</div>
+        <div style="font-size:13px;font-weight:600">{{ device['name'] }}</div>
+        {% if device['manufacturer'] %}
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px">{{ device['manufacturer'] }} {{ device['model'] }}</div>
         {% endif %}
       </div>
       <div class="card-sm" style="margin-bottom:12px">
-        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">{{ 'Энэ сарын ашиглалт' if lang=='mn' else 'This Month' }}</div>
-        <div style="font-size:26px;font-weight:600;color:var(--navy)">{{ device.total_hours_this_month }}<span style="font-size:13px;font-weight:400;color:var(--text-muted)"> ц</span></div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Энэ сарын ашиглалт</div>
+        <div style="font-size:26px;font-weight:600;color:var(--navy)">{{ monthly_hours }}<span style="font-size:13px;font-weight:400;color:var(--text-muted)"> ц</span></div>
       </div>
-      {% if device.passport_pdf %}
-      <a href="{{ url_for('static',filename='uploads/'+device.passport_pdf) }}" target="_blank" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center">
+      {% if device['passport_pdf'] %}
+      <a href="{{ url_for('static',filename='uploads/'+device['passport_pdf']) }}" target="_blank" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M9 15h6M9 11h6M9 18h4"/></svg>
-        {{ 'Паспорт PDF' if lang=='mn' else 'Passport PDF' }}
+        Паспорт PDF
       </a>
       {% endif %}
     </div>
 
     <!-- Right: Tabs -->
     <div class="card" style="padding:0">
-      <div class="tab-nav" style="padding:0 20px">
-        <button class="tab-btn active" data-tab="tab-info">2.1 {{ 'Мэдээлэл' if lang=='mn' else 'Info' }}</button>
-        <button class="tab-btn" data-tab="tab-usage">2.4 {{ 'Ашиглалт' if lang=='mn' else 'Usage' }}</button>
-        <button class="tab-btn" data-tab="tab-cal">2.3 Calibration</button>
-        <button class="tab-btn" data-tab="tab-repair">2.2 {{ 'Засвар' if lang=='mn' else 'Repair' }}</button>
+      <div class="tab-nav" style="padding:0 20px;flex-wrap:wrap">
+        <button class="tab-btn active" data-tab="tab-info">📋 Мэдээлэл</button>
+        <button class="tab-btn" data-tab="tab-check">✅ Дотоод шалгалт</button>
+        <button class="tab-btn" data-tab="tab-cal">🔬 Баталгаажуулалт</button>
+        <button class="tab-btn" data-tab="tab-usage">⏱ Ашиглалт</button>
+        <button class="tab-btn" data-tab="tab-repair">🔧 Засвар</button>
       </div>
 
-      <!-- 2.1 INFO -->
+      <!-- INFO (паспорт) -->
       <div id="tab-info" class="tab-pane active" style="padding:20px">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          {% set info = [
-            ('Serial дугаар','serial_number'),('Байршил','location'),
-            ('Худалдан авсан огноо','purchase_date'),('Баталгааны хугацаа','warranty_expiry'),
-            ('Calibration давтамж','calibration_interval'),
+          {% set rows = [
+            ('Лабораторийн дугаар', device['lab_id']),
+            ('Serial дугаар', device['serial_number']),
+            ('Үйлдвэрлэгч / Загвар', (device['manufacturer'] ~ ' ' ~ (device['model'] or '')) if device['manufacturer'] else None),
+            ('Ангилал', device['category']),
+            ('Байршил', device['location']),
+            ('Арга (Method)', device['method']),
+            ('Нарийвчлал (Particular)', device['particular']),
+            ('Хэмжилт хийх хугацаа', device['measuring_time']),
+            ('Хэмжилтийн хязгаар', device['measuring_limit']),
+            ('Дээд температур', device['max_temp']),
+            ('Хэмжээ (W×D×H)', device['dimension']),
+            ('Багтаамж', device['capacity']),
+            ('Жин', device['weight_kg']),
+            ('Бусад үзүүлэлт', device['other_spec']),
+            ('Чадал (Power)', device['power']),
+            ('Давтамж (Frequency)', device['frequency']),
+            ('Хүчдэл (Voltage)', device['voltage']),
+            ('Ажиллагаа', device['operating_state']),
+            ('Ашиглах шат', {'both':'📦🔬 Хоёуланд', 'prep':'📦 Бэлтгэл', 'analysis':'🔬 Шинжилгээ'}.get(device['stage'] or 'both')),
+            ('Худалдан авсан огноо', device['purchase_date']),
+            ('Хүлээн авсан огноо', device['received_date']),
+            ('Баталгааны хугацаа', device['warranty_expiry']),
+            ('Calibration давтамж', (device['calibration_interval']|string ~ ' өдөр') if device['calibration_interval'] else None),
           ] %}
-          {% for lbl, attr in info %}
+          {% for lbl, val in rows %}
+          {% if val %}
           <div style="background:var(--gray);border-radius:7px;padding:10px 12px">
             <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">{{ lbl }}</div>
-            <div style="font-size:13px;font-weight:500">
-              {% set val = device[attr] if device is mapping else device.__dict__.get(attr) %}
-              {% if attr=='calibration_interval' %}{{ device.calibration_interval }} өдөр
-              {% elif attr=='purchase_date' %}{{ device.purchase_date.strftime('%Y.%m.%d') if device.purchase_date else '—' }}
-              {% elif attr=='warranty_expiry' %}{{ device.warranty_expiry.strftime('%Y.%m.%d') if device.warranty_expiry else '—' }}
-              {% elif attr=='serial_number' %}{{ device.serial_number or '—' }}
-              {% elif attr=='location' %}{{ device.location or '—' }}
-              {% else %}—{% endif %}
-            </div>
+            <div style="font-size:13px;font-weight:500">{{ val }}</div>
           </div>
+          {% endif %}
           {% endfor %}
-          {% if device.mark %}
-          <div style="background:var(--gray);border-radius:7px;padding:10px 12px">
-            <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Үйлдвэрлэгч / Загвар</div>
-            <div style="font-size:13px;font-weight:500">{{ device.mark.manufacturer }} {{ device.mark.model }}</div>
-          </div>
-          {% if device.mark.category %}
-          <div style="background:var(--gray);border-radius:7px;padding:10px 12px">
-            <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Ангилал</div>
-            <div style="font-size:13px;font-weight:500">{{ device.mark.category }}</div>
-          </div>
-          {% endif %}
-          {% endif %}
         </div>
-        {% if device.notes %}
+        {% if device['web_link'] %}
+        <div style="margin-top:12px;font-size:12px"><span style="color:var(--text-muted)">Веб линк:</span>
+          <a href="{{ device['web_link'] }}" target="_blank" style="color:var(--navy)">{{ device['web_link'] }}</a>
+        </div>
+        {% endif %}
+        {% if device['specification'] %}
+        <div style="margin-top:12px;padding:10px 12px;background:var(--gray);border-radius:7px">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Дэлгэрэнгүй тодорхойлолт</div>
+          <div style="font-size:13px">{{ device['specification'] }}</div>
+        </div>
+        {% endif %}
+        {% if device['notes'] %}
         <div style="margin-top:12px;padding:10px 12px;background:var(--gray);border-radius:7px">
           <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Тэмдэглэл</div>
-          <div style="font-size:13px">{{ device.notes }}</div>
+          <div style="font-size:13px">{{ device['notes'] }}</div>
         </div>
         {% endif %}
       </div>
 
-      <!-- 2.4 USAGE -->
+      <!-- INTERNAL CHECK (дотоод өдөр тутмын шалгалт) -->
+      <div id="tab-check" class="tab-pane" style="padding:20px">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
+          Дотоод шалгалт — стандарт жин/утгаар өөрсдөө шалгана. (Жилийн нэг удаагийн хэмжил зүйн баталгаажуулалт нь "Баталгаажуулалт" хэсэгт)
+        </div>
+
+        <!-- ШАЛГАЛТЫН ТОХИРГОО -->
+        {% set p1 = device['check_param1'] %}
+        {% set p2 = device['check_param2'] %}
+        {% set p3 = device['check_param3'] %}
+        {% set p4 = device['check_param4'] %}
+        {% set g1 = device['check_group1'] %}
+        {% set g2 = device['check_group2'] %}
+        {% set g3 = device['check_group3'] %}
+        {% if p2 %}
+        <!-- Олон параметртэй: группчилсан загвар (Excel загвараар) -->
+        <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px">
+          <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+            <colgroup>
+              <col style="width:25%"><col style="width:25%"><col style="width:25%"><col style="width:25%">
+            </colgroup>
+            <!-- Группийн гарчиг -->
+            <thead>
+              <tr style="background:#e8edf3;font-size:12px;font-weight:700;text-align:center;color:var(--navy)">
+                <td colspan="2" style="padding:7px 12px;border-right:2px solid #999">{% if g1 %}1. {{ g1 }}{% endif %}</td>
+                <td style="padding:7px 12px;border-right:2px solid #999">{% if g2 %}2. {{ g2 }}{% endif %}</td>
+                <td style="padding:7px 12px">{% if g3 %}3. {{ g3 }}{% endif %}</td>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Зургийн мөр — 1. Эргэдэг хүрд: colspan=2 нэг зураг, 2. Эргэлдэх барабан, 3. Ачаа тус бүр нэг зураг -->
+              <tr style="background:#fff;text-align:center;border-bottom:1px solid var(--border)">
+                {% set ph1 = device['check_photo1'] %}
+                {% set ph3 = device['check_photo3'] %}
+                {% set ph4 = device['check_photo4'] %}
+                <td colspan="2" style="padding:14px;vertical-align:middle;border-right:2px solid #999">
+                  {% if ph1 %}
+                  <img src="{{ url_for('static',filename='uploads/'+ph1) }}" style="max-height:130px;max-width:100%;object-fit:contain">
+                  {% else %}
+                  <div style="color:#ccc;font-size:12px;padding:20px 8px"><div style="font-size:30px;margin-bottom:4px">📷</div>Зураг байхгүй</div>
+                  {% endif %}
+                </td>
+                <td style="padding:14px;vertical-align:middle;border-right:2px solid #999">
+                  {% if ph3 %}
+                  <img src="{{ url_for('static',filename='uploads/'+ph3) }}" style="max-height:130px;max-width:100%;object-fit:contain">
+                  {% else %}
+                  <div style="color:#ccc;font-size:12px;padding:20px 8px"><div style="font-size:30px;margin-bottom:4px">📷</div>Зураг байхгүй</div>
+                  {% endif %}
+                </td>
+                <td style="padding:14px;vertical-align:middle">
+                  {% if ph4 %}
+                  <img src="{{ url_for('static',filename='uploads/'+ph4) }}" style="max-height:130px;max-width:100%;object-fit:contain">
+                  {% else %}
+                  <div style="color:#ccc;font-size:12px;padding:20px 8px"><div style="font-size:30px;margin-bottom:4px">📷</div>Зураг байхгүй</div>
+                  {% endif %}
+                </td>
+              </tr>
+              <!-- Параметрийн нэр -->
+              <tr style="background:#f8f9fa;text-align:center;font-size:12px;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border)">
+                <th style="padding:8px 12px;border-right:1px solid var(--border)">{{ p1 }}</th>
+                <th style="padding:8px 12px;border-right:2px solid #999">{{ p2 }}</th>
+                <th style="padding:8px 12px;border-right:2px solid #999">{{ p3 or '' }}</th>
+                <th style="padding:8px 12px">{{ p4 or '' }}</th>
+              </tr>
+              <!-- Стандарт утга -->
+              <tr style="background:#fff;text-align:center">
+                <td style="padding:14px 12px;border-right:1px solid var(--border);font-size:20px;font-weight:700;color:var(--navy)">
+                  {{ device['check_standard'] or '—' }}{% if device['check_tolerance'] %}<div style="font-size:11px;color:var(--text-muted);font-weight:400">({{ device['check_tolerance'] }})</div>{% endif %}
+                </td>
+                <td style="padding:14px 12px;border-right:2px solid #999;font-size:20px;font-weight:700;color:var(--navy)">
+                  {{ device['check_standard2'] or '—' }}{% if device['check_tolerance2'] %}<div style="font-size:11px;color:var(--text-muted);font-weight:400">({{ device['check_tolerance2'] }})</div>{% endif %}
+                </td>
+                <td style="padding:14px 12px;border-right:2px solid #999;font-size:20px;font-weight:700;color:var(--navy)">
+                  {{ device['check_standard3'] or '—' }}{% if device['check_tolerance3'] %}<div style="font-size:11px;color:var(--text-muted);font-weight:400">({{ device['check_tolerance3'] }})</div>{% endif %}
+                </td>
+                <td style="padding:14px 12px;font-size:20px;font-weight:700;color:var(--navy)">
+                  {{ device['check_standard4'] or '—' }}{% if device['check_tolerance4'] %}<div style="font-size:11px;color:var(--text-muted);font-weight:400">({{ device['check_tolerance4'] }})</div>{% endif %}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <!-- Тохиргоо засах (admin/senior) -->
+          {% if current_user['role'] in ('admin','senior') %}
+          <details style="border-top:1px solid var(--border)">
+            <summary style="padding:8px 12px;font-size:11px;color:var(--text-muted);cursor:pointer;user-select:none">⚙️ Тохиргоо засах</summary>
+            <div style="padding:12px;background:#f8f9fa">
+              <form method="POST" action="{{ url_for('device_edit', did=device['id']) }}" enctype="multipart/form-data">
+                <input type="hidden" name="_check_config_only" value="1">
+                <table style="border-collapse:collapse;margin-bottom:10px">
+                  <thead><tr style="font-size:11px;color:var(--text-muted)">
+                    <th style="padding:3px 8px;text-align:left;width:160px">Параметр</th>
+                    <th style="padding:3px 8px;text-align:left;width:130px">Стандарт</th>
+                    <th style="padding:3px 8px;text-align:left;width:110px">Зөрүү</th>
+                  </tr></thead>
+                  <tbody>
+                    <tr>
+                      <td style="padding:3px 8px;font-size:12px">{{ p1 or 'Параметр 1' }}</td>
+                      <td style="padding:3px 8px"><input type="text" name="check_standard" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_standard'] or '' }}"></td>
+                      <td style="padding:3px 8px"><input type="text" name="check_tolerance" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_tolerance'] or '' }}" placeholder="±..."></td>
+                    </tr>
+                    {% if p2 %}<tr>
+                      <td style="padding:3px 8px;font-size:12px">{{ p2 }}</td>
+                      <td style="padding:3px 8px"><input type="text" name="check_standard2" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_standard2'] or '' }}"></td>
+                      <td style="padding:3px 8px"><input type="text" name="check_tolerance2" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_tolerance2'] or '' }}" placeholder="±..."></td>
+                    </tr>{% endif %}
+                    {% if p3 %}<tr>
+                      <td style="padding:3px 8px;font-size:12px">{{ p3 }}</td>
+                      <td style="padding:3px 8px"><input type="text" name="check_standard3" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_standard3'] or '' }}"></td>
+                      <td style="padding:3px 8px"><input type="text" name="check_tolerance3" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_tolerance3'] or '' }}" placeholder="±..."></td>
+                    </tr>{% endif %}
+                    {% if p4 %}<tr>
+                      <td style="padding:3px 8px;font-size:12px">{{ p4 }}</td>
+                      <td style="padding:3px 8px"><input type="text" name="check_standard4" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_standard4'] or '' }}"></td>
+                      <td style="padding:3px 8px"><input type="text" name="check_tolerance4" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_tolerance4'] or '' }}" placeholder="±..."></td>
+                    </tr>{% endif %}
+                  </tbody>
+                </table>
+                <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+                  <div>
+                    <label class="form-label" style="font-size:11px">1. {{ g1 or p1 }} зураг</label>
+                    <input type="file" name="check_photo1" accept="image/*" style="font-size:12px">
+                  </div>
+                  {% if g2 or p3 %}
+                  <div>
+                    <label class="form-label" style="font-size:11px">2. {{ g2 or p3 }} зураг</label>
+                    <input type="file" name="check_photo3" accept="image/*" style="font-size:12px">
+                  </div>
+                  {% endif %}
+                  {% if g3 or p4 %}
+                  <div>
+                    <label class="form-label" style="font-size:11px">3. {{ g3 or p4 }} зураг</label>
+                    <input type="file" name="check_photo4" accept="image/*" style="font-size:12px">
+                  </div>
+                  {% endif %}
+                </div>
+                <button type="submit" class="btn btn-sm" style="padding:5px 14px;font-size:12px">Хадгалах</button>
+              </form>
+            </div>
+          </details>
+          {% endif %}
+        </div>
+        {% else %}
+        <!-- Нэг параметртэй: энгийн маягт -->
+        {% if current_user['role'] in ('admin','senior') %}
+        <div style="background:#f8f9fa;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px">
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">⚙️ Шалгалтын тохиргоо</div>
+          <form method="POST" action="{{ url_for('device_edit', did=device['id']) }}" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+            <input type="hidden" name="_check_config_only" value="1">
+            <div>
+              <label class="form-label" style="font-size:11px">{{ p1 or 'Нэрлэсэн утга' }} — стандарт</label>
+              <input type="text" name="check_standard" class="form-input" style="width:120px;padding:5px 8px;font-size:12px" value="{{ device['check_standard'] or '' }}" placeholder="Ж: 1.0000">
+            </div>
+            <div>
+              <label class="form-label" style="font-size:11px">Зөвшөөрөх зөрүү</label>
+              <input type="text" name="check_tolerance" class="form-input" style="width:100px;padding:5px 8px;font-size:12px" value="{{ device['check_tolerance'] or '' }}" placeholder="±0.0003">
+            </div>
+            <input type="hidden" name="check_standard2" value="">
+            <input type="hidden" name="check_tolerance2" value="">
+            <input type="hidden" name="check_standard3" value="">
+            <input type="hidden" name="check_tolerance3" value="">
+            <input type="hidden" name="check_standard4" value="">
+            <input type="hidden" name="check_tolerance4" value="">
+            <button type="submit" class="btn btn-sm" style="padding:5px 14px;font-size:12px">Хадгалах</button>
+          </form>
+        </div>
+        {% endif %}
+        {% endif %}
+
+        <!-- КОНТРОЛ ЧАРТ -->
+        {% set chart_checks = checks|selectattr('measured_value')|list %}
+        {% if chart_checks|length > 1 %}
+        <div class="card" style="padding:16px;margin-bottom:20px">
+          <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:12px">📈 Контрол чарт — хэмжсэн утгын хандлага</div>
+          <canvas id="controlChart" height="90"></canvas>
+        </div>
+        {% endif %}
+
+        {% if current_user['role'] != 'guest' %}
+        {% set p1 = device['check_param1'] or 'Хэмжсэн утга' %}
+        {% set p2 = device['check_param2'] %}
+        {% set p3 = device['check_param3'] %}
+        {% set p4 = device['check_param4'] %}
+        <form method="POST" action="{{ url_for('device_check_add', did=device['id']) }}" style="background:var(--gray);border-radius:8px;padding:14px;margin-bottom:16px">
+          <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.04em">Шинэ дотоод шалгалт</div>
+          <!-- Огноо + Үр дүн + Тэмдэглэл -->
+          <div style="display:grid;grid-template-columns:160px 160px 1fr;gap:10px;margin-bottom:12px">
+            <div>
+              <label class="form-label">Огноо</label>
+              <input type="date" name="check_date" class="form-input" value="{{ today }}" required>
+            </div>
+            <div>
+              <label class="form-label">Үр дүн</label>
+              <select name="result" class="form-input">
+                <option value="pass">✓ Тэнцсэн</option>
+                <option value="fail">✗ Тэнцээгүй</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Тэмдэглэл</label>
+              <input type="text" name="notes" class="form-input" placeholder="...">
+            </div>
+          </div>
+          <!-- Стандарт утгуудыг hidden-аар дамжуулна -->
+          <input type="hidden" name="standard_value" value="{{ device['check_standard'] or '' }}">
+          <input type="hidden" name="tolerance" value="{{ device['check_tolerance'] or '' }}">
+          {% if p2 %}<input type="hidden" name="standard_value2" value="{{ device['check_standard2'] or '' }}">{% endif %}
+          {% if p3 %}<input type="hidden" name="standard_value3" value="{{ device['check_standard3'] or '' }}">{% endif %}
+          {% if p4 %}<input type="hidden" name="standard_value4" value="{{ device['check_standard4'] or '' }}">{% endif %}
+          <!-- Параметрүүд: зөвхөн хэмжсэн утга бичнэ -->
+          <table style="width:100%;border-collapse:collapse;margin-bottom:12px">
+            <thead>
+              <tr style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em">
+                <th style="padding:4px 8px;width:200px;text-align:left;font-weight:600">Параметр</th>
+                <th style="padding:4px 8px;width:110px;text-align:left;font-weight:600;color:#888">Стандарт</th>
+                <th style="padding:4px 8px;text-align:left;font-weight:600">Хэмжсэн утга</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding:5px 8px;font-size:13px;font-weight:500">{{ p1 }}</td>
+                <td style="padding:5px 8px;font-size:12px;color:#888">{{ device['check_standard'] or '—' }}{% if device['check_tolerance'] %} <span style="font-size:11px">({{ device['check_tolerance'] }})</span>{% endif %}</td>
+                <td style="padding:5px 8px"><input type="text" name="measured_value" class="form-input" style="padding:5px 8px;max-width:200px" placeholder="хэмжсэн..."></td>
+              </tr>
+              {% if p2 %}
+              <tr>
+                <td style="padding:5px 8px;font-size:13px;font-weight:500">{{ p2 }}</td>
+                <td style="padding:5px 8px;font-size:12px;color:#888">{{ device['check_standard2'] or '—' }}{% if device['check_tolerance2'] %} <span style="font-size:11px">({{ device['check_tolerance2'] }})</span>{% endif %}</td>
+                <td style="padding:5px 8px"><input type="text" name="measured_value2" class="form-input" style="padding:5px 8px;max-width:200px" placeholder="хэмжсэн..."></td>
+              </tr>
+              {% endif %}
+              {% if p3 %}
+              <tr>
+                <td style="padding:5px 8px;font-size:13px;font-weight:500">{{ p3 }}</td>
+                <td style="padding:5px 8px;font-size:12px;color:#888">{{ device['check_standard3'] or '—' }}{% if device['check_tolerance3'] %} <span style="font-size:11px">({{ device['check_tolerance3'] }})</span>{% endif %}</td>
+                <td style="padding:5px 8px"><input type="text" name="measured_value3" class="form-input" style="padding:5px 8px;max-width:200px" placeholder="хэмжсэн..."></td>
+              </tr>
+              {% endif %}
+              {% if p4 %}
+              <tr>
+                <td style="padding:5px 8px;font-size:13px;font-weight:500">{{ p4 }}</td>
+                <td style="padding:5px 8px;font-size:12px;color:#888">{{ device['check_standard4'] or '—' }}{% if device['check_tolerance4'] %} <span style="font-size:11px">({{ device['check_tolerance4'] }})</span>{% endif %}</td>
+                <td style="padding:5px 8px"><input type="text" name="measured_value4" class="form-input" style="padding:5px 8px;max-width:200px" placeholder="хэмжсэн..."></td>
+              </tr>
+              {% endif %}
+            </tbody>
+          </table>
+          <button type="submit" class="btn btn-teal btn-sm">Бүртгэх</button>
+        </form>
+        {% endif %}
+        <div style="overflow-x:auto">
+        <table class="table" style="min-width:700px">
+          {% set p1 = device['check_param1'] or 'Хэмжсэн' %}
+          {% set p2 = device['check_param2'] %}
+          {% set p3 = device['check_param3'] %}
+          {% set p4 = device['check_param4'] %}
+          {% set tbl_cols = 7 + (2 if p2 else 1) + (2 if p3 else 0) + (2 if p4 else 0) + (1 if current_user['role'] in ('admin','senior') else 0) %}
+          <thead>
+            {% if p2 or p3 or p4 %}
+            <tr>
+              <th rowspan="2">Огноо</th>
+              {% if p2 or p3 or p4 %}
+              <th colspan="2" style="text-align:center;border-bottom:1px solid var(--border)">{{ p1 }}</th>
+              {% if p2 %}<th colspan="2" style="text-align:center;border-bottom:1px solid var(--border)">{{ p2 }}</th>{% endif %}
+              {% if p3 %}<th colspan="2" style="text-align:center;border-bottom:1px solid var(--border)">{{ p3 }}</th>{% endif %}
+              {% if p4 %}<th colspan="2" style="text-align:center;border-bottom:1px solid var(--border)">{{ p4 }}</th>{% endif %}
+              {% endif %}
+              <th rowspan="2">Үр дүн</th>
+              <th rowspan="2" style="text-align:center">Тохир</th>
+              <th rowspan="2">Шалгасан</th>
+              <th rowspan="2">Тэмдэглэл</th>
+              {% if current_user['role'] in ('admin','senior') %}<th rowspan="2"></th>{% endif %}
+            </tr>
+            <tr>
+              <th>Стандарт</th><th>Хэмжсэн</th>
+              {% if p2 %}<th>Стандарт</th><th>Хэмжсэн</th>{% endif %}
+              {% if p3 %}<th>Стандарт</th><th>Хэмжсэн</th>{% endif %}
+              {% if p4 %}<th>Стандарт</th><th>Хэмжсэн</th>{% endif %}
+            </tr>
+            {% else %}
+            <tr>
+              <th>Огноо</th>
+              <th>{{ p1 }} стандарт</th>
+              <th>{{ p1 }} хэмжсэн</th>
+              <th>Зөрүү</th>
+              <th>Үр дүн</th>
+              <th style="text-align:center">Тохируулга</th>
+              <th>Шалгасан</th>
+              <th>Тэмдэглэл</th>
+              {% if current_user['role'] in ('admin','senior') %}<th></th>{% endif %}
+            </tr>
+            {% endif %}
+          </thead>
+          <tbody>
+          {% for ch in checks %}
+          <tr>
+            <td style="font-size:12px">{{ ch['check_date'] }}</td>
+            <td style="font-family:monospace;font-size:12px">{{ ch['standard_value'] or '—' }}</td>
+            <td style="font-family:monospace;font-size:12px">{{ ch['measured_value'] or '—' }}</td>
+            {% if p2 %}
+            <td style="font-family:monospace;font-size:12px">{{ ch['standard_value2'] or '—' }}</td>
+            <td style="font-family:monospace;font-size:12px">{{ ch['measured_value2'] or '—' }}</td>
+            {% else %}
+            <td style="font-family:monospace;font-size:12px">{{ ch['tolerance'] or '—' }}</td>
+            {% endif %}
+            {% if p3 %}
+            <td style="font-family:monospace;font-size:12px">{{ ch.get('standard_value3') or '—' }}</td>
+            <td style="font-family:monospace;font-size:12px">{{ ch.get('measured_value3') or '—' }}</td>
+            {% endif %}
+            {% if p4 %}
+            <td style="font-family:monospace;font-size:12px">{{ ch.get('standard_value4') or '—' }}</td>
+            <td style="font-family:monospace;font-size:12px">{{ ch.get('measured_value4') or '—' }}</td>
+            {% endif %}
+            <td>
+              {% if ch['result']=='pass' %}<span class="badge badge-active">✓ Тэнцсэн</span>
+              {% else %}<span class="badge badge-failed">✗ Тэнцээгүй</span>{% endif %}
+            </td>
+            <td style="text-align:center;font-size:14px">
+              {% if ch['calibration_adjusted'] %}<span style="color:#d97706" title="Тохируулга хийсэн">✔</span>{% else %}<span style="color:#ddd">—</span>{% endif %}
+            </td>
+            <td style="font-size:12px">{{ ch['uname'] or '—' }}</td>
+            <td style="font-size:12px;color:var(--text-muted)">{{ ch['notes'] or '' }}</td>
+            {% if current_user['role'] in ('admin','senior') %}
+            <td>
+              <form method="POST" action="{{ url_for('device_check_delete', cid=ch['id']) }}" onsubmit="return confirm('Устгах уу?')" style="display:inline">
+                <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 8px;font-size:11px">×</button>
+              </form>
+            </td>
+            {% endif %}
+          </tr>
+          {% else %}
+          <tr><td colspan="{{ tbl_cols }}" style="text-align:center;color:var(--text-muted);padding:20px">Дотоод шалгалтын бүртгэл байхгүй</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        </div>
+      </div>
+
+      <!-- CALIBRATION (жилийн баталгаажуулалт) -->
+      <div id="tab-cal" class="tab-pane" style="padding:20px">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
+          Хэмжил зүйн байгууллагаар хийлгэдэг албан ёсны баталгаажуулалт (ихэвчлэн жилд нэг удаа).
+        </div>
+        {% if current_user['role'] != 'guest' %}
+        <form method="POST" action="{{ url_for('calibration_add', did=device['id']) }}" enctype="multipart/form-data" style="background:var(--gray);border-radius:8px;padding:14px;margin-bottom:16px">
+          <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em">Шинэ баталгаажуулалт бүртгэх</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+            <div>
+              <label class="form-label">Хийсэн огноо</label>
+              <input type="date" name="calibration_date" class="form-input" value="{{ today }}" required>
+            </div>
+            <div>
+              <label class="form-label">Дараагийн огноо</label>
+              <input type="date" name="next_date" class="form-input">
+            </div>
+            <div>
+              <label class="form-label">Үр дүн</label>
+              <select name="result" class="form-input">
+                <option value="passed">Тэнцсэн</option>
+                <option value="failed">Тэнцээгүй</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+            <div>
+              <label class="form-label">Баримт хавсаргах</label>
+              <input type="file" name="document" class="form-input" accept=".pdf,.jpg,.jpeg,.png">
+            </div>
+            <div>
+              <label class="form-label">Тэмдэглэл</label>
+              <input type="text" name="notes" class="form-input" placeholder="...">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-teal btn-sm">Бүртгэх</button>
+        </form>
+        {% endif %}
+        <table class="table">
+          <thead><tr>
+            <th>Огноо</th>
+            <th>Дараагийн</th>
+            <th>Хийсэн</th>
+            <th>Үр дүн</th>
+            <th>Баримт</th>
+          </tr></thead>
+          <tbody>
+          {% for cal in calibrations %}
+          <tr>
+            <td style="font-size:12px">{{ cal['calibration_date'] }}</td>
+            <td style="font-size:12px">{{ cal['next_date'] or '—' }}</td>
+            <td style="font-size:12px">{{ cal['uname'] or '—' }}</td>
+            <td>
+              {% if cal['result']=='passed' %}<span class="badge badge-active">Тэнцсэн</span>
+              {% else %}<span class="badge badge-failed">Тэнцээгүй</span>{% endif %}
+            </td>
+            <td>{% if cal['document'] %}<a href="{{ url_for('static',filename='uploads/'+cal['document']) }}" target="_blank" style="color:var(--navy);font-size:12px">↓ Татах</a>{% else %}—{% endif %}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">Бүртгэл байхгүй</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- USAGE -->
       <div id="tab-usage" class="tab-pane" style="padding:20px">
-        {% if active_log and active_log.user_id == get_current_user().id %}
+        {% if active_log and active_log['user_id'] == current_user['id'] %}
         <div style="background:var(--teal-light);border:1px solid #9fe1cb;border-radius:8px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">
           <div>
             <div style="font-size:12px;color:var(--teal);font-weight:500">Ажиллаж байна</div>
-            <div style="font-size:13px;color:var(--teal)">Эхэлсэн: {{ active_log.start_time.strftime('%H:%M') }}</div>
+            <div style="font-size:13px;color:var(--teal)">Эхэлсэн: {{ active_log['start_time'][11:16] }}</div>
           </div>
-          <button class="btn btn-stop btn-sm" onclick="stopUsage({{ active_log.id }})">STOP</button>
+          <button class="btn btn-stop btn-sm" onclick="stopUsage({{ active_log['id'] }})">STOP</button>
         </div>
-        {% elif not active_log %}
+        {% elif not active_log and current_user['role'] != 'guest' %}
         <div style="margin-bottom:14px">
-          <button class="btn btn-start" onclick="startUsage({{ device.id }})">
+          <button class="btn btn-start" onclick="startUsage({{ device['id'] }})">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             START
           </button>
@@ -127,169 +547,298 @@
         {% endif %}
         <table class="table">
           <thead><tr>
-            <th>{{ 'Огноо' if lang=='mn' else 'Date' }}</th>
-            <th>{{ 'Ажилтан' if lang=='mn' else 'Staff' }}</th>
-            <th>{{ 'Эхэлсэн' if lang=='mn' else 'Start' }}</th>
-            <th>{{ 'Гүйцэтгэсэн' if lang=='mn' else 'End' }}</th>
-            <th>{{ 'Цаг' if lang=='mn' else 'Hours' }}</th>
+            <th>Огноо</th>
+            <th>Ажилтан</th>
+            <th>Эхэлсэн</th>
+            <th>Гүйцэтгэсэн</th>
+            <th>Цаг</th>
           </tr></thead>
           <tbody>
           {% for log in usage_logs %}
           <tr>
-            <td>{{ log.start_time.strftime('%Y.%m.%d') }}</td>
-            <td>{{ log.user.name if log.user else '—' }}</td>
-            <td>{{ log.start_time.strftime('%H:%M') }}</td>
-            <td>{{ log.end_time.strftime('%H:%M') if log.end_time else '—' }}</td>
-            <td><strong>{{ '%.2f'|format(log.duration_hours) if log.duration_hours else '...' }}</strong></td>
+            <td style="font-size:12px">{{ log['start_time'][:10] }}</td>
+            <td style="font-size:12px">{{ log['uname'] or '—' }}</td>
+            <td style="font-size:12px">{{ log['start_time'][11:16] }}</td>
+            <td style="font-size:12px">{{ log['end_time'][11:16] if log['end_time'] else '—' }}</td>
+            <td><strong>{{ '%.2f'|format(log['duration_hours']) if log['duration_hours'] else '...' }}</strong></td>
           </tr>
           {% else %}
-          <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">{{ 'Бүртгэл байхгүй' if lang=='mn' else 'No records' }}</td></tr>
+          <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">Бүртгэл байхгүй</td></tr>
           {% endfor %}
           </tbody>
         </table>
       </div>
 
-      <!-- 2.3 CALIBRATION -->
-      <div id="tab-cal" class="tab-pane" style="padding:20px">
-        <form method="POST" action="{{ url_for('calibration_add', device_id=device.id) }}" enctype="multipart/form-data" style="background:var(--gray);border-radius:8px;padding:14px;margin-bottom:16px">
-          <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em">{{ 'Шинэ calibration бүртгэх' if lang=='mn' else 'Add Calibration' }}</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
-            <div>
-              <label class="form-label">{{ 'Хийсэн огноо' if lang=='mn' else 'Date' }}</label>
-              <input type="date" name="calibration_date" class="form-input" value="{{ today }}" required>
-            </div>
-            <div>
-              <label class="form-label">{{ 'Дараагийн огноо' if lang=='mn' else 'Next Date' }}</label>
-              <input type="date" name="next_date" class="form-input">
-            </div>
-            <div>
-              <label class="form-label">{{ 'Үр дүн' if lang=='mn' else 'Result' }}</label>
-              <select name="result" class="form-input">
-                <option value="passed">{{ 'Тэнцсэн' if lang=='mn' else 'Passed' }}</option>
-                <option value="failed">{{ 'Тэнцээгүй' if lang=='mn' else 'Failed' }}</option>
-              </select>
-            </div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-            <div>
-              <label class="form-label">{{ 'Баримт хавсаргах' if lang=='mn' else 'Attach Document' }}</label>
-              <input type="file" name="document" class="form-input" accept=".pdf,.jpg,.jpeg,.png">
-            </div>
-            <div>
-              <label class="form-label">{{ 'Тэмдэглэл' if lang=='mn' else 'Notes' }}</label>
-              <input type="text" name="notes" class="form-input" placeholder="...">
-            </div>
-          </div>
-          <button type="submit" class="btn btn-teal btn-sm">{{ 'Бүртгэх' if lang=='mn' else 'Save' }}</button>
-        </form>
-        <table class="table">
-          <thead><tr>
-            <th>{{ 'Огноо' if lang=='mn' else 'Date' }}</th>
-            <th>{{ 'Дараагийн' if lang=='mn' else 'Next' }}</th>
-            <th>{{ 'Хийсэн' if lang=='mn' else 'By' }}</th>
-            <th>{{ 'Үр дүн' if lang=='mn' else 'Result' }}</th>
-            <th>{{ 'Баримт' if lang=='mn' else 'Doc' }}</th>
-          </tr></thead>
-          <tbody>
-          {% for cal in calibrations %}
-          <tr>
-            <td>{{ cal.calibration_date.strftime('%Y.%m.%d') }}</td>
-            <td>{{ cal.next_date.strftime('%Y.%m.%d') if cal.next_date else '—' }}</td>
-            <td>{{ cal.performed_by_user.name if cal.performed_by_user else '—' }}</td>
-            <td><span class="badge badge-{{ cal.result }}">{{ 'Тэнцсэн' if cal.result=='passed' else 'Тэнцээгүй' }}</span></td>
-            <td>{% if cal.document %}<a href="{{ url_for('static',filename='uploads/'+cal.document) }}" target="_blank" style="color:var(--navy);font-size:12px">↓ Татах</a>{% else %}—{% endif %}</td>
-          </tr>
-          {% else %}
-          <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">{{ 'Бүртгэл байхгүй' if lang=='mn' else 'No records' }}</td></tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </div>
-
-      <!-- 2.2 REPAIR -->
+      <!-- REPAIR -->
       <div id="tab-repair" class="tab-pane" style="padding:20px">
-        <form method="POST" action="{{ url_for('repair_add', device_id=device.id) }}" enctype="multipart/form-data" style="background:var(--gray);border-radius:8px;padding:14px;margin-bottom:16px">
-          <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em">{{ 'Шинэ засвар бүртгэх' if lang=='mn' else 'Add Repair' }}</div>
+        {% if current_user['role'] != 'guest' %}
+        <form method="POST" action="{{ url_for('repair_add', did=device['id']) }}" enctype="multipart/form-data" style="background:var(--gray);border-radius:8px;padding:14px;margin-bottom:16px">
+          <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em">Шинэ засвар бүртгэх</div>
           <div style="margin-bottom:10px">
-            <label class="form-label">{{ 'Эвдрэлийн тайлбар' if lang=='mn' else 'Description' }}</label>
+            <label class="form-label">Эвдрэлийн тайлбар</label>
             <textarea name="description" class="form-input" rows="2" required></textarea>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
             <div>
-              <label class="form-label">{{ 'Илэрсэн огноо' if lang=='mn' else 'Reported Date' }}</label>
+              <label class="form-label">Илэрсэн огноо</label>
               <input type="date" name="reported_date" class="form-input" value="{{ today }}" required>
             </div>
             <div>
-              <label class="form-label">{{ 'Засварын компани' if lang=='mn' else 'Company' }}</label>
+              <label class="form-label">Засварын компани</label>
               <input type="text" name="company" class="form-input" placeholder="...">
             </div>
             <div>
-              <label class="form-label">{{ 'Засварын огноо' if lang=='mn' else 'Repair Date' }}</label>
+              <label class="form-label">Засварын огноо</label>
               <input type="date" name="repair_date" class="form-input">
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
             <div>
-              <label class="form-label">{{ 'Зардал (₮)' if lang=='mn' else 'Cost (₮)' }}</label>
+              <label class="form-label">Зардал (₮)</label>
               <input type="number" name="cost" class="form-input" placeholder="0">
             </div>
             <div>
-              <label class="form-label">{{ 'Статус' if lang=='mn' else 'Status' }}</label>
+              <label class="form-label">Статус</label>
               <select name="status" class="form-input">
-                <option value="new">{{ 'Шинэ' if lang=='mn' else 'New' }}</option>
-                <option value="repair">{{ 'Засварт' if lang=='mn' else 'In Repair' }}</option>
-                <option value="done">{{ 'Гүйцэтгэсэн' if lang=='mn' else 'Completed' }}</option>
-                <option value="replaced">{{ 'Солигдсон' if lang=='mn' else 'Replaced' }}</option>
+                <option value="new">Шинэ</option>
+                <option value="repair">Засварт</option>
+                <option value="done">Гүйцэтгэсэн</option>
+                <option value="replaced">Солигдсон</option>
               </select>
             </div>
             <div>
-              <label class="form-label">{{ 'Зураг' if lang=='mn' else 'Photo' }}</label>
+              <label class="form-label">Зураг</label>
               <input type="file" name="photo" class="form-input" accept=".jpg,.jpeg,.png">
             </div>
           </div>
-          <button type="submit" class="btn btn-danger btn-sm">{{ 'Бүртгэх' if lang=='mn' else 'Save' }}</button>
+          <button type="submit" class="btn btn-danger btn-sm">Бүртгэх</button>
         </form>
+        {% endif %}
         <table class="table">
           <thead><tr>
-            <th>{{ 'Огноо' if lang=='mn' else 'Date' }}</th>
-            <th>{{ 'Тайлбар' if lang=='mn' else 'Description' }}</th>
-            <th>{{ 'Компани' if lang=='mn' else 'Company' }}</th>
-            <th>{{ 'Зардал' if lang=='mn' else 'Cost' }}</th>
-            <th>{{ 'Статус' if lang=='mn' else 'Status' }}</th>
+            <th>Огноо</th>
+            <th>Тайлбар</th>
+            <th>Компани</th>
+            <th>Зардал</th>
+            <th>Статус</th>
           </tr></thead>
           <tbody>
           {% for rep in repairs %}
           <tr>
-            <td>{{ rep.reported_date.strftime('%Y.%m.%d') }}</td>
-            <td style="max-width:200px">{{ rep.description[:60] }}{% if rep.description|length > 60 %}...{% endif %}</td>
-            <td>{{ rep.company or '—' }}</td>
-            <td>{{ '{:,.0f}'.format(rep.cost) if rep.cost else '—' }} ₮</td>
+            <td style="font-size:12px">{{ rep['reported_date'] }}</td>
+            <td style="max-width:200px;font-size:12px">{{ rep['description'][:60] }}{% if rep['description']|length > 60 %}...{% endif %}</td>
+            <td style="font-size:12px">{{ rep['company'] or '—' }}</td>
+            <td style="font-size:12px">{{ '{:,.0f}'.format(rep['cost']) if rep['cost'] else '—' }} ₮</td>
             <td>
-              {% if rep.status=='new' %}
-                <span class="badge" style="background:#faece7;color:#993c1d">🔴 {{ 'Шинэ' if lang=='mn' else 'New' }}</span>
-              {% elif rep.status=='repair' %}
-                <span class="badge" style="background:#faeeda;color:#854f0b">🟡 {{ 'Засварт' if lang=='mn' else 'In Repair' }}</span>
-              {% elif rep.status=='done' %}
-                <span class="badge" style="background:#e1f5ee;color:#0f6e56">🟢 {{ 'Гүйцэтгэсэн' if lang=='mn' else 'Completed' }}</span>
-              {% elif rep.status=='replaced' %}
-                <span class="badge" style="background:#eeedfe;color:#3c3489">⚫ {{ 'Солигдсон' if lang=='mn' else 'Replaced' }}</span>
-              {% endif %}
-              {% if rep.status in ['new','repair'] %}
-              <button onclick="closeRepair({{ rep.id }})" style="font-size:11px;color:var(--teal);background:none;border:none;cursor:pointer;margin-left:4px">✓ {{ 'Гүйцэтгэсэн' if lang=='mn' else 'Complete' }}</button>
+              {% if rep['status']=='new' %}<span class="badge" style="background:#faece7;color:#993c1d">🔴 Шинэ</span>
+              {% elif rep['status']=='repair' %}<span class="badge" style="background:#faeeda;color:#854f0b">🟡 Засварт</span>
+              {% elif rep['status']=='done' %}<span class="badge" style="background:#e1f5ee;color:#0f6e56">🟢 Гүйцэтгэсэн</span>
+              {% elif rep['status']=='replaced' %}<span class="badge" style="background:#eeedfe;color:#3c3489">⚫ Солигдсон</span>{% endif %}
+              {% if rep['status'] in ['new','repair'] and current_user['role'] != 'guest' %}
+              <button onclick="closeRepair({{ rep['id'] }})" style="font-size:11px;color:var(--teal);background:none;border:none;cursor:pointer;margin-left:4px">✓ Гүйцэтгэсэн</button>
               {% endif %}
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">{{ 'Бүртгэл байхгүй' if lang=='mn' else 'No records' }}</td></tr>
+          <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">Бүртгэл байхгүй</td></tr>
           {% endfor %}
           </tbody>
         </table>
       </div>
+
+      {% if analysis_usage %}
+      <div style="border-top:1px solid var(--border);padding:16px 20px">
+        <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:12px">👥 Хэрэглэгчдийн ашиглалт</div>
+        <div style="position:relative;height:{{ [analysis_usage|length * 36, 80]|max }}px;margin-bottom:14px">
+          <canvas id="usageBarChart"></canvas>
+        </div>
+        <table class="table" style="font-size:12px">
+          <thead><tr>
+            <th>Ажилтан</th>
+            <th style="text-align:center">Удаа</th>
+            <th style="text-align:center">Нийт цаг</th>
+            <th style="text-align:center">Сүүлд ашигласан</th>
+          </tr></thead>
+          <tbody>
+          {% for u in analysis_usage %}
+          <tr>
+            <td><a href="{{ url_for('staff_detail', uid=u['user_id']) }}" style="color:var(--navy);font-weight:500">{{ u['user_name'] }}</a></td>
+            <td style="text-align:center">{{ u['sessions'] }}</td>
+            <td style="text-align:center;font-weight:600;font-family:monospace">{{ (u['total_min']//60)|int }}ц {{ (u['total_min']%60)|int }}мин</td>
+            <td style="text-align:center;font-size:11px;color:var(--text-muted)">{{ u['last_used'][:10] if u['last_used'] else '—' }}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
     </div>
   </div>
 </div>
 {% endblock %}
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+// Tab switching
+document.querySelectorAll('.tab-btn').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    var pane = document.getElementById(btn.dataset.tab);
+    if(pane) pane.classList.add('active');
+  });
+});
+// Hash-аар tab нээх (#tab-check)
+if(window.location.hash){
+  var hbtn = document.querySelector('[data-tab="'+window.location.hash.substring(1)+'"]');
+  if(hbtn) hbtn.click();
+}
+</script>
+{% if analysis_usage %}
+<script>
+var AU_LABELS = {{ analysis_usage|map(attribute='user_name')|list|tojson }};
+var AU_MINS   = {{ analysis_usage|map(attribute='total_min')|list|tojson }};
+new Chart(document.getElementById('usageBarChart'), {
+  type: 'bar',
+  data: {
+    labels: AU_LABELS,
+    datasets: [{
+      label: 'Цаг (мин)',
+      data: AU_MINS.map(function(m){ return Math.round(m/60*10)/10; }),
+      backgroundColor: '#185fa5',
+      borderRadius: 4
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: function(ctx){ var m=AU_MINS[ctx.dataIndex]; return Math.floor(m/60)+'ц '+(m%60)+'мин'; } } }
+    },
+    scales: { x: { beginAtZero: true, ticks: { font: { size: 10 } } }, y: { ticks: { font: { size: 11 } } } }
+  }
+});
+</script>
+{% endif %}
+
+{% set chart_checks = checks|selectattr('measured_value')|list %}
+{% if chart_checks|length > 1 %}
+<script>
+(function(){
+  var raw = {{ chart_checks|reverse|list|tojson }};
+  var labels = raw.map(function(r){ return r.check_date; });
+  var measured = raw.map(function(r){ return parseFloat(r.measured_value) || null; });
+
+  // Тогтмол стандарт болон зөрүү — төхөөрөмжийн тохиргооноос авна
+  var devStd = {{ device['check_standard']|tojson }};
+  var devTol = {{ device['check_tolerance']|tojson }};
+  var stdVal = devStd ? parseFloat(devStd) : null;
+  var tolVal = devTol ? parseFloat(devTol.toString().replace(/[±+]/g,'').trim()) : null;
+  var uclVal = (stdVal!==null && tolVal!==null) ? stdVal + Math.abs(tolVal) : null;
+  var lclVal = (stdVal!==null && tolVal!==null) ? stdVal - Math.abs(tolVal) : null;
+
+  var n = raw.length;
+  var stdLine = stdVal !== null ? Array(n).fill(stdVal) : raw.map(function(r){ return r.standard_value ? parseFloat(r.standard_value) : null; });
+  var uclLine = uclVal !== null ? Array(n).fill(uclVal) : raw.map(function(r){
+    if(!r.standard_value || !r.tolerance) return null;
+    var t = parseFloat(r.tolerance.toString().replace(/[±+]/g,'').trim());
+    var s = parseFloat(r.standard_value);
+    return isNaN(t)||isNaN(s) ? null : s + Math.abs(t);
+  });
+  var lclLine = lclVal !== null ? Array(n).fill(lclVal) : raw.map(function(r){
+    if(!r.standard_value || !r.tolerance) return null;
+    var t = parseFloat(r.tolerance.toString().replace(/[±+]/g,'').trim());
+    var s = parseFloat(r.standard_value);
+    return isNaN(t)||isNaN(s) ? null : s - Math.abs(t);
+  });
+
+  // Тэнцсэн/тэнцээгүй өнгө — хэмжсэн утга хязгаараас гарсан бол улаан
+  var ptColors = raw.map(function(r){
+    var v = parseFloat(r.measured_value);
+    if(isNaN(v)) return '#6b7280';
+    if(uclVal!==null && lclVal!==null){
+      return (v > uclVal || v < lclVal) ? '#ef4444' : '#10b981';
+    }
+    return r.result==='fail' ? '#ef4444' : '#10b981';
+  });
+
+  new Chart(document.getElementById('controlChart'), {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Хэмжсэн утга',
+          data: measured,
+          borderColor: '#185fa5',
+          backgroundColor: 'rgba(24,95,165,.08)',
+          tension: 0.25,
+          pointRadius: 5,
+          pointBackgroundColor: ptColors,
+          pointBorderColor: ptColors,
+          fill: false
+        },
+        {
+          label: 'Стандарт' + (devStd ? ' (' + devStd + ')' : ''),
+          data: stdLine,
+          borderColor: '#6b7280',
+          borderDash: [6,3],
+          tension: 0,
+          pointRadius: 0,
+          fill: false
+        },
+        {
+          label: 'UCL' + (uclVal !== null ? ' +' + (devTol||'') : ''),
+          data: uclLine,
+          borderColor: '#ef4444',
+          borderDash: [3,3],
+          tension: 0,
+          pointRadius: 0,
+          fill: false
+        },
+        {
+          label: 'LCL' + (lclVal !== null ? ' ' + (devTol||'') : ''),
+          data: lclLine,
+          borderColor: '#ef4444',
+          borderDash: [3,3],
+          tension: 0,
+          pointRadius: 0,
+          fill: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 16 } },
+        tooltip: {
+          callbacks: {
+            label: function(ctx){
+              var r = raw[ctx.dataIndex];
+              if(ctx.dataset.label.startsWith('Хэмжсэн')){
+                return 'Хэмжсэн: ' + ctx.parsed.y + (r.result==='fail' ? ' ✗' : ' ✓');
+              }
+              return ctx.dataset.label + ': ' + ctx.parsed.y;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { font: { size: 10 }, maxRotation: 45 } },
+        y: { ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+})();
+</script>
+{% endif %}
+
 <script>
 async function startUsage(deviceId){
   const r = await fetch(`/usage/start/${deviceId}`,{method:'POST'});
@@ -298,14 +847,14 @@ async function startUsage(deviceId){
   else alert(d.error);
 }
 async function stopUsage(logId){
-  const notes = prompt('{{ "Тэмдэглэл (заавал биш):" if lang=="mn" else "Notes (optional):" }}','');
+  const notes = prompt('Тэмдэглэл (заавал биш):','');
   const r = await fetch(`/usage/stop/${logId}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({notes:notes||''})});
   const d = await r.json();
   if(d.success) location.reload();
   else alert(d.error);
 }
 async function closeRepair(repairId){
-  if(!confirm('{{ "Засварыг дуусгах уу?" if lang=="mn" else "Close this repair?" }}')) return;
+  if(!confirm('Засварыг дуусгах уу?')) return;
   const r = await fetch(`/repair/${repairId}/close`,{method:'POST'});
   const d = await r.json();
   if(d.success) location.reload();

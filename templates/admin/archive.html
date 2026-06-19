@@ -17,6 +17,7 @@
     </button>
     <button class="tab-btn" data-tab="tab-analysis" onclick="switchTab(this,'tab-analysis')">
       🧪 {{ 'Шинжилгээ' if lang=='mn' else 'Analysis' }}
+      <span style="background:#eee;color:#888;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px">{{ done_samples|length }}</span>
     </button>
     <button class="tab-btn" data-tab="tab-repair" onclick="switchTab(this,'tab-repair')">
       🔧 {{ 'Засвар' if lang=='mn' else 'Repairs' }}
@@ -55,6 +56,8 @@
             <span class="badge" style="background:#eeedfe;color:#3c3489">🔄 {{ 'Солигдсон' if lang=='mn' else 'Replaced' }}</span>
             {% elif d['status']=='standby' %}
             <span class="badge badge-standby">📦 {{ 'Нөөц' if lang=='mn' else 'Standby' }}</span>
+            {% elif d['status']=='decommissioned' %}
+            <span class="badge" style="background:#fde8e8;color:#b91c1c">🛑 {{ 'Акталсан' if lang=='mn' else 'Decommissioned' }}</span>
             {% endif %}
           </td>
           <td>
@@ -100,7 +103,7 @@
           <td>
             <div class="flex gap-8">
               {% if u['photo'] %}
-              <img src="{{ url_for('static',filename='uploads/'+u['photo']) }}" style="width:30px;height:30px;border-radius:50%;object-fit:cover">
+              <img src="{{ url_for('static',filename='uploads/'+u['photo']) }}" style="width:30px;height:30px;border-radius:6px;object-fit:cover">
               {% else %}
               <div style="width:30px;height:30px;border-radius:50%;background:var(--gray);color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600">{{ u['name'][:2] }}</div>
               {% endif %}
@@ -112,7 +115,9 @@
           <td>{{ u['phone'] or '—' }}</td>
           <td>
             {% if u['role']=='admin' %}<span class="badge badge-admin">Админ</span>
-            {% elif u['role']=='senior' %}<span class="badge" style="background:#E1F5EE;color:#0F6E56">Ахлах химич</span>
+            {% elif u['role']=='senior' %}<span class="badge" style="background:#253561;color:#4ade80">Дэд Админ</span>
+            {% elif u['role']=='preparer' %}<span class="badge badge-staff">Ажилтан</span>
+            {% elif u['role']=='geologist' %}<span class="badge" style="background:#f0e6ff;color:#7C3AED">Харилцагч</span>
             {% else %}<span class="badge badge-staff">Ажилтан</span>{% endif %}
           </td>
           <td>
@@ -139,12 +144,44 @@
     </div>
   </div>
 
-  <!-- Шинжилгээ — дараа нэмэгдэнэ -->
+  <!-- Шинжилгээ -->
   <div id="tab-analysis" class="tab-pane">
-    <div class="card" style="text-align:center;padding:40px;color:var(--text-muted)">
-      <div style="font-size:32px;margin-bottom:10px">🧪</div>
-      <div style="font-size:14px;font-weight:500;margin-bottom:6px">{{ 'Шинжилгээний архив' if lang=='mn' else 'Analysis Archive' }}</div>
-      <div style="font-size:13px">{{ 'Шинжилгээний модуль нэмэгдсэний дараа энд харагдана' if lang=='mn' else 'Will be available after analysis module is added' }}</div>
+    <div class="card">
+      {% if done_samples %}
+      <table class="table">
+        <thead><tr>
+          <th>{{ 'Ажлын дугаар' if lang=='mn' else 'Lab Number' }}</th>
+          <th>{{ 'Дээжийн нэр' if lang=='mn' else 'Sample Name' }}</th>
+          <th>{{ 'Байршил' if lang=='mn' else 'Location' }}</th>
+          <th>{{ 'Бүртгэсэн' if lang=='mn' else 'Registered by' }}</th>
+          <th>{{ 'Хүлээн авсан огноо' if lang=='mn' else 'Received Date' }}</th>
+          <th></th>
+        </tr></thead>
+        <tbody>
+        {% for s in done_samples %}
+        <tr>
+          <td style="font-weight:600;font-family:monospace;color:var(--navy)">{{ s['lab_number'] or '—' }}</td>
+          <td style="font-weight:500">{{ s['sample_name'] or '—' }}</td>
+          <td>{{ s['location'] or '—' }}</td>
+          <td>{{ s['reg_name'] or '—' }}</td>
+          <td>{{ s['received_date'] or '—' }}</td>
+          <td style="white-space:nowrap">
+            {% if s['receipt_id'] %}
+            <a href="{{ url_for('archive_result', receipt_id=s['receipt_id']) }}" class="btn btn-ghost btn-sm">📊 Үр дүн</a>
+            <a href="{{ url_for('archive_measure', receipt_id=s['receipt_id']) }}" class="btn btn-ghost btn-sm">📋 Хэмжилт</a>
+            <a href="{{ url_for('analysis_export', receipt_id=s['receipt_id']) }}" class="btn btn-ghost btn-sm">📥 Excel</a>
+            <a href="{{ url_for('analysis_export_report', receipt_id=s['receipt_id']) }}" class="btn btn-ghost btn-sm">📄 Тайлан</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px">
+        🧪 {{ 'Дууссан шинжилгээ байхгүй байна' if lang=='mn' else 'No completed analyses' }}
+      </div>
+      {% endif %}
     </div>
   </div>
 
@@ -195,12 +232,28 @@
 </div>
 {% endblock %}
 {% block scripts %}
+<style>
+.tab-pane{display:none!important}
+.tab-pane.active{display:block!important}
+</style>
 <script>
 function switchTab(btn, tabId){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(function(p){
+    p.classList.remove('active');
+    p.style.display='none';
+  });
   btn.classList.add('active');
-  document.getElementById(tabId).classList.add('active');
+  var pane=document.getElementById(tabId);
+  if(pane){ pane.classList.add('active'); pane.style.display='block'; }
 }
+// URL-ийн hash-аас tab нээх
+(function(){
+  var hash = window.location.hash.replace('#','');
+  if(hash){
+    var btn = document.querySelector('[data-tab="'+hash+'"]');
+    if(btn) switchTab(btn, hash);
+  }
+})();
 </script>
 {% endblock %}

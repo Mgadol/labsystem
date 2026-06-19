@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git pull --no-rebase origin claude/upbeat-dijkstra-049k4t 2>/dev/null || true",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

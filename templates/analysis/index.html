@@ -1,13 +1,18 @@
 {% extends "partial/base.html" %}
 {% block title %}Шинжилгээ{% endblock %}
 {% block content %}
+<style>
+input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
+.tab-btn{padding:8px 18px;border:none;background:none;border-bottom:3px solid transparent;font-size:13px;font-weight:600;cursor:pointer;color:var(--text-muted);transition:.15s}
+.tab-btn.active{color:var(--navy);border-bottom-color:var(--navy)}
+</style>
 <div class="page">
   <div class="flex justify-between gap-12" style="margin-bottom:20px;flex-wrap:wrap">
     <div>
       <h1 class="page-title">🧪 Шинжилгээ</h1>
       <p class="page-sub">Дээжний бүртгэл, хүлээн авалт, шинжилгээ</p>
     </div>
-    <div style="display:flex;gap:8px;align-items:center">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <!-- Огноо шүүлтүүр -->
       <input type="date" id="filter-date" class="form-input"
         style="width:150px;font-size:13px;padding:6px 10px"
@@ -18,6 +23,10 @@
         </svg>
         Дээж бүртгэх
       </a>
+      {% if current_user['role'] in ('admin','senior','staff','preparer','guest') %}
+      <a href="{{ url_for('analysis_crm_register') }}" class="btn" style="background:#7C3AED;color:#fff;">🔬 CRM дээж</a>
+      <a href="{{ url_for('crm_control_chart') }}" class="btn" style="background:#ede9fe;color:#7C3AED;border:1px solid #c4b5fd">📈 CRM chart</a>
+      {% endif %}
       {% if current_user['role'] in ('admin','senior','staff') %}
       <button onclick="startMulti()" class="btn btn-teal" id="multiBtn" disabled style="opacity:.4;cursor:not-allowed">
         🧪 Шинжилгээ эхлэх
@@ -26,36 +35,26 @@
     </div>
   </div>
 
-  <!-- Статус тоолуур -->
-  <div class="stat-grid" style="margin-bottom:16px">
-    {% set pending = samples|selectattr('status','eq','pending')|list|length %}
-    {% set prepared = samples|selectattr('status','eq','prepared')|list|length %}
-    {% set done = samples|selectattr('status','eq','done')|list|length %}
-    <div class="stat-card" onclick="filterStatus('pending')" style="cursor:pointer">
-      <div class="stat-val" style="color:var(--amber)">{{ pending }}</div>
-      <div class="stat-lbl">🟡 Хүлээгдэж байна</div>
-    </div>
-    <div class="stat-card" onclick="filterStatus('prepared')" style="cursor:pointer">
-      <div class="stat-val" style="color:#185FA5">{{ prepared }}</div>
-      <div class="stat-lbl">🔵 Хүлээн авсан</div>
-    </div>
-    <div class="stat-card" onclick="filterStatus('analysing')" style="cursor:pointer">
-      <div class="stat-val" style="color:var(--coral)">
-        {{ samples|selectattr('status','eq','analysing')|list|length }}
-      </div>
-      <div class="stat-lbl">🔴 Шинжилгээнд</div>
-    </div>
-    <div class="stat-card" onclick="filterStatus('done')" style="cursor:pointer">
-      <div class="stat-val" style="color:var(--teal)">{{ done }}</div>
-      <div class="stat-lbl">🟢 Дууссан</div>
-    </div>
+  <!-- Таб -->
+  {% set prep_samples = samples|selectattr('prep_status','ne','ready')|selectattr('prep_status','ne','done')|selectattr('status','ne','analysing')|list %}
+  {% set prep_count = prep_samples|length %}
+  {% set anal_count = samples|length - prep_count %}
+  <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:16px">
+    <button class="tab-btn active" id="tab-prep" onclick="switchTab('prep')">
+      📦 Дээж бэлтгэл
+      <span style="background:#faeeda;color:#854f0b;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px" id="cnt-prep">{{ prep_count }}</span>
+    </button>
+    <button class="tab-btn" id="tab-anal" onclick="switchTab('anal')">
+      🔬 Шинжилгээ
+      <span style="background:#ffe4e4;color:#993c1d;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px" id="cnt-anal">{{ anal_count }}</span>
+    </button>
   </div>
 
   <div class="card">
     <table class="table" id="sample-table">
       <thead>
         <tr>
-          <th style="width:36px"><input type="checkbox" id="checkAll" onchange="toggleAll(this)" title="Бүгдийг сонгох"></th>
+          <th style="width:36px"><input type="checkbox" id="checkAll" onchange="toggleAll(this)" title="Бүгдийг сонгох" style="width:15px;height:15px;cursor:pointer"></th>
           <th>Ажлын дугаар</th>
           <th>Дээжний нэр</th>
           <th>Төрөл</th>
@@ -71,14 +70,17 @@
       {% set ps2 = s['prep_status'] or '' %}
       {% set st2 = s['status'] or '' %}
       {% set is_ready = ps2=='ready' or st2=='ready' %}
-      <tr class="sample-row" data-status="{{ s['status'] }}" data-date="{{ s['collected_date'] or '' }}" data-rid="{{ s['receipt_id'] or '' }}">
+      {% set cat = 'anal' if (ps2 in ('ready','done') or st2 == 'analysing') else 'prep' %}
+      <tr class="sample-row" data-status="{{ s['status'] }}" data-date="{{ s['collected_date'] or '' }}" data-rid="{{ s['receipt_id'] or '' }}" data-cat="{{ cat }}">
         <td style="width:36px;text-align:center">
           {% if is_ready and s['receipt_id'] and current_user['role'] in ('admin','senior','staff') %}
           <input type="checkbox" class="lot-cb" value="{{ s['receipt_id'] }}" onchange="updateMultiBtn()" style="width:15px;height:15px;cursor:pointer">
           {% endif %}
         </td>
         <td>
-          {% if s['lab_number'] %}
+          {% if s['sample_type'] == 'CRM' %}
+          <strong style="color:#7C3AED;font-family:monospace">CRM {{ s['crm_name'] or s['sample_name'] }}</strong>
+          {% elif s['lab_number'] %}
           <strong style="color:var(--navy);font-family:monospace">{{ s['lab_number'] }}</strong>
           {% else %}
           <span style="color:var(--text-muted);font-size:12px">— дугаар аваагүй</span>
@@ -104,14 +106,12 @@
           {% set st = s['status'] or '' %}
           {% if st == 'pending' %}
             <span class="badge" style="background:#faeeda;color:#854f0b">🟡 Хүлээгдэж байна</span>
-          {% elif ps == 'received' or st == 'prepared' %}
-            <span class="badge" style="background:#e6f1fb;color:#185fa5">🔵 Хүлээн авсан</span>
-          {% elif ps == 'preparing' %}
-            <span class="badge" style="background:#fff0e0;color:#c05000">🟠 Бэлтгэгдэж байна</span>
-          {% elif ps == 'ready' or st == 'ready' %}
+          {% elif ps == 'ready' %}
             <span class="badge" style="background:#f0e6ff;color:#6020a0">🟣 Шинжилгээнд бэлэн</span>
-          {% elif st == 'analysing' %}
+          {% elif ps == 'done' or st == 'analysing' %}
             <span class="badge badge-repair">🔴 Шинжилгээнд</span>
+          {% elif st == 'received' or st == 'prepared' %}
+            <span class="badge" style="background:#e6f1fb;color:#185fa5">🔵 Хүлээн авсан</span>
           {% elif st == 'done' %}
             <span class="badge badge-active">🟢 Дууссан</span>
           {% endif %}
@@ -122,9 +122,6 @@
             {% set st = s['status'] or '' %}
             {% set rid = s['receipt_id'] %}
             {% set role = current_user['role'] %}
-            {# prepared = хүлээн авсан хуучин статус #}
-            {% set ps = 'received' if (st == 'prepared' and ps == '') else ps %}
-            {% set ps = 'ready' if (st == 'ready' and ps == '') else ps %}
 
             {% if st == 'pending' %}
               {% if role in ('admin','senior','staff','preparer') %}
@@ -134,7 +131,7 @@
               </a>
               {% endif %}
 
-            {% elif ps in ('received', 'preparing') %}
+            {% elif ps != 'ready' and ps != 'done' and st in ('received', 'prepared') %}
               {% if role in ('admin','senior','preparer') %}
               <button onclick="showDoneModal({{ rid }})"
                  class="btn btn-sm" style="background:#f0e6ff;color:#6020a0;border:1px solid #c090e0">
@@ -142,17 +139,15 @@
               </button>
               {% endif %}
 
-            {% elif ps == 'ready' %}
+            {% elif ps == 'ready' or st == 'analysing' %}
               {% if role in ('admin','senior','staff') %}
               <a href="{{ url_for('analysis_measure', receipt_id=rid) }}"
-                 class="btn btn-sm" style="background:#faeeda;color:#854f0b;border:1px solid #f5d48a">
-                🧪 Шинжилгээ хийх
-              </a>
+                 class="btn btn-ghost btn-sm">🧪 Шинжилгээ хийх</a>
               {% endif %}
               <a href="{{ url_for('analysis_result', receipt_id=rid) }}"
                  class="btn btn-ghost btn-sm">📊 Үр дүн</a>
 
-            {% elif st == 'done' or ps == 'done' %}
+            {% elif ps == 'done' %}
               <a href="{{ url_for('analysis_result', receipt_id=rid) }}"
                  class="btn btn-ghost btn-sm">📊 Үр дүн</a>
             {% endif %}
@@ -177,37 +172,100 @@
 {% block scripts %}
 <!-- Бэлтгэж дууслаа modal -->
 <div id="doneModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:10px;padding:24px;max-width:400px;width:90%">
+  <div style="background:#fff;border-radius:10px;padding:24px;max-width:480px;width:95%;max-height:90vh;overflow-y:auto">
     <h3 style="margin-bottom:16px">✅ Дээж бэлтгэж дууслаа</h3>
     <form id="doneForm" method="POST">
-      <div class="form-group">
+      <!-- Бэлтгэгчийн мэдээлэл -->
+      <div style="background:#f8f9fa;border-radius:8px;padding:12px;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">👤 Бэлтгэгч</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="form-group" style="margin:0">
+            <label class="form-label" style="font-size:11px">Нэр</label>
+            <input type="text" name="prep_operator" class="form-input" style="font-size:13px"
+              value="{{ current_user['name'] }}" required>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label" style="font-size:11px">Албан тушаал</label>
+            <input type="text" name="prep_position" class="form-input" style="font-size:13px"
+              value="{{ current_user['position'] or '' }}" placeholder="Дээж бэлтгэгч">
+          </div>
+        </div>
+      </div>
+
+      <!-- Ашигласан тоног төхөөрөмж -->
+      {% if prep_devices %}
+      <div style="margin-bottom:14px">
+        <label class="form-label">🔧 Ашигласан тоног төхөөрөмж</label>
+        <div style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:8px">
+          {% for d in prep_devices %}
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:3px 4px;border-radius:4px" class="dev-check-row">
+            <input type="checkbox" name="prep_device" value="{{ d['name'] }}" style="accent-color:var(--teal);width:15px;height:15px">
+            {{ d['name'] }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Тэмдэглэл -->
+      <div class="form-group" style="margin-bottom:14px">
         <label class="form-label">Тэмдэглэл (заавал биш)</label>
         <textarea name="notes" class="form-input" rows="2" placeholder="Аналитик дээж бэлэн..."></textarea>
       </div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+
+      <div style="display:flex;gap:8px;justify-content:flex-end">
         <button type="button" onclick="document.getElementById('doneModal').style.display='none'" class="btn btn-ghost">Буцах</button>
         <button type="submit" class="btn btn-primary">✅ Химичид шилжүүлэх</button>
       </div>
     </form>
   </div>
 </div>
+<style>
+.dev-check-row:hover{background:#f0f9f6}
+.dev-check-row:has(input:checked){background:#e8f5f1;font-weight:500}
+</style>
 <script>
 function showDoneModal(rid){
   document.getElementById('doneForm').action='/analysis/prep/done/'+rid;
+  document.getElementById('doneForm').reset();
   document.getElementById('doneModal').style.display='flex';
 }
 </script>
 <script>
-function filterStatus(status){
-  document.querySelectorAll('.sample-row').forEach(function(r){
-    r.style.display = (status==='all' || r.dataset.status===status) ? '' : 'none';
-  });
+var curTab = 'prep';
+function switchTab(tab){
+  curTab = tab;
+  document.getElementById('tab-prep').classList.toggle('active', tab==='prep');
+  document.getElementById('tab-anal').classList.toggle('active', tab==='anal');
+  applyFilters();
 }
 function filterDate(){
+  applyFilters();
+}
+function applyFilters(){
   var d = document.getElementById('filter-date').value;
   document.querySelectorAll('.sample-row').forEach(function(r){
-    r.style.display = (!d || r.dataset.date===d) ? '' : 'none';
+    var catOk = r.dataset.cat === curTab;
+    // Огнооны шүүлтүүр зөвхөн "Бэлтгэл" табд хэрэгжинэ; Шинжилгээ табд бүх бэлэн дээж харагдана
+    var dateOk = (curTab !== 'prep') || !d || r.dataset.date === d;
+    r.style.display = (catOk && dateOk) ? '' : 'none';
   });
+  updateCounts();
+}
+function updateCounts(){
+  var d = document.getElementById('filter-date').value;
+  var prep=0, anal=0;
+  document.querySelectorAll('.sample-row').forEach(function(r){
+    if(r.dataset.cat==='prep'){
+      // Бэлтгэлийг огноогоор шүүж тоолно
+      if(!d || r.dataset.date === d) prep++;
+    } else {
+      // Шинжилгээг огноогоор шүүхгүй, бүгдийг тоолно
+      anal++;
+    }
+  });
+  document.getElementById('cnt-prep').textContent = prep;
+  document.getElementById('cnt-anal').textContent = anal;
 }
 
 function updateMultiBtn(){
@@ -242,5 +300,7 @@ function startMulti(){
     window.location.href = '/analysis/measure/multi?ids=' + ids.join(',');
   }
 }
+// Анхдагч таб харуулах — функцүүд тодорхойлогдсоны дараа дуудна
+applyFilters();
 </script>
 {% endblock %}

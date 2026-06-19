@@ -16,6 +16,13 @@
         <option value="standby">{{ 'Нөөц' if lang=='mn' else 'Standby' }}</option>
         <option value="archived">{{ 'Архив' if lang=='mn' else 'Archived' }}</option>
         <option value="replaced">{{ 'Солигдсон' if lang=='mn' else 'Replaced' }}</option>
+        <option value="decommissioned">{{ 'Акталсан' if lang=='mn' else 'Decommissioned' }}</option>
+      </select>
+      <select id="filter-stage" onchange="filterDevices()" class="form-input" style="width:auto;font-size:13px;padding:6px 10px">
+        <option value="all">{{ 'Бүх шат' if lang=='mn' else 'All stages' }}</option>
+        <option value="prep">📦 {{ 'Бэлтгэл' if lang=='mn' else 'Prep' }}</option>
+        <option value="analysis">🔬 {{ 'Шинжилгээ' if lang=='mn' else 'Analysis' }}</option>
+        <option value="both">📦🔬 {{ 'Хоёуланд' if lang=='mn' else 'Both' }}</option>
       </select>
       {% if current_user['role'] in ('admin','senior') %}
       <a href="{{ url_for('device_add') }}" class="btn btn-primary">
@@ -31,7 +38,7 @@
     {% set active_count = devices|selectattr('status','eq','active')|list|length %}
     {% set repair_count = devices|selectattr('status','eq','repair')|list|length %}
     {% set standby_count = devices|selectattr('status','eq','standby')|list|length %}
-    {% set archived_count = devices|selectattr('status','in',['archived','replaced'])|list|length %}
+    {% set archived_count = devices|selectattr('status','in',['archived','replaced','decommissioned'])|list|length %}
     <div class="stat-card" style="cursor:pointer" onclick="setFilter('active')">
       <div class="stat-val" style="color:var(--teal)">{{ active_count }}</div>
       <div class="stat-lbl">{{ 'Идэвхтэй' if lang=='mn' else 'Active' }}</div>
@@ -52,11 +59,11 @@
 
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px" id="device-grid">
     {% for d in devices %}
-    <div class="device-item" data-status="{{ d['status'] }}">
-      <div class="card" style="transition:.15s;{% if d['status'] in ('archived','replaced') %}opacity:.6;{% endif %}">
+    <div class="device-item" data-status="{{ d['status'] }}" data-stage="{{ d['stage'] or 'both' }}">
+      <div class="card" style="transition:.15s;{% if d['status'] in ('archived','replaced','decommissioned') %}opacity:.6;{% endif %}">
         <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:10px">
           {% if d['photo'] %}
-          <img src="{{ url_for('static',filename='uploads/'+d['photo']) }}" style="width:52px;height:52px;border-radius:8px;object-fit:cover;flex-shrink:0">
+          <img src="{{ url_for('static',filename='uploads/'+d['photo']) }}" style="width:52px;height:52px;border-radius:8px;object-fit:contain;background:#fff;flex-shrink:0">
           {% else %}
           <div style="width:52px;height:52px;border-radius:8px;background:var(--gray);display:flex;align-items:center;justify-content:center;flex-shrink:0">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
@@ -64,24 +71,45 @@
           {% endif %}
           <div style="flex:1;min-width:0">
             <a href="{{ url_for('device_detail', did=d['id']) }}" style="font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">{{ d['name'] }}</a>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:2px">{{ (d['manufacturer'] or '') + ' ' + (d['model'] or '') }}</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px">
+              {% if d['lab_id'] %}<span style="font-family:monospace;font-weight:600;color:var(--navy)">{{ d['lab_id'] }}</span> · {% endif %}{{ (d['manufacturer'] or '') + ' ' + (d['model'] or '') }}
+            </div>
           </div>
         </div>
 
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-          {% if d['status']=='active' %}
-            <span class="badge badge-active">✅ {{ 'Идэвхтэй' if lang=='mn' else 'Active' }}</span>
-          {% elif d['status']=='repair' %}
-            <span class="badge badge-repair">🔧 {{ 'Засварт' if lang=='mn' else 'In Repair' }}</span>
-          {% elif d['status']=='standby' %}
-            <span class="badge badge-standby">📦 {{ 'Нөөц' if lang=='mn' else 'Standby' }}</span>
-          {% elif d['status']=='archived' %}
-            <span class="badge" style="background:#eee;color:#888">🗄️ {{ 'Архив' if lang=='mn' else 'Archived' }}</span>
-          {% elif d['status']=='replaced' %}
-            <span class="badge" style="background:#eeedfe;color:#3c3489">🔄 {{ 'Солигдсон' if lang=='mn' else 'Replaced' }}</span>
-          {% endif %}
+        <div style="margin-bottom:10px">
+          <div style="display:flex;gap:5px;align-items:center;flex-wrap:nowrap">
+            {% if d['status']=='active' %}
+              <span class="badge badge-active" style="font-size:10px;padding:2px 6px;white-space:nowrap">✅ {{ 'Идэвхтэй' if lang=='mn' else 'Active' }}</span>
+            {% elif d['status']=='repair' %}
+              <span class="badge badge-repair" style="font-size:10px;padding:2px 6px;white-space:nowrap">🔧 {{ 'Засварт' if lang=='mn' else 'In Repair' }}</span>
+            {% elif d['status']=='standby' %}
+              <span class="badge badge-standby" style="font-size:10px;padding:2px 6px;white-space:nowrap">📦 {{ 'Нөөц' if lang=='mn' else 'Standby' }}</span>
+            {% elif d['status']=='archived' %}
+              <span class="badge" style="background:#eee;color:#888;font-size:10px;padding:2px 6px;white-space:nowrap">🗄️ {{ 'Архив' if lang=='mn' else 'Archived' }}</span>
+            {% elif d['status']=='replaced' %}
+              <span class="badge" style="background:#eeedfe;color:#3c3489;font-size:10px;padding:2px 6px;white-space:nowrap">🔄 {{ 'Солигдсон' if lang=='mn' else 'Replaced' }}</span>
+            {% elif d['status']=='decommissioned' %}
+              <span class="badge" style="background:#fde8e8;color:#b91c1c;font-size:10px;padding:2px 6px;white-space:nowrap">🛑 {{ 'Акталсан' if lang=='mn' else 'Decommissioned' }}</span>
+            {% endif %}
+            {% if d['stage']=='prep' %}
+              <span style="font-size:10px;background:#e1f5ee;color:#0f6e56;border-radius:4px;padding:2px 5px;white-space:nowrap">📦 Бэлтгэл</span>
+            {% elif d['stage']=='analysis' %}
+              <span style="font-size:10px;background:#ede9fe;color:#6020a0;border-radius:4px;padding:2px 5px;white-space:nowrap">🔬 Шинжилгээ</span>
+            {% else %}
+              <span style="font-size:10px;background:#f0f0f0;color:#555;border-radius:4px;padding:2px 5px;white-space:nowrap">📦🔬 Хоёуланд</span>
+            {% endif %}
+            {% if d['status']=='active' and current_user['role'] != 'guest' %}
+              {% set log_id = active_map.get(d['id']) %}
+              {% if log_id %}
+              <button onclick="stopUsage({{ log_id }})" class="btn btn-stop" style="padding:1px 6px;font-size:9px;line-height:1.5;height:auto;flex-shrink:0;font-weight:600">⏹ STOP</button>
+              {% else %}
+              <button onclick="startUsage({{ d['id'] }})" class="btn btn-start" style="padding:1px 6px;font-size:9px;line-height:1.5;height:auto;flex-shrink:0;font-weight:600">▶ START</button>
+              {% endif %}
+            {% endif %}
+          </div>
           {% if d['location'] %}
-          <span style="font-size:11px;color:var(--text-muted)">📍 {{ d['location'] }}</span>
+          <div style="margin-top:4px"><span style="font-size:11px;color:var(--text-muted)">📍 {{ d['location'] }}</span></div>
           {% endif %}
         </div>
 
@@ -90,20 +118,40 @@
             {{ 'Харах' if lang=='mn' else 'View' }}
           </a>
           {% if current_user['role'] in ('admin','senior') %}
-            {% if d['status'] in ('archived','replaced') %}
+            {% if d['status'] in ('archived','replaced','decommissioned') %}
             <!-- Сэргээх -->
             <form method="POST" action="{{ url_for('device_restore', did=d['id']) }}">
               <button type="submit" class="btn btn-sm" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">
                 🔄 {{ 'Сэргээх' if lang=='mn' else 'Restore' }}
               </button>
             </form>
-            {% else %}
-            <!-- Архивлах dropdown -->
-            <div style="position:relative" id="arch-wrap-{{ d['id'] }}">
-              <button onclick="toggleArchMenu({{ d['id'] }})" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">
+            {% elif d['status']=='standby' %}
+            <!-- Нөөцөөс буцаах (идэвхжүүлэх) -->
+            <form method="POST" action="{{ url_for('device_restore', did=d['id']) }}">
+              <button type="submit" class="btn btn-sm" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">
+                ✅ {{ 'Идэвхжүүлэх' if lang=='mn' else 'Activate' }}
+              </button>
+            </form>
+            <!-- Нөөцөөс архивлах -->
+            <form method="POST" action="{{ url_for('device_archive', did=d['id']) }}" onsubmit="return confirm('Архивлах уу?')">
+              <input type="hidden" name="reason" value="archived">
+              <button type="submit" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">
                 🗄️ {{ 'Архивлах' if lang=='mn' else 'Archive' }}
               </button>
-              <div id="arch-menu-{{ d['id'] }}" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:10;min-width:160px">
+            </form>
+            {% else %}
+            <!-- Үйлдлийн цэс (⋮) -->
+            <div style="position:relative" id="arch-wrap-{{ d['id'] }}">
+              <button onclick="toggleArchMenu({{ d['id'] }})" class="btn btn-sm btn-ghost" style="padding:4px 10px;font-size:18px;line-height:1" title="Үйлдэл">
+                ⋮
+              </button>
+              <div id="arch-menu-{{ d['id'] }}" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:10;min-width:170px">
+                <form method="POST" action="{{ url_for('device_archive', did=d['id']) }}">
+                  <input type="hidden" name="reason" value="repair">
+                  <button type="submit" style="width:100%;text-align:left;padding:8px 12px;font-size:13px;background:none;border:none;cursor:pointer;color:#854f0b;border-bottom:1px solid var(--border)">
+                    🔧 {{ 'Засварт шилжүүлэх' if lang=='mn' else 'Move to Repair' }}
+                  </button>
+                </form>
                 <form method="POST" action="{{ url_for('device_archive', did=d['id']) }}">
                   <input type="hidden" name="reason" value="standby">
                   <button type="submit" style="width:100%;text-align:left;padding:8px 12px;font-size:13px;background:none;border:none;cursor:pointer;color:var(--text)">
@@ -120,6 +168,12 @@
                   <input type="hidden" name="reason" value="replaced">
                   <button type="submit" style="width:100%;text-align:left;padding:8px 12px;font-size:13px;background:none;border:none;cursor:pointer;color:#3c3489">
                     🔄 {{ 'Солигдсон' if lang=='mn' else 'Mark Replaced' }}
+                  </button>
+                </form>
+                <form method="POST" action="{{ url_for('device_archive', did=d['id']) }}" onsubmit="return confirm('Засагдашгүй эвдэрсэн — акталах уу?')">
+                  <input type="hidden" name="reason" value="decommissioned">
+                  <button type="submit" style="width:100%;text-align:left;padding:8px 12px;font-size:13px;background:none;border:none;cursor:pointer;color:#b91c1c">
+                    🛑 {{ 'Акталах (засагдашгүй)' if lang=='mn' else 'Decommission' }}
                   </button>
                 </form>
               </div>
@@ -139,13 +193,31 @@
 {% endblock %}
 {% block scripts %}
 <script>
+async function startUsage(deviceId){
+  const r = await fetch('/usage/start/'+deviceId,{method:'POST'});
+  const d = await r.json();
+  if(d.success) location.reload();
+  else alert(d.error || 'Алдаа гарлаа');
+}
+async function stopUsage(logId){
+  const notes = prompt('Тэмдэглэл (заавал биш):','');
+  const r = await fetch('/usage/stop/'+logId,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({notes:notes||''})});
+  const d = await r.json();
+  if(d.success) location.reload();
+  else alert(d.error || 'Алдаа гарлаа');
+}
 function filterDevices(){
   var val = document.getElementById('filter-status').value;
+  var stg = document.getElementById('filter-stage').value;
   document.querySelectorAll('.device-item').forEach(function(el){
     var status = el.dataset.status;
-    if(val==='all') el.style.display='';
-    else if(val==='archived') el.style.display=(status==='archived'||status==='replaced')?'':'none';
-    else el.style.display=(status===val)?'':'none';
+    var stage  = el.dataset.stage;
+    var okStatus;
+    if(val==='all') okStatus=true;
+    else if(val==='archived') okStatus=(status==='archived'||status==='replaced'||status==='decommissioned');
+    else okStatus=(status===val);
+    var okStage = (stg==='all') || (stage===stg);
+    el.style.display=(okStatus && okStage)?'':'none';
   });
 }
 function setFilter(val){
@@ -164,9 +236,10 @@ document.addEventListener('click', function(e){
     document.querySelectorAll('[id^=arch-menu-]').forEach(function(m){ m.style.display='none'; });
   }
 });
-// Анхдагч: архив нуух
+// Анхдагч: архив болон нөөцийг үндсэн цэснээс нуух
 document.querySelectorAll('.device-item').forEach(function(el){
-  if(el.dataset.status==='archived'||el.dataset.status==='replaced') el.style.display='none';
+  var s = el.dataset.status;
+  if(s==='archived'||s==='replaced'||s==='standby'||s==='decommissioned') el.style.display='none';
 });
 </script>
 {% endblock %}

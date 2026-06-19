@@ -1,0 +1,248 @@
+{% extends "partial/base.html" %}
+{% block title %}Архив — {{ receipt['lab_number'] }} — Хэмжилт{% endblock %}
+{% block content %}
+<style>
+*{box-sizing:border-box}
+.sheet-wrap{width:100%;overflow:auto;max-height:calc(100vh - 160px)}
+.tbl{border-collapse:separate;border-spacing:0;white-space:nowrap;font-size:11.5px;font-family:'Segoe UI',sans-serif;width:max-content;min-width:100%}
+.tbl th,.tbl td{border-right:1px solid #d8d8d0;border-bottom:1px solid #d8d8d0;height:22px;text-align:center;vertical-align:middle;padding:0 3px}
+.tbl tr th:first-child,.tbl tr td:first-child{border-left:1px solid #d8d8d0}
+.tbl thead tr:first-child th{border-top:1px solid #d8d8d0}
+.tbl thead tr.h1 th{position:sticky;top:0;z-index:3;background:#3c3489;color:#fff;font-size:11px;font-weight:600;height:32px}
+.tbl thead tr.h2 th{position:sticky;top:32px;z-index:3;background:#4f46a3;color:#c7d2fe;font-size:10px;font-weight:400;padding:2px 4px;white-space:normal;line-height:1.3;border-bottom:3px solid #818cf8;height:23px}
+.tbl td.f0,.tbl td.f1,.tbl td.f2,.tbl td.f3,.tbl td.f4{background:#f7f5f0;font-size:10px}
+.main-row td{background:#fff}
+.main-row:hover td{background:#f8f9ff}
+.dup-row td{background:#eef5ff}
+.gs{border-left:2.5px double #888!important}
+.ge{border-right:2.5px double #888!important}
+.calc-cell{font-weight:600;font-family:monospace;color:#0a6e3f;background:#e8faf4!important}
+.val{font-family:monospace;font-size:11px}
+.cg-ff.hide,.cg-mt.hide,.cg-dc.hide,.cg-un.hide,
+.cg-db.hide,.cg-gi.hide,.cg-st.hide,.cg-il.hide,.cg-fsi.hide{display:none}
+.col-bar{padding:5px 14px;background:#2d2570;display:flex;gap:14px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #3c3489}
+.col-bar label{display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:#c7d2fe;user-select:none}
+</style>
+
+<!-- Мэдээллийн баар -->
+<div style="padding:7px 14px;background:#3c3489;color:#fff;display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12px;border-bottom:2px solid #818cf8">
+  <div><div style="font-size:9px;color:#c7d2fe">Ажлын дугаар</div>
+    <div style="font-size:15px;font-weight:700;font-family:monospace;color:#a5b4fc">{{ receipt['lab_number'] }}</div></div>
+  <div style="width:1px;background:rgba(255,255,255,.15);height:30px"></div>
+  <div><div style="font-size:9px;color:#c7d2fe">Дээжний нэр</div><div style="font-weight:600">{{ receipt['sample_name'] }}</div></div>
+  <div><div style="font-size:9px;color:#c7d2fe">Төрөл</div><div style="font-weight:600;color:#fbbf24">{{ receipt['sample_type'] }}</div></div>
+  <div><div style="font-size:9px;color:#c7d2fe">Тоо</div><div style="font-weight:600">{{ receipt['quantity'] }}</div></div>
+  <div><div style="font-size:9px;color:#c7d2fe">Огноо</div><div>{{ receipt['collected_date'] or '—' }}</div></div>
+  <div style="width:1px;background:rgba(255,255,255,.15);height:30px"></div>
+  <div><div style="font-size:9px;color:#c7d2fe">Геологи</div><div>{{ receipt['geo_name'] or '—' }}</div></div>
+  <div><div style="font-size:9px;color:#c7d2fe">Дээж бэлтгэгч</div><div>{{ receipt['prep_name'] or '—' }}</div></div>
+  <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+    <span style="font-size:11px;background:#4f46a3;padding:3px 10px;border-radius:10px;color:#c7d2fe">📦 Архивласан — зөвхөн харах</span>
+    <a href="{{ url_for('archive_result', receipt_id=receipt['id']) }}" class="btn btn-ghost btn-sm" style="color:#c7d2fe;border-color:#4f46a3">← Буцах</a>
+  </div>
+</div>
+
+<!-- Checkbox баар -->
+<div class="col-bar">
+  <span style="font-size:11px;color:#a5b4fc;font-weight:600">Харуулах:</span>
+  <label><input type="checkbox" class="ct" data-g="ff" checked onchange="toggleG(this,'ff')"> ЧЧ</label>
+  <label><input type="checkbox" class="ct" data-g="mt" checked onchange="toggleG(this,'mt')"> НЧ</label>
+  <label><input type="checkbox" class="ct" data-g="dc" checked onchange="toggleG(this,'dc')"> ДЧ</label>
+  <label><input type="checkbox" class="ct" data-g="un" checked onchange="toggleG(this,'un')"> Үнс</label>
+  <label><input type="checkbox" class="ct" data-g="db" checked onchange="toggleG(this,'db')"> ДБ</label>
+  <label><input type="checkbox" class="ct" data-g="gi" onchange="toggleG(this,'gi')"> G индекс</label>
+  <label><input type="checkbox" class="ct" data-g="st" onchange="toggleG(this,'st')"> Нийт хүхэр</label>
+  <label><input type="checkbox" class="ct" data-g="il" onchange="toggleG(this,'il')"> Илчлэг</label>
+  <label><input type="checkbox" class="ct" data-g="fsi" onchange="toggleG(this,'fsi')"> FSI</label>
+</div>
+
+<!-- ХҮСНЭГТ -->
+<div class="sheet-wrap">
+<table class="tbl">
+  <colgroup>
+    <col style="width:26px">
+    <col style="width:52px">
+    <col style="width:106px">
+    <col style="width:92px">
+    <col style="width:48px">
+    <!-- ЧЧ -->
+    <col class="cg-ff" style="width:58px"><col class="cg-ff" style="width:58px">
+    <!-- НЧ -->
+    <col class="cg-mt" style="width:38px"><col class="cg-mt" style="width:58px"><col class="cg-mt" style="width:55px"><col class="cg-mt" style="width:58px">
+    <!-- ДЧ -->
+    <col class="cg-dc" style="width:38px"><col class="cg-dc" style="width:58px"><col class="cg-dc" style="width:55px"><col class="cg-dc" style="width:58px">
+    <!-- Үнс -->
+    <col class="cg-un" style="width:38px"><col class="cg-un" style="width:58px"><col class="cg-un" style="width:55px"><col class="cg-un" style="width:58px">
+    <!-- ДБ -->
+    <col class="cg-db" style="width:38px"><col class="cg-db" style="width:58px"><col class="cg-db" style="width:55px"><col class="cg-db" style="width:58px">
+    <!-- G -->
+    <col class="cg-gi" style="width:38px"><col class="cg-gi" style="width:58px"><col class="cg-gi" style="width:55px"><col class="cg-gi" style="width:58px"><col class="cg-gi" style="width:58px">
+    <!-- St -->
+    <col class="cg-st" style="width:50px">
+    <!-- Илчлэг -->
+    <col class="cg-il" style="width:65px"><col class="cg-il" style="width:40px">
+    <!-- FSI -->
+    <col class="cg-fsi" style="width:40px">
+    <!-- Тооцоо -->
+    <col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px">
+  </colgroup>
+  <thead>
+    <tr class="h1">
+      <th class="f0" rowspan="2">No.</th>
+      <th class="f1" rowspan="2">Төрөл</th>
+      <th class="f2" rowspan="2">Лаб.Дугаар</th>
+      <th class="f3" rowspan="2">Дээжний<br>дугаар</th>
+      <th class="f4" rowspan="2">Масс<br>[кг]</th>
+      <th colspan="2" class="cg-ff">Чөлөөт чийг</th>
+      <th colspan="4" class="cg-mt">Нийт чийг</th>
+      <th colspan="4" class="cg-dc">Дотоод Чийг</th>
+      <th colspan="4" class="cg-un">Үнс</th>
+      <th colspan="4" class="cg-db">Дэгдэмхий Бодис</th>
+      <th colspan="5" class="cg-gi">G-Индекс</th>
+      <th class="cg-st">Нийт хүхэр</th>
+      <th colspan="2" class="cg-il">Илчлэгийн утга</th>
+      <th class="cg-fsi">Чөлөөт<br>хөөлт</th>
+      <th colspan="4">Тооцоо</th>
+    </tr>
+    <tr class="h2">
+      <th class="cg-ff gs">Дээжний масс<br>[гр]</th><th class="cg-ff ge">Хатаасан масс<br>[гр]</th>
+      <th class="cg-mt gs">Бюкс №</th><th class="cg-mt">Хоосон бюкс<br>[гр]</th><th class="cg-mt">Дээж масс<br>[гр]</th><th class="cg-mt ge">Хатаалтын дараах масс<br>[гр]</th>
+      <th class="cg-dc gs">Бюкс №</th><th class="cg-dc">Хоосон бюкс<br>[гр]</th><th class="cg-dc">Дээж масс<br>[гр]</th><th class="cg-dc ge">Хатаалтын дараах масс<br>[гр]</th>
+      <th class="cg-un gs">Тэвш №</th><th class="cg-un">Хоосон бюкс<br>[гр]</th><th class="cg-un">Дээж масс<br>[гр]</th><th class="cg-un ge">Шатаалтын дараах масс<br>[гр]</th>
+      <th class="cg-db gs">Тигель №</th><th class="cg-db">Хоосон тигель<br>[гр]</th><th class="cg-db">Дээж масс<br>[гр]</th><th class="cg-db ge">Шатаалтын дараах масс<br>[гр]</th>
+      <th class="cg-gi gs">Тигель №</th><th class="cg-gi">Хоосон тигель<br>[гр]</th><th class="cg-gi">Нийт кокс<br>[гр]</th><th class="cg-gi">1-дэх шигшүүрийн масс [гр]</th><th class="cg-gi ge">2-дох шигшүүрийн масс [гр]</th>
+      <th class="cg-st gs ge">Sad [%]</th>
+      <th class="cg-il gs">Qb,ad [J/g]</th><th class="cg-il ge">Өрөө ⁰C</th>
+      <th class="cg-fsi gs ge">CSN</th>
+      <th class="gs">Mad%</th><th>Aad%</th><th>Vad%</th><th>FCad%</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% set stype = receipt['sample_type'] %}
+  {% for i in range(receipt['quantity'] or 1) %}
+  {% set ri = i+1 %}
+  {% set e = entries|selectattr('row_num','equalto',ri)|selectattr('is_duplicate','equalto',0)|first %}
+  {% set de = entries|selectattr('row_num','equalto',ri)|selectattr('is_duplicate','equalto',1)|first %}
+  <tr class="main-row">
+    <td class="f0" style="color:#666">{{ ri }}</td>
+    <td class="f1" style="font-size:10px;font-weight:600;color:
+      {% if stype=='PIT' %}#0f6e56{% elif stype=='STOCKPILE' %}#185fa5
+      {% elif stype=='EXPORT' %}#3c3489{% elif stype=='CONTROL' %}#854f0b
+      {% elif stype=='EQ_CONTROL' %}#993c1d{% else %}#555{% endif %}">{{ stype }}</td>
+    <td class="f2" style="font-family:monospace;font-size:10px;color:#555">{{ receipt['lab_number'] }}</td>
+    <td class="f3" style="text-align:left;padding-left:6px">{{ e['sample_name'] if e and e['sample_name'] else '—' }}</td>
+    <td class="f4">{{ e['mass_kg'] if e and e['mass_kg'] else '—' }}</td>
+    <!-- ЧЧ -->
+    <td class="cg-ff gs val">{{ e['ff_sample'] if e and e['ff_sample'] else '—' }}</td>
+    <td class="cg-ff ge val">{{ e['ff_dried'] if e and e['ff_dried'] else '—' }}</td>
+    <!-- НЧ -->
+    <td class="cg-mt gs val">{{ e['mt_bux'] if e and e['mt_bux'] else '—' }}</td>
+    <td class="cg-mt val">{{ e['mt_tare'] if e and e['mt_tare'] else '—' }}</td>
+    <td class="cg-mt val">{{ e['mt_sample'] if e and e['mt_sample'] else '—' }}</td>
+    <td class="cg-mt ge val">{{ e['mt_dried'] if e and e['mt_dried'] else '—' }}</td>
+    <!-- ДЧ -->
+    <td class="cg-dc gs val">{{ e['dc_bux'] if e and e['dc_bux'] else '—' }}</td>
+    <td class="cg-dc val">{{ e['dc_tare'] if e and e['dc_tare'] else '—' }}</td>
+    <td class="cg-dc val">{{ e['dc_sample'] if e and e['dc_sample'] else '—' }}</td>
+    <td class="cg-dc ge val">{{ e['dc_dried'] if e and e['dc_dried'] else '—' }}</td>
+    <!-- Үнс -->
+    <td class="cg-un gs val">{{ e['ash_tav'] if e and e['ash_tav'] else '—' }}</td>
+    <td class="cg-un val">{{ e['ash_tare'] if e and e['ash_tare'] else '—' }}</td>
+    <td class="cg-un val">{{ e['ash_sample'] if e and e['ash_sample'] else '—' }}</td>
+    <td class="cg-un ge val">{{ e['ash_burned'] if e and e['ash_burned'] else '—' }}</td>
+    <!-- ДБ -->
+    <td class="cg-db gs val">{{ e['vol_tig'] if e and e['vol_tig'] else '—' }}</td>
+    <td class="cg-db val">{{ e['vol_tare'] if e and e['vol_tare'] else '—' }}</td>
+    <td class="cg-db val">{{ e['vol_sample'] if e and e['vol_sample'] else '—' }}</td>
+    <td class="cg-db ge val">{{ e['vol_burned'] if e and e['vol_burned'] else '—' }}</td>
+    <!-- G -->
+    <td class="cg-gi gs val">{{ e['g_tig'] if e and e['g_tig'] else '—' }}</td>
+    <td class="cg-gi val">{{ e['g_tare'] if e and e['g_tare'] else '—' }}</td>
+    <td class="cg-gi val">{{ e['g_coke'] if e and e['g_coke'] else '—' }}</td>
+    <td class="cg-gi val">{{ e['g_sieve1'] if e and e['g_sieve1'] else '—' }}</td>
+    <td class="cg-gi ge val">{{ e['g_sieve2'] if e and e['g_sieve2'] else '—' }}</td>
+    <!-- St -->
+    <td class="cg-st gs ge val">{{ e['sulfur'] if e and e['sulfur'] else '—' }}</td>
+    <!-- Илчлэг -->
+    <td class="cg-il gs val">{{ e['cal_value'] if e and e['cal_value'] else '—' }}</td>
+    <td class="cg-il ge val">{{ e['cal_temp'] if e and e['cal_temp'] else '—' }}</td>
+    <!-- FSI -->
+    <td class="cg-fsi gs ge val">{{ e['fsi'] if e and e['fsi'] else '—' }}</td>
+    <!-- Тооцоо -->
+    <td class="calc-cell gs">{{ '%.4f'|format(e['mad']) if e and e['mad'] else '—' }}</td>
+    <td class="calc-cell">{{ '%.4f'|format(e['aad']) if e and e['aad'] else '—' }}</td>
+    <td class="calc-cell">{{ '%.4f'|format(e['vad']) if e and e['vad'] else '—' }}</td>
+    <td class="calc-cell">{{ '%.4f'|format(e['fc']) if e and e['fc'] else '—' }}</td>
+  </tr>
+  {% if de and de['row_status'] in ('done','approved') %}
+  <tr class="dup-row">
+    <td class="f0" style="color:#185fa5">↳</td>
+    <td class="f1" style="background:#dbeafe"></td>
+    <td class="f2" style="background:#dbeafe;font-family:monospace;font-size:10px;color:#888">{{ receipt['lab_number'] }}</td>
+    <td class="f3" style="background:#dbeafe;font-size:10px;color:#185fa5;font-style:italic;padding-left:6px">зэрэгцээ</td>
+    <td class="f4" style="background:#dbeafe"></td>
+    <!-- ЧЧ хоосон -->
+    <td class="cg-ff gs" style="background:#eef5ff"></td><td class="cg-ff ge" style="background:#eef5ff"></td>
+    <!-- НЧ хоосон -->
+    <td class="cg-mt gs" style="background:#eef5ff"></td><td class="cg-mt" style="background:#eef5ff"></td><td class="cg-mt" style="background:#eef5ff"></td><td class="cg-mt ge" style="background:#eef5ff"></td>
+    <!-- ДЧ -->
+    <td class="cg-dc gs val">{{ de['dc_bux'] if de['dc_bux'] else '—' }}</td>
+    <td class="cg-dc val">{{ de['dc_tare'] if de['dc_tare'] else '—' }}</td>
+    <td class="cg-dc val">{{ de['dc_sample'] if de['dc_sample'] else '—' }}</td>
+    <td class="cg-dc ge val">{{ de['dc_dried'] if de['dc_dried'] else '—' }}</td>
+    <!-- Үнс -->
+    <td class="cg-un gs val">{{ de['ash_tav'] if de['ash_tav'] else '—' }}</td>
+    <td class="cg-un val">{{ de['ash_tare'] if de['ash_tare'] else '—' }}</td>
+    <td class="cg-un val">{{ de['ash_sample'] if de['ash_sample'] else '—' }}</td>
+    <td class="cg-un ge val">{{ de['ash_burned'] if de['ash_burned'] else '—' }}</td>
+    <!-- ДБ -->
+    <td class="cg-db gs val">{{ de['vol_tig'] if de['vol_tig'] else '—' }}</td>
+    <td class="cg-db val">{{ de['vol_tare'] if de['vol_tare'] else '—' }}</td>
+    <td class="cg-db val">{{ de['vol_sample'] if de['vol_sample'] else '—' }}</td>
+    <td class="cg-db ge val">{{ de['vol_burned'] if de['vol_burned'] else '—' }}</td>
+    <!-- G -->
+    <td class="cg-gi gs val">{{ de['g_tig'] if de['g_tig'] else '—' }}</td>
+    <td class="cg-gi val">{{ de['g_tare'] if de['g_tare'] else '—' }}</td>
+    <td class="cg-gi val">{{ de['g_coke'] if de['g_coke'] else '—' }}</td>
+    <td class="cg-gi val">{{ de['g_sieve1'] if de['g_sieve1'] else '—' }}</td>
+    <td class="cg-gi ge val">{{ de['g_sieve2'] if de['g_sieve2'] else '—' }}</td>
+    <!-- St -->
+    <td class="cg-st gs ge val">{{ de['sulfur'] if de['sulfur'] else '—' }}</td>
+    <!-- Илчлэг -->
+    <td class="cg-il gs val">{{ de['cal_value'] if de['cal_value'] else '—' }}</td>
+    <td class="cg-il ge"></td>
+    <!-- FSI -->
+    <td class="cg-fsi gs ge val">{{ de['fsi'] if de['fsi'] else '—' }}</td>
+    <!-- Тооцоо -->
+    <td class="calc-cell gs" style="color:#185fa5">{{ '%.4f'|format(de['mad']) if de['mad'] else '—' }}</td>
+    <td class="calc-cell" style="color:#185fa5">{{ '%.4f'|format(de['aad']) if de['aad'] else '—' }}</td>
+    <td class="calc-cell" style="color:#185fa5">{{ '%.4f'|format(de['vad']) if de['vad'] else '—' }}</td>
+    <td class="calc-cell" style="color:#185fa5">{{ '%.4f'|format(de['fc']) if de['fc'] else '—' }}</td>
+  </tr>
+  {% endif %}
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<!-- Доод баар -->
+<div style="padding:7px 14px;background:#f0ede8;border-top:1px solid #e0ddd8;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#888">
+  <span>Архивын хэмжилтийн өгөгдөл — зөвхөн харах горим</span>
+  <a href="{{ url_for('archive_result', receipt_id=receipt['id']) }}" class="btn btn-ghost btn-sm">← Буцах</a>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function toggleG(cb, g){
+  document.querySelectorAll('.cg-'+g).forEach(function(el){
+    if(cb.checked) el.classList.remove('hide');
+    else el.classList.add('hide');
+  });
+}
+document.addEventListener('DOMContentLoaded',function(){
+  ['gi','st','il','fsi'].forEach(function(g){
+    document.querySelectorAll('.cg-'+g).forEach(function(el){el.classList.add('hide');});
+  });
+});
+</script>
+{% endblock %}

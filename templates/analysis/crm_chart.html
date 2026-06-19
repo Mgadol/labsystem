@@ -1,0 +1,226 @@
+{% extends "partial/base.html" %}
+{% block title %}CRM Хяналтын диаграм{% endblock %}
+{% block content %}
+<div class="page">
+  <div class="flex justify-between gap-12" style="margin-bottom:20px;flex-wrap:wrap">
+    <div>
+      <h1 class="page-title">📈 CRM Хяналтын диаграм</h1>
+      <p class="page-sub">Certified Reference Material — хяналтын дүн</p>
+    </div>
+    <a href="{{ url_for('analysis') }}" class="btn btn-ghost">← Шинжилгээ</a>
+  </div>
+
+  {% if not materials %}
+  <div class="card" style="text-align:center;padding:40px;color:var(--text-muted)">
+    <div style="font-size:32px;margin-bottom:8px">🧪</div>
+    CRM материал бүртгэгдээгүй байна. <a href="{{ url_for('lab_settings') }}" style="color:var(--navy)">Тохиргоо</a>-д нэмнэ үү.
+  </div>
+  {% else %}
+
+  <!-- Material selector -->
+  <div class="card" style="padding:14px;margin-bottom:16px">
+    <div style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">CRM материал сонгох</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      {% for m in materials %}
+      <a href="{{ url_for('crm_control_chart', mat_id=m['id']) }}"
+         class="btn btn-sm {% if selected and selected['id']==m['id'] %}btn-primary{% else %}btn-ghost{% endif %}">
+        🧪 {{ m['crm_name'] }}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if selected %}
+  <!-- Cert values summary -->
+  <div class="card" style="margin-bottom:16px;padding:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:14px;font-weight:600;color:var(--navy)">{{ selected['crm_name'] }}
+        {% if selected['standard'] %}<span style="font-size:12px;color:var(--text-muted);font-weight:400"> — {{ selected['standard'] }}</span>{% endif %}
+      </div>
+      {% if selected['expiry_date'] %}
+      <span style="font-size:11px;padding:3px 9px;border-radius:12px;
+        {% if selected['expiry_date'] < today %}background:#faece7;color:#993c1d{% else %}background:#e1f5ee;color:#0f6e56{% endif %}">
+        Хүчинтэй: {{ selected['expiry_date'] }}
+      </span>
+      {% endif %}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">
+      {% set params = [
+        ('Adb,%','aad_cert','aad_unc','#0f6e56'),
+        ('Vdb,%','vad_cert','vad_unc','#7C3AED'),
+        ('Sdb,%','sulfur_cert','sulfur_unc','#854f0b'),
+        ('Qb,d МЖ/кг','cal_cert','cal_unc','#993c1d'),
+        ('G-индекс','g_cert','g_unc','#0f6e56')
+      ] %}
+      {% for lbl,cert_f,unc_f,color in params %}
+      {% set cv = selected[cert_f] %}
+      {% set uv = selected[unc_f] %}
+      {% if cv %}
+      <div style="background:var(--gray);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--text-muted);font-weight:600;text-transform:uppercase;margin-bottom:4px">{{ lbl }}</div>
+        <div style="font-size:18px;font-weight:700;color:{{ color }}">{{ '%.2f'|format(cv) }}</div>
+        {% if uv %}<div style="font-size:11px;color:#7C3AED">± {{ '%.2f'|format(uv) }}</div>{% endif %}
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if history %}
+  <!-- Charts -->
+  {% set param_list = [
+    ('Adb,%','adb','aad_cert','aad_unc','#0f6e56','rgba(15,110,86,0.15)'),
+    ('G-индекс','g_value','g_cert','g_unc','#3C3489','rgba(60,52,137,0.15)'),
+    ('Vdb,%','vdb','vad_cert','vad_unc','#7C3AED','rgba(124,58,237,0.15)'),
+    ('Sdb,%','sdb','sulfur_cert','sulfur_unc','#854f0b','rgba(133,79,11,0.15)'),
+    ('Qb,d МЖ/кг','qbd','cal_cert','cal_unc','#993c1d','rgba(153,60,29,0.15)')
+  ] %}
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    {% for lbl,field,cert_f,unc_f,color,fillcolor in param_list %}
+    {% set cv = selected[cert_f] %}
+    {% if cv %}
+    <div class="card" style="padding:16px">
+      <div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:12px">{{ lbl }}</div>
+      <div style="position:relative;height:180px">
+        <canvas id="chart_{{ field }}"></canvas>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+
+  <!-- History table -->
+  <div class="card">
+    <div class="section-title">Хэмжилтийн түүх</div>
+    <table class="table">
+      <thead><tr>
+        <th>Огноо</th>
+        <th style="text-align:center">Adb,%</th>
+        <th style="text-align:center">Vdb,%</th>
+        <th style="text-align:center">Sdb,%</th>
+        <th style="text-align:center">Qb,d МЖ/кг</th>
+      </tr></thead>
+      <tbody>
+      {% for h in history %}
+      <tr>
+        <td style="font-size:12px">{{ h['collected_date'] or '—' }}{% if h['lab_number'] %}<br><span style="color:var(--text-muted)">{{ h['lab_number'] }}</span>{% endif %}</td>
+        {% for f,cert_f,unc_f,fmt in [('adb','aad_cert','aad_unc','%.4f'),('vdb','vad_cert','vad_unc','%.4f'),('sdb','sulfur_cert','sulfur_unc','%.4f'),('qbd','cal_cert','cal_unc','%.3f')] %}
+        {% set v = h[f] %}
+        {% set cv = selected[cert_f] %}
+        {% set uv = selected[unc_f] %}
+        <td style="text-align:center;font-family:monospace;font-size:12px;
+          {% if v and cv and uv and (v < cv - uv or v > cv + uv) %}color:#993c1d;font-weight:700{% elif v and cv %}color:#0f6e56{% endif %}">
+          {{ (fmt)|format(v) if v else '—' }}
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% else %}
+  <div class="card" style="text-align:center;padding:40px;color:var(--text-muted)">
+    <div style="font-size:32px;margin-bottom:8px">📊</div>
+    {{ selected['crm_name'] }}-н хэмжилтийн дүн байхгүй байна.
+  </div>
+  {% endif %}
+
+  {% endif %}
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if selected and history %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+var LABELS = {{ history|map(attribute='collected_date')|list|tojson }};
+var SELECTED = {{ selected['id'] }};
+
+{% set param_list = [
+  ('adb','aad_cert','aad_unc','#0f6e56'),
+  ('g_value','g_cert','g_unc','#3C3489'),
+  ('vdb','vad_cert','vad_unc','#7C3AED'),
+  ('sdb','sulfur_cert','sulfur_unc','#854f0b'),
+  ('qbd','cal_cert','cal_unc','#993c1d')
+] %}
+{% for field,cert_f,unc_f,color in param_list %}
+{% set cv = selected[cert_f] %}
+{% if cv %}
+(function(){
+  var el = document.getElementById('chart_{{ field }}');
+  if(!el) return;
+  var data = {{ history|map(attribute=field)|list|tojson }};
+  var cv = {{ cv }};
+  var uv = {{ selected[unc_f] or 0 }};
+  var upper = data.map(function(){ return uv ? cv+uv : null; });
+  var lower = data.map(function(){ return uv ? cv-uv : null; });
+  new Chart(el, {
+    type: 'line',
+    data: {
+      labels: LABELS,
+      datasets: [
+        {
+          label: 'Хэмжилт',
+          data: data,
+          borderColor: '{{ color }}',
+          backgroundColor: '{{ color }}33',
+          borderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          tension: 0.3,
+          spanGaps: true
+        },
+        {
+          label: 'Cert',
+          data: data.map(function(){ return cv; }),
+          borderColor: '#888',
+          borderWidth: 1,
+          borderDash: [4,4],
+          pointRadius: 0,
+          fill: false
+        }
+        {% if selected[unc_f] %},
+        {
+          label: '+' + uv,
+          data: upper,
+          borderColor: '#ccc',
+          borderWidth: 1,
+          borderDash: [2,4],
+          pointRadius: 0,
+          fill: '+1',
+          backgroundColor: '{{ color }}18'
+        },
+        {
+          label: '-' + uv,
+          data: lower,
+          borderColor: '#ccc',
+          borderWidth: 1,
+          borderDash: [2,4],
+          pointRadius: 0,
+          fill: false
+        }
+        {% endif %}
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: function(c){ return c.dataset.label+': '+(c.raw!=null?c.raw.toFixed(3):'—'); } } }
+      },
+      scales: {
+        x: { ticks: { font:{size:9}, maxRotation:45 } },
+        y: { ticks: { font:{size:9} } }
+      }
+    }
+  });
+})();
+{% endif %}
+{% endfor %}
+</script>
+{% endif %}
+{% endblock %}

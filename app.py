@@ -2,13 +2,61 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 from models import get_db, init_db, hash_password, check_password
 from datetime import datetime, date
 from functools import wraps
-import os, uuid, io
+import os, uuid, io, secrets, time
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.secret_key = 'lab-secret-2024'
+
+# ── SECRET KEY: instance/-д хадгалагдана, автоматаар үүснэ ────
+_KEY_FILE = os.path.join(os.path.dirname(__file__), 'instance', 'secret_key')
+os.makedirs(os.path.dirname(_KEY_FILE), exist_ok=True)
+if os.path.exists(_KEY_FILE):
+    with open(_KEY_FILE, 'rb') as _f:
+        app.secret_key = _f.read()
+else:
+    _k = secrets.token_bytes(32)
+    with open(_KEY_FILE, 'wb') as _f:
+        _f.write(_k)
+    app.secret_key = _k
+
+# ── SESSION COOKIE АЮУЛГҮЙ ТОХИРГОО ───────────────────────────
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE']   = False  # HTTPS ашиглах үед True болгоно
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+
+# ── LOGIN BRUTE-FORCE ХАМГААЛАЛТ ──────────────────────────────
+_login_attempts = {}   # {ip: [timestamp, ...]}
+_LOGIN_MAX   = 5       # дээд тоо
+_LOGIN_WINDOW = 300    # 5 минут (секундээр)
+_LOGIN_BLOCK  = 600    # 10 минут блоклоно
+
+def _get_ip():
+    return request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+
+def _is_blocked(ip):
+    now = time.time()
+    attempts = [t for t in _login_attempts.get(ip, []) if now - t < _LOGIN_WINDOW]
+    _login_attempts[ip] = attempts
+    return len(attempts) >= _LOGIN_MAX
+
+def _record_fail(ip):
+    now = time.time()
+    _login_attempts.setdefault(ip, []).append(now)
+
+def _clear_attempts(ip):
+    _login_attempts.pop(ip, None)
+
+# ── SECURITY HEADERS ──────────────────────────────────────────
+@app.after_request
+def security_headers(resp):
+    resp.headers['X-Content-Type-Options']  = 'nosniff'
+    resp.headers['X-Frame-Options']          = 'SAMEORIGIN'
+    resp.headers['X-XSS-Protection']         = '1; mode=block'
+    resp.headers['Referrer-Policy']          = 'strict-origin-when-cross-origin'
+    resp.headers['Permissions-Policy']       = 'geolocation=(), microphone=(), camera=()'
+    return resp
 
 ALLOWED = {'png','jpg','jpeg','gif','webp','pdf','doc','docx'}
 
@@ -21,14 +69,58 @@ def save_file(file, subfolder):
         name = f"{uuid.uuid4().hex}.{ext}"
         path = os.path.join(app.config['UPLOAD_FOLDER'], subfolder)
         os.makedirs(path, exist_ok=True)
-        file.save(os.path.join(path, name))
+        dest = os.path.join(path, name)
+        # Зураг бол чанарыг хадгалан оновчтой хэмжээнд resize хийнэ
+        if ext in ('jpg','jpeg','png','webp'):
+            try:
+                from PIL import Image as PILImage, ExifTags
+                img = PILImage.open(file.stream)
+                # EXIF rotation засах
+                try:
+                    for key, val in ExifTags.TAGS.items():
+                        if val == 'Orientation':
+                            exif = img._getexif()
+                            if exif and key in exif:
+                                ori = exif[key]
+                                if ori == 3:   img = img.rotate(180, expand=True)
+                                elif ori == 6: img = img.rotate(270, expand=True)
+                                elif ori == 8: img = img.rotate(90,  expand=True)
+                            break
+                except Exception:
+                    pass
+                # Профайл зураг: max 800px хадгалах (чанар алдахгүй)
+                if subfolder == 'staff':
+                    img.thumbnail((800, 1000), PILImage.LANCZOS)
+                else:
+                    img.thumbnail((1200, 1200), PILImage.LANCZOS)
+                save_ext = 'JPEG' if ext in ('jpg','jpeg') else ext.upper()
+                img.save(dest, save_ext, quality=92, optimize=True)
+            except Exception:
+                file.stream.seek(0)
+                file.save(dest)
+        else:
+            file.save(dest)
         return f"{subfolder}/{name}"
     return None
 
 def login_required(f):
     @wraps(f)
     def dec(*a, **kw):
-        if 'user_id' not in session: return redirect(url_for('login'))
+        if 'user_id' not in session and session.get('role') != 'guest':
+            return redirect(url_for('login'))
+        if session.get('role') == 'guest' and request.method == 'POST':
+            flash('Зочин горимд өөрчлөлт хийх боломжгүй.', 'error')
+            return redirect(request.referrer or url_for('dashboard'))
+        return f(*a, **kw)
+    return dec
+
+def guest_block(f):
+    """Guest горимд POST үйлдлийг хаах"""
+    @wraps(f)
+    def dec(*a, **kw):
+        if session.get('role') == 'guest' and request.method == 'POST':
+            flash('Зочин горимд өөрчлөлт хийх боломжгүй.', 'error')
+            return redirect(request.referrer or url_for('dashboard'))
         return f(*a, **kw)
     return dec
 
@@ -46,6 +138,11 @@ def senior_required(f):
     """Админ + Ахлах химич хоёулан нэвтэрч болно"""
     @wraps(f)
     def dec(*a, **kw):
+        if session.get('role') == 'guest':
+            if request.method == 'POST':
+                flash('Зочин горимд өөрчлөлт хийх боломжгүй.', 'error')
+                return redirect(request.referrer or url_for('dashboard'))
+            return f(*a, **kw)
         if 'user_id' not in session: return redirect(url_for('login'))
         if session.get('role') not in ('admin', 'senior'):
             flash('Ахлах химич эсвэл админы эрх шаардлагатай.', 'error')
@@ -57,6 +154,11 @@ def lab_required(f):
     """Лабын бүх ажилтан (senior, staff, preparer)"""
     @wraps(f)
     def dec(*a, **kw):
+        if session.get('role') == 'guest':
+            if request.method == 'POST':
+                flash('Зочин горимд өөрчлөлт хийх боломжгүй.', 'error')
+                return redirect(request.referrer or url_for('dashboard'))
+            return f(*a, **kw)
         if 'user_id' not in session: return redirect(url_for('login'))
         if session.get('role') not in ('admin', 'senior', 'staff', 'preparer'):
             flash('Лабын ажилтны эрх шаардлагатай.', 'error')
@@ -84,8 +186,12 @@ def get_user(user_id):
 @app.context_processor
 def inject_user():
     user = None
-    if 'user_id' in session:
-        user = get_user(session['user_id'])
+    if session.get('role') == 'guest':
+        user = {'id': 0, 'name': 'Зочин', 'role': 'guest', 'photo': None,
+                'employee_id': 'GUEST', 'position': 'Зочин', 'phone': None,
+                'email': None, 'joined_date': None, 'is_active': 1}
+    elif 'user_id' in session:
+        user = get_user(session.get('user_id', 0))
     return dict(current_user=user, now=datetime.now())
 
 # ── AUTH ────────────────────────────────────────────────
@@ -98,17 +204,77 @@ def login():
     if request.method == 'POST':
         lang = request.form.get('lang','mn')
         session['lang'] = lang
+        ip = _get_ip()
+        if _is_blocked(ip):
+            error = 'Хэт олон удаа буруу оруулсан. 10 минутын дараа дахин оролдоно уу.'
+            return render_template('auth/login.html', error=error, lang=lang)
         emp_id = request.form.get('employee_id','').strip()
         pw     = request.form.get('password','')
         conn   = get_db()
-        u = conn.execute("SELECT * FROM users WHERE employee_id=? AND is_active=1",(emp_id,)).fetchone()
+        u = conn.execute("SELECT * FROM users WHERE (employee_id=? OR name=?) AND is_active=1",(emp_id,emp_id)).fetchone()
         conn.close()
         if u and check_password(u['password_hash'], pw):
+            _clear_attempts(ip)
             session['user_id'] = u['id']
             session['role']    = u['role']
             return redirect(url_for('dashboard'))
-        error = 'Нэвтрэх нэр эсвэл нууц үг буруу.' if lang=='mn' else 'Invalid ID or password.'
+        _record_fail(ip)
+        remaining = _LOGIN_MAX - len(_login_attempts.get(ip, []))
+        error = f'Нэвтрэх нэр эсвэл нууц үг буруу. ({max(0,remaining)} оролдлого үлдлээ)'
     return render_template('auth/login.html', error=error, lang=lang)
+
+@app.route('/guest/<token>')
+def guest_login(token):
+    conn = get_db()
+    now = datetime.now().isoformat()
+    # Хугацаа дууссан токенуудыг устгана
+    conn.execute("DELETE FROM guest_tokens WHERE expires_at < ?", (now,))
+    conn.commit()
+    row = conn.execute("SELECT * FROM guest_tokens WHERE token=? AND expires_at >= ?", (token.upper(), now)).fetchone()
+    conn.close()
+    if not row:
+        return render_template('auth/login.html', error='Зочны код хүчингүй болсон эсвэл буруу байна.', lang='mn'), 403
+    session['user_id'] = 0
+    session['role'] = 'guest'
+    session['lang'] = 'mn'
+    session['guest_label'] = row['label'] or ''
+    return redirect(url_for('dashboard'))
+
+@app.route('/guest/token/delete/<int:tid>', methods=['POST'])
+@admin_required
+def guest_token_delete(tid):
+    conn = get_db()
+    conn.execute("DELETE FROM guest_tokens WHERE id=?", (tid,))
+    conn.commit(); conn.close()
+    flash('Зочны код устгагдлаа.', 'success')
+    return redirect(url_for('lab_settings') + '?tab=guest')
+
+@app.route('/guest/generate', methods=['POST'])
+@admin_required
+def guest_token_generate():
+    import random, string
+    label = request.form.get('label', '').strip() or 'Зочин'
+    token = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+    from datetime import timedelta
+    expires_at = (datetime.now().replace(microsecond=0) + timedelta(hours=24)).isoformat()
+    conn = get_db()
+    conn.execute("""CREATE TABLE IF NOT EXISTS guest_tokens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        token TEXT UNIQUE NOT NULL,
+        label TEXT,
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TEXT NOT NULL
+    )""")
+    try:
+        conn.execute("INSERT INTO guest_tokens (token, label, created_by, expires_at) VALUES (?,?,?,?)",
+                     (token, label, session['user_id'], expires_at))
+        conn.commit()
+        flash(f'Зочны код үүслээ: {token}  (24 цаг хүчинтэй, {expires_at[:16]} хүртэл)', 'success')
+    except Exception as e:
+        flash(f'Алдаа гарлаа: {e}', 'error')
+    conn.close()
+    return redirect(url_for('lab_settings') + '?tab=guest')
 
 @app.route('/logout')
 def logout():
@@ -140,9 +306,10 @@ def set_lang(lang):
 def dashboard():
     lang = session.get('lang','mn')
     conn = get_db()
-    if session.get('role') == 'admin':
+    if session.get('role') in ('admin', 'senior', 'guest'):
         devices  = conn.execute("SELECT d.*, dm.manufacturer, dm.model FROM devices d LEFT JOIN device_marks dm ON d.mark_id=dm.id ORDER BY d.name").fetchall()
-        users    = conn.execute("SELECT * FROM users WHERE is_active=1").fetchall()
+        users    = conn.execute("SELECT * FROM users WHERE is_active=1 AND role != 'geologist'").fetchall()
+        clients  = conn.execute("SELECT * FROM users WHERE is_active=1 AND role = 'geologist'").fetchall()
         open_rep = conn.execute("SELECT COUNT(*) as c FROM repairs WHERE status='new'").fetchone()['c']
         today    = date.today().isoformat()
         expiring = conn.execute("""
@@ -153,21 +320,34 @@ def dashboard():
             WHERE c.id=(SELECT id FROM calibrations WHERE device_id=d.id ORDER BY calibration_date DESC LIMIT 1)
             AND days<=30 ORDER BY days
         """, (today,)).fetchall()
+        my_devices, active_map = [], {}
+        if session.get('role') == 'senior':
+            uid = session.get('user_id', 0)
+            my_devices = conn.execute("""
+                SELECT d.*, dm.manufacturer, dm.model FROM devices d
+                LEFT JOIN device_marks dm ON d.mark_id=dm.id
+                JOIN staff_device_permissions p ON p.device_id=d.id
+                WHERE p.user_id=? ORDER BY d.name
+            """, (uid,)).fetchall()
+            active_logs = conn.execute("SELECT * FROM usage_logs WHERE user_id=? AND end_time IS NULL", (uid,)).fetchall()
+            active_map = {r['device_id']: r for r in active_logs}
         conn.close()
         return render_template('admin/dashboard.html',
-            devices=devices, users=users, open_rep=open_rep, expiring=expiring, lang=lang)
+            devices=devices, users=users, clients=clients, open_rep=open_rep, expiring=expiring,
+            my_devices=my_devices, active_map=active_map, lang=lang)
     else:
-        uid = session['user_id']
+        uid = session.get('user_id', 0)
         my_devices = conn.execute("""
             SELECT d.*, dm.manufacturer, dm.model FROM devices d
             LEFT JOIN device_marks dm ON d.mark_id=dm.id
             JOIN staff_device_permissions p ON p.device_id=d.id
             WHERE p.user_id=? ORDER BY d.name
         """, (uid,)).fetchall()
-        active_log = conn.execute("SELECT * FROM usage_logs WHERE user_id=? AND end_time IS NULL", (uid,)).fetchone()
+        active_logs = conn.execute("SELECT * FROM usage_logs WHERE user_id=? AND end_time IS NULL", (uid,)).fetchall()
         conn.close()
+        active_map = {r['device_id']: r for r in active_logs}
         return render_template('staff/dashboard.html',
-            devices=my_devices, active_log=active_log, lang=lang)
+            devices=my_devices, active_map=active_map, lang=lang)
 
 # ── DEVICES ─────────────────────────────────────────────
 @app.route('/devices')
@@ -176,16 +356,27 @@ def devices():
     lang = session.get('lang','mn')
     conn = get_db()
     if session.get('role') == 'admin':
-        devs = conn.execute("SELECT d.*, dm.manufacturer, dm.model, dm.category FROM devices d LEFT JOIN device_marks dm ON d.mark_id=dm.id ORDER BY d.name").fetchall()
+        devs = conn.execute("""
+            SELECT d.*, dm.manufacturer, dm.model, dm.category FROM devices d
+            LEFT JOIN device_marks dm ON d.mark_id=dm.id
+            ORDER BY (d.lab_id IS NULL OR d.lab_id=''), d.lab_id, d.name
+        """).fetchall()
     else:
         devs = conn.execute("""
             SELECT d.*, dm.manufacturer, dm.model, dm.category FROM devices d
             LEFT JOIN device_marks dm ON d.mark_id=dm.id
             JOIN staff_device_permissions p ON p.device_id=d.id
-            WHERE p.user_id=? ORDER BY d.name
-        """, (session['user_id'],)).fetchall()
+            WHERE p.user_id=?
+            ORDER BY (d.lab_id IS NULL OR d.lab_id=''), d.lab_id, d.name
+        """, (session.get('user_id', 0),)).fetchall()
+    # Хэрэглэгчийн бүх идэвхтэй ашиглалт (олон төхөөрөмж зэрэг ашиглаж болно)
+    active_rows = conn.execute("SELECT id, device_id FROM usage_logs WHERE user_id=? AND end_time IS NULL",
+                          (session.get('user_id', 0),)).fetchall()
     conn.close()
-    return render_template('device/list.html', devices=devs, lang=lang)
+    # device_id → log_id харгалзаа
+    active_map = {r['device_id']: r['id'] for r in active_rows}
+    return render_template('device/list.html', devices=devs, lang=lang,
+        active_map=active_map)
 
 @app.route('/devices/<int:did>')
 @login_required
@@ -196,7 +387,7 @@ def device_detail(did):
     if not device:
         conn.close(); return redirect(url_for('devices'))
     if session.get('role') != 'admin':
-        perm = conn.execute("SELECT 1 FROM staff_device_permissions WHERE user_id=? AND device_id=?", (session['user_id'], did)).fetchone()
+        perm = conn.execute("SELECT 1 FROM staff_device_permissions WHERE user_id=? AND device_id=?", (session.get('user_id', 0), did)).fetchone()
         if not perm:
             conn.close()
             flash('Энэ төхөөрөмжид хандах эрх байхгүй.', 'error')
@@ -211,12 +402,45 @@ def device_detail(did):
         SELECT COALESCE(SUM(duration_hours),0) as total FROM usage_logs
         WHERE device_id=? AND strftime('%Y-%m', start_time)=?
     """, (did, now.strftime('%Y-%m'))).fetchone()['total']
+    analysis_usage = conn.execute("""
+        SELECT u.id as user_id, u.name as user_name,
+               COUNT(*) as sessions,
+               COALESCE(SUM(CAST((julianday(ul.end_time)-julianday(ul.start_time))*1440 AS INTEGER)),0) as total_min,
+               MAX(ul.start_time) as last_used
+        FROM usage_logs ul
+        JOIN users u ON u.id=ul.user_id
+        WHERE ul.device_id=? AND ul.end_time IS NOT NULL
+        GROUP BY u.id ORDER BY total_min DESC
+    """, (did,)).fetchall()
+    checks = [dict(r) for r in conn.execute("""
+        SELECT ch.*, u.name as uname FROM device_checks ch
+        LEFT JOIN users u ON u.id=ch.checked_by
+        WHERE ch.device_id=? ORDER BY ch.check_date DESC, ch.id DESC LIMIT 60
+    """, (did,)).fetchall()]
     conn.close()
     return render_template('device/detail.html',
         device=device, calibrations=cals, repairs=reps,
-        usage_logs=logs, active_log=active,
+        usage_logs=logs, active_log=active, checks=checks,
         monthly_hours=round(mhours,2),
+        analysis_usage=analysis_usage,
         lang=lang, today=date.today().isoformat())
+
+def _resolve_mark(conn, manufacturer, model, category):
+    """Үйлдвэрлэгч/загвараар mark олох, байхгүй бол шинээр үүсгэж id буцаана."""
+    manufacturer = (manufacturer or '').strip()
+    model = (model or '').strip()
+    category = (category or '').strip() or None
+    if not manufacturer and not model:
+        return None
+    row = conn.execute(
+        "SELECT id FROM device_marks WHERE manufacturer=? AND model=?",
+        (manufacturer, model)).fetchone()
+    if row:
+        return row['id']
+    cur = conn.execute(
+        "INSERT INTO device_marks(manufacturer,model,category) VALUES(?,?,?)",
+        (manufacturer, model, category))
+    return cur.lastrowid
 
 @app.route('/devices/add', methods=['GET','POST'])
 @senior_required
@@ -227,20 +451,51 @@ def device_add():
     if request.method == 'POST':
         photo = save_file(request.files.get('photo'), 'devices')
         pdf   = save_file(request.files.get('passport_pdf'), 'passports')
+        # Үйлдвэрлэгч/загвараас mark олох эсвэл шинээр үүсгэх
+        mark_id = _resolve_mark(conn,
+            request.form.get('manufacturer'),
+            request.form.get('model'),
+            request.form.get('category'))
         conn.execute("""
             INSERT INTO devices(name,serial_number,mark_id,location,purchase_date,
-            warranty_expiry,calibration_interval,photo,passport_pdf,status,notes)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?)
+            warranty_expiry,calibration_interval,photo,passport_pdf,status,notes,
+            lab_id,web_link,method,max_temp,particular,measuring_time,measuring_limit,
+            dimension,capacity,weight_kg,other_spec,power,frequency,voltage,
+            specification,operating_state,received_date,
+            check_standard,check_tolerance,check_enabled,stage,check_freq)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             request.form['name'],
             request.form.get('serial_number') or None,
-            request.form.get('mark_id') or None,
+            mark_id,
             request.form.get('location'),
             request.form.get('purchase_date') or None,
             request.form.get('warranty_expiry') or None,
             int(request.form.get('calibration_interval') or 90),
             photo, pdf, 'active',
-            request.form.get('notes')
+            request.form.get('notes'),
+            request.form.get('lab_id') or None,
+            request.form.get('web_link') or None,
+            request.form.get('method') or None,
+            request.form.get('max_temp') or None,
+            request.form.get('particular') or None,
+            request.form.get('measuring_time') or None,
+            request.form.get('measuring_limit') or None,
+            request.form.get('dimension') or None,
+            request.form.get('capacity') or None,
+            request.form.get('weight_kg') or None,
+            request.form.get('other_spec') or None,
+            request.form.get('power') or None,
+            request.form.get('frequency') or None,
+            request.form.get('voltage') or None,
+            request.form.get('specification') or None,
+            request.form.get('operating_state') or None,
+            request.form.get('received_date') or None,
+            request.form.get('check_standard') or None,
+            request.form.get('check_tolerance') or None,
+            1 if request.form.get('check_enabled') else 0,
+            request.form.get('stage') or 'both',
+            request.form.get('check_freq') or 'daily',
         ))
         did = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
         conn.commit(); conn.close()
@@ -254,26 +509,83 @@ def device_add():
 def device_edit(did):
     lang = session.get('lang','mn')
     conn = get_db()
-    device = conn.execute("SELECT * FROM devices WHERE id=?", (did,)).fetchone()
+    device = conn.execute("SELECT d.*, dm.manufacturer, dm.model, dm.category FROM devices d LEFT JOIN device_marks dm ON d.mark_id=dm.id WHERE d.id=?", (did,)).fetchone()
     marks  = conn.execute("SELECT * FROM device_marks").fetchall()
     if request.method == 'POST':
+        # Зөвхөн шалгалтын тохиргоо хадгалах (check tab-аас дуудагдана)
+        if request.form.get('_check_config_only'):
+            conn.execute("""UPDATE devices SET
+                check_standard=?, check_tolerance=?,
+                check_standard2=?, check_tolerance2=?,
+                check_standard3=?, check_tolerance3=?,
+                check_standard4=?, check_tolerance4=?
+                WHERE id=?""", (
+                request.form.get('check_standard') or None,
+                request.form.get('check_tolerance') or None,
+                request.form.get('check_standard2') or None,
+                request.form.get('check_tolerance2') or None,
+                request.form.get('check_standard3') or None,
+                request.form.get('check_tolerance3') or None,
+                request.form.get('check_standard4') or None,
+                request.form.get('check_tolerance4') or None,
+                did))
+            for i in ['1','2','3','4']:
+                f = request.files.get(f'check_photo{i}')
+                if f and f.filename:
+                    fn = save_file(f, 'devices')
+                    if fn:
+                        conn.execute(f"UPDATE devices SET check_photo{i}=? WHERE id=?", (fn, did))
+            conn.commit(); conn.close()
+            flash('Шалгалтын тохиргоо хадгалагдлаа!', 'success')
+            return redirect(url_for('device_detail', did=did) + '#tab-check')
         photo = save_file(request.files.get('photo'), 'devices')
         pdf   = save_file(request.files.get('passport_pdf'), 'passports')
+        mark_id = _resolve_mark(conn,
+            request.form.get('manufacturer'),
+            request.form.get('model'),
+            request.form.get('category'))
         conn.execute("""
             UPDATE devices SET name=?,serial_number=?,mark_id=?,location=?,
             purchase_date=?,warranty_expiry=?,calibration_interval=?,
-            status=?,notes=?
+            status=?,notes=?,lab_id=?,web_link=?,method=?,max_temp=?,particular=?,
+            measuring_time=?,measuring_limit=?,dimension=?,capacity=?,weight_kg=?,
+            other_spec=?,power=?,frequency=?,voltage=?,specification=?,
+            operating_state=?,received_date=?,
+            check_standard=?,check_tolerance=?,check_enabled=?,stage=?,check_freq=?
             WHERE id=?
         """, (
             request.form['name'],
             request.form.get('serial_number') or None,
-            request.form.get('mark_id') or None,
+            mark_id,
             request.form.get('location'),
             request.form.get('purchase_date') or None,
             request.form.get('warranty_expiry') or None,
             int(request.form.get('calibration_interval') or 90),
             request.form.get('status','active'),
-            request.form.get('notes'), did
+            request.form.get('notes'),
+            request.form.get('lab_id') or None,
+            request.form.get('web_link') or None,
+            request.form.get('method') or None,
+            request.form.get('max_temp') or None,
+            request.form.get('particular') or None,
+            request.form.get('measuring_time') or None,
+            request.form.get('measuring_limit') or None,
+            request.form.get('dimension') or None,
+            request.form.get('capacity') or None,
+            request.form.get('weight_kg') or None,
+            request.form.get('other_spec') or None,
+            request.form.get('power') or None,
+            request.form.get('frequency') or None,
+            request.form.get('voltage') or None,
+            request.form.get('specification') or None,
+            request.form.get('operating_state') or None,
+            request.form.get('received_date') or None,
+            request.form.get('check_standard') or None,
+            request.form.get('check_tolerance') or None,
+            1 if request.form.get('check_enabled') else 0,
+            request.form.get('stage') or 'both',
+            request.form.get('check_freq') or 'daily',
+            did
         ))
         if photo: conn.execute("UPDATE devices SET photo=? WHERE id=?", (photo, did))
         if pdf:   conn.execute("UPDATE devices SET passport_pdf=? WHERE id=?", (pdf, did))
@@ -287,15 +599,16 @@ def device_edit(did):
 @app.route('/usage/start/<int:did>', methods=['POST'])
 @login_required
 def usage_start(did):
-    uid  = session['user_id']
+    uid  = session.get('user_id', 0)
     conn = get_db()
     if session.get('role') != 'admin':
         perm = conn.execute("SELECT 1 FROM staff_device_permissions WHERE user_id=? AND device_id=?", (uid, did)).fetchone()
         if not perm:
             conn.close(); return jsonify({'error': 'Эрх байхгүй'}), 403
-    active = conn.execute("SELECT id FROM usage_logs WHERE user_id=? AND end_time IS NULL", (uid,)).fetchone()
-    if active:
-        conn.close(); return jsonify({'error': 'Та аль хэдийн өөр төхөөрөмж дээр ажиллаж байна!'}), 400
+    # Тухайн төхөөрөмж дээр аль хэдийн идэвхтэй сесси байвал давхардуулахгүй
+    already = conn.execute("SELECT id FROM usage_logs WHERE user_id=? AND device_id=? AND end_time IS NULL", (uid, did)).fetchone()
+    if already:
+        conn.close(); return jsonify({'error': 'Та энэ төхөөрөмж дээр аль хэдийн ажиллаж байна!'}), 400
     now = datetime.now().isoformat()
     conn.execute("INSERT INTO usage_logs(device_id,user_id,start_time) VALUES(?,?,?)", (did, uid, now))
     lid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -305,7 +618,7 @@ def usage_start(did):
 @app.route('/usage/stop/<int:lid>', methods=['POST'])
 @login_required
 def usage_stop(lid):
-    uid  = session['user_id']
+    uid  = session.get('user_id', 0)
     conn = get_db()
     log  = conn.execute("SELECT * FROM usage_logs WHERE id=?", (lid,)).fetchone()
     if not log or (log['user_id'] != uid and session.get('role') != 'admin'):
@@ -356,11 +669,224 @@ def repair_add(did):
           request.form.get('repair_date') or None,
           float(request.form.get('cost') or 0),
           photo, status, request.form.get('notes')))
-    if status == 'new':
+    if status in ('new', 'repair'):
         conn.execute("UPDATE devices SET status='repair' WHERE id=?", (did,))
     conn.commit(); conn.close()
     flash('Засварын бүртгэл нэмэгдлээ!' if lang=='mn' else 'Repair added!', 'success')
     return redirect(url_for('device_detail', did=did))
+
+# ── INTERNAL DAILY CHECK (жин г.м. дотоод шалгалт) ──────
+@app.route('/devices/<int:did>/check/add', methods=['POST'])
+@login_required
+def device_check_add(did):
+    lang = session.get('lang','mn')
+    conn = get_db()
+    conn.execute("""
+        INSERT INTO device_checks(device_id,checked_by,check_date,standard_value,
+        measured_value,tolerance,result,standard_value2,measured_value2,tolerance2,
+        standard_value3,measured_value3,tolerance3,
+        standard_value4,measured_value4,tolerance4,notes)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    """, (did, session.get('user_id', 0),
+          request.form.get('check_date') or date.today().isoformat(),
+          request.form.get('standard_value') or None,
+          request.form.get('measured_value') or None,
+          request.form.get('tolerance') or None,
+          request.form.get('result','pass'),
+          request.form.get('standard_value2') or None,
+          request.form.get('measured_value2') or None,
+          request.form.get('tolerance2') or None,
+          request.form.get('standard_value3') or None,
+          request.form.get('measured_value3') or None,
+          request.form.get('tolerance3') or None,
+          request.form.get('standard_value4') or None,
+          request.form.get('measured_value4') or None,
+          request.form.get('tolerance4') or None,
+          request.form.get('notes') or None))
+    conn.commit(); conn.close()
+    flash('Дотоод шалгалт бүртгэгдлээ!' if lang=='mn' else 'Internal check recorded!', 'success')
+    return redirect(url_for('device_detail', did=did) + '#tab-check')
+
+@app.route('/devices/check/<int:cid>/delete', methods=['POST'])
+@senior_required
+def device_check_delete(cid):
+    conn = get_db()
+    row = conn.execute("SELECT device_id FROM device_checks WHERE id=?", (cid,)).fetchone()
+    did = row['device_id'] if row else None
+    conn.execute("DELETE FROM device_checks WHERE id=?", (cid,))
+    conn.commit(); conn.close()
+    if did:
+        return redirect(url_for('device_detail', did=did) + '#tab-check')
+    return redirect(url_for('devices'))
+
+# ── НЭГДСЭН ӨДӨР ТУТМЫН БАТАЛГААЖУУЛАЛТ ──────────────────
+@app.route('/checks')
+@login_required
+def checks_page():
+    """Бүх тоног төхөөрөмжийн өдөр тутмын баталгаажуулалтыг нэг хуудсанд."""
+    lang = session.get('lang','mn')
+    sel_date = request.args.get('date') or date.today().isoformat()
+    conn = get_db()
+    devices = conn.execute("""
+        SELECT d.*, dm.manufacturer, dm.model FROM devices d
+        LEFT JOIN device_marks dm ON d.mark_id=dm.id
+        WHERE COALESCE(d.check_enabled,1)=1 AND d.status NOT IN ('archived','replaced','decommissioned')
+        ORDER BY COALESCE(d.check_freq,'daily'), d.name
+    """).fetchall()
+    # Weekly-д сонгосон өдрийн долоо хоногийн эхний өдрийг тооцно
+    from datetime import datetime, timedelta
+    sel_dt = datetime.strptime(sel_date, '%Y-%m-%d').date()
+    week_start = (sel_dt - timedelta(days=sel_dt.weekday())).isoformat()
+    week_end   = (sel_dt + timedelta(days=6 - sel_dt.weekday())).isoformat()
+    # Сонгосон өдрийн шалгалтуудыг device_id-аар индекслэх
+    rows = conn.execute("""
+        SELECT ch.*, u.name as uname FROM device_checks ch
+        LEFT JOIN users u ON u.id=ch.checked_by
+        WHERE ch.check_date=? ORDER BY ch.id DESC
+    """, (sel_date,)).fetchall()
+    week_rows = conn.execute("""
+        SELECT ch.*, u.name as uname FROM device_checks ch
+        LEFT JOIN users u ON u.id=ch.checked_by
+        WHERE ch.check_date BETWEEN ? AND ? ORDER BY ch.check_date DESC, ch.id DESC
+    """, (week_start, week_end)).fetchall()
+    conn.close()
+    today_checks = {}
+    for r in rows:
+        today_checks.setdefault(r['device_id'], r)
+    week_checks = {}
+    for r in week_rows:
+        week_checks.setdefault(r['device_id'], r)
+    return render_template('device/checks.html',
+        devices=devices, today_checks=today_checks, week_checks=week_checks,
+        sel_date=sel_date, today=date.today().isoformat(),
+        week_start=week_start, week_end=week_end, lang=lang)
+
+@app.route('/checks/save', methods=['POST'])
+@login_required
+def checks_save():
+    """Нэг өдрийн бүх төхөөрөмжийн шалгалтыг нэг дор хадгална."""
+    lang = session.get('lang','mn')
+    if session.get('role') == 'guest':
+        return redirect(url_for('checks_page'))
+    sel_date = request.form.get('check_date') or date.today().isoformat()
+    uid = session.get('user_id', 0)
+    conn = get_db()
+    saved = 0
+    for did in request.form.getlist('device_id'):
+        measured = (request.form.get(f'measured_{did}') or '').strip()
+        if not measured:
+            continue  # хэмжсэн утга оруулаагүй бол алгасна
+        # Тухайн өдрийн хуучин бичлэгийг устгаад шинээр бичих (давхардахгүй)
+        conn.execute("DELETE FROM device_checks WHERE device_id=? AND check_date=?", (did, sel_date))
+        cal_adj = 1 if request.form.get(f'cal_adj_{did}') else 0
+        conn.execute("""
+            INSERT INTO device_checks(device_id,checked_by,check_date,standard_value,
+            measured_value,tolerance,result,calibration_adjusted,
+            standard_value2,measured_value2,tolerance2,
+            standard_value3,measured_value3,tolerance3,
+            standard_value4,measured_value4,tolerance4,notes)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """, (did, uid, sel_date,
+              request.form.get(f'standard_{did}') or None,
+              measured,
+              request.form.get(f'tolerance_{did}') or None,
+              request.form.get(f'result_{did}','pass'),
+              cal_adj,
+              request.form.get(f'standard2_{did}') or None,
+              request.form.get(f'measured2_{did}') or None,
+              request.form.get(f'tolerance2_{did}') or None,
+              request.form.get(f'standard3_{did}') or None,
+              request.form.get(f'measured3_{did}') or None,
+              request.form.get(f'tolerance3_{did}') or None,
+              request.form.get(f'standard4_{did}') or None,
+              request.form.get(f'measured4_{did}') or None,
+              request.form.get(f'tolerance4_{did}') or None,
+              request.form.get(f'notes_{did}') or None))
+        saved += 1
+    conn.commit(); conn.close()
+    flash(f'{saved} төхөөрөмжийн баталгаажуулалт хадгалагдлаа!', 'success')
+    return redirect(url_for('checks_page', date=sel_date))
+
+@app.route('/checks/monthly')
+@login_required
+def checks_monthly():
+    """Сарын харагдац — бүх жингийн шалгалтыг нэг хүснэгтэд (Excel Sheet 1 загвараар)."""
+    import calendar as cal_mod
+    lang = session.get('lang', 'mn')
+    today = date.today()
+    year  = int(request.args.get('year',  today.year))
+    month = int(request.args.get('month', today.month))
+    _, days_in_month = cal_mod.monthrange(year, month)
+    d_from = f"{year}-{month:02d}-01"
+    d_to   = f"{year}-{month:02d}-{days_in_month:02d}"
+    conn = get_db()
+    devices = conn.execute("""
+        SELECT d.*, dm.manufacturer, dm.model FROM devices d
+        LEFT JOIN device_marks dm ON d.mark_id=dm.id
+        WHERE COALESCE(d.check_enabled,1)=1
+          AND d.status NOT IN ('archived','replaced','decommissioned')
+        ORDER BY COALESCE(d.check_freq,'daily'), d.name
+    """).fetchall()
+    rows = conn.execute("""
+        SELECT ch.*, u.name as uname FROM device_checks ch
+        LEFT JOIN users u ON u.id=ch.checked_by
+        WHERE ch.check_date BETWEEN ? AND ?
+    """, (d_from, d_to)).fetchall()
+    conn.close()
+    # (device_id, day) → check record
+    grid = {}
+    for r in rows:
+        day = int(r['check_date'].split('-')[2])
+        grid[(r['device_id'], day)] = r
+    return render_template('device/checks_monthly.html',
+        devices=devices, grid=grid,
+        year=year, month=month, days_in_month=days_in_month,
+        today=today, lang=lang)
+
+@app.route('/checks/export')
+@login_required
+def checks_export():
+    """Баталгаажуулалтын бүртгэлийг Excel болгон татах."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    d_from = request.args.get('from') or date.today().replace(day=1).isoformat()
+    d_to   = request.args.get('to') or date.today().isoformat()
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT ch.check_date, d.name as device_name, d.lab_id,
+               ch.standard_value, ch.measured_value, ch.tolerance,
+               ch.result, ch.calibration_adjusted, ch.notes, u.name as uname
+        FROM device_checks ch
+        LEFT JOIN devices d ON d.id=ch.device_id
+        LEFT JOIN users u ON u.id=ch.checked_by
+        WHERE ch.check_date BETWEEN ? AND ?
+        ORDER BY ch.check_date DESC, d.name
+    """, (d_from, d_to)).fetchall()
+    conn.close()
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Баталгаажуулалт'
+    headers = ['Огноо','Төхөөрөмж','Лаб дугаар','Стандарт','Хэмжсэн','Зөвшөөрөх зөрүү','Үр дүн','Тохируулга','Шалгасан','Тэмдэглэл']
+    ws.append(headers)
+    hf = Font(bold=True, color='FFFFFF')
+    fill = PatternFill('solid', fgColor='1A2744')
+    for c in ws[1]:
+        c.font = hf; c.fill = fill; c.alignment = Alignment(horizontal='center')
+    for r in rows:
+        ws.append([r['check_date'], r['device_name'], r['lab_id'] or '',
+                   r['standard_value'] or '', r['measured_value'] or '',
+                   r['tolerance'] or '',
+                   'Тэнцсэн' if r['result']=='pass' else 'Тэнцээгүй',
+                   'Тийм' if r['calibration_adjusted'] else '',
+                   r['uname'] or '', r['notes'] or ''])
+    widths = [12, 24, 12, 14, 14, 16, 12, 10, 18, 24]
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+    buf = io.BytesIO()
+    wb.save(buf); buf.seek(0)
+    fname = f'baталгаажуулалт_{d_from}_{d_to}.xlsx'
+    return send_file(buf, as_attachment=True, download_name=fname,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 @app.route('/repair/<int:rid>/close', methods=['POST'])
 @login_required
@@ -376,13 +902,32 @@ def repair_close(rid):
 
 # ── STAFF ───────────────────────────────────────────────
 @app.route('/staff')
-@admin_required
+@login_required
 def staff_list():
     lang = session.get('lang','mn')
     conn = get_db()
-    users = conn.execute("SELECT * FROM users WHERE is_active=1 ORDER BY name").fetchall()
+    is_admin = session.get('role') == 'admin'
+    role_filter = '' if is_admin else "AND role != 'admin'"
+    users_a = conn.execute(f"""
+        SELECT * FROM users WHERE is_active=1 AND shift='A' {role_filter}
+        ORDER BY CASE role
+            WHEN 'admin' THEN 1 WHEN 'senior' THEN 2 WHEN 'staff' THEN 3
+            WHEN 'preparer' THEN 4 WHEN 'geologist' THEN 5 ELSE 6 END, name
+    """).fetchall()
+    users_b = conn.execute(f"""
+        SELECT * FROM users WHERE is_active=1 AND shift='B' {role_filter}
+        ORDER BY CASE role
+            WHEN 'admin' THEN 1 WHEN 'senior' THEN 2 WHEN 'staff' THEN 3
+            WHEN 'preparer' THEN 4 WHEN 'geologist' THEN 5 ELSE 6 END, name
+    """).fetchall()
+    users_none = conn.execute(f"""
+        SELECT * FROM users WHERE is_active=1 AND (shift IS NULL OR shift='') {role_filter}
+        ORDER BY CASE role
+            WHEN 'admin' THEN 1 WHEN 'senior' THEN 2 WHEN 'staff' THEN 3
+            WHEN 'preparer' THEN 4 WHEN 'geologist' THEN 5 ELSE 6 END, name
+    """).fetchall()
     conn.close()
-    return render_template('admin/staff_list.html', users=users, lang=lang)
+    return render_template('admin/staff_list.html', users_a=users_a, users_b=users_b, users_none=users_none, lang=lang)
 
 @app.route('/staff/add', methods=['GET','POST'])
 @senior_required
@@ -405,18 +950,21 @@ def staff_add():
             if session.get('role') == 'senior' and role_to_set in ('admin','senior'):
                 role_to_set = 'staff'
             conn.execute("""
-                INSERT INTO users(employee_id,name,position,phone,email,photo,role,password_hash,joined_date)
-                VALUES(?,?,?,?,?,?,?,?,?)
+                INSERT INTO users(employee_id,name,position,phone,email,photo,role,password_hash,joined_date,shift)
+                VALUES(?,?,?,?,?,?,?,?,?,?)
             """, (
                 request.form['employee_id'], request.form['name'],
                 request.form.get('position'), request.form.get('phone'),
                 request.form.get('email'), photo,
                 role_to_set, pw,
-                request.form.get('joined_date') or None
+                request.form.get('joined_date') or None,
+                request.form.get('shift') or None
             ))
             uid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-            for did in request.form.getlist('device_permissions'):
-                conn.execute("INSERT OR IGNORE INTO staff_device_permissions(user_id,device_id) VALUES(?,?)", (uid, did))
+            # Геологичид (харилцагч) тоног ашиглах эрх олгохгүй
+            if role_to_set != 'geologist':
+                for did in request.form.getlist('device_permissions'):
+                    conn.execute("INSERT OR IGNORE INTO staff_device_permissions(user_id,device_id) VALUES(?,?)", (uid, did))
             conn.commit(); conn.close()
             flash('Ажилтан нэмэгдлээ!' if lang=='mn' else 'Staff added!', 'success')
             return redirect(url_for('staff_list'))
@@ -432,11 +980,39 @@ def staff_add():
 @app.route('/staff/<int:uid>')
 @login_required
 def staff_detail(uid):
-    if session.get('role') != 'admin' and session['user_id'] != uid:
+    if session.get('role') not in ('admin','senior','guest') and session.get('user_id') != uid:
         return redirect(url_for('dashboard'))
     lang = session.get('lang','mn')
     conn = get_db()
     target  = conn.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
+    if not target:
+        conn.close()
+        return redirect(url_for('staff_list'))
+
+    # ── ГЕОЛОГИЧ (харилцагч): зөвхөн дээж бүртгэлийн мэдээлэл ──
+    if target['role'] == 'geologist':
+        geo_total = conn.execute("SELECT COUNT(*) FROM geo_samples WHERE registered_by=?", (uid,)).fetchone()[0]
+        geo_done  = conn.execute("SELECT COUNT(*) FROM geo_samples WHERE registered_by=? AND status='done'", (uid,)).fetchone()[0]
+        geo_active = geo_total - geo_done
+        geo_by_type = conn.execute("""
+            SELECT sample_type, COUNT(*) as cnt FROM geo_samples
+            WHERE registered_by=? GROUP BY sample_type ORDER BY cnt DESC
+        """, (uid,)).fetchall()
+        geo_recent = conn.execute("""
+            SELECT g.*, sr.lab_number FROM geo_samples g
+            LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
+            WHERE g.registered_by=? ORDER BY g.created_at DESC LIMIT 30
+        """, (uid,)).fetchall()
+        geo_monthly = conn.execute("""
+            SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as cnt
+            FROM geo_samples WHERE registered_by=?
+            GROUP BY month ORDER BY month
+        """, (uid,)).fetchall()
+        conn.close()
+        return render_template('staff/detail_geologist.html', target=target, lang=lang,
+                               geo_total=geo_total, geo_done=geo_done, geo_active=geo_active,
+                               geo_by_type=geo_by_type, geo_recent=geo_recent, geo_monthly=geo_monthly)
+
     logs    = conn.execute("""
         SELECT ul.*, d.name as dname FROM usage_logs ul
         LEFT JOIN devices d ON d.id=ul.device_id
@@ -447,23 +1023,69 @@ def staff_detail(uid):
         JOIN staff_device_permissions p ON p.device_id=d.id
         WHERE p.user_id=?
     """, (uid,)).fetchall()
+    device_usage = conn.execute("""
+        SELECT d.id as device_id, d.name as device_name,
+               COUNT(*) as sessions,
+               COALESCE(SUM(CAST((julianday(ul.end_time)-julianday(ul.start_time))*1440 AS INTEGER)),0) as total_min,
+               MAX(ul.start_time) as last_used
+        FROM usage_logs ul
+        JOIN devices d ON d.id=ul.device_id
+        WHERE ul.user_id=? AND ul.end_time IS NOT NULL
+        GROUP BY d.id ORDER BY total_min DESC
+    """, (uid,)).fetchall()
+    # Stats
+    total_done     = conn.execute("SELECT COUNT(*) FROM sample_entries WHERE done_by=? AND row_status IN ('done','approved')", (uid,)).fetchone()[0]
+    total_approved = conn.execute("SELECT COUNT(*) FROM sample_entries WHERE approved_by=? AND row_status='approved'", (uid,)).fetchone()[0]
+    total_hours    = conn.execute("SELECT COALESCE(SUM(duration_hours),0) FROM usage_logs WHERE user_id=? AND end_time IS NOT NULL", (uid,)).fetchone()[0]
+    # QC radar
+    qc_rows = conn.execute("""
+        SELECT qs.parameter,
+               SUM(CASE WHEN ABS(e.mad - e2.mad) <= qs.tolerance THEN 1 ELSE 0 END)*1.0/COUNT(*)*100 as pct
+        FROM sample_entries e
+        JOIN sample_entries e2 ON e2.receipt_id=e.receipt_id AND e2.row_num=e.row_num AND e2.is_duplicate=1
+        JOIN qc_settings qs ON qs.parameter='Mad'
+        WHERE e.is_duplicate=0 AND e.done_by=? AND e.mad IS NOT NULL AND e2.mad IS NOT NULL
+        LIMIT 1
+    """, (uid,)).fetchall()
+    qc_radar = {}
+    # Monthly analysis counts
+    now = datetime.now()
+    def monthly_counts(months_back):
+        rows = conn.execute("""
+            SELECT strftime('%Y-%m', se.done_at) as month, COUNT(*) as cnt
+            FROM sample_entries se
+            WHERE se.done_by=? AND se.row_status IN ('done','approved')
+              AND se.done_at >= date('now', ?)
+            GROUP BY month ORDER BY month
+        """, (uid, f'-{months_back} months')).fetchall()
+        return rows
+    monthly_6   = monthly_counts(6)
+    monthly_12  = monthly_counts(12)
+    monthly_all = conn.execute("""
+        SELECT strftime('%Y-%m', done_at) as month, COUNT(*) as cnt
+        FROM sample_entries WHERE done_by=? AND row_status IN ('done','approved')
+        GROUP BY month ORDER BY month
+    """, (uid,)).fetchall()
     conn.close()
-    return render_template('staff/detail.html', target=target, logs=logs, my_devices=my_devs, lang=lang)
+    return render_template('staff/detail.html', target=target, logs=logs, my_devices=my_devs,
+                           device_usage=device_usage, lang=lang,
+                           total_done=total_done, total_approved=total_approved, total_hours=total_hours,
+                           qc_radar=qc_radar, monthly_6=monthly_6, monthly_12=monthly_12, monthly_all=monthly_all)
 
 # ── ARCHIVE ─────────────────────────────────────────────
 @app.route('/archive')
-@login_required
+@senior_required
 def archive():
     lang = session.get('lang','mn')
     conn = get_db()
     archived_devices = conn.execute("""
         SELECT d.*, dm.manufacturer, dm.model FROM devices d
         LEFT JOIN device_marks dm ON d.mark_id=dm.id
-        WHERE d.status IN ('archived','replaced')
+        WHERE d.status IN ('archived','replaced','decommissioned')
         ORDER BY d.name
     """).fetchall()
     archived_staff = conn.execute(
-        "SELECT * FROM users WHERE is_active=0 ORDER BY name"
+        "SELECT * FROM users WHERE is_active=0 AND role != 'admin' ORDER BY name"
     ).fetchall()
     completed_repairs = conn.execute("""
         SELECT r.*, d.name as dname FROM repairs r
@@ -471,12 +1093,83 @@ def archive():
         WHERE r.status IN ('done','replaced')
         ORDER BY r.reported_date DESC
     """).fetchall()
+    completed_samples = conn.execute("""
+        SELECT g.*, sr.lab_number, sr.lab_serial, sr.id as receipt_id,
+               u.name as reg_name
+        FROM geo_samples g
+        JOIN sample_receipt sr ON sr.geo_sample_id=g.id
+        LEFT JOIN users u ON u.id=g.registered_by
+        WHERE g.status='done'
+        ORDER BY sr.lab_serial DESC LIMIT 200
+    """).fetchall()
     conn.close()
     return render_template('admin/archive.html',
         archived_devices=archived_devices,
         archived_staff=archived_staff,
         completed_repairs=completed_repairs,
+        done_samples=completed_samples,
         lang=lang)
+
+@app.route('/archive/result/<int:receipt_id>')
+@login_required
+def archive_result(receipt_id):
+    lang = session.get('lang','mn')
+    role = session.get('role','')
+    conn = get_db()
+    receipt = conn.execute("""
+        SELECT sr.*, g.sample_name, g.sample_type, g.location,
+               g.collected_date, g.quantity,
+               ug.name as geo_name, up.name as prep_name
+        FROM sample_receipt sr
+        JOIN geo_samples g ON g.id=sr.geo_sample_id
+        LEFT JOIN users ug ON ug.id=g.registered_by
+        LEFT JOIN users up ON up.id=sr.received_by
+        WHERE sr.id=?
+    """, (receipt_id,)).fetchone()
+    if not receipt:
+        conn.close()
+        flash('Бүртгэл олдсонгүй', 'error')
+        return redirect(url_for('archive'))
+    entries = conn.execute("""
+        SELECT se.*, u1.name as done_name, u2.name as approved_name
+        FROM sample_entries se
+        LEFT JOIN users u1 ON u1.id=se.done_by
+        LEFT JOIN users u2 ON u2.id=se.approved_by
+        WHERE se.receipt_id=?
+        ORDER BY se.row_num, se.is_duplicate
+    """, (receipt_id,)).fetchall()
+    qc = {r['parameter']: r for r in conn.execute("SELECT * FROM qc_settings").fetchall()}
+    conn.close()
+    return render_template('analysis/archive_result.html',
+        receipt=receipt, entries=entries, qc=qc, lang=lang, role=role)
+
+@app.route('/archive/measure/<int:receipt_id>')
+@login_required
+def archive_measure(receipt_id):
+    lang = session.get('lang','mn')
+    conn = get_db()
+    receipt = conn.execute("""
+        SELECT sr.*, g.sample_name, g.sample_type, g.location, g.quantity
+        FROM sample_receipt sr
+        JOIN geo_samples g ON g.id=sr.geo_sample_id
+        WHERE sr.id=?
+    """, (receipt_id,)).fetchone()
+    if not receipt:
+        conn.close()
+        flash('Бүртгэл олдсонгүй', 'error')
+        return redirect(url_for('archive'))
+    entries = conn.execute("""
+        SELECT * FROM sample_entries WHERE receipt_id=?
+        ORDER BY row_num, is_duplicate
+    """, (receipt_id,)).fetchall()
+    conn.close()
+    return render_template('analysis/archive_measure.html',
+        receipt=receipt, entries=entries, lang=lang)
+
+@app.route('/archive/export/<int:receipt_id>')
+@login_required
+def analysis_export_report(receipt_id):
+    return redirect(url_for('analysis_export', receipt_id=receipt_id))
 
 # ── STAFF EDIT (admin/senior) ───────────────────────────
 @app.route('/staff/<int:uid>/edit', methods=['GET','POST'])
@@ -496,7 +1189,7 @@ def staff_edit(uid):
             if session.get('role') == 'senior' and role_to_set in ('admin','senior'):
                 role_to_set = target['role']
             conn.execute("""
-                UPDATE users SET name=?,position=?,phone=?,email=?,role=?,joined_date=?
+                UPDATE users SET name=?,position=?,phone=?,email=?,role=?,joined_date=?,shift=?
                 WHERE id=?
             """, (
                 request.form.get('name', target['name']),
@@ -505,14 +1198,16 @@ def staff_edit(uid):
                 request.form.get('email'),
                 role_to_set,
                 request.form.get('joined_date') or None,
+                request.form.get('shift') or None,
                 uid
             ))
             if photo:
                 conn.execute("UPDATE users SET photo=? WHERE id=?", (photo, uid))
-            # Эрх шинэчлэх
+            # Эрх шинэчлэх — геологичид (харилцагч) тоног ашиглах эрх олгохгүй
             conn.execute("DELETE FROM staff_device_permissions WHERE user_id=?", (uid,))
-            for did in request.form.getlist('device_permissions'):
-                conn.execute("INSERT OR IGNORE INTO staff_device_permissions(user_id,device_id) VALUES(?,?)", (uid, did))
+            if role_to_set != 'geologist':
+                for did in request.form.getlist('device_permissions'):
+                    conn.execute("INSERT OR IGNORE INTO staff_device_permissions(user_id,device_id) VALUES(?,?)", (uid, did))
             conn.commit()
             flash('Мэдээлэл шинэчлэгдлээ!' if lang=='mn' else 'Updated!', 'success')
             # Хадгалаад жагсаалт руу шилжих
@@ -537,7 +1232,7 @@ def staff_edit(uid):
 @login_required
 def profile():
     lang = session.get('lang','mn')
-    uid  = session['user_id']
+    uid  = session.get('user_id', 0)
     conn = get_db()
     user = conn.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
     if request.method == 'POST':
@@ -584,7 +1279,7 @@ def staff_deactivate(uid):
     lang = session.get('lang','mn')
     conn = get_db()
     # Өөрийгөө идэвхгүй болгохоос хамгаалах
-    if uid == session['user_id']:
+    if uid == session.get('user_id', 0):
         conn.close()
         flash('Өөрийгөө идэвхгүй болгох боломжгүй!' if lang=='mn' else 'Cannot deactivate yourself!', 'error')
         return redirect(url_for('staff_list'))
@@ -614,7 +1309,17 @@ def device_archive(did):
     reason = request.form.get('reason', 'archived')
     conn.execute("UPDATE devices SET status=? WHERE id=?", (reason, did))
     conn.commit(); conn.close()
-    flash('Төхөөрөмж архивлагдлаа.' if lang=='mn' else 'Device archived.', 'success')
+    msgs = {
+        'standby':        'Төхөөрөмж нөөцөд шилжлээ.',
+        'repair':         'Төхөөрөмж засварт шилжлээ. Дэлгэрэнгүйг бүртгэнэ үү.',
+        'replaced':       'Төхөөрөмж солигдсон гэж тэмдэглэгдлээ.',
+        'decommissioned': 'Төхөөрөмж акталагдлаа.',
+        'archived':       'Төхөөрөмж архивлагдлаа.',
+    }
+    flash(msgs.get(reason, 'Төхөөрөмжийн төлөв шинэчлэгдлээ.') if lang=='mn' else 'Device status updated.', 'success')
+    # Засварт шилжүүлсэн бол detail хуудас руу (дэлгэрэнгүй бүртгэхэд)
+    if reason == 'repair':
+        return redirect(url_for('device_detail', did=did) + '#tab-repair')
     return redirect(url_for('devices'))
 
 @app.route('/devices/<int:did>/restore', methods=['POST'])
@@ -639,11 +1344,153 @@ def mark_add():
     conn.commit(); conn.close()
     return jsonify({'success': True, 'id': mid, 'name': name})
 
+# ── DB MIGRATION (called once at startup) ───────────────
+def ensure_tables():
+    conn = get_db()
+    conn.execute("""CREATE TABLE IF NOT EXISTS lab_report_records (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        period_label TEXT, period_type TEXT, year INTEGER,
+        period_start TEXT, period_end TEXT, report_type TEXT, file_path TEXT,
+        generated_by INTEGER REFERENCES users(id),
+        generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        status TEXT DEFAULT 'active', archived_by INTEGER, archived_at TIMESTAMP
+    )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS crm_materials (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        crm_name TEXT NOT NULL,
+        mad_cert REAL, mad_unc REAL, aad_cert REAL, aad_unc REAL,
+        vad_cert REAL, vad_unc REAL, sulfur_cert REAL, sulfur_unc REAL,
+        cal_cert REAL, cal_unc REAL, notes TEXT,
+        manufacture_date TEXT, expiry_date TEXT, open_date TEXT,
+        is_active INTEGER DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS guest_tokens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        token TEXT UNIQUE NOT NULL,
+        label TEXT,
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TEXT NOT NULL
+    )""")
+    for col in ['manufacture_date TEXT', 'expiry_date TEXT', 'open_date TEXT', 'g_cert REAL', 'g_unc REAL', 'standard TEXT',
+                'mad_cert REAL', 'mad_unc REAL',
+                'aad_cert REAL', 'aad_unc REAL', 'vad_cert REAL', 'vad_unc REAL',
+                'sulfur_cert REAL', 'sulfur_unc REAL', 'cal_cert REAL', 'cal_unc REAL']:
+        try: conn.execute(f"ALTER TABLE crm_materials ADD COLUMN {col}")
+        except Exception: pass
+    for col in ['crm_name TEXT','crm_mad REAL','crm_aad REAL','crm_vad REAL',
+                'crm_sulfur REAL','crm_cal REAL','crm_mad_unc REAL','crm_aad_unc REAL',
+                'crm_vad_unc REAL','crm_sulfur_unc REAL','crm_cal_unc REAL','sample_range TEXT']:
+        try: conn.execute(f"ALTER TABLE geo_samples ADD COLUMN {col}")
+        except Exception: pass
+    for col in ['prep_operator TEXT', 'prep_position TEXT', 'prep_devices TEXT']:
+        try: conn.execute(f"ALTER TABLE sample_receipt ADD COLUMN {col}")
+        except Exception: pass
+    # Төхөөрөмжийн дэлгэрэнгүй паспорт талбарууд
+    for col in ['web_link TEXT','method TEXT','max_temp TEXT','particular TEXT',
+                'measuring_time TEXT','measuring_limit TEXT','dimension TEXT','capacity TEXT',
+                'weight_kg TEXT','other_spec TEXT','power TEXT','frequency TEXT','voltage TEXT',
+                'specification TEXT','operating_state TEXT','received_date TEXT','lab_id TEXT',
+                'check_standard TEXT','check_tolerance TEXT','check_unit TEXT',
+                'check_enabled INTEGER DEFAULT 1','stage TEXT DEFAULT \'both\'',
+                'check_freq TEXT DEFAULT \'daily\'']:
+        try: conn.execute(f"ALTER TABLE devices ADD COLUMN {col}")
+        except Exception: pass
+    # Дотоод өдөр тутмын шалгалт (жин г.м.)
+    conn.execute("""CREATE TABLE IF NOT EXISTS device_checks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        device_id INTEGER NOT NULL REFERENCES devices(id),
+        checked_by INTEGER REFERENCES users(id),
+        check_date TEXT NOT NULL,
+        standard_value TEXT,
+        measured_value TEXT,
+        tolerance TEXT,
+        result TEXT DEFAULT 'pass',
+        calibration_adjusted INTEGER DEFAULT 0,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
+    for col in ['calibration_adjusted INTEGER DEFAULT 0',
+                'measured_value2 TEXT', 'standard_value2 TEXT', 'tolerance2 TEXT']:
+        try: conn.execute(f"ALTER TABLE device_checks ADD COLUMN {col}")
+        except Exception: pass
+    for col in ['check_standard2 TEXT', 'check_tolerance2 TEXT',
+                'check_param1 TEXT', 'check_param2 TEXT',
+                'check_param3 TEXT', 'check_standard3 TEXT', 'check_tolerance3 TEXT',
+                'check_param4 TEXT', 'check_standard4 TEXT', 'check_tolerance4 TEXT']:
+        try: conn.execute(f"ALTER TABLE devices ADD COLUMN {col}")
+        except Exception: pass
+    for col in ['check_group1 TEXT', 'check_group2 TEXT', 'check_group3 TEXT',
+                'check_photo1 TEXT', 'check_photo2 TEXT', 'check_photo3 TEXT', 'check_photo4 TEXT']:
+        try: conn.execute(f"ALTER TABLE devices ADD COLUMN {col}")
+        except Exception: pass
+    for col in ['measured_value3 TEXT', 'standard_value3 TEXT', 'tolerance3 TEXT',
+                'measured_value4 TEXT', 'standard_value4 TEXT', 'tolerance4 TEXT']:
+        try: conn.execute(f"ALTER TABLE device_checks ADD COLUMN {col}")
+        except Exception: pass
+    try: conn.execute("ALTER TABLE users ADD COLUMN shift TEXT")
+    except Exception: pass
+    # Барабан (Эргэдэг хүрд) тохиргоо — лаб дугаар 11-14 (4 параметр)
+    conn.execute("""
+        UPDATE devices SET
+            check_param1='Дотоод диаметр', check_standard='200', check_tolerance='',
+            check_param2='Гүн', check_standard2='70', check_tolerance2='',
+            check_param3='Эргэлтийн хурд', check_standard3='50', check_tolerance3='±1',
+            check_param4='Ачааны жин', check_standard4='112.5', check_tolerance4='±2.5',
+            check_group1='Эргэдэг хүрд', check_group2='Эргэлдэх барабан', check_group3='Ачаа',
+            check_freq='weekly', check_enabled=1
+        WHERE lab_id IN ('11','12','13','14')
+    """)
+    conn.commit()
+    conn.close()
+
 # ── REPORTS ─────────────────────────────────────────────
 @app.route('/reports')
 @senior_required
 def reports():
-    return render_template('admin/reports.html', lang=session.get('lang','mn'))
+    import calendar as cal_mod
+    conn = get_db()
+    try:
+        lab_records = conn.execute(
+            '''SELECT r.*, u.name as gen_name FROM lab_report_records r
+               LEFT JOIN users u ON u.id=r.generated_by
+               WHERE r.status='active' ORDER BY r.generated_at DESC LIMIT 30'''
+        ).fetchall()
+    except Exception:
+        lab_records = []
+    cur_year = datetime.now().year
+    SAMPLE_TYPES_MAP = [
+        ('PIT','Уурхай'),('STOCKPILE','Овоолго'),('EXPORT','Ачилт'),
+        ('CONTROL','Хяналт'),('DP','Баяжуулах'),('EQ_CONTROL','Гадаад хяналт'),
+    ]
+    ANALYSIS_FIELDS = [
+        ('Mad','Дотоод чийг'),('Aad','Үнслэг'),('Vad','Дэгдэмхий'),
+        ('sulfur','Хүхэр'),('cal_value','Илчлэг'),
+    ]
+    sample_chart = {name: [] for _, name in SAMPLE_TYPES_MAP}
+    analysis_chart = {name: [] for _, name in ANALYSIS_FIELDS}
+    for m in range(1, 13):
+        d0 = f"{cur_year}-{m:02d}-01"
+        _, ld = cal_mod.monthrange(cur_year, m)
+        d1 = f"{cur_year}-{m:02d}-{ld:02d}"
+        for code, name in SAMPLE_TYPES_MAP:
+            v = conn.execute(
+                'SELECT COUNT(*) as c FROM geo_samples WHERE sample_type=? AND collected_date BETWEEN ? AND ?',
+                (code, d0, d1)).fetchone()['c']
+            sample_chart[name].append(v)
+        for field, name in ANALYSIS_FIELDS:
+            v = conn.execute(
+                f'SELECT COUNT(*) as c FROM sample_entries WHERE {field} IS NOT NULL AND done_at BETWEEN ? AND ?',
+                (d0 + ' 00:00:00', d1 + ' 23:59:59')).fetchone()['c']
+            analysis_chart[name].append(v)
+    conn.close()
+    return render_template('admin/reports.html', lang=session.get('lang','mn'),
+        lab_records=lab_records, sample_chart=sample_chart,
+        sample_types=[name for _, name in SAMPLE_TYPES_MAP],
+        analysis_chart=analysis_chart,
+        analysis_types=[name for _, name in ANALYSIS_FIELDS],
+        cur_year=cur_year)
 
 @app.route('/reports/export')
 @senior_required
@@ -787,13 +1634,56 @@ def report_export():
     for ci,w in enumerate([5,26,12,32,18,14,12],1):
         ws4.column_dimensions[get_column_letter(ci)].width=w
 
-    for ws in [ws1,ws2,ws3,ws4]:
+    ws5=wb.create_sheet('Дотоод шалгалт')
+    ws5.sheet_view.showGridLines=False
+    title(ws5,'ДОТООД ШАЛГАЛТЫН БҮРТГЭЛ',8)
+    for ci,h in enumerate(['№','Огноо','Төхөөрөмж','Стандарт','Хэмжсэн','Зөрүү зөвшөөрөл','Үр дүн','Тохируулга'],1):
+        hdr(ws5,2,ci,h,bg='2D6A4F')
+    wch = f"strftime('%Y-%m',ch.check_date) IN ({ym_list})"
+    chks=conn.execute(f'''SELECT ch.*,d.name as dname,u.name as uname
+        FROM device_checks ch
+        LEFT JOIN devices d ON d.id=ch.device_id
+        LEFT JOIN users u ON u.id=ch.checked_by
+        WHERE {wch} ORDER BY ch.check_date,d.name''').fetchall()
+    pass_c=fail_c=adj_c=0
+    for ri,ch in enumerate(chks,3):
+        bg=WHITE if ri%2==0 else GRAY
+        is_pass=ch['result']=='pass'
+        is_adj=ch['calibration_adjusted'] if ch['calibration_adjusted'] else 0
+        if is_pass: pass_c+=1
+        else: fail_c+=1
+        if is_adj: adj_c+=1
+        dat(ws5,ri,1,ri-2,bg=bg)
+        dat(ws5,ri,2,ch['check_date'] or '',bg=bg)
+        dat(ws5,ri,3,ch['dname'] or '',bg=bg,left=True)
+        dat(ws5,ri,4,ch['standard_value'] or '—',bg=bg)
+        dat(ws5,ri,5,ch['measured_value'] or '—',bg=bg)
+        dat(ws5,ri,6,ch['tolerance'] or '—',bg=bg)
+        cell=ws5.cell(row=ri,column=7,value='Тэнцсэн' if is_pass else 'Тэнцээгүй')
+        cell.font=Font(name='Arial',size=10,color='0F6E56' if is_pass else '993C1D',bold=True)
+        cell.fill=PatternFill('solid',fgColor=bg); cell.border=th()
+        cell.alignment=Alignment(horizontal='center',vertical='center')
+        cell2=ws5.cell(row=ri,column=8,value='Тийм' if is_adj else '')
+        cell2.font=Font(name='Arial',size=10,color='D97706' if is_adj else '999999',bold=bool(is_adj))
+        cell2.fill=PatternFill('solid',fgColor=bg); cell2.border=th()
+        cell2.alignment=Alignment(horizontal='center',vertical='center')
+    # Дүгнэлт мөр
+    lr5=3+len(chks)
+    total=len(chks)
+    ws5.merge_cells(start_row=lr5,start_column=1,end_row=lr5,end_column=3)
+    dat(ws5,lr5,1,f'Нийт: {total}  |  Тэнцсэн: {pass_c}  |  Тэнцээгүй: {fail_c}  |  Тохируулга: {adj_c}',bold=True,bg='E8F5E9',left=True)
+    for ci in range(4,9):
+        dat(ws5,lr5,ci,'',bg='E8F5E9')
+    for ci,w in enumerate([5,14,28,14,14,16,14,12],1):
+        ws5.column_dimensions[get_column_letter(ci)].width=w
+
+    for ws in [ws1,ws2,ws3,ws4,ws5]:
         ws.page_setup.orientation='landscape'
         ws.page_setup.fitToPage=True; ws.page_setup.fitToWidth=1
 
     conn.close()
     buf=io.BytesIO(); wb.save(buf); buf.seek(0)
-    fname=f'Лаборатори_{period_label.replace(' ','_')}.xlsx'
+    fname='Лаборатори_' + period_label.replace(' ','_') + '.xlsx'
     return send_file(buf,as_attachment=True,download_name=fname,
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
@@ -806,7 +1696,7 @@ def generate_lab_number(sample_type, date_str):
     """Дээжний төрлөөс хамааран лаб дугаар үүсгэнэ"""
     prefix_map = {
         'PIT': 1000, 'STOCKPILE': 2000, 'EXPORT': 3000,
-        'CONTROL': 4000, 'EQ_CONTROL': 5000, 'DP': 6000
+        'CONTROL': 4000, 'EQ_CONTROL': 5000, 'DP': 6000, 'CRM': 9000
     }
     base = prefix_map.get(sample_type, 1000)
     conn = get_db()
@@ -949,29 +1839,36 @@ def analysis():
     lang = session.get('lang','mn')
     conn = get_db()
     role = session.get('role')
-    uid = session['user_id']
+    uid = session.get('user_id', 0)
 
     if role == 'geologist':
         samples = conn.execute("""
             SELECT g.*, u.name as reg_name,
-                   sr.lab_number, sr.received_date, sr.mass_kg, sr.id as receipt_id
+                   sr.lab_number, sr.lab_serial, sr.received_date, sr.mass_kg, sr.id as receipt_id, sr.prep_status
             FROM geo_samples g
             LEFT JOIN users u ON u.id=g.registered_by
             LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
-            WHERE g.registered_by=? ORDER BY g.created_at DESC LIMIT 50
+            WHERE g.registered_by=? AND g.status != 'done'
+            ORDER BY sr.lab_serial DESC, g.created_at DESC LIMIT 50
         """, (uid,)).fetchall()
     else:
         samples = conn.execute("""
             SELECT g.*, u.name as reg_name,
-                   sr.lab_number, sr.received_date, sr.mass_kg, sr.id as receipt_id
+                   sr.lab_number, sr.lab_serial, sr.received_date, sr.mass_kg, sr.id as receipt_id, sr.prep_status
             FROM geo_samples g
             LEFT JOIN users u ON u.id=g.registered_by
             LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
-            ORDER BY g.created_at DESC LIMIT 200
+            WHERE g.status != 'done'
+            ORDER BY sr.lab_serial DESC, g.created_at DESC LIMIT 200
         """).fetchall()
+    prep_devices = conn.execute("""
+        SELECT id, name FROM devices
+        WHERE status='active' AND COALESCE(stage,'both') IN ('prep','both')
+        ORDER BY name
+    """).fetchall()
     conn.close()
-    conn.close()
-    return render_template('analysis/index.html', samples=samples, lang=lang, today=datetime.now().strftime('%Y-%m-%d'))
+    return render_template('analysis/index.html', samples=samples, lang=lang,
+        today=datetime.now().strftime('%Y-%m-%d'), prep_devices=prep_devices)
 
 @app.route('/analysis/register', methods=['GET','POST'])
 @login_required
@@ -986,8 +1883,12 @@ def analysis_register():
         sample_name = request.form['sample_name']
         quantity    = int(request.form.get('quantity', 1))
 
+        # Цэг таслалаар тусгаарласан нэрс: "a1; a2; b3" → тоог автоматаар тооцно
+        if ';' in sample_name:
+            parts = [p.strip() for p in sample_name.split(';') if p.strip()]
+            quantity = len(parts)
         # PIT бол "1-100" хэлбэрийг задлах
-        if sample_type == 'PIT':
+        elif sample_type == 'PIT':
             import re as _re; m = _re.match(r'^([0-9]+)-([0-9]+)$', sample_name.strip())
             if m:
                 from_n = int(m.group(1))
@@ -1016,6 +1917,122 @@ def analysis_register():
     return render_template('analysis/register.html', lang=lang, 
         today=datetime.now().strftime('%Y-%m-%d'),
         sample_types=stypes)
+
+@app.route('/analysis/crm/register', methods=['GET', 'POST'])
+@lab_required
+def analysis_crm_register():
+    conn = get_db()
+    if request.method == 'POST':
+        mat_id = request.form.get('crm_material_id', '').strip()
+        collected_date = request.form.get('collected_date') or datetime.now().strftime('%Y-%m-%d')
+        notes = request.form.get('notes', '').strip()
+
+        if not mat_id:
+            flash('CRM материал сонгоно уу', 'error')
+            conn.close()
+            return redirect(url_for('analysis_crm_register'))
+
+        mat = conn.execute("SELECT * FROM crm_materials WHERE id=?", (mat_id,)).fetchone()
+        if not mat:
+            flash('CRM материал олдсонгүй', 'error')
+            conn.close()
+            return redirect(url_for('analysis_crm_register'))
+
+        crm_name = mat['crm_name']
+        try:
+            cur = conn.execute("""
+                INSERT INTO geo_samples (sample_name, sample_type, location, collected_date, quantity, notes,
+                    registered_by, status, crm_name, crm_aad, crm_vad, crm_sulfur, crm_cal)
+                VALUES (?, 'CRM', 'CRM', ?, 1, ?, ?, 'received', ?, ?, ?, ?, ?)
+            """, (crm_name, collected_date, notes, session['user_id'],
+                  crm_name, mat['aad_cert'], mat['vad_cert'], mat['sulfur_cert'], mat['cal_cert']))
+            geo_id = cur.lastrowid
+
+            crm_lab_num = f"CRM {crm_name} {collected_date.replace('-','')}"
+            # ensure uniqueness if same CRM registered multiple times on same day
+            _suffix = 0
+            while conn.execute("SELECT 1 FROM sample_receipt WHERE lab_number=?", (crm_lab_num + (f'-{_suffix}' if _suffix else ''),)).fetchone():
+                _suffix += 1
+            if _suffix:
+                crm_lab_num = crm_lab_num + f'-{_suffix}'
+            cur2 = conn.execute("""
+                INSERT INTO sample_receipt (geo_sample_id, lab_number, lab_serial, received_date, received_by, prep_status)
+                VALUES (?, ?, ?, ?, ?, 'ready')
+            """, (geo_id, crm_lab_num, 0, collected_date, session['user_id']))
+            receipt_id = cur2.lastrowid
+
+            conn.execute("""
+                INSERT INTO sample_entries (receipt_id, row_num, is_duplicate, sample_name, row_status)
+                VALUES (?, 1, 0, ?, 'empty')
+            """, (receipt_id, crm_name))
+
+            conn.commit()
+            conn.close()
+            flash(f'CRM дээж бүртгэгдлээ: {crm_name}', 'success')
+            return redirect(url_for('analysis_measure', receipt_id=receipt_id))
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            conn.rollback()
+            conn.close()
+            flash(f'Алдаа: {e}', 'error')
+            return redirect(url_for('analysis_crm_register'))
+
+    crm_materials = conn.execute("SELECT * FROM crm_materials WHERE is_active=1 ORDER BY crm_name").fetchall()
+    conn.close()
+    return render_template('analysis/crm_register.html', today=datetime.now().strftime('%Y-%m-%d'),
+                           crm_materials=crm_materials)
+
+@app.route('/analysis/crm/chart')
+@login_required
+def crm_control_chart():
+    conn = get_db()
+    materials = conn.execute("SELECT * FROM crm_materials WHERE is_active=1 ORDER BY crm_name").fetchall()
+    mat_id = request.args.get('mat_id', type=int)
+    selected = None
+    history = []
+    if not mat_id and materials:
+        mat_id = materials[0]['id']
+    if mat_id:
+        selected = conn.execute("SELECT * FROM crm_materials WHERE id=?", (mat_id,)).fetchone()
+        if selected:
+            rows = conn.execute("""
+                SELECT g.collected_date, sr.received_date, sr.lab_number,
+                       se.mad, se.aad, se.vad, se.sulfur, se.cal_value, se.g_val as g_value
+                FROM geo_samples g
+                JOIN sample_receipt sr ON sr.geo_sample_id=g.id
+                JOIN sample_entries se ON se.receipt_id=sr.id AND se.is_duplicate=0 AND se.row_num=1
+                WHERE g.crm_name=? AND g.sample_type='CRM'
+                  AND se.row_status IN ('done','approved')
+                ORDER BY COALESCE(sr.received_date, g.collected_date)
+            """, (selected['crm_name'],)).fetchall()
+            # ad → db хувиргалт
+            history = []
+            for r in rows:
+                mad = r['mad'] or 0
+                factor = 1 - mad / 100 if mad < 100 else 1
+                def to_db(v):
+                    if v is None or factor == 0: return None
+                    return round(v / factor, 4)
+                history.append({
+                    'collected_date': r['collected_date'] or r['received_date'],
+                    'lab_number':     r['lab_number'],
+                    'mad':            r['mad'],
+                    'aad':            r['aad'],
+                    'vad':            r['vad'],
+                    'sulfur':         r['sulfur'],
+                    'cal_value':      r['cal_value'],
+                    'g_value':        r['g_value'],
+                    # dry basis
+                    'adb':  to_db(r['aad']),
+                    'vdb':  to_db(r['vad']),
+                    'sdb':  to_db(r['sulfur']),
+                    'qbd':  round(r['cal_value'] / factor / 1000, 4) if r['cal_value'] and factor else None,
+                })
+    conn.close()
+    return render_template('analysis/crm_chart.html',
+        materials=materials, selected=selected, selected_id=mat_id, history=history,
+        today=date.today().isoformat())
+
 
 @app.route('/analysis/receive/<int:geo_id>', methods=['GET','POST'])
 @preparer_required
@@ -1163,8 +2180,9 @@ def analysis_measure(receipt_id):
         conn.commit(); conn.close()
         flash('Шинжилгээ бүртгэгдлээ! Үр дүн тооцоологдлоо.', 'success')
         return redirect(url_for('analysis_result', receipt_id=receipt_id))
+    qc_map = {r['parameter']: r['tolerance'] for r in conn.execute("SELECT parameter, tolerance FROM qc_settings").fetchall()}
     conn.close()
-    return render_template('analysis/measure.html', receipt=receipt, lang=lang, today=datetime.now().strftime('%Y-%m-%d'))
+    return render_template('analysis/measure.html', receipt=receipt, lang=lang, qc_map=qc_map, today=datetime.now().strftime('%Y-%m-%d'))
 
 @app.route('/analysis/approve/<int:receipt_id>', methods=['POST'])
 @senior_required
@@ -1276,13 +2294,19 @@ def prep_start(receipt_id):
 def prep_done(receipt_id):
     conn = get_db()
     notes = request.form.get('notes','')
-    conn.execute("""UPDATE sample_receipt SET prep_status='ready', prep_done_at=?, prep_notes=?
-                   WHERE id=?""", (datetime.now().isoformat(), notes, receipt_id))
+    prep_operator = request.form.get('prep_operator','').strip()
+    prep_position = request.form.get('prep_position','').strip()
+    prep_devices  = ', '.join(filter(None, request.form.getlist('prep_device')))
+    conn.execute("""UPDATE sample_receipt
+        SET prep_status='ready', prep_done_at=?, prep_notes=?,
+            prep_operator=?, prep_position=?, prep_devices=?
+        WHERE id=?""", (datetime.now().isoformat(), notes,
+                        prep_operator, prep_position, prep_devices,
+                        receipt_id))
     conn.execute("UPDATE geo_samples SET status='ready' WHERE id=(SELECT geo_sample_id FROM sample_receipt WHERE id=?)", (receipt_id,))
     lab_num = conn.execute('SELECT lab_number FROM sample_receipt WHERE id=?', (receipt_id,)).fetchone()
     lab_str = lab_num[0] if lab_num else ''
-    conn.commit()
-    conn.close()
+    conn.commit(); conn.close()
     flash(f'✅ Дээж бэлтгэж дууслаа! Химичид шилжлээ. Ажлын дугаар: {lab_str}', 'success')
     return redirect(url_for('analysis'))
 
@@ -1354,6 +2378,39 @@ def row_done():
     conn.close()
     return jsonify({'ok': True})
 
+@app.route('/analysis/row/done-all', methods=['POST'])
+@lab_required
+def row_done_all():
+    """Бүх мөрийг нэгэн зэрэг done/undo хийнэ"""
+    data = request.get_json()
+    rid = data.get('receipt_id')
+    rows = data.get('rows', [])
+    conn = get_db()
+    for r in rows:
+        row = r.get('row_num')
+        dup = r.get('is_duplicate', 0)
+        action = r.get('action', 'done')
+        if action == 'done':
+            existing = conn.execute(
+                "SELECT id FROM sample_entries WHERE receipt_id=? AND row_num=? AND is_duplicate=?",
+                (rid, row, dup)
+            ).fetchone()
+            if existing:
+                conn.execute("""UPDATE sample_entries SET row_status='done', done_by=?, done_at=?
+                               WHERE receipt_id=? AND row_num=? AND is_duplicate=?""",
+                            (session['user_id'], datetime.now().isoformat(), rid, row, dup))
+            else:
+                conn.execute("""INSERT INTO sample_entries(receipt_id,row_num,is_duplicate,row_status,done_by,done_at)
+                               VALUES(?,?,?,'done',?,?)""",
+                            (rid, row, dup, session['user_id'], datetime.now().isoformat()))
+        else:
+            conn.execute("""UPDATE sample_entries SET row_status='empty', done_by=NULL, done_at=NULL
+                           WHERE receipt_id=? AND row_num=? AND is_duplicate=?""",
+                        (rid, row, dup))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
 @app.route('/analysis/row/approve', methods=['POST'])
 @senior_required
 def row_approve():
@@ -1361,14 +2418,28 @@ def row_approve():
     data = request.get_json()
     rid = data.get('receipt_id')
     rows = data.get('rows', [])  # [{row_num, is_duplicate}]
+    approve_all = data.get('approve_all', False)
     conn = get_db()
-    for r in rows:
+    if approve_all:
         conn.execute("""UPDATE sample_entries SET row_status='approved', approved_by=?, approved_at=?
-                       WHERE receipt_id=? AND row_num=? AND is_duplicate=?""",
-                    (session['user_id'], datetime.now().isoformat(), rid, r['row_num'], r['is_duplicate']))
+                       WHERE receipt_id=? AND row_status='done'""",
+                    (session['user_id'], datetime.now().isoformat(), rid))
+    else:
+        for r in rows:
+            conn.execute("""UPDATE sample_entries SET row_status='approved', approved_by=?, approved_at=?
+                           WHERE receipt_id=? AND row_num=? AND is_duplicate=?""",
+                        (session['user_id'], datetime.now().isoformat(), rid, r['row_num'], r['is_duplicate']))
     conn.commit()
+    # Бүх үндсэн мөр баталгаажсан эсэхийг шалгана
+    total = conn.execute("SELECT COUNT(*) FROM sample_entries WHERE receipt_id=? AND is_duplicate=0", (rid,)).fetchone()[0]
+    approved = conn.execute("SELECT COUNT(*) FROM sample_entries WHERE receipt_id=? AND is_duplicate=0 AND row_status='approved'", (rid,)).fetchone()[0]
+    if total > 0 and total == approved:
+        conn.execute("UPDATE geo_samples SET status='done' WHERE id=(SELECT geo_sample_id FROM sample_receipt WHERE id=?)", (rid,))
+        conn.execute("UPDATE sample_receipt SET prep_status='done' WHERE id=?", (rid,))
+        conn.commit()
+    all_approved = (total > 0 and total == approved)
     conn.close()
-    return jsonify({'ok': True})
+    return jsonify({'ok': True, 'all_approved': all_approved})
 
 @app.route('/analysis/result/<int:receipt_id>')
 @login_required  
@@ -1395,11 +2466,20 @@ def analysis_result(receipt_id):
         WHERE se.receipt_id=?
         ORDER BY se.row_num, se.is_duplicate
     """, (receipt_id,)).fetchall()
+
+    crm_cert = None
+    if receipt and receipt['sample_type'] == 'CRM':
+        geo = conn.execute('SELECT crm_mad, crm_aad, crm_vad, crm_sulfur, crm_cal FROM geo_samples WHERE id=?',
+                           (receipt['geo_sample_id'],)).fetchone()
+        crm_cert = dict(geo) if geo else None
+
     conn.close()
-    
+
     role = session.get('role')
-    return render_template('analysis/result.html', 
-        receipt=receipt, entries=entries, lang=lang, role=role)
+    pending_approve = [e for e in entries if e['row_status'] == 'done' and e['is_duplicate'] == 0]
+    return render_template('analysis/result.html',
+        receipt=receipt, entries=entries, lang=lang, role=role, crm_cert=crm_cert,
+        pending_approve=pending_approve)
 
 
 @app.route('/analysis/export/<int:receipt_id>')
@@ -1569,8 +2649,8 @@ def device_map():
         conn.close()
         return jsonify({'ok': True})
     
-    devices = conn.execute("SELECT * FROM devices WHERE status='active' ORDER BY name").fetchall()
-    mapping = {r['analysis_type']: r['device_id'] for r in 
+    devices = conn.execute("SELECT * FROM devices WHERE status='active' AND (stage='analysis' OR stage='both' OR stage IS NULL) ORDER BY name").fetchall()
+    mapping = {r['analysis_type']: r['device_id'] for r in
                conn.execute("SELECT * FROM analysis_device_map WHERE is_active=1").fetchall()}
     conn.close()
     return jsonify({'devices': [dict(d) for d in devices], 'mapping': mapping})
@@ -1749,7 +2829,7 @@ def lab_settings():
             flash('Профайл шинэчлэгдлээ!', 'success')
 
         elif action == 'change_password':
-            user = conn.execute("SELECT * FROM users WHERE id=?", (session['user_id'],)).fetchone()
+            user = conn.execute("SELECT * FROM users WHERE id=?", (session.get('user_id', 0),)).fetchone()
             old_pw = request.form.get('old_password','')
             new_pw = request.form.get('new_password','')
             confirm = request.form.get('confirm_password','')
@@ -1769,7 +2849,97 @@ def lab_settings():
         return redirect(url_for('lab_settings'))
 
     conn.close()
-    return render_template('admin/settings.html', s=s, qc_settings=qc_settings_list, lang=lang)
+    _crm_conn = get_db()
+    crm_materials = _crm_conn.execute("SELECT * FROM crm_materials ORDER BY crm_name").fetchall()
+    now = datetime.now().isoformat()
+    _crm_conn.execute("DELETE FROM guest_tokens WHERE expires_at < ?", (now,))
+    _crm_conn.commit()
+    guest_tokens = _crm_conn.execute("SELECT * FROM guest_tokens ORDER BY created_at DESC").fetchall()
+    _crm_conn.close()
+    return render_template('admin/settings.html', s=s, qc_settings=qc_settings_list, lang=lang,
+                           crm_materials=crm_materials, today=date.today().isoformat(),
+                           guest_tokens=guest_tokens, now=now)
+
+@app.route('/lab-settings/crm', methods=['POST'])
+@admin_required
+def lab_settings_crm():
+    action = request.form.get('action')
+    conn = get_db()
+    try:
+        if action == 'add':
+            name = request.form.get('crm_name', '').strip()
+            if not name:
+                flash('CRM нэрийг оруулна уу', 'error')
+                return redirect(url_for('lab_settings') + '?tab=crm')
+            conn.execute("""INSERT INTO crm_materials (crm_name, aad_cert, aad_unc, vad_cert, vad_unc, sulfur_cert, sulfur_unc, cal_cert, cal_unc, g_cert, g_unc, notes, standard, manufacture_date, expiry_date, open_date)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+                name,
+                request.form.get('aad_cert') or None,
+                request.form.get('aad_unc') or None,
+                request.form.get('vad_cert') or None,
+                request.form.get('vad_unc') or None,
+                request.form.get('sulfur_cert') or None,
+                request.form.get('sulfur_unc') or None,
+                request.form.get('cal_cert') or None,
+                request.form.get('cal_unc') or None,
+                request.form.get('g_cert') or None,
+                request.form.get('g_unc') or None,
+                request.form.get('notes', '').strip() or None,
+                request.form.get('standard', '').strip() or None,
+                request.form.get('manufacture_date') or None,
+                request.form.get('expiry_date') or None,
+                request.form.get('open_date') or None,
+            ))
+            conn.commit()
+            flash(f'CRM материал нэмэгдлээ: {name}', 'success')
+        elif action == 'delete':
+            mid = request.form.get('id')
+            conn.execute("DELETE FROM crm_materials WHERE id=?", (mid,))
+            conn.commit()
+            flash('CRM материал устгагдлаа', 'success')
+        elif action == 'deactivate':
+            mid = request.form.get('id')
+            conn.execute("UPDATE crm_materials SET is_active=0 WHERE id=?", (mid,))
+            conn.commit()
+            flash('CRM материал дуусгагдлаа', 'success')
+    finally:
+        conn.close()
+    return redirect(url_for('lab_settings') + '?tab=crm')
+
+@app.route('/lab-settings/crm/<int:mid>/edit', methods=['GET','POST'])
+@admin_required
+def crm_edit(mid):
+    conn = get_db()
+    mat = conn.execute("SELECT * FROM crm_materials WHERE id=?", (mid,)).fetchone()
+    if not mat:
+        conn.close()
+        flash('CRM материал олдсонгүй', 'error')
+        return redirect(url_for('lab_settings') + '?tab=crm')
+    if request.method == 'POST':
+        conn.execute("""UPDATE crm_materials SET
+            crm_name=?, aad_cert=?, aad_unc=?, vad_cert=?, vad_unc=?,
+            sulfur_cert=?, sulfur_unc=?, cal_cert=?, cal_unc=?,
+            g_cert=?, g_unc=?, notes=?, standard=?,
+            manufacture_date=?, expiry_date=?, open_date=?
+            WHERE id=?""", (
+            request.form.get('crm_name','').strip(),
+            request.form.get('aad_cert') or None, request.form.get('aad_unc') or None,
+            request.form.get('vad_cert') or None, request.form.get('vad_unc') or None,
+            request.form.get('sulfur_cert') or None, request.form.get('sulfur_unc') or None,
+            request.form.get('cal_cert') or None, request.form.get('cal_unc') or None,
+            request.form.get('g_cert') or None, request.form.get('g_unc') or None,
+            request.form.get('notes','').strip() or None,
+            request.form.get('standard','').strip() or None,
+            request.form.get('manufacture_date') or None,
+            request.form.get('expiry_date') or None,
+            request.form.get('open_date') or None,
+            mid
+        ))
+        conn.commit(); conn.close()
+        flash('CRM материал шинэчлэгдлээ', 'success')
+        return redirect(url_for('lab_settings') + '?tab=crm')
+    conn.close()
+    return render_template('admin/crm_edit.html', mat=mat, today=date.today().isoformat())
 
 @app.route('/backup')
 @admin_required
@@ -1779,11 +2949,12 @@ def backup_db():
     fname = f"lab_backup_{dt.now().strftime('%Y%m%d_%H%M%S')}.db"
     return send_file(db_path, as_attachment=True, download_name=fname)
 
+
 if __name__ == '__main__':
     init_db()
     from models import init_analysis_db
     init_analysis_db()
+    ensure_tables()
     print('Систем эхэллээ!')
     print('Браузерт нэвтрэх: http://localhost:5000')
-    print('ID: ADMIN  Нууц үг: admin123')
     app.run(debug=False, host='0.0.0.0', port=5000)

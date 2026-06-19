@@ -25,12 +25,20 @@
           <input type="text" name="position" class="form-input" placeholder="{{ 'Лаборант' if lang=='mn' else 'Lab Technician' }}">
         </div>
         <div class="form-group">
+          <label class="form-label">Ээлж</label>
+          <select name="shift" class="form-input">
+            <option value="">— Тодорхойгүй —</option>
+            <option value="A">А-ээлж</option>
+            <option value="B">Б-ээлж</option>
+          </select>
+        </div>
+        <div class="form-group">
           <label class="form-label">{{ 'Эрх' if lang=='mn' else 'Role' }}</label>
-          <select name="role" class="form-input">
-            <option value="staff">Химич</option>
-            <option value="preparer">Дээж бэлтгэгч</option>
-            <option value="geologist">Геологи</option>
-            <option value="senior" {% if current_user['role'] in ('staff','preparer','geologist') %}disabled{% endif %}>Ахлах химич</option>
+          <select name="role" class="form-input" id="roleSelect" onchange="toggleDevicePerm()">
+            <option value="staff">Ажилтан (Химич)</option>
+            <option value="preparer">Бэлтгэгч</option>
+            <option value="geologist">Харилцагч (Геологи)</option>
+            <option value="senior" {% if current_user['role'] in ('staff','preparer','geologist') %}disabled{% endif %}>Дэд Админ</option>
             {% if current_user['role']=='admin' %}
             <option value="admin">Админ</option>
             {% endif %}
@@ -71,14 +79,16 @@
         <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Хамгийн багадаа 6 тэмдэгт</div>
       </div>
 
-      <div class="section-title">{{ 'Ашиглах эрхтэй төхөөрөмж' if lang=='mn' else 'Allowed Devices' }}</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">
-        {% for d in devices %}
-        <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--gray);border-radius:6px;cursor:pointer;font-size:13px">
-          <input type="checkbox" name="device_permissions" value="{{ d['id'] }}">
-          {{ d['name'] }}
-        </label>
-        {% endfor %}
+      <div id="devicePermSection">
+        <div class="section-title">{{ 'Ашиглах эрхтэй төхөөрөмж' if lang=='mn' else 'Allowed Devices' }}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">
+          {% for d in devices %}
+          <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--gray);border-radius:6px;cursor:pointer;font-size:13px">
+            <input type="checkbox" name="device_permissions" value="{{ d['id'] }}">
+            {{ d['name'] }}
+          </label>
+          {% endfor %}
+        </div>
       </div>
 
       <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -96,6 +106,17 @@ function togglePw(){
   inp.type = inp.type==="password" ? "text" : "password";
   btn.textContent = inp.type==="password" ? "👁" : "🙈";
 }
+function toggleDevicePerm(){
+  var role = document.getElementById('roleSelect').value;
+  var sec = document.getElementById('devicePermSection');
+  if(role==='geologist'){
+    sec.style.display='none';
+    sec.querySelectorAll('input[type=checkbox]').forEach(function(c){ c.checked=false; });
+  } else {
+    sec.style.display='';
+  }
+}
+toggleDevicePerm();
 </script>
 {% endblock %}
 {% endblock %}

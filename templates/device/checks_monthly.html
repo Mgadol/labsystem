@@ -1,0 +1,154 @@
+{% extends "partial/base.html" %}
+{% block title %}Сарын шалгалт — {{ year }}.{{ '%02d'|format(month) }}{% endblock %}
+{% block content %}
+{% set month_names = ['','1-р сар','2-р сар','3-р сар','4-р сар','5-р сар','6-р сар','7-р сар','8-р сар','9-р сар','10-р сар','11-р сар','12-р сар'] %}
+{% set prev_month = month - 1 if month > 1 else 12 %}
+{% set prev_year  = year if month > 1 else year - 1 %}
+{% set next_month = month + 1 if month < 12 else 1 %}
+{% set next_year  = year if month < 12 else year + 1 %}
+
+<div class="page" style="max-width:100%">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <div>
+      <h1 class="page-title">📅 Сарын шалгалт — {{ year }}.{{ '%02d'|format(month) }}</h1>
+      <p class="page-sub">{{ month_names[month] }} — бүх төхөөрөмжийн дотоод шалгалт</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <a href="{{ url_for('checks_monthly', year=prev_year, month=prev_month) }}" class="btn btn-ghost btn-sm">‹ Өмнөх</a>
+      <form method="GET" action="{{ url_for('checks_monthly') }}" style="display:flex;gap:6px;align-items:center">
+        <select name="year" class="form-input" style="width:90px;padding:5px 8px;font-size:13px" onchange="this.form.submit()">
+          {% for y in range(today.year - 2, today.year + 2) %}
+          <option value="{{ y }}" {{ 'selected' if y == year }}>{{ y }}</option>
+          {% endfor %}
+        </select>
+        <select name="month" class="form-input" style="width:100px;padding:5px 8px;font-size:13px" onchange="this.form.submit()">
+          {% for m in range(1,13) %}
+          <option value="{{ m }}" {{ 'selected' if m == month }}>{{ month_names[m] }}</option>
+          {% endfor %}
+        </select>
+      </form>
+      <a href="{{ url_for('checks_monthly', year=next_year, month=next_month) }}" class="btn btn-ghost btn-sm">Дараах ›</a>
+      <a href="{{ url_for('checks_page') }}" class="btn btn-ghost btn-sm">← Өдрийн бүртгэл</a>
+    </div>
+  </div>
+
+  {% if not devices %}
+  <div class="card" style="text-align:center;padding:60px;color:var(--text-muted)">Шалгалттай төхөөрөмж байхгүй</div>
+  {% else %}
+
+  <!-- Статистик -->
+  {% set total_cells = devices|length * days_in_month %}
+  {% set filled = grid|length %}
+  {% set pass_count = grid.values()|selectattr('result','eq','pass')|list|length %}
+  {% set fail_count = grid.values()|selectattr('result','eq','fail')|list|length %}
+  {% set adj_count  = grid.values()|selectattr('calibration_adjusted')|list|length %}
+  <div class="stat-grid" style="margin-bottom:16px">
+    <div class="stat-card">
+      <div class="stat-val" style="color:var(--teal)">{{ filled }}</div>
+      <div class="stat-label">Нийт бүртгэл</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:#10b981">{{ pass_count }}</div>
+      <div class="stat-label">Тэнцсэн</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:var(--coral)">{{ fail_count }}</div>
+      <div class="stat-label">Тэнцээгүй</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:#d97706">{{ adj_count }}</div>
+      <div class="stat-label">Тохируулга</div>
+    </div>
+  </div>
+
+  <div class="card" style="padding:0;overflow-x:auto">
+    <table style="border-collapse:collapse;min-width:max-content;width:100%;font-size:12px">
+      <thead>
+        <!-- Эгнээ 1: Сар, Өдөр + төхөөрөмжийн нэр (3 баганатай) -->
+        <tr style="background:#1A2744;color:#fff">
+          <th rowspan="3" style="padding:8px 12px;border:1px solid #334;font-size:13px;min-width:40px">Сар</th>
+          <th rowspan="3" style="padding:8px 12px;border:1px solid #334;font-size:13px;min-width:50px">Өдөр</th>
+          {% for d in devices %}
+          <th colspan="3" style="padding:8px 10px;border:1px solid #334;text-align:center;white-space:nowrap">
+            {{ d['name'] }}
+            {% if d['manufacturer'] %}<div style="font-size:10px;font-weight:400;opacity:.75">{{ d['manufacturer'] }} {{ d['model'] or '' }}</div>{% endif %}
+          </th>
+          {% endfor %}
+        </tr>
+        <!-- Эгнээ 2: Зөрүү зөвшөөрөл -->
+        <tr style="background:#1A2744;color:#aaa">
+          {% for d in devices %}
+          <th colspan="3" style="padding:3px 6px;border:1px solid #334;text-align:center;font-size:10px;font-weight:400">
+            {{ d['check_tolerance'] or '—' }}
+          </th>
+          {% endfor %}
+        </tr>
+        <!-- Эгнээ 3: Шалгалт / Тохируулга / Оператор -->
+        <tr style="background:#243060;color:#ccd">
+          {% for d in devices %}
+          <th style="padding:5px 8px;border:1px solid #334;font-size:10px;font-weight:500;min-width:80px">Шалгалт</th>
+          <th style="padding:5px 8px;border:1px solid #334;font-size:10px;font-weight:500;min-width:70px;text-align:center">Тохируулга</th>
+          <th style="padding:5px 8px;border:1px solid #334;font-size:10px;font-weight:500;min-width:70px">Оператор</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for day in range(1, days_in_month + 1) %}
+        {% set date_str = '%s-%02d-%02d'|format(year, month, day) %}
+        {% set is_today = (year == today.year and month == today.month and day == today.day) %}
+        <tr style="{% if is_today %}background:#fffbeb{% elif day % 2 == 0 %}background:#f9f9f8{% else %}background:#fff{% endif %}">
+          <td style="padding:5px 10px;border:1px solid #e5e7eb;text-align:center;font-weight:500;color:var(--text-muted);font-size:11px">
+            {% if day == 1 %}{{ month }}{% endif %}
+          </td>
+          <td style="padding:5px 10px;border:1px solid #e5e7eb;text-align:center;font-weight:{% if is_today %}700{% else %}500{% endif %};color:{% if is_today %}var(--navy){% else %}#333{% endif %}">
+            {{ day }}{% if is_today %} ◀{% endif %}
+          </td>
+          {% for d in devices %}
+          {% set chk = grid.get((d['id'], day)) %}
+          {% if chk %}
+            {% set is_fail = chk['result'] == 'fail' %}
+            {% set is_adj  = chk['calibration_adjusted'] %}
+            <td style="padding:4px 8px;border:1px solid #e5e7eb;font-family:monospace;
+                       {% if is_fail %}background:#fff0f0;color:#c00{% else %}color:#1a2744{% endif %}">
+              {{ chk['measured_value'] or '' }}
+            </td>
+            <td style="padding:4px 8px;border:1px solid #e5e7eb;text-align:center;
+                       {% if is_adj %}color:#d97706;font-weight:600{% else %}color:#ccc{% endif %}">
+              {{ '✔' if is_adj else '—' }}
+            </td>
+            <td style="padding:4px 8px;border:1px solid #e5e7eb;color:var(--text-muted);font-size:11px">
+              {{ chk['uname'] or '' }}
+            </td>
+          {% else %}
+            <td style="padding:4px 8px;border:1px solid #e5e7eb;color:#ddd;text-align:center" colspan="3">
+              <a href="{{ url_for('checks_page', date=date_str) }}" style="font-size:10px;color:#ccc;text-decoration:none" title="{{ date_str }}">+</a>
+            </td>
+          {% endif %}
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+      <!-- Нийт дүнгийн мөр -->
+      <tfoot>
+        <tr style="background:#f0f4f8;font-weight:600;font-size:11px">
+          <td colspan="2" style="padding:6px 10px;border:1px solid #d1d5db;text-align:center">Нийт</td>
+          {% for d in devices %}
+          {% set d_checks = [] %}
+          {% for day in range(1, days_in_month + 1) %}{% set chk = grid.get((d['id'], day)) %}{% if chk %}{% set _ = d_checks.append(chk) %}{% endif %}{% endfor %}
+          {% set d_pass = d_checks|selectattr('result','eq','pass')|list|length %}
+          {% set d_fail = d_checks|selectattr('result','eq','fail')|list|length %}
+          {% set d_adj  = d_checks|selectattr('calibration_adjusted')|list|length %}
+          <td style="padding:6px 8px;border:1px solid #d1d5db;text-align:center;color:var(--teal)">{{ d_checks|length }}өдөр</td>
+          <td style="padding:6px 8px;border:1px solid #d1d5db;text-align:center;color:#d97706">{{ d_adj }}</td>
+          <td style="padding:6px 8px;border:1px solid #d1d5db;text-align:center">
+            <span style="color:#10b981">{{ d_pass }}✓</span>
+            {% if d_fail %}<span style="color:#ef4444;margin-left:4px">{{ d_fail }}✗</span>{% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

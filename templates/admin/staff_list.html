@@ -1,114 +1,259 @@
 {% extends "partial/base.html" %}
 {% block title %}{{ 'Ажилтнууд' if lang=='mn' else 'Staff' }}{% endblock %}
 {% block content %}
+<style>
+.tab-btn{padding:8px 18px;border:none;background:none;border-bottom:3px solid transparent;font-size:13px;font-weight:600;cursor:pointer;color:var(--text-muted);transition:.15s}
+.tab-btn.active{color:var(--navy);border-bottom-color:var(--navy)}
+.shift-header{padding:10px 16px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid var(--border)}
+</style>
 <div class="page">
   <div class="flex justify-between gap-12" style="margin-bottom:20px;flex-wrap:wrap">
     <div>
       <h1 class="page-title">{{ 'Ажилтнууд' if lang=='mn' else 'Staff' }}</h1>
-      <p class="page-sub">{{ users|length }} {{ 'ажилтан' if lang=='mn' else 'staff members' }}</p>
+      <p class="page-sub" id="sub-label"></p>
     </div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <label style="font-size:13px;color:var(--text-muted);display:flex;align-items:center;gap:6px;cursor:pointer">
-        <input type="checkbox" id="show-inactive" onchange="toggleInactive()">
-        {{ 'Идэвхгүй харах' if lang=='mn' else 'Show inactive' }}
-      </label>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      {% if current_user['role'] in ('admin','senior') %}
       <a href="{{ url_for('staff_add') }}" class="btn btn-primary">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        {{ 'Нэмэх' if lang=='mn' else 'Add Staff' }}
+        Нэмэх
       </a>
+      {% endif %}
     </div>
   </div>
 
-  <div class="card">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>{{ 'Ажилтан' if lang=='mn' else 'Staff' }}</th>
-          <th>ID</th>
-          <th>{{ 'Албан тушаал' if lang=='mn' else 'Position' }}</th>
-          <th>{{ 'Утас' if lang=='mn' else 'Phone' }}</th>
-          <th>{{ 'Эрх' if lang=='mn' else 'Role' }}</th>
-          <th>{{ 'Статус' if lang=='mn' else 'Status' }}</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-      {% for u in users %}
-      <tr class="{% if not u['is_active'] %}inactive-row{% endif %}" {% if not u['is_active'] %}style="display:none;opacity:.6"{% endif %}>
-        <td>
-          <div class="flex gap-8">
-            {% if u['photo'] %}
-            <img src="{{ url_for('static',filename='uploads/'+u['photo']) }}" style="width:32px;height:32px;border-radius:50%;object-fit:cover">
-            {% else %}
-            <div style="width:32px;height:32px;border-radius:50%;background:var(--navy);color:#93a8d4;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">{{ u['name'][:2] }}</div>
-            {% endif %}
-            <span style="font-weight:500;{% if not u['is_active'] %}text-decoration:line-through;color:var(--text-muted){% endif %}">{{ u['name'] }}</span>
-          </div>
-        </td>
-        <td style="color:var(--text-muted)">{{ u['employee_id'] }}</td>
-        <td>{{ u['position'] or '—' }}</td>
-        <td>{{ u['phone'] or '—' }}</td>
-        <td>
-          {% if u['role']=='admin' %}
-            <span class="badge badge-admin">Админ</span>
-          {% elif u['role']=='senior' %}
-            <span class="badge" style="background:#E1F5EE;color:#0F6E56">Ахлах химич</span>
-          {% else %}
-            <span class="badge badge-staff">Ажилтан</span>
-          {% endif %}
-        </td>
-        <td>
-          {% if u['is_active'] %}
-          <span class="badge badge-active">{{ 'Идэвхтэй' if lang=='mn' else 'Active' }}</span>
-          {% else %}
-          <span class="badge badge-standby">{{ 'Идэвхгүй' if lang=='mn' else 'Inactive' }}</span>
-          {% endif %}
-        </td>
-        <td>
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <a href="{{ url_for('staff_detail', uid=u['id']) }}" class="btn btn-ghost btn-sm">{{ 'Харах' if lang=='mn' else 'View' }}</a>
-            {% if u['id'] != session['user_id'] %}
-              {% if u['is_active'] %}
-              <form method="POST" action="{{ url_for('staff_deactivate', uid=u['id']) }}"
-                onsubmit="return confirm('{{ u['name'] }} ажилтныг гаргах уу?')">
-                <button type="submit" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">
-                  {{ 'Гаргах' if lang=='mn' else 'Deactivate' }}
-                </button>
-              </form>
-              {% else %}
-              <form method="POST" action="{{ url_for('staff_activate', uid=u['id']) }}">
-                <button type="submit" class="btn btn-sm" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">
-                  🔄 {{ 'Буцаах' if lang=='mn' else 'Reactivate' }}
-                </button>
-              </form>
-              {% endif %}
-            {% endif %}
-          </div>
-        </td>
-      </tr>
-      {% else %}
-      <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:30px">{{ 'Ажилтан байхгүй' if lang=='mn' else 'No staff found' }}</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
+  <!-- Табууд -->
+  {% set lab_count = (users_a|length) + (users_b|length) + (users_none|length) %}
+  {% set geo_a = users_a|selectattr('role','eq','geologist')|list %}
+  {% set geo_b = users_b|selectattr('role','eq','geologist')|list %}
+  {% set geo_n = users_none|selectattr('role','eq','geologist')|list %}
+  {% set geo_count = (geo_a|length) + (geo_b|length) + (geo_n|length) %}
+  {% set labonly_count = lab_count - geo_count %}
+  <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:16px">
+    <button class="tab-btn active" id="tab-lab" onclick="switchTab('lab')">
+      🔬 Лабораторийн ажилтан
+      <span style="background:#e6f1fb;color:#185fa5;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px">{{ labonly_count }}</span>
+    </button>
+    <button class="tab-btn" id="tab-geo" onclick="switchTab('geo')">
+      🪨 Харилцагч (Геологи)
+      <span style="background:#f0e6ff;color:#7C3AED;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px">{{ geo_count }}</span>
+    </button>
+  </div>
 
-    <!-- Идэвхгүй ажилтны тоо -->
-    {% set inactive_count = users|rejectattr('is_active')|list|length %}
-    {% if inactive_count > 0 %}
-    <div style="margin-top:12px;padding:10px 14px;background:var(--gray);border-radius:8px;font-size:13px;color:var(--text-muted)">
-      🗄️ {{ inactive_count }} {{ 'идэвхгүй ажилтан байна — "Идэвхгүй харах" дарж харна уу' if lang=='mn' else 'inactive staff — check "Show inactive" to view' }}
+  <!-- Лабораторийн ажилтнууд — А/Б ээлж -->
+  <div id="pane-lab">
+    {% set shifts = [('A','А-ээлж','#e6f1fb','#185fa5'), ('B','Б-ээлж','#e6fbef','#0f6e56')] %}
+    {% for shift_code, shift_name, bg, color in shifts %}
+    {% set grp = users_a if shift_code=='A' else users_b %}
+    {% set lab_grp = grp|rejectattr('role','eq','geologist')|list %}
+    <div style="margin-bottom:20px">
+      <div class="shift-header" style="background:{{ bg }};color:{{ color }};border-radius:8px 8px 0 0">
+        {{ shift_name }}
+        <span style="font-weight:400;font-size:11px;margin-left:8px">{{ lab_grp|length }} ажилтан</span>
+      </div>
+      <div class="card" style="border-radius:0 0 8px 8px;margin-top:0;padding:0">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Ажилтан</th><th>ID</th><th>Албан тушаал</th><th>Утас</th><th>Эрх</th><th>Статус</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for u in lab_grp %}
+          <tr class="staff-row">
+            <td>
+              <div class="flex gap-8">
+                {% if u['photo'] %}
+                <img src="{{ url_for('static',filename='uploads/'+u['photo']) }}" style="width:32px;height:36px;border-radius:6px;object-fit:cover;object-position:top center">
+                {% else %}
+                <div style="width:32px;height:32px;border-radius:6px;background:var(--navy);color:#93a8d4;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">{{ u['name'][:2] }}</div>
+                {% endif %}
+                <span style="font-weight:500">{{ u['name'] }}</span>
+              </div>
+            </td>
+            <td style="color:var(--text-muted)">{{ u['employee_id'] }}</td>
+            <td>{{ u['position'] or '—' }}</td>
+            <td>{{ u['phone'] or '—' }}</td>
+            <td>
+              {% if u['role']=='admin' %}<span class="badge badge-admin">Админ</span>
+              {% elif u['role']=='senior' %}<span class="badge" style="background:#253561;color:#4ade80">Дэд Админ</span>
+              {% elif u['role']=='preparer' %}<span class="badge badge-staff">Бэлтгэгч</span>
+              {% else %}<span class="badge badge-staff">Химич</span>{% endif %}
+            </td>
+            <td>
+              {% if u['is_active'] %}<span class="badge badge-active">Идэвхтэй</span>
+              {% else %}<span class="badge badge-standby">Идэвхгүй</span>{% endif %}
+            </td>
+            <td>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <a href="{{ url_for('staff_detail', uid=u['id']) }}" class="btn btn-ghost btn-sm">Харах</a>
+                {% if current_user['role'] == 'admin' %}
+                <a href="{{ url_for('staff_edit', uid=u['id']) }}" class="btn btn-ghost btn-sm">✏️ Засах</a>
+                {% if u['id'] != session['user_id'] %}
+                  {% if u['is_active'] %}
+                  <form method="POST" action="{{ url_for('staff_deactivate', uid=u['id']) }}" onsubmit="return confirm('{{ u['name'] }} ажилтныг гаргах уу?')">
+                    <button type="submit" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">Гаргах</button>
+                  </form>
+                  {% else %}
+                  <form method="POST" action="{{ url_for('staff_activate', uid=u['id']) }}">
+                    <button type="submit" class="btn btn-sm" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">🔄 Буцаах</button>
+                  </form>
+                  {% endif %}
+                {% endif %}
+                {% elif current_user['role'] == 'senior' %}
+                <a href="{{ url_for('staff_edit', uid=u['id']) }}" class="btn btn-ghost btn-sm">✏️ Засах</a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px">Ажилтан байхгүй</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endfor %}
+
+    {% if users_none|rejectattr('role','eq','geologist')|list %}
+    {% set lab_none = users_none|rejectattr('role','eq','geologist')|list %}
+    <div style="margin-bottom:20px">
+      <div class="shift-header" style="background:#f5f5f5;color:var(--text-muted);border-radius:8px 8px 0 0">
+        Ээлж тодорхойгүй
+        <span style="font-weight:400;font-size:11px;margin-left:8px">{{ lab_none|length }} ажилтан</span>
+      </div>
+      <div class="card" style="border-radius:0 0 8px 8px;margin-top:0;padding:0">
+        <table class="table">
+          <thead>
+            <tr><th>Ажилтан</th><th>ID</th><th>Албан тушаал</th><th>Утас</th><th>Эрх</th><th>Статус</th><th></th></tr>
+          </thead>
+          <tbody>
+          {% for u in lab_none %}
+          <tr class="staff-row">
+            <td>
+              <div class="flex gap-8">
+                {% if u['photo'] %}
+                <img src="{{ url_for('static',filename='uploads/'+u['photo']) }}" style="width:32px;height:36px;border-radius:6px;object-fit:cover;object-position:top center">
+                {% else %}
+                <div style="width:32px;height:32px;border-radius:6px;background:var(--navy);color:#93a8d4;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">{{ u['name'][:2] }}</div>
+                {% endif %}
+                <span style="font-weight:500">{{ u['name'] }}</span>
+              </div>
+            </td>
+            <td style="color:var(--text-muted)">{{ u['employee_id'] }}</td>
+            <td>{{ u['position'] or '—' }}</td>
+            <td>{{ u['phone'] or '—' }}</td>
+            <td>
+              {% if u['role']=='admin' %}<span class="badge badge-admin">Админ</span>
+              {% elif u['role']=='senior' %}<span class="badge" style="background:#253561;color:#4ade80">Дэд Админ</span>
+              {% elif u['role']=='preparer' %}<span class="badge badge-staff">Бэлтгэгч</span>
+              {% else %}<span class="badge badge-staff">Химич</span>{% endif %}
+            </td>
+            <td>
+              {% if u['is_active'] %}<span class="badge badge-active">Идэвхтэй</span>
+              {% else %}<span class="badge badge-standby">Идэвхгүй</span>{% endif %}
+            </td>
+            <td>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <a href="{{ url_for('staff_detail', uid=u['id']) }}" class="btn btn-ghost btn-sm">Харах</a>
+                {% if current_user['role'] == 'admin' %}
+                <a href="{{ url_for('staff_edit', uid=u['id']) }}" class="btn btn-ghost btn-sm">✏️ Засах</a>
+                {% if u['id'] != session['user_id'] %}
+                  {% if u['is_active'] %}
+                  <form method="POST" action="{{ url_for('staff_deactivate', uid=u['id']) }}" onsubmit="return confirm('{{ u['name'] }} ажилтныг гаргах уу?')">
+                    <button type="submit" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">Гаргах</button>
+                  </form>
+                  {% else %}
+                  <form method="POST" action="{{ url_for('staff_activate', uid=u['id']) }}">
+                    <button type="submit" class="btn btn-sm" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">🔄 Буцаах</button>
+                  </form>
+                  {% endif %}
+                {% endif %}
+                {% elif current_user['role'] == 'senior' %}
+                <a href="{{ url_for('staff_edit', uid=u['id']) }}" class="btn btn-ghost btn-sm">✏️ Засах</a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
     {% endif %}
   </div>
+
+  <!-- Харилцагч (Геологи) -->
+  <div id="pane-geo" style="display:none">
+    <div class="card">
+      <table class="table">
+        <thead>
+          <tr><th>Харилцагч</th><th>ID</th><th>Байгууллага / Албан тушаал</th><th>Утас</th><th>Email</th><th>Статус</th><th></th></tr>
+        </thead>
+        <tbody>
+        {% set all_geo = (users_a|selectattr('role','eq','geologist')|list) + (users_b|selectattr('role','eq','geologist')|list) + (users_none|selectattr('role','eq','geologist')|list) %}
+        {% for u in all_geo %}
+        <tr class="geo-row">
+          <td>
+            <div class="flex gap-8">
+              {% if u['photo'] %}
+              <img src="{{ url_for('static',filename='uploads/'+u['photo']) }}" style="width:32px;height:36px;border-radius:6px;object-fit:cover;object-position:top center">
+              {% else %}
+              <div style="width:32px;height:32px;border-radius:6px;background:#7C3AED;color:#e9d5ff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">{{ u['name'][:2] }}</div>
+              {% endif %}
+              <span style="font-weight:500">{{ u['name'] }}</span>
+            </div>
+          </td>
+          <td style="color:var(--text-muted)">{{ u['employee_id'] }}</td>
+          <td>{{ u['position'] or '—' }}</td>
+          <td>{{ u['phone'] or '—' }}</td>
+          <td style="font-size:12px;color:var(--text-muted)">{{ u['email'] or '—' }}</td>
+          <td>
+            {% if u['is_active'] %}<span class="badge badge-active">Идэвхтэй</span>
+            {% else %}<span class="badge badge-standby">Идэвхгүй</span>{% endif %}
+          </td>
+          <td>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <a href="{{ url_for('staff_detail', uid=u['id']) }}" class="btn btn-ghost btn-sm">Харах</a>
+              {% if current_user['role'] == 'admin' %}
+              <a href="{{ url_for('staff_edit', uid=u['id']) }}" class="btn btn-ghost btn-sm">✏️ Засах</a>
+              {% if u['id'] != session['user_id'] %}
+                {% if u['is_active'] %}
+                <form method="POST" action="{{ url_for('staff_deactivate', uid=u['id']) }}" onsubmit="return confirm('{{ u['name'] }} харилцагчийг гаргах уу?')">
+                  <button type="submit" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">Гаргах</button>
+                </form>
+                {% else %}
+                <form method="POST" action="{{ url_for('staff_activate', uid=u['id']) }}">
+                  <button type="submit" class="btn btn-sm" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">🔄 Буцаах</button>
+                </form>
+                {% endif %}
+              {% endif %}
+              {% elif current_user['role'] == 'senior' %}
+              <a href="{{ url_for('staff_edit', uid=u['id']) }}" class="btn btn-ghost btn-sm">✏️ Засах</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:30px">Харилцагч байхгүй</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
 </div>
 {% endblock %}
 {% block scripts %}
 <script>
-function toggleInactive(){
-  var show = document.getElementById('show-inactive').checked;
-  document.querySelectorAll('.inactive-row').forEach(function(r){
-    r.style.display = show ? '' : 'none';
-  });
+var curTab = 'lab';
+function switchTab(tab){
+  curTab = tab;
+  document.getElementById('pane-lab').style.display = tab==='lab' ? '' : 'none';
+  document.getElementById('pane-geo').style.display = tab==='geo' ? '' : 'none';
+  document.getElementById('tab-lab').classList.toggle('active', tab==='lab');
+  document.getElementById('tab-geo').classList.toggle('active', tab==='geo');
 }
+document.getElementById('sub-label').textContent = '';
 </script>
 {% endblock %}

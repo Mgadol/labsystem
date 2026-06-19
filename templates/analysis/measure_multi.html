@@ -4,7 +4,7 @@
 <style>
 *{box-sizing:border-box}
 .sheet-wrap{width:100%;overflow:auto;max-height:calc(100vh - 140px);position:relative}
-.tbl{border-collapse:separate;border-spacing:0;white-space:nowrap;font-size:11.5px;font-family:'Segoe UI',sans-serif;width:max-content;min-width:100%}
+.tbl{border-collapse:separate;border-spacing:0;white-space:nowrap;font-size:11.5px;font-family:'Segoe UI',sans-serif;width:max-content}
 .tbl th,.tbl td{border-right:1px solid #d8d8d0;border-bottom:1px solid #d8d8d0;height:22px;text-align:center;vertical-align:middle;padding:0 5px}
 .tbl tr th:first-child,.tbl tr td:first-child{border-left:1px solid #d8d8d0}
 .tbl thead tr:first-child th{border-top:1px solid #d8d8d0}
@@ -120,7 +120,7 @@
   {% for receipt in receipts %}
   <!-- Lot ялгах label -->
   <tr class="lot-label">
-    <td colspan="40" style="text-align:left;padding-left:10px;background:#1e3a5f;color:#4ade80;font-family:monospace;font-size:12px;height:28px">
+    <td colspan="40" style="text-align:left;padding-left:10px;background:#1e3a5f;color:#4ade80;font-family:monospace;font-size:11px;height:20px;padding-top:2px;padding-bottom:2px">
       📋 {{ receipt['lab_number'] }} — {{ receipt['sample_name'] }} &nbsp;·&nbsp; <span style="color:#fbbf24">{{ receipt['sample_type'] }}</span> &nbsp;·&nbsp; {{ receipt['quantity'] }} дээж
     </td>
   </tr>
@@ -212,10 +212,6 @@
     <td class="calc-cell" id="r{{ uid }}d_fc">—</td>
   </tr>
   {% endfor %}
-  <!-- Lot хоорондын зураас -->
-  <tr style="height:6px">
-    <td colspan="40" style="background:#1e3a5f;border:none;padding:0"></td>
-  </tr>
   {% endfor %}
   </tbody>
 </table>

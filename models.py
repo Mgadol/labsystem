@@ -1,6 +1,10 @@
-import sqlite3, os
+import sqlite3, os, sys
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
+
+# Windows terminal UTF-8
+if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 DB_PATH = os.path.join(os.path.dirname(__file__), 'instance', 'lab.db')
 
@@ -153,6 +157,10 @@ def init_analysis_db():
         mt_sample2 REAL,
         mt_dried2 REAL,
         mt_crucible2 TEXT,
+        prep_status TEXT DEFAULT 'preparing',  -- preparing/ready/done
+        prep_started_at TEXT,
+        prep_done_at TEXT,
+        prep_notes TEXT,
         notes TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -238,7 +246,7 @@ def init_analysis_db():
     -- QC тохиргоо (админ тохируулна)
     CREATE TABLE IF NOT EXISTS qc_settings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        parameter TEXT NOT NULL,   -- Mad, Aad, Vad, Stad, Qb_ad, G, FSI
+        parameter TEXT NOT NULL UNIQUE,   -- Mad, Aad, Vad, Stad, Qb_ad, G, FSI
         tolerance REAL NOT NULL,   -- Зөвшөөрөгдөх зөрүү
         standard TEXT,             -- GB/T 212 гэх мэт
         updated_by INTEGER REFERENCES users(id),
@@ -256,6 +264,98 @@ def init_analysis_db():
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
+    -- Лабораторийн тайлангийн бүртгэл
+    CREATE TABLE IF NOT EXISTS lab_report_records (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        period_type TEXT NOT NULL,  -- week/month/half/year
+        year INTEGER NOT NULL,
+        period_value INTEGER,       -- week#, month#, half#
+        period_label TEXT NOT NULL,
+        file_path TEXT,
+        generated_by INTEGER REFERENCES users(id),
+        generated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        status TEXT DEFAULT 'active',  -- active/archived
+        archived_by INTEGER REFERENCES users(id),
+        archived_at TEXT
+    );
+
+    -- Дээжний төрөл
+    CREATE TABLE IF NOT EXISTS sample_types (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT NOT NULL UNIQUE,
+        name_mn TEXT NOT NULL,
+        name_en TEXT,
+        icon TEXT DEFAULT '🧪',
+        color TEXT DEFAULT '#185fa5',
+        serial_from INTEGER DEFAULT 1000,
+        serial_to INTEGER DEFAULT 1999,
+        is_pit INTEGER DEFAULT 0,
+        is_active INTEGER DEFAULT 1,
+        sort_order INTEGER DEFAULT 99,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Шинжилгээний төрөл → Тоног төхөөрөмж холбоос
+    CREATE TABLE IF NOT EXISTS analysis_device_map (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        analysis_type TEXT NOT NULL,
+        device_id INTEGER REFERENCES devices(id),
+        is_active INTEGER DEFAULT 1,
+        updated_by INTEGER REFERENCES users(id),
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Тоног төхөөрөмжийн хэрэглээний лог
+    CREATE TABLE IF NOT EXISTS device_usage_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        device_id INTEGER REFERENCES devices(id),
+        user_id INTEGER REFERENCES users(id),
+        receipt_id INTEGER REFERENCES sample_receipt(id),
+        analysis_type TEXT,
+        started_at TEXT,
+        ended_at TEXT,
+        duration_min INTEGER,
+        sample_count INTEGER,
+        notes TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Анхны дээжний төрлүүд
+    INSERT OR IGNORE INTO sample_types(code,name_mn,name_en,icon,color,serial_from,serial_to,is_pit,sort_order) VALUES
+        ('PIT',       'Уурхайн дээж',     'Pit Sample',      '⛏️', '#1a6b3c', 1000, 1999, 1, 1),
+        ('STOCKPILE', 'Овоолгын дээж',    'Stockpile',       '🏔️', '#854f0b', 2000, 2999, 0, 2),
+        ('EXPORT',    'Ачилтын дээж',     'Export',          '🚢', '#185fa5', 3000, 3999, 0, 3),
+        ('CONTROL',   'Хяналтын дээж',    'Control',         '🔬', '#3c3489', 4000, 4999, 0, 4),
+        ('EQ_CONTROL','Гадаад хяналт',    'External Control','🌐', '#993c1d', 5000, 5999, 0, 5),
+        ('DP',        'Баяжуулах дээж',   'DP/WP',           '⚗️', '#0f6e56', 6000, 6999, 0, 6);
+
+    -- Шинжилгээний мөрүүд
+    CREATE TABLE IF NOT EXISTS sample_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        receipt_id INTEGER NOT NULL REFERENCES sample_receipt(id),
+        row_num INTEGER NOT NULL,
+        is_duplicate INTEGER DEFAULT 0,
+        sample_name TEXT,
+        mass_kg REAL,
+        ff_sample REAL, ff_dried REAL,
+        mt_bux TEXT, mt_tare REAL, mt_sample REAL, mt_dried REAL,
+        dc_bux TEXT, dc_tare REAL, dc_sample REAL, dc_dried REAL,
+        ash_tav TEXT, ash_tare REAL, ash_sample REAL, ash_burned REAL,
+        vol_tig TEXT, vol_tare REAL, vol_sample REAL, vol_burned REAL,
+        g_tig TEXT, g_tare REAL, g_coke REAL, g_sieve1 REAL, g_sieve2 REAL,
+        sulfur REAL, cal_value REAL, cal_temp REAL, fsi REAL,
+        mad REAL, aad REAL, vad REAL, fc REAL, g_val REAL,
+        row_status TEXT DEFAULT 'empty',
+        done_by INTEGER REFERENCES users(id),
+        done_at TEXT,
+        approved_by INTEGER REFERENCES users(id),
+        approved_at TEXT,
+        updated_by INTEGER,
+        updated_at TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(receipt_id, row_num, is_duplicate)
+    );
+
     -- Анхны QC тохиргоо
     INSERT OR IGNORE INTO qc_settings(parameter, tolerance, standard) VALUES
         ('Mad', 0.20, 'MNS GB/T 212-2015'),
@@ -268,5 +368,21 @@ def init_analysis_db():
 
     ''')
     conn.commit()
+
+    # Migration: одоогийн DB-д байхгүй колонкуудыг нэмэх
+    migrations = [
+        "ALTER TABLE sample_receipt ADD COLUMN prep_status TEXT DEFAULT 'preparing'",
+        "ALTER TABLE sample_receipt ADD COLUMN prep_started_at TEXT",
+        "ALTER TABLE sample_receipt ADD COLUMN prep_done_at TEXT",
+        "ALTER TABLE sample_receipt ADD COLUMN prep_notes TEXT",
+        "ALTER TABLE sample_receipt ADD COLUMN mass_kg REAL",
+    ]
+    for sql in migrations:
+        try:
+            conn.execute(sql)
+            conn.commit()
+        except Exception:
+            pass  # колонк аль хэдийн байна
+
     conn.close()
     print("Analysis DB initialized")

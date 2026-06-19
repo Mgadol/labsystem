@@ -25,38 +25,59 @@
         </div>
       </div>
 
-      <div class="section-title">Mark / {{ 'Загвар' if lang=='mn' else 'Model' }}</div>
-      <div class="form-grid">
+      <div class="section-title">Үйлдвэрлэгч / Загвар</div>
+      <div class="form-row">
         <div class="form-group">
-          <label class="form-label">{{ 'Одоо байгаа mark сонгох' if lang=='mn' else 'Select existing mark' }}</label>
-          <select name="mark_id" class="form-input">
-            <option value="">— {{ 'сонгох' if lang=='mn' else 'select' }} —</option>
-            {% for m in marks %}
-            <option value="{{ m['id'] }}">{{ m['manufacturer'] }} {{ m['model'] }} {% if m['category'] %}({{ m['category'] }}){% endif %}</option>
-            {% endfor %}
+          <label class="form-label">Үйлдвэрлэгч</label>
+          <input type="text" name="manufacturer" class="form-input" placeholder="Mettler Toledo">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Загвар</label>
+          <input type="text" name="model" class="form-input" placeholder="ME204E">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ангилал</label>
+          <input type="text" name="category" class="form-input" placeholder="Жин хэмжих">
+        </div>
+      </div>
+
+      <div class="section-title">Ашиглах шат</div>
+      <div class="form-group">
+        <label class="form-label">Энэ багаж аль шатанд ашиглагдах вэ?</label>
+        <select name="stage" class="form-input" style="width:auto">
+          <option value="both">📦🔬 Хоёуланд (бэлтгэл болон шинжилгээ)</option>
+          <option value="prep">📦 Зөвхөн дээж бэлтгэлд</option>
+          <option value="analysis">🔬 Зөвхөн шинжилгээнд</option>
+        </select>
+      </div>
+
+      <div class="section-title">Өдөр тутмын шалгалтын тохиргоо</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">
+        Энэ багажийг өдөр тутмын баталгаажуулалтын хуудсанд гаргах эсэх, стандарт утга болон зөвшөөрөх зөрүүг урьдчилан тохируулна.
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Стандарт утга (нэрлэсэн)</label>
+          <input type="text" name="check_standard" class="form-input" placeholder="Ж: 100.0000 г">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Зөвшөөрөх зөрүү</label>
+          <input type="text" name="check_tolerance" class="form-input" placeholder="Ж: ±0.0005">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Шалгах давтамж</label>
+          <select name="check_freq" class="form-input">
+            <option value="daily">📅 Өдөр бүр</option>
+            <option value="weekly">📆 7 хоногт нэг удаа</option>
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">{{ 'Эсвэл шинэ mark нэмэх' if lang=='mn' else 'Or add new mark' }}</label>
-          <button type="button" onclick="showMarkForm()" class="btn btn-ghost" style="width:100%">+ {{ 'Шинэ mark' if lang=='mn' else 'New mark' }}</button>
+          <label class="form-label">Шалгалтад оруулах</label>
+          <label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer">
+            <input type="checkbox" name="check_enabled" checked style="width:16px;height:16px">
+            <span style="font-size:13px">Тийм</span>
+          </label>
         </div>
-      </div>
-      <div id="mark-form" style="display:none;background:var(--gray);border-radius:8px;padding:12px;margin-bottom:14px">
-        <div class="form-row">
-          <div>
-            <label class="form-label">{{ 'Үйлдвэрлэгч' if lang=='mn' else 'Manufacturer' }}</label>
-            <input type="text" id="new-mfr" class="form-input" placeholder="Shimadzu">
-          </div>
-          <div>
-            <label class="form-label">{{ 'Загвар' if lang=='mn' else 'Model' }}</label>
-            <input type="text" id="new-model" class="form-input" placeholder="AUW220D">
-          </div>
-          <div>
-            <label class="form-label">{{ 'Ангилал' if lang=='mn' else 'Category' }}</label>
-            <input type="text" id="new-cat" class="form-input" placeholder="{{ 'Жин хэмжих' if lang=='mn' else 'Weighing' }}">
-          </div>
-        </div>
-        <button type="button" onclick="saveMark()" class="btn btn-teal btn-sm" style="margin-top:8px">{{ 'Хадгалах' if lang=='mn' else 'Save' }}</button>
       </div>
 
       <div class="section-title">{{ 'Огноо / Хугацаа' if lang=='mn' else 'Dates' }}</div>
@@ -73,6 +94,78 @@
           <label class="form-label">{{ 'Calibration давтамж (өдөр)' if lang=='mn' else 'Calibration interval (days)' }}</label>
           <input type="number" name="calibration_interval" class="form-input" value="90" min="1">
         </div>
+      </div>
+
+      <div class="section-title">Дэлгэрэнгүй паспорт (заавал биш)</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Лабораторийн дугаар</label>
+          <input type="text" name="lab_id" class="form-input" placeholder="...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Арга (Method)</label>
+          <input type="text" name="method" class="form-input" placeholder="Шинжилгээний жин">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Нарийвчлал (Particular)</label>
+          <input type="text" name="particular" class="form-input" placeholder="0.0001 г">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Хэмжилт хийх хугацаа</label>
+          <input type="text" name="measuring_time" class="form-input" placeholder="2 сек">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Хэмжилтийн хязгаар</label>
+          <input type="text" name="measuring_limit" class="form-input" placeholder="220 г">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Дээд температур</label>
+          <input type="text" name="max_temp" class="form-input" placeholder="...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Хэмжээ (W×D×H)</label>
+          <input type="text" name="dimension" class="form-input" placeholder="210×344×344 мм">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Багтаамж</label>
+          <input type="text" name="capacity" class="form-input" placeholder="...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Жин</label>
+          <input type="text" name="weight_kg" class="form-input" placeholder="4.5 кг">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Бусад үзүүлэлт</label>
+          <input type="text" name="other_spec" class="form-input" placeholder="Жинлэх тавцан Ø 90 мм">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Чадал (Power)</label>
+          <input type="text" name="power" class="form-input" placeholder="10W">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Давтамж (Frequency)</label>
+          <input type="text" name="frequency" class="form-input" placeholder="50/60Hz">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Хүчдэл (Voltage)</label>
+          <input type="text" name="voltage" class="form-input" placeholder="100-240V">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ажиллагаа</label>
+          <input type="text" name="operating_state" class="form-input" placeholder="Хэвийн">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Хүлээн авсан огноо</label>
+          <input type="date" name="received_date" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Веб линк</label>
+          <input type="text" name="web_link" class="form-input" placeholder="https://...">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Дэлгэрэнгүй тодорхойлолт (Specification)</label>
+        <textarea name="specification" class="form-input" rows="2" placeholder="Solid Diecast Metal, Weighing Pan..."></textarea>
       </div>
 
       <div class="section-title">{{ 'Файл хавсаргах' if lang=='mn' else 'Attachments' }}</div>
@@ -99,26 +192,4 @@
     </form>
   </div>
 </div>
-{% endblock %}
-{% block scripts %}
-<script>
-function showMarkForm(){ document.getElementById('mark-form').style.display='block'; }
-async function saveMark(){
-  const mfr=document.getElementById('new-mfr').value;
-  const model=document.getElementById('new-model').value;
-  const cat=document.getElementById('new-cat').value;
-  if(!mfr||!model){ alert('Үйлдвэрлэгч болон загварыг оруулна уу!'); return; }
-  const fd=new FormData();
-  fd.append('manufacturer',mfr); fd.append('model',model); fd.append('category',cat);
-  const r=await fetch('/marks/add',{method:'POST',body:fd});
-  const d=await r.json();
-  if(d.success){
-    const sel=document.querySelector('select[name=mark_id]');
-    const opt=new Option(d.name,d.id,true,true);
-    sel.add(opt);
-    document.getElementById('mark-form').style.display='none';
-    alert('{{ "Mark нэмэгдлээ!" if lang=="mn" else "Mark added!" }}');
-  }
-}
-</script>
 {% endblock %}

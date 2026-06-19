@@ -43,10 +43,9 @@ body{font-family:'Inter',sans-serif;background:#f0ede8;min-height:100vh;display:
 <div class="center">
   <div class="card">
     <div class="card-logo">
-      <img src="/static/logo.jpg" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin-bottom:8px">
+      <img src="/static/{{ settings.logo }}" style="width:42px;height:64px;object-fit:contain;margin-bottom:8px">
       <div class="card-title">{{ settings.lab_name if session.get('lang','mn')=='mn' else settings.lab_name_en }}</div>
-      <div class="card-sub" style="font-size:12px;margin-bottom:4px">Лабораторийн удирдлагын систем</div>
-      <div class="card-sub">{{ 'Ажилтны ID болон нууц үгээ оруулна уу' if session.get('lang','mn')=='mn' else 'Enter your employee ID and password' }}</div>
+      <div class="card-sub" style="font-size:12px">Лабораторийн удирдлагын систем</div>
     </div>
     {% if error %}
     <div class="error">{{ error }}</div>
@@ -54,8 +53,8 @@ body{font-family:'Inter',sans-serif;background:#f0ede8;min-height:100vh;display:
     <form method="POST">
       <input type="hidden" name="lang" value="{{ session.get('lang','mn') }}">
       <div class="form-group">
-        <label class="form-label">{{ 'Ажилтны ID' if session.get('lang','mn')=='mn' else 'Employee ID' }}</label>
-        <input type="text" name="employee_id" class="form-input" placeholder="LAB-001" required autofocus>
+        <label class="form-label">{{ 'Нэвтрэх нэр' if session.get('lang','mn')=='mn' else 'Username' }}</label>
+        <input type="text" name="employee_id" class="form-input" placeholder="" required autofocus>
       </div>
       <div class="form-group">
         <label class="form-label">{{ 'Нууц үг' if session.get('lang','mn')=='mn' else 'Password' }}</label>
@@ -63,8 +62,32 @@ body{font-family:'Inter',sans-serif;background:#f0ede8;min-height:100vh;display:
       </div>
       <button type="submit" class="btn-login">{{ 'Нэвтрэх' if session.get('lang','mn')=='mn' else 'Sign In' }}</button>
     </form>
+    <div style="margin-top:18px;border-top:1px solid #e5e4e0;padding-top:14px">
+      <div style="font-size:11px;color:#aaa;margin-bottom:8px;text-align:center">Зочны нэвтрэх код байгаа бол</div>
+      <form method="GET" id="guestForm">
+        <div style="display:flex;gap:6px">
+          <input type="text" id="guestCode" class="form-input" placeholder="DEMO-XXXXXXXX"
+            style="text-transform:uppercase;letter-spacing:1px;font-family:monospace;font-size:13px">
+          <button type="button" onclick="guestLogin()"
+            style="padding:9px 14px;background:#f0e6ff;color:#7C3AED;border:1px solid #c4b5fd;border-radius:8px;font-size:13px;cursor:pointer;white-space:nowrap">
+            👁 Харах
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
+<script>
+function guestLogin(){
+  var code = document.getElementById('guestCode').value.trim().toUpperCase();
+  if(!code){ alert('Кодоо оруулна уу'); return; }
+  var token = code.startsWith('DEMO-') ? code.slice(5) : code;
+  window.location.href = '/guest/' + token;
+}
+document.getElementById('guestCode').addEventListener('keydown', function(e){
+  if(e.key==='Enter'){ e.preventDefault(); guestLogin(); }
+});
+</script>
 <div class="footer">Лабораторийн тоног төхөөрөмжийн удирдлагын систем</div>
 </body>
 </html>
