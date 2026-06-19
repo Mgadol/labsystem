@@ -1176,6 +1176,20 @@ def archive_measure(receipt_id):
     return render_template('analysis/archive_measure.html',
         receipt=receipt, entries=entries, lang=lang)
 
+@app.route('/archive/reopen/<int:receipt_id>', methods=['POST'])
+@senior_required
+def archive_reopen(receipt_id):
+    conn = get_db()
+    receipt = conn.execute('SELECT geo_sample_id FROM sample_receipt WHERE id=?', (receipt_id,)).fetchone()
+    if receipt:
+        conn.execute("UPDATE geo_samples SET status='analysing' WHERE id=?", (receipt['geo_sample_id'],))
+        conn.execute("UPDATE sample_receipt SET prep_status='ready' WHERE id=?", (receipt_id,))
+        conn.execute("UPDATE sample_entries SET row_status='done', approved_by=NULL, approved_at=NULL WHERE receipt_id=? AND row_status='approved'", (receipt_id,))
+        conn.commit()
+        flash('Шинжилгээ дахин нээгдлээ', 'success')
+    conn.close()
+    return redirect(url_for('analysis_result', receipt_id=receipt_id))
+
 @app.route('/archive/export/<int:receipt_id>')
 @login_required
 def analysis_export_report(receipt_id):
