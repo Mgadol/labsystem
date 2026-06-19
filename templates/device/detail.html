@@ -152,8 +152,8 @@
                 {% if not g2 and not g3 %}
                 <td colspan="4" style="padding:7px 12px">{% if g1 %}{{ g1 }}{% endif %}</td>
                 {% else %}
-                <td colspan="2" style="padding:7px 12px;border-right:2px solid #999">{% if g1 %}1. {{ g1 }}{% endif %}</td>
-                <td style="padding:7px 12px;border-right:2px solid #999">{% if g2 %}2. {{ g2 }}{% endif %}</td>
+                <td colspan="2" style="padding:7px 12px;border-right:1px solid var(--border)">{% if g1 %}1. {{ g1 }}{% endif %}</td>
+                <td style="padding:7px 12px;border-right:1px solid var(--border)">{% if g2 %}2. {{ g2 }}{% endif %}</td>
                 <td style="padding:7px 12px">{% if g3 %}3. {{ g3 }}{% endif %}</td>
                 {% endif %}
               </tr>
@@ -178,8 +178,8 @@
               <!-- Параметрийн нэр -->
               <tr style="background:#f8f9fa;text-align:center;font-size:12px;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border)">
                 <th style="padding:8px 12px;border-right:1px solid var(--border)">{{ p1 }}</th>
-                <th style="padding:8px 12px;border-right:2px solid #999">{{ p2 }}</th>
-                <th style="padding:8px 12px;border-right:2px solid #999">{{ p3 or '' }}</th>
+                <th style="padding:8px 12px;border-right:1px solid var(--border)">{{ p2 }}</th>
+                <th style="padding:8px 12px;border-right:1px solid var(--border)">{{ p3 or '' }}</th>
                 <th style="padding:8px 12px">{{ p4 or '' }}</th>
               </tr>
               <!-- Стандарт утга -->
@@ -187,10 +187,10 @@
                 <td style="padding:14px 12px;border-right:1px solid var(--border);font-size:20px;font-weight:700;color:var(--navy)">
                   {{ device['check_standard'] or '—' }}{% if device['check_tolerance'] %}<div style="font-size:11px;color:var(--text-muted);font-weight:400">({{ device['check_tolerance'] }})</div>{% endif %}
                 </td>
-                <td style="padding:14px 12px;border-right:2px solid #999;font-size:20px;font-weight:700;color:var(--navy)">
+                <td style="padding:14px 12px;border-right:1px solid var(--border);font-size:20px;font-weight:700;color:var(--navy)">
                   {{ device['check_standard2'] or '—' }}{% if device['check_tolerance2'] %}<div style="font-size:11px;color:var(--text-muted);font-weight:400">({{ device['check_tolerance2'] }})</div>{% endif %}
                 </td>
-                <td style="padding:14px 12px;border-right:2px solid #999;font-size:20px;font-weight:700;color:var(--navy)">
+                <td style="padding:14px 12px;border-right:1px solid var(--border);font-size:20px;font-weight:700;color:var(--navy)">
                   {{ device['check_standard3'] or '—' }}{% if device['check_tolerance3'] %}<div style="font-size:11px;color:var(--text-muted);font-weight:400">({{ device['check_tolerance3'] }})</div>{% endif %}
                 </td>
                 <td style="padding:14px 12px;font-size:20px;font-weight:700;color:var(--navy)">
