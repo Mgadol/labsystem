@@ -1474,6 +1474,17 @@ def ensure_tables():
             check_freq='daily', check_enabled=1
         WHERE lab_id IN ('19','20','21')
     """)
+    # Холигч — лаб 15,16 (зуухтай ижил загвар)
+    conn.execute("""
+        UPDATE devices SET
+            check_group1='Зуухны температур', check_group2=NULL, check_group3=NULL,
+            check_param1='Температур 1', check_standard='850±10 °C', check_tolerance='6 мин - 850 °C',
+            check_param2='Температур 2', check_standard2='900±20 °C', check_tolerance2='3 мин - 900 °C',
+            check_param3=NULL, check_standard3=NULL, check_tolerance3=NULL,
+            check_param4=NULL, check_standard4=NULL, check_tolerance4=NULL,
+            check_freq='daily', check_enabled=1
+        WHERE lab_id IN ('15','16')
+    """)
     conn.commit()
     conn.close()
 
