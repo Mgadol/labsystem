@@ -52,6 +52,11 @@
   {% if not loop.last %}<span style="color:#555">|</span>{% endif %}
   {% endfor %}
   <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+    <button id="editModeBtn" onclick="toggleEditMode()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">✏️ Засах</button>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <button onmousedown="event.preventDefault();increaseDecimal()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:3px;color:#fff;font-size:9px;padding:1px 4px;cursor:pointer;line-height:1.2">0.00</button>
+      <button onmousedown="event.preventDefault();decreaseDecimal()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:3px;color:#fff;font-size:9px;padding:1px 4px;cursor:pointer;line-height:1.2">00.0</button>
+    </div>
     <span class="save-dot" id="saveDot"></span>
     <span id="saveStatus" style="font-size:11px;color:#93a8d4">Хадгалагдсан</span>
   </div>
@@ -227,6 +232,45 @@
 {% block scripts %}
 <script>
 var QC = {mad:0.20, aad:0.30, vad:0.30};
+var editMode = false;
+var pendingChanges = {};
+
+function toggleEditMode(){
+  editMode = !editMode;
+  var btn = document.getElementById('editModeBtn');
+  if(editMode){
+    btn.textContent = '💾 Хадгалах';
+    document.getElementById('saveStatus').textContent = 'Засах горим';
+  } else {
+    var keys = Object.keys(pendingChanges);
+    if(!keys.length){ btn.textContent='✏️ Засах'; document.getElementById('saveStatus').textContent='Хадгалагдсан'; return; }
+    setSave('pending');
+    Promise.all(keys.map(function(k){
+      return fetch('/analysis/autosave',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(pendingChanges[k])}).then(r=>r.json());
+    })).then(function(){ pendingChanges={}; setSave('ok'); }).catch(function(){ setSave('err'); });
+    btn.textContent = '✏️ Засах';
+  }
+}
+function decreaseDecimal(){
+  var inp=document.activeElement;
+  if(!inp||!inp.matches('.tbl input')) return;
+  if(!inp.value) return;
+  var d=(inp.value.split('.')[1]||'').length;
+  if(d>0) inp.value=parseFloat(inp.value).toFixed(d-1);
+}
+function increaseDecimal(){
+  var inp=document.activeElement;
+  if(!inp||!inp.matches('.tbl input')) return;
+  if(!inp.value) return;
+  var d=(inp.value.split('.')[1]||'').length;
+  inp.value=parseFloat(inp.value).toFixed(d+1);
+}
+function setSave(st){
+  var dot=document.getElementById('saveDot');
+  var txt=document.getElementById('saveStatus');
+  dot.className='save-dot'+(st==='pending'?' pending':'');
+  txt.textContent=st==='pending'?'Хадгалж байна...':st==='err'?'Алдаа':'Хадгалагдсан';
+}
 
 // Дээжний нэр автомат
 function autoNames(){
