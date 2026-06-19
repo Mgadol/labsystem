@@ -159,32 +159,21 @@
               </tr>
             </thead>
             <tbody>
-              <!-- Зургийн мөр — 1. Эргэдэг хүрд: colspan=2 нэг зураг, 2. Эргэлдэх барабан, 3. Ачаа тус бүр нэг зураг -->
+              <!-- Зургийн мөр — 4 тусдаа нүд -->
               <tr style="background:#fff;text-align:center;border-bottom:1px solid var(--border)">
                 {% set ph1 = device['check_photo1'] %}
+                {% set ph2 = device['check_photo2'] %}
                 {% set ph3 = device['check_photo3'] %}
                 {% set ph4 = device['check_photo4'] %}
-                <td colspan="2" style="padding:14px;vertical-align:middle;border-right:2px solid #999">
-                  {% if ph1 %}
-                  <img src="{{ url_for('static',filename='uploads/'+ph1) }}" style="max-height:130px;max-width:100%;object-fit:contain">
+                {% for ph in [ph1, ph2, ph3, ph4] %}
+                <td style="padding:14px;vertical-align:middle;border-right:1px solid var(--border)">
+                  {% if ph %}
+                  <img src="{{ url_for('static',filename='uploads/'+ph) }}" style="max-height:110px;max-width:100%;object-fit:contain">
                   {% else %}
-                  <div style="color:#ccc;font-size:12px;padding:20px 8px"><div style="font-size:30px;margin-bottom:4px">📷</div>Зураг байхгүй</div>
+                  <div style="color:#ccc;font-size:12px;padding:16px 4px"><div style="font-size:26px;margin-bottom:4px">📷</div>Зураг байхгүй</div>
                   {% endif %}
                 </td>
-                <td style="padding:14px;vertical-align:middle;border-right:2px solid #999">
-                  {% if ph3 %}
-                  <img src="{{ url_for('static',filename='uploads/'+ph3) }}" style="max-height:130px;max-width:100%;object-fit:contain">
-                  {% else %}
-                  <div style="color:#ccc;font-size:12px;padding:20px 8px"><div style="font-size:30px;margin-bottom:4px">📷</div>Зураг байхгүй</div>
-                  {% endif %}
-                </td>
-                <td style="padding:14px;vertical-align:middle">
-                  {% if ph4 %}
-                  <img src="{{ url_for('static',filename='uploads/'+ph4) }}" style="max-height:130px;max-width:100%;object-fit:contain">
-                  {% else %}
-                  <div style="color:#ccc;font-size:12px;padding:20px 8px"><div style="font-size:30px;margin-bottom:4px">📷</div>Зураг байхгүй</div>
-                  {% endif %}
-                </td>
+                {% endfor %}
               </tr>
               <!-- Параметрийн нэр -->
               <tr style="background:#f8f9fa;text-align:center;font-size:12px;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border)">
@@ -262,6 +251,10 @@
                   <div>
                     <label class="form-label" style="font-size:11px">3. {{ g2 or p3 or 'Зураг 3' }}</label>
                     <input type="file" name="check_photo3" accept="image/*" style="font-size:12px">
+                  </div>
+                  <div>
+                    <label class="form-label" style="font-size:11px">4. {{ g3 or p4 or 'Зураг 4' }}</label>
+                    <input type="file" name="check_photo4" accept="image/*" style="font-size:12px">
                   </div>
                 </div>
                 <button type="submit" class="btn btn-sm" style="padding:5px 14px;font-size:12px">Хадгалах</button>
