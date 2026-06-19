@@ -307,7 +307,7 @@
         {% set p2 = device['check_param2'] %}
         {% set p3 = device['check_param3'] %}
         {% set p4 = device['check_param4'] %}
-        <form method="POST" action="{{ url_for('device_check_add', did=device['id']) }}" style="background:var(--gray);border-radius:8px;padding:14px;margin-bottom:16px">
+        <form method="POST" action="{{ url_for('device_check_add', did=device['id']) }}" enctype="multipart/form-data" style="background:var(--gray);border-radius:8px;padding:14px;margin-bottom:16px">
           <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.04em">Шинэ дотоод шалгалт</div>
           <!-- Огноо + Үр дүн + Тэмдэглэл -->
           <div style="display:grid;grid-template-columns:160px 160px 1fr;gap:10px;margin-bottom:12px">
@@ -371,7 +371,13 @@
               {% endif %}
             </tbody>
           </table>
-          <button type="submit" class="btn btn-teal btn-sm">Бүртгэх</button>
+          <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+            <div>
+              <label class="form-label">Зураг (сонголттой)</label>
+              <input type="file" name="photo" accept="image/*" class="form-input" style="padding:4px 8px;font-size:12px">
+            </div>
+            <button type="submit" class="btn btn-teal btn-sm">Бүртгэх</button>
+          </div>
         </form>
         {% endif %}
         <div style="overflow-x:auto">
@@ -395,6 +401,7 @@
               <th rowspan="2" style="text-align:center">Тохир</th>
               <th rowspan="2">Шалгасан</th>
               <th rowspan="2">Тэмдэглэл</th>
+              <th rowspan="2">Зураг</th>
               {% if current_user['role'] in ('admin','senior') %}<th rowspan="2"></th>{% endif %}
             </tr>
             <tr>
@@ -413,6 +420,7 @@
               <th style="text-align:center">Тохируулга</th>
               <th>Шалгасан</th>
               <th>Тэмдэглэл</th>
+              <th>Зураг</th>
               {% if current_user['role'] in ('admin','senior') %}<th></th>{% endif %}
             </tr>
             {% endif %}
@@ -446,6 +454,13 @@
             </td>
             <td style="font-size:12px">{{ ch['uname'] or '—' }}</td>
             <td style="font-size:12px;color:var(--text-muted)">{{ ch['notes'] or '' }}</td>
+            <td>
+              {% if ch['photo'] %}
+              <a href="{{ url_for('static', filename='uploads/'+ch['photo']) }}" target="_blank">
+                <img src="{{ url_for('static', filename='uploads/'+ch['photo']) }}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer">
+              </a>
+              {% else %}—{% endif %}
+            </td>
             {% if current_user['role'] in ('admin','senior') %}
             <td>
               <form method="POST" action="{{ url_for('device_check_delete', cid=ch['id']) }}" onsubmit="return confirm('Устгах уу?')" style="display:inline">
