@@ -2323,11 +2323,17 @@ def row_approve():
     data = request.get_json()
     rid = data.get('receipt_id')
     rows = data.get('rows', [])  # [{row_num, is_duplicate}]
+    approve_all = data.get('approve_all', False)
     conn = get_db()
-    for r in rows:
+    if approve_all:
         conn.execute("""UPDATE sample_entries SET row_status='approved', approved_by=?, approved_at=?
-                       WHERE receipt_id=? AND row_num=? AND is_duplicate=?""",
-                    (session['user_id'], datetime.now().isoformat(), rid, r['row_num'], r['is_duplicate']))
+                       WHERE receipt_id=? AND row_status='done'""",
+                    (session['user_id'], datetime.now().isoformat(), rid))
+    else:
+        for r in rows:
+            conn.execute("""UPDATE sample_entries SET row_status='approved', approved_by=?, approved_at=?
+                           WHERE receipt_id=? AND row_num=? AND is_duplicate=?""",
+                        (session['user_id'], datetime.now().isoformat(), rid, r['row_num'], r['is_duplicate']))
     conn.commit()
     # Бүх үндсэн мөр баталгаажсан эсэхийг шалгана
     total = conn.execute("SELECT COUNT(*) FROM sample_entries WHERE receipt_id=? AND is_duplicate=0", (rid,)).fetchone()[0]
@@ -2336,8 +2342,9 @@ def row_approve():
         conn.execute("UPDATE geo_samples SET status='done' WHERE id=(SELECT geo_sample_id FROM sample_receipt WHERE id=?)", (rid,))
         conn.execute("UPDATE sample_receipt SET prep_status='done' WHERE id=?", (rid,))
         conn.commit()
+    all_approved = (total > 0 and total == approved)
     conn.close()
-    return jsonify({'ok': True})
+    return jsonify({'ok': True, 'all_approved': all_approved})
 
 @app.route('/analysis/result/<int:receipt_id>')
 @login_required  
