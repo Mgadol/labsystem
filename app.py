@@ -2382,8 +2382,10 @@ def analysis_result(receipt_id):
     conn.close()
 
     role = session.get('role')
+    pending_approve = [e for e in entries if e['row_status'] == 'done' and e['is_duplicate'] == 0]
     return render_template('analysis/result.html',
-        receipt=receipt, entries=entries, lang=lang, role=role, crm_cert=crm_cert)
+        receipt=receipt, entries=entries, lang=lang, role=role, crm_cert=crm_cert,
+        pending_approve=pending_approve)
 
 
 @app.route('/analysis/export/<int:receipt_id>')
