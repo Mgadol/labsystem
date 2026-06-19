@@ -149,9 +149,13 @@
             <!-- Группийн гарчиг -->
             <thead>
               <tr style="background:#e8edf3;font-size:12px;font-weight:700;text-align:center;color:var(--navy)">
+                {% if not g2 and not g3 %}
+                <td colspan="4" style="padding:7px 12px">{% if g1 %}{{ g1 }}{% endif %}</td>
+                {% else %}
                 <td colspan="2" style="padding:7px 12px;border-right:2px solid #999">{% if g1 %}1. {{ g1 }}{% endif %}</td>
                 <td style="padding:7px 12px;border-right:2px solid #999">{% if g2 %}2. {{ g2 }}{% endif %}</td>
                 <td style="padding:7px 12px">{% if g3 %}3. {{ g3 }}{% endif %}</td>
+                {% endif %}
               </tr>
             </thead>
             <tbody>
@@ -248,25 +252,17 @@
                 </table>
                 <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">
                   <div>
-                    <label class="form-label" style="font-size:11px">1. {{ g1 or p1 }} зураг</label>
+                    <label class="form-label" style="font-size:11px">1. {{ g1 or p1 or 'Зураг 1' }}</label>
                     <input type="file" name="check_photo1" accept="image/*" style="font-size:12px">
                   </div>
                   <div>
-                    <label class="form-label" style="font-size:11px">2. {{ p2 or g2 or '' }} зураг</label>
+                    <label class="form-label" style="font-size:11px">2. {{ p2 or g2 or 'Зураг 2' }}</label>
                     <input type="file" name="check_photo2" accept="image/*" style="font-size:12px">
                   </div>
-                  {% if g2 or p3 %}
                   <div>
-                    <label class="form-label" style="font-size:11px">3. {{ g2 or p3 }} зураг</label>
+                    <label class="form-label" style="font-size:11px">3. {{ g2 or p3 or 'Зураг 3' }}</label>
                     <input type="file" name="check_photo3" accept="image/*" style="font-size:12px">
                   </div>
-                  {% endif %}
-                  {% if g3 or p4 %}
-                  <div>
-                    <label class="form-label" style="font-size:11px">4. {{ g3 or p4 }} зураг</label>
-                    <input type="file" name="check_photo4" accept="image/*" style="font-size:12px">
-                  </div>
-                  {% endif %}
                 </div>
                 <button type="submit" class="btn btn-sm" style="padding:5px 14px;font-size:12px">Хадгалах</button>
               </form>
