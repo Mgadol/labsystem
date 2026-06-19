@@ -681,12 +681,13 @@ def repair_add(did):
 def device_check_add(did):
     lang = session.get('lang','mn')
     conn = get_db()
+    photo = save_file(request.files.get('photo'), 'checks') if request.files.get('photo') else None
     conn.execute("""
         INSERT INTO device_checks(device_id,checked_by,check_date,standard_value,
         measured_value,tolerance,result,standard_value2,measured_value2,tolerance2,
         standard_value3,measured_value3,tolerance3,
-        standard_value4,measured_value4,tolerance4,notes)
-        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        standard_value4,measured_value4,tolerance4,notes,photo)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, (did, session.get('user_id', 0),
           request.form.get('check_date') or date.today().isoformat(),
           request.form.get('standard_value') or None,
@@ -702,7 +703,8 @@ def device_check_add(did):
           request.form.get('standard_value4') or None,
           request.form.get('measured_value4') or None,
           request.form.get('tolerance4') or None,
-          request.form.get('notes') or None))
+          request.form.get('notes') or None,
+          photo))
     conn.commit(); conn.close()
     flash('Дотоод шалгалт бүртгэгдлээ!' if lang=='mn' else 'Internal check recorded!', 'success')
     return redirect(url_for('device_detail', did=did) + '#tab-check')
@@ -1429,6 +1431,8 @@ def ensure_tables():
                 'measured_value4 TEXT', 'standard_value4 TEXT', 'tolerance4 TEXT']:
         try: conn.execute(f"ALTER TABLE device_checks ADD COLUMN {col}")
         except Exception: pass
+    try: conn.execute("ALTER TABLE device_checks ADD COLUMN photo TEXT")
+    except Exception: pass
     try: conn.execute("ALTER TABLE users ADD COLUMN shift TEXT")
     except Exception: pass
     # Барабан (Эргэдэг хүрд) тохиргоо — лаб дугаар 11-14 (4 параметр)
@@ -1441,6 +1445,16 @@ def ensure_tables():
             check_group1='Эргэдэг хүрд', check_group2='Эргэлдэх барабан', check_group3='Ачаа',
             check_freq='weekly', check_enabled=1
         WHERE lab_id IN ('11','12','13','14')
+    """)
+    # Зуух — лаб дугаар 6,7,8 (2 параметр: температур)
+    conn.execute("""
+        UPDATE devices SET
+            check_param1='Температур 1', check_standard='850±10 °C', check_tolerance='6 мин - 850 °C',
+            check_param2='Температур 2', check_standard2='900±20 °C', check_tolerance2='3 мин - 900 °C',
+            check_param3=NULL, check_standard3=NULL, check_tolerance3=NULL,
+            check_param4=NULL, check_standard4=NULL, check_tolerance4=NULL,
+            check_freq='daily', check_enabled=1
+        WHERE lab_id IN ('06','07','08')
     """)
     conn.commit()
     conn.close()
