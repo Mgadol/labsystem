@@ -213,33 +213,37 @@
             <div style="padding:12px;background:#f8f9fa">
               <form method="POST" action="{{ url_for('device_edit', did=device['id']) }}" enctype="multipart/form-data">
                 <input type="hidden" name="_check_config_only" value="1">
+                <div style="margin-bottom:10px">
+                  <label class="form-label" style="font-size:11px">Бүлгийн гарчиг (жишээ: Зуухны температур)</label>
+                  <input type="text" name="check_group1" class="form-input" style="padding:4px 7px;font-size:12px;max-width:300px" value="{{ device['check_group1'] or '' }}" placeholder="Зуухны температур">
+                </div>
                 <table style="border-collapse:collapse;margin-bottom:10px">
                   <thead><tr style="font-size:11px;color:var(--text-muted)">
-                    <th style="padding:3px 8px;text-align:left;width:160px">Параметр</th>
+                    <th style="padding:3px 8px;text-align:left;width:160px">Параметрийн нэр</th>
                     <th style="padding:3px 8px;text-align:left;width:130px">Стандарт</th>
-                    <th style="padding:3px 8px;text-align:left;width:110px">Зөрүү</th>
+                    <th style="padding:3px 8px;text-align:left;width:110px">Зөрүү/Тайлбар</th>
                   </tr></thead>
                   <tbody>
                     <tr>
-                      <td style="padding:3px 8px;font-size:12px">{{ p1 or 'Параметр 1' }}</td>
+                      <td style="padding:3px 8px"><input type="text" name="check_param1" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_param1'] or '' }}" placeholder="Температур 1"></td>
                       <td style="padding:3px 8px"><input type="text" name="check_standard" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_standard'] or '' }}"></td>
                       <td style="padding:3px 8px"><input type="text" name="check_tolerance" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_tolerance'] or '' }}" placeholder="±..."></td>
                     </tr>
-                    {% if p2 %}<tr>
-                      <td style="padding:3px 8px;font-size:12px">{{ p2 }}</td>
+                    <tr>
+                      <td style="padding:3px 8px"><input type="text" name="check_param2" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_param2'] or '' }}" placeholder="Температур 2"></td>
                       <td style="padding:3px 8px"><input type="text" name="check_standard2" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_standard2'] or '' }}"></td>
                       <td style="padding:3px 8px"><input type="text" name="check_tolerance2" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_tolerance2'] or '' }}" placeholder="±..."></td>
-                    </tr>{% endif %}
-                    {% if p3 %}<tr>
-                      <td style="padding:3px 8px;font-size:12px">{{ p3 }}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:3px 8px"><input type="text" name="check_param3" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_param3'] or '' }}" placeholder="Параметр 3 (сонголттой)"></td>
                       <td style="padding:3px 8px"><input type="text" name="check_standard3" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_standard3'] or '' }}"></td>
                       <td style="padding:3px 8px"><input type="text" name="check_tolerance3" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_tolerance3'] or '' }}" placeholder="±..."></td>
-                    </tr>{% endif %}
-                    {% if p4 %}<tr>
-                      <td style="padding:3px 8px;font-size:12px">{{ p4 }}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:3px 8px"><input type="text" name="check_param4" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_param4'] or '' }}" placeholder="Параметр 4 (сонголттой)"></td>
                       <td style="padding:3px 8px"><input type="text" name="check_standard4" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_standard4'] or '' }}"></td>
                       <td style="padding:3px 8px"><input type="text" name="check_tolerance4" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_tolerance4'] or '' }}" placeholder="±..."></td>
-                    </tr>{% endif %}
+                    </tr>
                   </tbody>
                 </table>
                 <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">
