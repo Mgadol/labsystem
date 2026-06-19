@@ -2329,6 +2329,13 @@ def row_approve():
                        WHERE receipt_id=? AND row_num=? AND is_duplicate=?""",
                     (session['user_id'], datetime.now().isoformat(), rid, r['row_num'], r['is_duplicate']))
     conn.commit()
+    # Бүх үндсэн мөр баталгаажсан эсэхийг шалгана
+    total = conn.execute("SELECT COUNT(*) FROM sample_entries WHERE receipt_id=? AND is_duplicate=0", (rid,)).fetchone()[0]
+    approved = conn.execute("SELECT COUNT(*) FROM sample_entries WHERE receipt_id=? AND is_duplicate=0 AND row_status='approved'", (rid,)).fetchone()[0]
+    if total > 0 and total == approved:
+        conn.execute("UPDATE geo_samples SET status='done' WHERE id=(SELECT geo_sample_id FROM sample_receipt WHERE id=?)", (rid,))
+        conn.execute("UPDATE sample_receipt SET prep_status='done' WHERE id=?", (rid,))
+        conn.commit()
     conn.close()
     return jsonify({'ok': True})
 
