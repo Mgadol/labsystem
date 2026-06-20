@@ -1189,7 +1189,13 @@ def analysis_find_receipt():
     """, (lab_number,)).fetchone()
     conn.close()
     if row:
-        return jsonify(dict(row))
+        return jsonify({
+            'id': row['id'],
+            'lab_number': row['lab_number'],
+            'received_date': row['received_date'] or '',
+            'quantity': row['quantity'] or 0,
+            'sample_name': row['sample_name'] or ''
+        })
     return jsonify({})
 
 @app.route('/analysis/delete/<int:receipt_id>', methods=['POST'])
