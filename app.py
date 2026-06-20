@@ -1561,7 +1561,7 @@ def reports():
     ]
     ANALYSIS_FIELDS = [
         ('mt_dried','Нийт чийг'),('mad','Дотоод чийг'),('aad','Үнслэг'),('vad','Дэгдэмхий'),
-        ('sulfur','Хүхэр'),('cal_value','Илчлэг'),('g_coke','G индекс'),('fsi','CSN'),
+        ('sulfur','Хүхэр'),('cal_value','Илчлэг'),('g_coke','G индекс'),('fsi','Чөлөөт хөөлтийн зэрэг'),
     ]
     sample_chart = {name: [] for _, name in SAMPLE_TYPES_MAP}
     analysis_chart = {name: [] for _, name in ANALYSIS_FIELDS}
