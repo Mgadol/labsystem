@@ -1182,7 +1182,7 @@ def analysis_find_receipt():
     lab_number = request.args.get('lab_number','').strip()
     conn = get_db()
     row = conn.execute("""
-        SELECT sr.id, sr.lab_number, sr.received_date, sr.quantity, g.sample_name
+        SELECT sr.id, sr.lab_number, sr.received_date, g.quantity, g.sample_name
         FROM sample_receipt sr
         JOIN geo_samples g ON g.id=sr.geo_sample_id
         WHERE sr.lab_number=?
