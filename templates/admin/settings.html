@@ -444,6 +444,17 @@
         ⚠️ Backup файлыг аюулгүй газарт хадгална уу. Системийн бүх өгөгдөл агуулагдана.
       </div>
     </div>
+    <div class="card" style="margin-top:16px;border:1px solid rgba(239,68,68,.3)">
+      <div class="section-title" style="color:#dc2626">🗑 Шинжилгээний бүртгэл устгах</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+        Буруу оруулсан шинжилгээний бүртгэлийг устгана. Дээжний мэдээлэл хэвээр үлдэж, дахин хүлээн авах боломжтой болно.
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+        <input type="text" id="deleteLabNum" placeholder="Ажлын дугаар (жшэ: 1046-20260605)" class="form-input" style="max-width:280px">
+        <button onclick="searchReceipt()" class="btn btn-ghost">🔍 Хайх</button>
+      </div>
+      <div id="deleteResult"></div>
+    </div>
   </div>
 
   <!-- Зочны код -->
@@ -652,6 +663,26 @@ function togglePw(inputId, btnId){
   var inp = document.getElementById(inputId);
   inp.type = inp.type==='password' ? 'text' : 'password';
   document.getElementById(btnId).textContent = inp.type==='password' ? '👁' : '🙈';
+}
+
+function searchReceipt(){
+  var num = document.getElementById('deleteLabNum').value.trim();
+  if(!num){ alert('Ажлын дугаар оруулна уу'); return; }
+  fetch('/analysis/find-receipt?lab_number='+encodeURIComponent(num))
+    .then(r=>r.json())
+    .then(function(data){
+      var el = document.getElementById('deleteResult');
+      if(!data.id){
+        el.innerHTML='<div style="color:#888;font-size:13px">Бүртгэл олдсонгүй</div>';
+        return;
+      }
+      el.innerHTML='<div style="background:#fff8f8;border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:12px;font-size:13px">'
+        +'<div style="font-weight:600;margin-bottom:6px">'+data.lab_number+' — '+data.sample_name+'</div>'
+        +'<div style="color:#666;margin-bottom:10px">Огноо: '+data.received_date+' | Тоо: '+data.quantity+'</div>'
+        +'<form method="POST" action="/analysis/delete/'+data.id+'" onsubmit="return confirm(\''+data.lab_number+' ажлыг устгах уу? Буцаах боломжгүй!\')">'
+        +'<button type="submit" class="btn btn-danger">🗑 Устгах</button>'
+        +'</form></div>';
+    });
 }
 </script>
 {% endblock %}
