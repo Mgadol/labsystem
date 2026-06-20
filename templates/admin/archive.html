@@ -147,8 +147,11 @@
   <!-- Шинжилгээ -->
   <div id="tab-analysis" class="tab-pane">
     <div class="card">
+      <div style="margin-bottom:12px">
+        <input type="text" id="archiveSearch" placeholder="Ажлын дугаараар хайх..." oninput="filterArchive(this.value)" class="form-input" style="max-width:260px">
+      </div>
       {% if done_samples %}
-      <table class="table">
+      <table class="table" id="archiveTable">
         <thead><tr>
           <th>{{ 'Ажлын дугаар' if lang=='mn' else 'Lab Number' }}</th>
           <th>{{ 'Дээжийн нэр' if lang=='mn' else 'Sample Name' }}</th>
@@ -246,6 +249,13 @@ function switchTab(btn, tabId){
   btn.classList.add('active');
   var pane=document.getElementById(tabId);
   if(pane){ pane.classList.add('active'); pane.style.display='block'; }
+}
+function filterArchive(val){
+  var q = val.trim().toLowerCase();
+  document.querySelectorAll('#archiveTable tbody tr').forEach(function(tr){
+    var num = tr.cells[0].textContent.toLowerCase();
+    tr.style.display = (!q || num.includes(q)) ? '' : 'none';
+  });
 }
 // URL-ийн hash-аас tab нээх
 (function(){
