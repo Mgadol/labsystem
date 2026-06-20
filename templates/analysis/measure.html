@@ -96,6 +96,11 @@
     </div>
     <span class="save-dot" id="saveDot"></span>
     <span id="saveStatus" style="font-size:11px;color:#93a8d4">Хадгалагдсан</span>
+    {% if role == 'admin' %}
+    <form method="POST" action="{{ url_for('analysis_delete', receipt_id=receipt['id']) }}" onsubmit="return confirm('Энэ ажлыг устгах уу? Буцаах боломжгүй!')">
+      <button type="submit" style="background:rgba(239,68,68,.2);border:1px solid rgba(239,68,68,.4);border-radius:6px;color:#f87171;font-size:11px;padding:4px 10px;cursor:pointer">🗑 Устгах</button>
+    </form>
+    {% endif %}
   </div>
 </div>
 

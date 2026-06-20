@@ -1176,6 +1176,20 @@ def archive_measure(receipt_id):
     return render_template('analysis/archive_measure.html',
         receipt=receipt, entries=entries, lang=lang)
 
+@app.route('/analysis/delete/<int:receipt_id>', methods=['POST'])
+@admin_required
+def analysis_delete(receipt_id):
+    conn = get_db()
+    receipt = conn.execute('SELECT geo_sample_id FROM sample_receipt WHERE id=?', (receipt_id,)).fetchone()
+    if receipt:
+        conn.execute('DELETE FROM sample_entries WHERE receipt_id=?', (receipt_id,))
+        conn.execute('DELETE FROM sample_receipt WHERE id=?', (receipt_id,))
+        conn.execute("UPDATE geo_samples SET status='pending' WHERE id=?", (receipt['geo_sample_id'],))
+        conn.commit()
+        flash('Шинжилгээний бүртгэл устгагдлаа', 'success')
+    conn.close()
+    return redirect(url_for('analysis'))
+
 @app.route('/archive/reopen/<int:receipt_id>', methods=['POST'])
 @senior_required
 def archive_reopen(receipt_id):
