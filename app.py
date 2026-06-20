@@ -1176,6 +1176,22 @@ def archive_measure(receipt_id):
     return render_template('analysis/archive_measure.html',
         receipt=receipt, entries=entries, lang=lang)
 
+@app.route('/analysis/find-receipt')
+@admin_required
+def analysis_find_receipt():
+    lab_number = request.args.get('lab_number','').strip()
+    conn = get_db()
+    row = conn.execute("""
+        SELECT sr.id, sr.lab_number, sr.received_date, sr.quantity, g.sample_name
+        FROM sample_receipt sr
+        JOIN geo_samples g ON g.id=sr.geo_sample_id
+        WHERE sr.lab_number=?
+    """, (lab_number,)).fetchone()
+    conn.close()
+    if row:
+        return jsonify(dict(row))
+    return jsonify({})
+
 @app.route('/analysis/delete/<int:receipt_id>', methods=['POST'])
 @admin_required
 def analysis_delete(receipt_id):
