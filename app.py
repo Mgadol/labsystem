@@ -1560,8 +1560,8 @@ def reports():
         ('CONTROL','Хяналт'),('DP','Баяжуулах'),('EQ_CONTROL','Гадаад хяналт'),
     ]
     ANALYSIS_FIELDS = [
-        ('Mad','Дотоод чийг'),('Aad','Үнслэг'),('Vad','Дэгдэмхий'),
-        ('sulfur','Хүхэр'),('cal_value','Илчлэг'),
+        ('mt_dried','Нийт чийг'),('mad','Дотоод чийг'),('aad','Үнслэг'),('vad','Дэгдэмхий'),
+        ('sulfur','Хүхэр'),('cal_value','Илчлэг'),('g_coke','G индекс'),
     ]
     sample_chart = {name: [] for _, name in SAMPLE_TYPES_MAP}
     analysis_chart = {name: [] for _, name in ANALYSIS_FIELDS}
@@ -1601,8 +1601,8 @@ def reports_chart_data():
         ('CONTROL','Хяналт'),('DP','Баяжуулах'),('EQ_CONTROL','Гадаад хяналт'),
     ]
     ANALYSIS_FIELDS = [
-        ('Mad','Дотоод чийг'),('Aad','Үнслэг'),('Vad','Дэгдэмхий'),
-        ('sulfur','Хүхэр'),('cal_value','Илчлэг'),
+        ('mt','Нийт чийг'),('Mad','Дотоод чийг'),('Aad','Үнслэг'),('Vad','Дэгдэмхий'),
+        ('sulfur','Хүхэр'),('cal_value','Илчлэг'),('g','G индекс'),
     ]
     conn = get_db()
     if rtype == 'week':
