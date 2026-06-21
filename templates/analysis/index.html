@@ -73,7 +73,7 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
       <tr class="sample-row" data-cat="anal" data-date="{{ qc['triggered_date'] }}" data-rid="">
         <td style="width:36px;text-align:center">
           {% if current_user['role'] in ('admin','senior','staff') %}
-          <input type="checkbox" class="lot-cb" value="{{ qc['receipt_id_1'] }},{{ qc['receipt_id_2'] }}" data-qc-rows="{{ qc['receipt_id_1'] }}:{{ qc['row_num_1'] or 1 }},{{ qc['receipt_id_2'] }}:{{ qc['row_num_2'] or 1 }}" onchange="updateMultiBtn()" style="width:15px;height:15px;cursor:pointer">
+          <input type="checkbox" class="lot-cb" value="{{ qc['receipt_id_1'] }},{{ qc['receipt_id_2'] }}" data-qc-rows="{{ qc['receipt_id_1'] }}:{{ qc['row_num_1'] or 1 }},{{ qc['receipt_id_2'] }}:{{ qc['row_num_2'] or 1 }}" data-qc-id="{{ qc['id'] }}" onchange="updateMultiBtn()" style="width:15px;height:15px;cursor:pointer">
           {% endif %}
         </td>
         <td>
@@ -88,7 +88,7 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
         <td>
           <div style="display:flex;gap:4px;flex-wrap:wrap">
             {% if current_user['role'] in ('admin','senior','staff') %}
-            <a href="{{ url_for('analysis_measure_multi') }}?ids={{ qc['receipt_id_1'] }},{{ qc['receipt_id_2'] }}&qc_rows={{ qc['receipt_id_1'] }}:{{ qc['row_num_1'] or 1 }},{{ qc['receipt_id_2'] }}:{{ qc['row_num_2'] or 1 }}" class="btn btn-ghost btn-sm">🧪 Шинжилгээ хийх</a>
+            <a href="{{ url_for('analysis_measure_multi') }}?ids={{ qc['receipt_id_1'] }},{{ qc['receipt_id_2'] }}&qc_rows={{ qc['receipt_id_1'] }}:{{ qc['row_num_1'] or 1 }},{{ qc['receipt_id_2'] }}:{{ qc['row_num_2'] or 1 }}&qc_id={{ qc['id'] }}" class="btn btn-ghost btn-sm">🧪 Шинжилгээ хийх</a>
             {% endif %}
             <a href="{{ url_for('internal_qc_measure', qc_id=qc['id']) }}" class="btn btn-ghost btn-sm">📊 Үр дүн</a>
           </div>
@@ -322,14 +322,17 @@ function toggleAll(cb){
 function startMulti(){
   var ids = [];
   var qcRows = [];
+  var qcId = '';
   document.querySelectorAll('.lot-cb:checked').forEach(function(cb){
     ids.push(cb.value);
     if(cb.dataset.qcRows) qcRows.push(cb.dataset.qcRows);
+    if(cb.dataset.qcId) qcId = cb.dataset.qcId;
   });
   if(!ids.length){ alert('Дор хаяж нэг ажлын дугаар сонгоно уу!'); return; }
   var allIds = ids.join(',');
   var url = '/analysis/measure/multi?ids=' + allIds;
   if(qcRows.length) url += '&qc_rows=' + qcRows.join(',');
+  if(qcId) url += '&qc_id=' + qcId;
   window.location.href = url;
 }
 // Анхдагч таб харуулах — функцүүд тодорхойлогдсоны дараа дуудна
