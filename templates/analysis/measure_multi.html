@@ -49,7 +49,7 @@
   <div style="font-size:9px;color:#93a8d4">Ажлын дугаарууд:</div>
   {% if qc_row_map %}
   <span style="font-family:monospace;font-weight:600;color:#4ade80;font-size:13px">🔁 Дотоод QC</span>
-  {% for r in receipts %}{% if not r['id'] in qc_receipt_ids %}
+  {% for r in receipts %}{% if not r['id']|string in qc_receipt_ids %}
   <span style="color:#555">|</span>
   <span style="font-family:monospace;font-weight:600;color:#4ade80;font-size:13px">{{ r['lab_number'] }}</span>
   {% endif %}{% endfor %}
@@ -64,7 +64,7 @@
     <button onclick="openDevicePopup()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">🔧 <span id="deviceSummary">Тоног</span></button>
     {% if qc_row_map %}
     <span style="background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.4);border-radius:6px;color:#4ade80;font-size:11px;padding:4px 10px">📊 Дотоод QC</span>
-    {% for r in receipts %}{% if not r['id'] in qc_receipt_ids %}
+    {% for r in receipts %}{% if not r['id']|string in qc_receipt_ids %}
     <a href="{{ url_for('analysis_result', receipt_id=r['id']) }}" style="background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.4);border-radius:6px;color:#4ade80;font-size:11px;padding:4px 10px;cursor:pointer;text-decoration:none">📊 {{ r['lab_number'] }}</a>
     {% endif %}{% endfor %}
     {% else %}
@@ -163,17 +163,17 @@
   {% for i in range(receipt['quantity'] or 1) %}
   {% set row_num.val = row_num.val + 1 %}
   {% set ri = i+1 %}
-  {% if qc_row_map and rid in qc_receipt_ids and qc_row_map[rid] != ri %}{% else %}
+  {% if qc_row_map and rid|string in qc_receipt_ids and qc_row_map[rid] != ri %}{% else %}
   {% set uid = rid|string + '_' + ri|string %}
   <tr class="main-row" id="mr{{ uid }}">
     <td style="font-size:10px;color:#666;padding:0 2px">
       <button class="dup-btn" id="db{{ uid }}" onclick="toggleDup('{{ uid }}')">+</button>
     </td>
     <td style="font-size:10px;font-weight:600;color:
-      {% if qc_row_map and rid in qc_receipt_ids %}#0d9488
+      {% if qc_row_map and rid|string in qc_receipt_ids %}#0d9488
       {% elif stype=='PIT' %}#0f6e56{% elif stype=='STOCKPILE' %}#185fa5
       {% elif stype=='EXPORT' %}#3c3489{% elif stype=='CONTROL' %}#854f0b
-      {% elif stype=='EQ_CONTROL' %}#993c1d{% else %}#555{% endif %}">{{ 'QC' if (qc_row_map and rid in qc_receipt_ids) else stype }}</td>
+      {% elif stype=='EQ_CONTROL' %}#993c1d{% else %}#555{% endif %}">{{ 'QC' if (qc_row_map and rid|string in qc_receipt_ids) else stype }}</td>
     <td style="font-family:monospace;font-size:10px;color:#555">{{ receipt['lab_number'] }}</td>
     <td><div class="name-cell"><input class="name-inp" type="text" id="n{{ uid }}" data-field="sample_name" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></div></td>
     <td><input type="number" step="0.01" data-field="mass_kg" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>

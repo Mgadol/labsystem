@@ -3100,7 +3100,7 @@ def analysis_measure_multi():
     if not receipts:
         return redirect(url_for('analysis'))
 
-    qc_receipt_ids = list(qc_row_map.keys())
+    qc_receipt_ids = [str(k) for k in qc_row_map.keys()]
     return render_template('analysis/measure_multi.html',
         receipts=receipts, lang=lang,
         ids=ids_str, qc_row_map=qc_row_map, qc_receipt_ids=qc_receipt_ids)
