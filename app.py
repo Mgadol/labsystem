@@ -1129,7 +1129,8 @@ def internal_qc_create():
     qc_id = cur.lastrowid
     conn.commit()
     conn.close()
-    return redirect(url_for('internal_qc_measure', qc_id=qc_id))
+    flash('Дотоод QC даалгавар үүслээ — жагсаалтаас сонгоно уу', 'success')
+    return redirect(url_for('analysis'))
 
 @app.route('/internal-qc/<int:qc_id>/measure')
 @lab_required
@@ -2148,9 +2149,22 @@ def analysis():
         WHERE status='active' AND COALESCE(stage,'both') IN ('prep','both')
         ORDER BY name
     """).fetchall()
+    pending_qc = conn.execute("""
+        SELECT iq.id, iq.triggered_date,
+            sr1.lab_number as lab1, g1.sample_name as sname1,
+            sr2.lab_number as lab2, g2.sample_name as sname2
+        FROM internal_qc iq
+        LEFT JOIN sample_receipt sr1 ON sr1.id=iq.receipt_id_1
+        LEFT JOIN geo_samples g1 ON g1.id=sr1.geo_sample_id
+        LEFT JOIN sample_receipt sr2 ON sr2.id=iq.receipt_id_2
+        LEFT JOIN geo_samples g2 ON g2.id=sr2.geo_sample_id
+        WHERE iq.status='pending'
+        ORDER BY iq.created_at DESC
+    """).fetchall()
     conn.close()
     return render_template('analysis/index.html', samples=samples, lang=lang,
-        today=datetime.now().strftime('%Y-%m-%d'), prep_devices=prep_devices)
+        today=datetime.now().strftime('%Y-%m-%d'), prep_devices=prep_devices,
+        pending_qc=pending_qc)
 
 @app.route('/analysis/register', methods=['GET','POST'])
 @login_required
