@@ -1,5 +1,5 @@
 {% extends "partial/base.html" %}
-{% block title %}Үр дүн — {{ receipt['lab_number'] }}{% endblock %}
+{% block title %}Үр дүн — {{ 'QC ' if qc_row else '' }}{{ receipt['lab_number'] }}{% endblock %}
 {% block content %}
 <style>
 .result-wrap{overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 220px)}
@@ -25,8 +25,8 @@
 <!-- Мэдээлэл -->
 <div style="padding:7px 14px;background:#1a2744;color:#fff;display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12px;border-bottom:2px solid #4ade80">
   <div>
-    <div style="font-size:9px;color:#93a8d4">Ажлын дугаар</div>
-    <div style="font-size:15px;font-weight:700;font-family:monospace;color:#4ade80">{{ receipt['lab_number'] }}</div>
+    <div style="font-size:9px;color:#93a8d4">{{ 'QC дугаар' if qc_row else 'Ажлын дугаар' }}</div>
+    <div style="font-size:15px;font-weight:700;font-family:monospace;color:#4ade80">{{ 'QC ' if qc_row else '' }}{{ receipt['lab_number'] }}</div>
   </div>
   <div style="width:1px;background:rgba(255,255,255,.15);height:30px"></div>
   <div><div style="font-size:9px;color:#93a8d4">Дээжний нэр</div><div style="font-weight:600">{{ receipt['sample_name'] }}</div></div>
