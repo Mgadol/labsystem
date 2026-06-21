@@ -58,7 +58,7 @@
     <div>
 
       <!-- Stat cards -->
-      <div style="display:grid;grid-template-columns:repeat({% if target['role']=='bayjuulach' %}4{% else %}3{% endif %},1fr);gap:12px;margin-bottom:16px">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
         <div class="card" style="padding:14px;text-align:center">
           <div style="font-size:28px;font-weight:700;color:{{ '#0d9488' if target['role']=='bayjuulach' else '#7C3AED' }}">{{ geo_total }}</div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Нийт бүртгэсэн дээж</div>
@@ -71,12 +71,10 @@
           <div style="font-size:28px;font-weight:700;color:#854f0b">{{ geo_active }}</div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Хүлээгдэж буй</div>
         </div>
-        {% if target['role']=='bayjuulach' %}
         <div class="card" style="padding:14px;text-align:center">
           <div style="font-size:28px;font-weight:700;color:#0d9488">{{ view_total }}</div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Үр дүн харсан</div>
         </div>
-        {% endif %}
       </div>
 
       <!-- Bar: сарын бүртгэл -->
@@ -87,8 +85,7 @@
         </div>
       </div>
 
-      <!-- Баяжуулах: үр дүн харсан лог -->
-      {% if target['role']=='bayjuulach' %}
+      <!-- Үр дүн харсан лог -->
       <div class="card" style="margin-bottom:16px">
         <div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
           📋 Үр дүн харсан түүх
@@ -111,7 +108,6 @@
         <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px">Үр дүн харсан бүртгэл байхгүй</div>
         {% endif %}
       </div>
-      {% endif %}
 
       <!-- Сүүлд бүртгэсэн дээжүүд -->
       <div class="card">
