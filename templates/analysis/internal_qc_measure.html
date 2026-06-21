@@ -1,0 +1,127 @@
+{% extends "partial/base.html" %}
+{% block title %}Дотоод QC — Хэмжилт{% endblock %}
+{% block content %}
+{% set LABELS = {'mad':'Mad','aad':'Aad','vad':'Vad','fc':'FC','sulfur':'Stad','cal_value':'Qgr,db','fsi':'CSN'} %}
+{% set UNITS  = {'mad':'%','aad':'%','vad':'%','fc':'%','sulfur':'%','cal_value':'ккал/кг','fsi':''} %}
+
+<!-- Toolbar -->
+<div style="padding:7px 14px;background:#1a2744;color:#fff;display:flex;gap:14px;align-items:center;font-size:12px;border-bottom:2px solid #4ade80;flex-wrap:wrap">
+  <div style="font-size:9px;color:#93a8d4">Дотоод QC</div>
+  <div style="font-size:15px;font-weight:700;font-family:monospace;color:#4ade80">#{{ qc['id'] }} — {{ qc['triggered_date'] }}</div>
+  <div style="width:1px;background:rgba(255,255,255,.15);height:30px"></div>
+  <div><span style="font-size:9px;color:#93a8d4">1-р дээж</span><br><b style="color:#4ade80">{{ qc['lab1'] }}</b> {{ qc['sname1'] }}</div>
+  <div><span style="font-size:9px;color:#93a8d4">2-р дээж</span><br><b style="color:#4ade80">{{ qc['lab2'] }}</b> {{ qc['sname2'] }}</div>
+  <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+    <span id="qcStatus" style="font-size:11px;color:#93a8d4">
+      {% if qc['status']=='done' %}✅ Дууссан{% else %}⏳ Хүлээгдэж байна{% endif %}
+    </span>
+    <a href="{{ url_for('internal_qc_list') }}" class="btn btn-ghost btn-sm" style="font-size:11px">← Буцах</a>
+  </div>
+</div>
+
+<div style="padding:20px;max-width:1000px;margin:0 auto">
+  <form method="POST" action="{{ url_for('internal_qc_done', qc_id=qc['id']) }}" id="qcForm">
+    <input type="hidden" name="rid1" value="{{ qc['receipt_id_1'] }}">
+    <input type="hidden" name="rid2" value="{{ qc['receipt_id_2'] }}">
+
+    {% for rid, lab, sname, orig in [
+        (qc['receipt_id_1'], qc['lab1'], qc['sname1'], orig1),
+        (qc['receipt_id_2'], qc['lab2'], qc['sname2'], orig2)
+    ] %}
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-weight:700;font-size:14px;color:var(--navy);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border)">
+        <span style="font-family:monospace;color:#4ade80;background:#1a2744;padding:2px 8px;border-radius:4px">{{ lab }}</span>
+        <span style="margin-left:8px">{{ sname }}</span>
+      </div>
+      <div style="overflow-x:auto">
+      <table class="table" style="font-size:13px">
+        <thead>
+          <tr>
+            <th style="width:120px">Үзүүлэлт</th>
+            <th style="text-align:center;color:var(--navy)">Анхны утга</th>
+            <th style="text-align:center;color:var(--teal)">Давтан утга</th>
+            <th style="text-align:center">Зөрүү</th>
+            <th style="text-align:center">QC</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for p in params %}
+        {% set label = LABELS.get(p, p) %}
+        {% set unit = UNITS.get(p, '') %}
+        {% set oval = orig.get(p) %}
+        {% set res = results|selectattr('receipt_id','eq',rid)|selectattr('parameter','eq',p)|list %}
+        {% set rval = res[0]['repeat_value'] if res else None %}
+        {% set diff = res[0]['difference'] if res else None %}
+        {% set ok = res[0]['within_tolerance'] if res else None %}
+        <tr id="row_{{ rid }}_{{ p }}">
+          <td style="font-weight:600">{{ label }}<span style="color:#aaa;font-size:10px;margin-left:4px">{{ unit }}</span></td>
+          <td style="text-align:center">
+            <input type="hidden" name="orig_{{ rid }}_{{ p }}" value="{{ oval or '' }}" id="orig_{{ rid }}_{{ p }}">
+            <span style="font-weight:600;color:var(--navy)">{{ '%.3f'|format(oval) if oval is not none else '—' }}</span>
+          </td>
+          <td style="text-align:center">
+            {% if qc['status']=='pending' %}
+            <input type="number" step="0.001" name="rep_{{ rid }}_{{ p }}"
+              id="rep_{{ rid }}_{{ p }}"
+              value="{{ '%.3f'|format(rval) if rval is not none else '' }}"
+              oninput="calcDiff('{{ rid }}','{{ p }}')"
+              style="width:90px;padding:4px 6px;border:1px solid #ddd;border-radius:5px;font-size:12px;text-align:center">
+            {% else %}
+            <span style="font-weight:600;color:var(--teal)">{{ '%.3f'|format(rval) if rval is not none else '—' }}</span>
+            {% endif %}
+          </td>
+          <td style="text-align:center">
+            <span id="diff_{{ rid }}_{{ p }}" style="font-weight:600;{% if diff is not none %}color:{{ '#16a34a' if ok else '#dc2626' }}{% endif %}">
+              {{ '%.3f'|format(diff) if diff is not none else '—' }}
+            </span>
+          </td>
+          <td style="text-align:center">
+            <span id="qcbadge_{{ rid }}_{{ p }}">
+              {% if ok is not none %}
+                {% if ok %}<span style="color:#16a34a;font-size:16px">✓</span>{% else %}<span style="color:#dc2626;font-size:16px">✗</span>{% endif %}
+              {% else %}—{% endif %}
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+    {% endfor %}
+
+    {% if qc['status']=='pending' %}
+    <div style="display:flex;gap:10px;align-items:center;margin-top:8px">
+      <input type="text" name="notes" placeholder="Тэмдэглэл (сонголттой)" class="form-input" style="max-width:320px">
+      <button type="submit" class="btn btn-primary">✅ Хадгалах</button>
+    </div>
+    {% endif %}
+    {% if qc['notes'] %}
+    <div style="margin-top:8px;font-size:13px;color:var(--text-muted)">📝 {{ qc['notes'] }}</div>
+    {% endif %}
+  </form>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+var QC_TOL = {{ qc_tol|tojson }};
+function calcDiff(rid, p){
+  var origEl = document.getElementById('orig_'+rid+'_'+p);
+  var repEl  = document.getElementById('rep_'+rid+'_'+p);
+  var diffEl = document.getElementById('diff_'+rid+'_'+p);
+  var badgeEl= document.getElementById('qcbadge_'+rid+'_'+p);
+  if(!origEl||!repEl||!diffEl) return;
+  var o = parseFloat(origEl.value);
+  var r = parseFloat(repEl.value);
+  if(isNaN(o)||isNaN(r)){ diffEl.textContent='—'; badgeEl.innerHTML='—'; return; }
+  var d = Math.abs(o-r);
+  diffEl.textContent = d.toFixed(3);
+  var tol = QC_TOL[p.charAt(0).toUpperCase()+p.slice(1)];
+  if(tol !== undefined){
+    var ok = d <= parseFloat(tol);
+    diffEl.style.color = ok ? '#16a34a' : '#dc2626';
+    badgeEl.innerHTML = ok ? '<span style="color:#16a34a;font-size:16px">✓</span>' : '<span style="color:#dc2626;font-size:16px">✗</span>';
+  }
+}
+</script>
+{% endblock %}
