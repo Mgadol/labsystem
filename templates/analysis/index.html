@@ -73,22 +73,22 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
       <tr class="sample-row" data-cat="anal" data-date="{{ qc['triggered_date'] }}" data-rid="">
         <td style="width:36px;text-align:center">
           {% if current_user['role'] in ('admin','senior','staff') %}
-          <input type="checkbox" class="lot-cb" value="{{ qc['receipt_id_1'] }},{{ qc['receipt_id_2'] }}" data-qc-rows="{{ qc['receipt_id_1'] }}:{{ qc['row_num_1'] or 1 }},{{ qc['receipt_id_2'] }}:{{ qc['row_num_2'] or 1 }}" data-qc-id="{{ qc['id'] }}" onchange="updateMultiBtn()" style="width:15px;height:15px;cursor:pointer">
+          <input type="checkbox" class="lot-cb" value="{{ qc['receipt_id_1'] }}" data-qc-rows="{{ qc['receipt_id_1'] }}:{{ qc['row_num_1'] or 1 }}" data-qc-id="{{ qc['id'] }}" onchange="updateMultiBtn()" style="width:15px;height:15px;cursor:pointer">
           {% endif %}
         </td>
         <td>
           <strong style="font-family:monospace;color:#0d9488">Дотоод QC</strong>
         </td>
-        <td style="font-size:12px;color:#555">{{ qc['lab1'] }} | {{ qc['lab2'] }}</td>
+        <td style="font-size:12px;color:#555">{{ qc['lab1'] }}</td>
         <td><span class="badge" style="background:#ccfbf1;color:#0d9488">QC</span></td>
-        <td>2</td>
+        <td>1</td>
         <td>—</td>
         <td>{{ qc['triggered_date'] }}</td>
         <td><span class="badge" style="background:#e8f5f1;color:#0d6e5f">Шинжилгээнд бэлэн</span></td>
         <td>
           <div style="display:flex;gap:4px;flex-wrap:wrap">
             {% if current_user['role'] in ('admin','senior','staff') %}
-            <a href="{{ url_for('analysis_measure_multi') }}?ids={{ qc['receipt_id_1'] }},{{ qc['receipt_id_2'] }}&qc_rows={{ qc['receipt_id_1'] }}:{{ qc['row_num_1'] or 1 }},{{ qc['receipt_id_2'] }}:{{ qc['row_num_2'] or 1 }}&qc_id={{ qc['id'] }}" class="btn btn-ghost btn-sm">🧪 Шинжилгээ хийх</a>
+            <a href="{{ url_for('analysis_measure_multi') }}?ids={{ qc['receipt_id_1'] }}&qc_rows={{ qc['receipt_id_1'] }}:{{ qc['row_num_1'] or 1 }}&qc_id={{ qc['id'] }}" class="btn btn-ghost btn-sm">🧪 Шинжилгээ хийх</a>
             {% endif %}
             <a href="{{ url_for('internal_qc_measure', qc_id=qc['id']) }}" class="btn btn-ghost btn-sm">📊 Үр дүн</a>
           </div>

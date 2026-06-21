@@ -1120,12 +1120,11 @@ def internal_qc_create():
         AND se.row_status IN ('done','approved')
         AND sr.received_date BETWEEN ? AND ?
     """, (d_from, d_to)).fetchall()
-    if len(candidates) < 2:
+    if len(candidates) < 1:
         conn.close()
         flash('Өмнөх 7 хоногт давтан шинжлэх хангалттай дээж байхгүй байна', 'error')
         return redirect(url_for('analysis'))
-    picked = random.sample([r['id'] for r in candidates], 2)
-    # Тус бүрийн receipt-аас санамсаргүй 1 мөр сонгох
+    picked = random.sample([r['id'] for r in candidates], 1)
     def pick_row(rid):
         rows = conn.execute(
             "SELECT row_num FROM sample_entries WHERE receipt_id=? AND is_duplicate=0 AND row_status IN ('done','approved')",
@@ -1133,9 +1132,7 @@ def internal_qc_create():
         if not rows: return 1
         return random.choice([r['row_num'] for r in rows])
     rn1 = pick_row(picked[0])
-    rn2 = pick_row(picked[1])
     assigned = request.form.get('assigned_to') or session['user_id']
-    # QC дугаар үүсгэх: QC001, QC002, ...
     last = conn.execute("SELECT qc_number FROM internal_qc WHERE qc_number LIKE 'QC%' ORDER BY id DESC LIMIT 1").fetchone()
     if last and last['qc_number'] and last['qc_number'][2:].isdigit():
         seq = int(last['qc_number'][2:]) + 1
@@ -1143,7 +1140,7 @@ def internal_qc_create():
         seq = 1
     qc_number = f'QC{seq:03d}'
     cur = conn.execute("""INSERT INTO internal_qc (qc_number, triggered_date, receipt_id_1, receipt_id_2, row_num_1, row_num_2, assigned_to, created_by)
-        VALUES (?,?,?,?,?,?,?,?)""", (qc_number, d_to, picked[0], picked[1], rn1, rn2, assigned, session['user_id']))
+        VALUES (?,?,?,NULL,?,NULL,?,?)""", (qc_number, d_to, picked[0], rn1, assigned, session['user_id']))
     qc_id = cur.lastrowid
     conn.commit()
     conn.close()
