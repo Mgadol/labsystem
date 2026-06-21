@@ -1242,7 +1242,7 @@ def internal_qc_done(qc_id):
 
 # ── ARCHIVE ─────────────────────────────────────────────
 @app.route('/archive')
-@senior_required
+@login_required
 def archive():
     lang = session.get('lang','mn')
     conn = get_db()

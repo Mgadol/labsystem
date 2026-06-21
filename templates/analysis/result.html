@@ -378,7 +378,17 @@ function doApprove(rows){
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify({receipt_id:RID, rows:rows})
   }).then(r=>r.json()).then(function(d){
-    if(d.ok) location.reload();
+    if(d.ok){
+      if(d.all_approved){
+        var div=document.createElement('div');
+        div.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#0f6e56;color:#fff;padding:24px 36px;border-radius:12px;font-size:15px;font-weight:600;z-index:999;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.3)';
+        div.innerHTML='🎉 Бүх дээж баталгаажлаа!<br><span style="font-size:12px;opacity:.8;font-weight:400">Шинжилгээний жагсаалт руу шилжиж байна...</span>';
+        document.body.appendChild(div);
+        setTimeout(function(){ window.location.href='/analysis'; }, 2000);
+      } else {
+        location.reload();
+      }
+    }
   });
 }
 </script>
