@@ -199,8 +199,7 @@
           <tr><th>Ажилтан</th><th>ID</th><th>Албан тушаал</th><th>Утас</th><th>Эрх</th><th>Статус</th><th></th></tr>
         </thead>
         <tbody>
-        {% set all_bayj = (users_a|selectattr('role','eq','bayjuulach')|list) + (users_b|selectattr('role','eq','bayjuulach')|list) + (users_none|selectattr('role','eq','bayjuulach')|list) %}
-        {% for u in all_bayj %}
+        {% for u in bayj_users %}
         <tr>
           <td>
             <div class="flex gap-8">

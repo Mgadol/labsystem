@@ -949,8 +949,19 @@ def staff_list():
             WHEN 'admin' THEN 1 WHEN 'senior' THEN 2 WHEN 'staff' THEN 3
             WHEN 'preparer' THEN 4 WHEN 'geologist' THEN 5 ELSE 6 END, name
     """).fetchall()
+    bayj_users = conn.execute("""
+        SELECT * FROM users WHERE is_active=1 AND role='bayjuulach'
+        ORDER BY CASE position
+            WHEN 'Үйлдвэрийн дарга' THEN 1
+            WHEN 'Ашиглалтын ахлах инженер' THEN 2
+            WHEN 'Ашиглалтын инженер' THEN 3
+            WHEN 'Цахилгаан автоматжуулалтын инженер' THEN 4
+            WHEN 'Удирдлагын оператор' THEN 5
+            WHEN 'Орчуулагч, бичиг хэргийн мэргэжилтэн' THEN 6
+            ELSE 99 END, name
+    """).fetchall()
     conn.close()
-    return render_template('admin/staff_list.html', users_a=users_a, users_b=users_b, users_none=users_none, lang=lang)
+    return render_template('admin/staff_list.html', users_a=users_a, users_b=users_b, users_none=users_none, bayj_users=bayj_users, lang=lang)
 
 @app.route('/staff/add', methods=['GET','POST'])
 @senior_required
