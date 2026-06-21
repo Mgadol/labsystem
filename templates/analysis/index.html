@@ -86,7 +86,14 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
         <td>—</td>
         <td>{{ qc['triggered_date'] }}</td>
         <td><span class="badge" style="background:#e8f5f1;color:#0d6e5f">Шинжилгээнд бэлэн</span></td>
-        <td></td>
+        <td>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            {% if current_user['role'] in ('admin','senior','staff') %}
+            <a href="{{ url_for('internal_qc_measure', qc_id=qc['id']) }}" class="btn btn-ghost btn-sm">🧪 Шинжилгээ хийх</a>
+            {% endif %}
+            <a href="{{ url_for('internal_qc_measure', qc_id=qc['id']) }}" class="btn btn-ghost btn-sm">📊 Үр дүн</a>
+          </div>
+        </td>
       </tr>
       {% endfor %}
       {% for s in samples %}
