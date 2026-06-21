@@ -126,13 +126,22 @@
   </thead>
   <tbody id="tbody">
   {% set row_num = namespace(val=0) %}
-  {% for receipt in receipts %}
-  <!-- Lot ялгах label -->
+  {% if qc_row_map %}
   <tr class="lot-label">
-    <td colspan="40" style="text-align:left;padding-left:10px;background:#1e3a5f;color:#4ade80;font-family:monospace;font-size:11px;height:20px;padding-top:2px;padding-bottom:2px">
-      📋 {{ receipt['lab_number'] }} — {{ receipt['sample_name'] }} &nbsp;·&nbsp; <span style="color:#fbbf24">{{ 'QC' if (qc_row_map and receipt['id'] in qc_row_map) else receipt['sample_type'] }}</span> &nbsp;·&nbsp; {{ receipt['quantity'] }} дээж
+    <td colspan="40" style="text-align:left;padding-left:10px;background:#0d4f47;color:#4ade80;font-family:monospace;font-size:11px;height:20px;padding-top:2px;padding-bottom:2px">
+      🔁 Дотоод QC &nbsp;·&nbsp; <span style="color:#fbbf24">QC</span> &nbsp;·&nbsp; {{ receipts|length }} дээж
     </td>
   </tr>
+  {% endif %}
+  {% for receipt in receipts %}
+  <!-- Lot ялгах label -->
+  {% if not qc_row_map %}
+  <tr class="lot-label">
+    <td colspan="40" style="text-align:left;padding-left:10px;background:#1e3a5f;color:#4ade80;font-family:monospace;font-size:11px;height:20px;padding-top:2px;padding-bottom:2px">
+      📋 {{ receipt['lab_number'] }} — {{ receipt['sample_name'] }} &nbsp;·&nbsp; <span style="color:#fbbf24">{{ receipt['sample_type'] }}</span> &nbsp;·&nbsp; {{ receipt['quantity'] }} дээж
+    </td>
+  </tr>
+  {% endif %}
   {% set rid = receipt['id'] %}
   {% set stype = receipt['sample_type'] %}
   {% set sname = receipt['sample_name'] %}
