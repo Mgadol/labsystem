@@ -1082,6 +1082,82 @@ def staff_detail(uid):
                            total_done=total_done, total_approved=total_approved, total_hours=total_hours,
                            qc_radar=qc_radar, monthly_6=monthly_6, monthly_12=monthly_12, monthly_all=monthly_all)
 
+# ── INTERNAL QC ─────────────────────────────────────────
+@app.route('/internal-qc')
+@lab_required
+def internal_qc_list():
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT iq.*,
+            u.name as assigned_name,
+            sr1.lab_number as lab1, g1.sample_name as sname1,
+            sr2.lab_number as lab2, g2.sample_name as sname2
+        FROM internal_qc iq
+        LEFT JOIN users u ON u.id=iq.assigned_to
+        LEFT JOIN sample_receipt sr1 ON sr1.id=iq.receipt_id_1
+        LEFT JOIN geo_samples g1 ON g1.id=sr1.geo_sample_id
+        LEFT JOIN sample_receipt sr2 ON sr2.id=iq.receipt_id_2
+        LEFT JOIN geo_samples g2 ON g2.id=sr2.geo_sample_id
+        ORDER BY iq.created_at DESC
+    """).fetchall()
+    conn.close()
+    return render_template('analysis/internal_qc.html', rows=rows, lang=session.get('lang','mn'), role=session.get('role'))
+
+@app.route('/internal-qc/create', methods=['POST'])
+@senior_required
+def internal_qc_create():
+    import random
+    conn = get_db()
+    from datetime import datetime, timedelta
+    d_to = datetime.now().strftime('%Y-%m-%d')
+    d_from = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+    candidates = conn.execute("""
+        SELECT sr.id FROM sample_receipt sr
+        JOIN geo_samples g ON g.id=sr.geo_sample_id
+        WHERE g.status='done'
+        AND g.sample_type IN ('PIT','STOCKPILE','EXPORT','CONTROL')
+        AND sr.received_date BETWEEN ? AND ?
+    """, (d_from, d_to)).fetchall()
+    if len(candidates) < 2:
+        conn.close()
+        flash('Өмнөх 7 хоногт хангалттай дээж байхгүй байна', 'error')
+        return redirect(url_for('internal_qc_list'))
+    picked = random.sample([r['id'] for r in candidates], 2)
+    assigned = request.form.get('assigned_to') or session['user_id']
+    conn.execute("""INSERT INTO internal_qc (triggered_date, receipt_id_1, receipt_id_2, assigned_to, created_by)
+        VALUES (?,?,?,?,?)""", (d_to, picked[0], picked[1], assigned, session['user_id']))
+    conn.commit()
+    conn.close()
+    flash('Дотоод QC даалгавар үүслээ', 'success')
+    return redirect(url_for('internal_qc_list'))
+
+@app.route('/internal-qc/<int:qc_id>/done', methods=['POST'])
+@lab_required
+def internal_qc_done(qc_id):
+    conn = get_db()
+    notes = request.form.get('notes','')
+    conn.execute("UPDATE internal_qc SET status='done', notes=? WHERE id=?", (notes, qc_id))
+    # Save results
+    params = ['mad','aad','vad','sulfur','cal_value']
+    for receipt_id in [request.form.get('rid1'), request.form.get('rid2')]:
+        if not receipt_id: continue
+        for p in params:
+            orig = request.form.get(f'orig_{receipt_id}_{p}')
+            rep  = request.form.get(f'rep_{receipt_id}_{p}')
+            if orig and rep:
+                try:
+                    o,r = float(orig), float(rep)
+                    diff = abs(o-r)
+                    tol = conn.execute("SELECT tolerance FROM qc_settings WHERE parameter=?", (p.capitalize(),)).fetchone()
+                    within = 1 if (tol and diff <= float(tol['tolerance'])) else 0
+                    conn.execute("""INSERT INTO internal_qc_results (qc_id,receipt_id,parameter,original_value,repeat_value,difference,within_tolerance)
+                        VALUES (?,?,?,?,?,?,?)""", (qc_id, int(receipt_id), p, o, r, diff, within))
+                except: pass
+    conn.commit()
+    conn.close()
+    flash('Дотоод QC бүртгэгдлээ', 'success')
+    return redirect(url_for('internal_qc_list'))
+
 # ── ARCHIVE ─────────────────────────────────────────────
 @app.route('/archive')
 @senior_required
@@ -1537,6 +1613,28 @@ def ensure_tables():
             check_freq='daily', check_enabled=1
         WHERE lab_id IN ('15','16')
     """)
+    conn.execute("""CREATE TABLE IF NOT EXISTS internal_qc (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        triggered_date TEXT NOT NULL,
+        receipt_id_1 INTEGER REFERENCES sample_receipt(id),
+        receipt_id_2 INTEGER REFERENCES sample_receipt(id),
+        assigned_to INTEGER REFERENCES users(id),
+        status TEXT DEFAULT 'pending',
+        notes TEXT,
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS internal_qc_results (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        qc_id INTEGER REFERENCES internal_qc(id),
+        receipt_id INTEGER REFERENCES sample_receipt(id),
+        parameter TEXT,
+        original_value REAL,
+        repeat_value REAL,
+        difference REAL,
+        within_tolerance INTEGER DEFAULT 0,
+        notes TEXT
+    )""")
     conn.commit()
     conn.close()
 
