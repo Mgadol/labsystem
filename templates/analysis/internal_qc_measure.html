@@ -39,6 +39,7 @@
             <th style="text-align:center;color:var(--navy)">Анхны утга</th>
             <th style="text-align:center;color:var(--teal)">Давтан утга</th>
             <th style="text-align:center">Зөрүү</th>
+            <th style="text-align:center;color:#6b7280">Зөвш. зөрүү</th>
             <th style="text-align:center">QC</th>
           </tr>
         </thead>
@@ -72,6 +73,11 @@
             <span id="diff_{{ rid }}_{{ p }}" style="font-weight:600;{% if diff is not none %}color:{{ '#16a34a' if ok else '#dc2626' }}{% endif %}">
               {{ '%.3f'|format(diff) if diff is not none else '—' }}
             </span>
+          </td>
+          <td style="text-align:center;color:#6b7280;font-size:12px">
+            {% set tol_key = db_to_tol.get(p, p) %}
+            {% set tol_val = qc_tol.get(tol_key) %}
+            {{ '± ' + '%.3f'|format(tol_val|float) if tol_val is not none else '—' }}
           </td>
           <td style="text-align:center">
             <span id="qcbadge_{{ rid }}_{{ p }}">
