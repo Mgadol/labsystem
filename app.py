@@ -1112,10 +1112,12 @@ def internal_qc_create():
     d_to = datetime.now().strftime('%Y-%m-%d')
     d_from = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
     candidates = conn.execute("""
-        SELECT sr.id FROM sample_receipt sr
+        SELECT DISTINCT sr.id FROM sample_receipt sr
         JOIN geo_samples g ON g.id=sr.geo_sample_id
-        WHERE g.status IN ('analysing','prepared','received')
-        AND g.sample_type IN ('PIT','STOCKPILE','EXPORT','CONTROL')
+        JOIN sample_entries se ON se.receipt_id=sr.id
+        WHERE g.sample_type IN ('PIT','STOCKPILE','EXPORT','CONTROL')
+        AND se.is_duplicate=0
+        AND se.row_status IN ('done','approved')
         AND sr.received_date BETWEEN ? AND ?
     """, (d_from, d_to)).fetchall()
     if len(candidates) < 2:
