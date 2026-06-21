@@ -50,7 +50,7 @@
         <form method="POST" action="{{ url_for('internal_qc_done', qc_id=row['id']) }}">
           <input type="hidden" name="rid1" value="{{ row['receipt_id_1'] }}">
           <input type="hidden" name="rid2" value="{{ row['receipt_id_2'] }}">
-          {% set params = [('mad','Дотоод чийг'),('aad','Үнслэг'),('vad','Дэгдэмхий'),('sulfur','Хүхэр'),('cal_value','Илчлэг')] %}
+          {% set params = [('mad','Mad'),('aad','Aad'),('vad','Vad'),('fc','FC'),('sulfur','Stad'),('cal_value','Qgr,db'),('fsi','CSN')] %}
           <div style="overflow-x:auto">
           <table class="table" style="font-size:12px;min-width:600px">
             <thead><tr>
