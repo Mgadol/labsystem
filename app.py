@@ -2812,10 +2812,26 @@ def analysis_result(receipt_id):
 
     conn.close()
 
+    # mt_result тооцоолох: нийт чийг = (mt_sample - (mt_dried - mt_tare)) / mt_sample * 100
+    entries_list = []
+    for e in entries:
+        ed = dict(e)
+        try:
+            mt_s = ed.get('mt_sample') or 0
+            mt_t = ed.get('mt_tare') or 0
+            mt_d = ed.get('mt_dried') or 0
+            if mt_s and mt_s > 0:
+                ed['mt_result'] = (mt_s - (mt_d - mt_t)) / mt_s * 100
+            else:
+                ed['mt_result'] = None
+        except:
+            ed['mt_result'] = None
+        entries_list.append(ed)
+
     role = session.get('role')
-    pending_approve = [e for e in entries if e['row_status'] == 'done' and e['is_duplicate'] == 0]
+    pending_approve = [e for e in entries_list if e['row_status'] == 'done' and e['is_duplicate'] == 0]
     return render_template('analysis/result.html',
-        receipt=receipt, entries=entries, lang=lang, role=role, crm_cert=crm_cert,
+        receipt=receipt, entries=entries_list, lang=lang, role=role, crm_cert=crm_cert,
         pending_approve=pending_approve)
 
 
