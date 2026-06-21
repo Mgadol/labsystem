@@ -61,6 +61,7 @@
         <div style="font-size:12px;font-weight:600;color:#0d9488;margin-bottom:8px">📋 Дотоод шалгалтын хуудасны загвар сонгох</div>
         <select id="checkTemplate" class="form-input" style="max-width:360px" onchange="applyTemplate()">
           <option value="">— Загвар сонгох (заавал биш) —</option>
+          <optgroup label="Суурилагдсан загварууд">
           <option value="analytic_balance">⚖️ Аналитик жин</option>
           <option value="electric_balance">⚖️ Электрон жин</option>
           <option value="muffle_furnace">🔥 Муфель зуух (үнс/дэгдэмхий)</option>
@@ -69,6 +70,8 @@
           <option value="calorimeter">🔬 Автомат калориметр</option>
           <option value="sulfur">🧪 Хүхэр тодорхойлох багаж</option>
           <option value="plastometer">📊 Пластометр</option>
+          </optgroup>
+          <optgroup label="Хэрэглэгчийн загвар" id="customOptGroup"></optgroup>
         </select>
         <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Сонгосон загварын утгуудыг доорх талбарт автоматаар бөглөнө. Гараар өөрчилж болно.</div>
       </div>
@@ -278,6 +281,19 @@
 {% endblock %}
 {% block scripts %}
 <script>
+var DB_TEMPLATES = [];
+fetch('/check-templates').then(r=>r.json()).then(function(rows){
+  DB_TEMPLATES = rows;
+  var grp = document.getElementById('customOptGroup');
+  rows.forEach(function(r){
+    var o = document.createElement('option');
+    o.value = 'db_'+r.id;
+    o.textContent = '📋 '+r.name;
+    grp.appendChild(o);
+  });
+  if(!rows.length) grp.parentElement.removeChild(grp);
+});
+
 var TEMPLATES = {
   analytic_balance: [
     {p:'Жин (100 г эталон)', s:'100.0000 г', t:'±0.0002 г'},
@@ -330,6 +346,17 @@ var TEMPLATES = {
 };
 function applyTemplate(){
   var key = document.getElementById('checkTemplate').value;
+  if(key.startsWith('db_')){
+    var id = parseInt(key.replace('db_',''));
+    var r = DB_TEMPLATES.find(function(x){return x.id===id;});
+    if(!r) return;
+    for(var i=1;i<=4;i++){
+      document.getElementById('cp'+i).value = r['param'+i]||'';
+      document.getElementById('cs'+i).value = r['standard'+i]||'';
+      document.getElementById('ct'+i).value = r['tolerance'+i]||'';
+    }
+    return;
+  }
   var t = TEMPLATES[key];
   if(!t) return;
   for(var i=1;i<=4;i++){
