@@ -1124,27 +1124,61 @@ def internal_qc_create():
         return redirect(url_for('internal_qc_list'))
     picked = random.sample([r['id'] for r in candidates], 2)
     assigned = request.form.get('assigned_to') or session['user_id']
-    conn.execute("""INSERT INTO internal_qc (triggered_date, receipt_id_1, receipt_id_2, assigned_to, created_by)
+    cur = conn.execute("""INSERT INTO internal_qc (triggered_date, receipt_id_1, receipt_id_2, assigned_to, created_by)
         VALUES (?,?,?,?,?)""", (d_to, picked[0], picked[1], assigned, session['user_id']))
+    qc_id = cur.lastrowid
     conn.commit()
     conn.close()
-    flash('Дотоод QC даалгавар үүслээ', 'success')
-    return redirect(url_for('internal_qc_list'))
+    return redirect(url_for('internal_qc_measure', qc_id=qc_id))
+
+@app.route('/internal-qc/<int:qc_id>/measure')
+@lab_required
+def internal_qc_measure(qc_id):
+    conn = get_db()
+    qc = conn.execute("""
+        SELECT iq.*,
+            sr1.lab_number as lab1, g1.sample_name as sname1,
+            sr2.lab_number as lab2, g2.sample_name as sname2
+        FROM internal_qc iq
+        LEFT JOIN sample_receipt sr1 ON sr1.id=iq.receipt_id_1
+        LEFT JOIN geo_samples g1 ON g1.id=sr1.geo_sample_id
+        LEFT JOIN sample_receipt sr2 ON sr2.id=iq.receipt_id_2
+        LEFT JOIN geo_samples g2 ON g2.id=sr2.geo_sample_id
+        WHERE iq.id=?
+    """, (qc_id,)).fetchone()
+    if not qc:
+        conn.close()
+        flash('Бүртгэл олдсонгүй', 'error')
+        return redirect(url_for('internal_qc_list'))
+    PARAMS = ['mad','aad','vad','fc','sulfur','cal_value','fsi']
+    def get_orig(rid):
+        if not rid: return {}
+        e = conn.execute("SELECT * FROM sample_entries WHERE receipt_id=? AND is_duplicate=0 AND row_status IN ('done','approved') ORDER BY row_num LIMIT 1", (rid,)).fetchone()
+        if not e: return {}
+        return {p: e[p] for p in PARAMS if e[p] is not None}
+    orig1 = get_orig(qc['receipt_id_1'])
+    orig2 = get_orig(qc['receipt_id_2'])
+    results = conn.execute("SELECT * FROM internal_qc_results WHERE qc_id=?", (qc_id,)).fetchall()
+    qc_tol = {r['parameter']: r['tolerance'] for r in conn.execute("SELECT parameter, tolerance FROM qc_settings").fetchall()}
+    conn.close()
+    return render_template('analysis/internal_qc_measure.html',
+        qc=qc, orig1=orig1, orig2=orig2, results=results,
+        qc_tol=qc_tol, params=PARAMS,
+        lang=session.get('lang','mn'), role=session.get('role'))
 
 @app.route('/internal-qc/<int:qc_id>/done', methods=['POST'])
 @lab_required
 def internal_qc_done(qc_id):
     conn = get_db()
     notes = request.form.get('notes','')
-    conn.execute("UPDATE internal_qc SET status='done', notes=? WHERE id=?", (notes, qc_id))
-    # Save results
+    conn.execute("DELETE FROM internal_qc_results WHERE qc_id=?", (qc_id,))
     params = ['mad','aad','vad','fc','sulfur','cal_value','fsi']
     for receipt_id in [request.form.get('rid1'), request.form.get('rid2')]:
         if not receipt_id: continue
         for p in params:
+            rep = request.form.get(f'rep_{receipt_id}_{p}')
             orig = request.form.get(f'orig_{receipt_id}_{p}')
-            rep  = request.form.get(f'rep_{receipt_id}_{p}')
-            if orig and rep:
+            if rep and orig:
                 try:
                     o,r = float(orig), float(rep)
                     diff = abs(o-r)
@@ -1153,6 +1187,7 @@ def internal_qc_done(qc_id):
                     conn.execute("""INSERT INTO internal_qc_results (qc_id,receipt_id,parameter,original_value,repeat_value,difference,within_tolerance)
                         VALUES (?,?,?,?,?,?,?)""", (qc_id, int(receipt_id), p, o, r, diff, within))
                 except: pass
+    conn.execute("UPDATE internal_qc SET status='done', notes=? WHERE id=?", (notes, qc_id))
     conn.commit()
     conn.close()
     flash('Дотоод QC бүртгэгдлээ', 'success')
