@@ -1453,8 +1453,11 @@ def staff_edit(uid):
             role_to_set = request.form.get('role', target['role'])
             if session.get('role') == 'senior' and role_to_set in ('admin','senior'):
                 role_to_set = target['role']
+            is_bayj = role_to_set == 'bayjuulach'
+            can_reg  = 1 if (is_bayj and request.form.get('can_register')) else 0
+            can_view = 1 if (is_bayj and request.form.get('can_view_result')) else 0
             conn.execute("""
-                UPDATE users SET name=?,position=?,phone=?,email=?,role=?,joined_date=?,shift=?
+                UPDATE users SET name=?,position=?,phone=?,email=?,role=?,joined_date=?,shift=?,can_register=?,can_view_result=?
                 WHERE id=?
             """, (
                 request.form.get('name', target['name']),
@@ -1464,13 +1467,14 @@ def staff_edit(uid):
                 role_to_set,
                 request.form.get('joined_date') or None,
                 request.form.get('shift') or None,
+                can_reg, can_view,
                 uid
             ))
             if photo:
                 conn.execute("UPDATE users SET photo=? WHERE id=?", (photo, uid))
-            # Эрх шинэчлэх — геологичид (харилцагч) тоног ашиглах эрх олгохгүй
+            # Эрх шинэчлэх — геологи/баяжуулах тоног ашиглах эрх олгохгүй
             conn.execute("DELETE FROM staff_device_permissions WHERE user_id=?", (uid,))
-            if role_to_set != 'geologist':
+            if role_to_set not in ('geologist', 'bayjuulach'):
                 for did in request.form.getlist('device_permissions'):
                     conn.execute("INSERT OR IGNORE INTO staff_device_permissions(user_id,device_id) VALUES(?,?)", (uid, did))
             conn.commit()
@@ -1564,6 +1568,21 @@ def staff_activate(uid):
     conn.close()
     flash('Ажилтан идэвхжүүлэгдлээ.' if lang=='mn' else 'Staff activated.', 'success')
     return redirect(url_for('staff_list'))
+
+@app.route('/staff/<int:uid>/delete', methods=['POST'])
+@admin_required
+def staff_delete(uid):
+    lang = session.get('lang','mn')
+    if uid == session.get('user_id'):
+        flash('Өөрийгөө устгах боломжгүй!', 'error')
+        return redirect(url_for('archive'))
+    conn = get_db()
+    conn.execute("DELETE FROM staff_device_permissions WHERE user_id=?", (uid,))
+    conn.execute("DELETE FROM users WHERE id=? AND is_active=0", (uid,))
+    conn.commit()
+    conn.close()
+    flash('Ажилтан бүрмөсөн устгагдлаа.' if lang=='mn' else 'Staff permanently deleted.', 'success')
+    return redirect(url_for('archive'))
 
 # ── DEVICE ARCHIVE / RESTORE ────────────────────────────
 @app.route('/devices/<int:did>/archive', methods=['POST'])
