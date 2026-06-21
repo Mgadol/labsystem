@@ -42,7 +42,7 @@
 </div>
 
 <!-- Явц + баталгаажуулах -->
-{% set total = receipt['quantity'] %}
+{% set total = 1 if qc_row else receipt['quantity'] %}
 {% set done_entries = entries|selectattr('row_status','ne','empty')|selectattr('is_duplicate','equalto',0)|list %}
 {% set approved_entries = entries|selectattr('row_status','equalto','approved')|selectattr('is_duplicate','equalto',0)|list %}
 {% set done_count = done_entries|length %}
@@ -122,7 +122,7 @@
   </thead>
   <tbody>
   {% for i in range(total) %}
-  {% set ri = i+1 %}
+  {% set ri = (qc_row if qc_row else i+1) %}
   {% set e = entries|selectattr('row_num','equalto',ri)|selectattr('is_duplicate','equalto',0)|first %}
   {% set de = entries|selectattr('row_num','equalto',ri)|selectattr('is_duplicate','equalto',1)|first %}
   {% set is_done = e and e['row_status'] in ('done','approved') %}
