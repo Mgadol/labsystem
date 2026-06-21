@@ -73,7 +73,7 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
       <tr class="sample-row" data-cat="anal" data-date="{{ qc['triggered_date'] }}" data-rid="">
         <td style="width:36px;text-align:center">
           {% if current_user['role'] in ('admin','senior','staff') %}
-          <input type="checkbox" class="lot-cb" value="{{ qc['receipt_id_1'] }},{{ qc['receipt_id_2'] }}" onchange="updateMultiBtn()" style="width:15px;height:15px;cursor:pointer">
+          <input type="checkbox" class="lot-cb" value="{{ qc['receipt_id_1'] }},{{ qc['receipt_id_2'] }}" data-qc-rows="{{ qc['receipt_id_1'] }}:{{ qc['row_num_1'] or 1 }},{{ qc['receipt_id_2'] }}:{{ qc['row_num_2'] or 1 }}" onchange="updateMultiBtn()" style="width:15px;height:15px;cursor:pointer">
           {% endif %}
         </td>
         <td>
@@ -321,13 +321,16 @@ function toggleAll(cb){
 
 function startMulti(){
   var ids = [];
-  document.querySelectorAll('.lot-cb:checked').forEach(function(cb){ ids.push(cb.value); });
+  var qcRows = [];
+  document.querySelectorAll('.lot-cb:checked').forEach(function(cb){
+    ids.push(cb.value);
+    if(cb.dataset.qcRows) qcRows.push(cb.dataset.qcRows);
+  });
   if(!ids.length){ alert('Дор хаяж нэг ажлын дугаар сонгоно уу!'); return; }
-  if(ids.length === 1){
-    window.location.href = '/analysis/measure/' + ids[0];
-  } else {
-    window.location.href = '/analysis/measure/multi?ids=' + ids.join(',');
-  }
+  var allIds = ids.join(',');
+  var url = '/analysis/measure/multi?ids=' + allIds;
+  if(qcRows.length) url += '&qc_rows=' + qcRows.join(',');
+  window.location.href = url;
 }
 // Анхдагч таб харуулах — функцүүд тодорхойлогдсоны дараа дуудна
 applyFilters();
