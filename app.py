@@ -1471,12 +1471,18 @@ def archive_delete(receipt_id):
         receipt = conn.execute('SELECT geo_sample_id FROM sample_receipt WHERE id=?', (receipt_id,)).fetchone()
         if receipt:
             geo_id = receipt['geo_sample_id']
+            # QC байгаа эсэх шалгах — байвал устгахгүй анхааруулна
+            qc_linked = conn.execute(
+                "SELECT COUNT(*) FROM internal_qc WHERE receipt_id_1=? OR receipt_id_2=?",
+                (receipt_id, receipt_id)
+            ).fetchone()[0]
+            if qc_linked:
+                conn.close()
+                flash(f'Энэ дээжтэй {qc_linked} QC бүртгэл холбоотой байна. Эхлээд QC-г устгана уу.', 'error')
+                return redirect(url_for('archive'))
             # Хамааралтай бүх бичлэгийг эхлээд устгана (child → parent дараалал)
             conn.execute("DELETE FROM result_view_log WHERE receipt_id=?", (receipt_id,))
             conn.execute("DELETE FROM device_usage_log WHERE receipt_id=?", (receipt_id,))
-            conn.execute("DELETE FROM internal_qc_results WHERE receipt_id=?", (receipt_id,))
-            conn.execute("UPDATE internal_qc SET receipt_id_1=NULL WHERE receipt_id_1=?", (receipt_id,))
-            conn.execute("UPDATE internal_qc SET receipt_id_2=NULL WHERE receipt_id_2=?", (receipt_id,))
             conn.execute("DELETE FROM sample_entries WHERE receipt_id=?", (receipt_id,))
             conn.execute("DELETE FROM sample_receipt WHERE id=?", (receipt_id,))
             conn.execute("DELETE FROM geo_samples WHERE id=?", (geo_id,))
