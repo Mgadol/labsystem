@@ -150,6 +150,9 @@
   </tr>
   {% endif %}
   {% for receipt in receipts %}
+  {% set rid = receipt['id'] %}
+  {% set stype = receipt['sample_type'] %}
+  {% set sname = receipt['sample_name'] %}
   <!-- Lot ялгах label -->
   {% if not qc_row_map or rid not in qc_row_map %}
   <tr class="lot-label">
@@ -158,9 +161,6 @@
     </td>
   </tr>
   {% endif %}
-  {% set rid = receipt['id'] %}
-  {% set stype = receipt['sample_type'] %}
-  {% set sname = receipt['sample_name'] %}
   {% for i in range(receipt['quantity'] or 1) %}
   {% set row_num.val = row_num.val + 1 %}
   {% set ri = i+1 %}
