@@ -1043,10 +1043,23 @@ def staff_detail(uid):
             FROM geo_samples WHERE registered_by=?
             GROUP BY month ORDER BY month
         """, (uid,)).fetchall()
+        # Баяжуулах: үр дүн харсан лог
+        view_log = []
+        view_total = 0
+        if target['role'] == 'bayjuulach':
+            view_total = conn.execute("SELECT COUNT(*) FROM result_view_log WHERE user_id=?", (uid,)).fetchone()[0]
+            view_log = conn.execute("""
+                SELECT vl.viewed_at, sr.lab_number, g.sample_name
+                FROM result_view_log vl
+                JOIN sample_receipt sr ON sr.id=vl.receipt_id
+                JOIN geo_samples g ON g.id=sr.geo_sample_id
+                WHERE vl.user_id=? ORDER BY vl.viewed_at DESC LIMIT 20
+            """, (uid,)).fetchall()
         conn.close()
         return render_template('staff/detail_geologist.html', target=target, lang=lang,
                                geo_total=geo_total, geo_done=geo_done, geo_active=geo_active,
-                               geo_by_type=geo_by_type, geo_recent=geo_recent, geo_monthly=geo_monthly)
+                               geo_by_type=geo_by_type, geo_recent=geo_recent, geo_monthly=geo_monthly,
+                               view_total=view_total, view_log=view_log)
 
     logs    = conn.execute("""
         SELECT ul.*, d.name as dname FROM usage_logs ul
@@ -1728,6 +1741,15 @@ def ensure_tables():
     try: conn.execute("ALTER TABLE users ADD COLUMN can_register INTEGER DEFAULT 0")
     except Exception: pass
     try: conn.execute("ALTER TABLE users ADD COLUMN can_view_result INTEGER DEFAULT 0")
+    except Exception: pass
+    try: conn.execute("""
+        CREATE TABLE IF NOT EXISTS result_view_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER REFERENCES users(id),
+            receipt_id INTEGER REFERENCES sample_receipt(id),
+            viewed_at TEXT DEFAULT (datetime('now','localtime'))
+        )
+    """)
     except Exception: pass
     # Барабан (Эргэдэг хүрд) тохиргоо — лаб дугаар 11-14 (4 параметр)
     conn.execute("""
@@ -2909,6 +2931,9 @@ def analysis_result(receipt_id):
             conn.close()
             flash('Энэ ажлыг харах эрх байхгүй байна', 'error')
             return redirect(url_for('dashboard'))
+        conn.execute("INSERT INTO result_view_log(user_id, receipt_id) VALUES(?,?)",
+                     (session['user_id'], receipt_id))
+        conn.commit()
     receipt = conn.execute("""
         SELECT sr.*, g.sample_name, g.sample_type, g.location,
                g.collected_date, g.quantity,
