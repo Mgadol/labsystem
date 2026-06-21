@@ -1280,12 +1280,23 @@ def archive():
         WHERE g.status='done'
         ORDER BY sr.lab_serial DESC LIMIT 200
     """).fetchall()
+    done_qc = conn.execute("""
+        SELECT iq.*, sr1.lab_number as lab1, g1.sample_name as sname1,
+               u.name as assigned_name
+        FROM internal_qc iq
+        LEFT JOIN sample_receipt sr1 ON sr1.id=iq.receipt_id_1
+        LEFT JOIN geo_samples g1 ON g1.id=sr1.geo_sample_id
+        LEFT JOIN users u ON u.id=iq.assigned_to
+        WHERE iq.status='done'
+        ORDER BY iq.triggered_date DESC LIMIT 200
+    """).fetchall()
     conn.close()
     return render_template('admin/archive.html',
         archived_devices=archived_devices,
         archived_staff=archived_staff,
         completed_repairs=completed_repairs,
         done_samples=completed_samples,
+        done_qc=done_qc,
         lang=lang)
 
 @app.route('/archive/result/<int:receipt_id>')
