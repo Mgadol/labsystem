@@ -1713,12 +1713,27 @@ def reports():
                 f'SELECT COUNT(*) as c FROM sample_entries WHERE {field} IS NOT NULL AND done_at BETWEEN ? AND ?',
                 (d0 + ' 00:00:00', d1 + ' 23:59:59')).fetchone()['c']
             analysis_chart[name].append(v)
+    iqc_rows = conn.execute("""
+        SELECT iq.id, iq.triggered_date, iq.status,
+            sr1.lab_number as lab1, g1.sample_name as sname1,
+            sr2.lab_number as lab2, g2.sample_name as sname2,
+            COUNT(r.id) as total,
+            SUM(r.within_tolerance) as passed
+        FROM internal_qc iq
+        LEFT JOIN sample_receipt sr1 ON sr1.id=iq.receipt_id_1
+        LEFT JOIN geo_samples g1 ON g1.id=sr1.geo_sample_id
+        LEFT JOIN sample_receipt sr2 ON sr2.id=iq.receipt_id_2
+        LEFT JOIN geo_samples g2 ON g2.id=sr2.geo_sample_id
+        LEFT JOIN internal_qc_results r ON r.qc_id=iq.id
+        GROUP BY iq.id ORDER BY iq.created_at DESC
+    """).fetchall()
     conn.close()
     return render_template('admin/reports.html', lang=session.get('lang','mn'),
         lab_records=lab_records, sample_chart=sample_chart,
         sample_types=[name for _, name in SAMPLE_TYPES_MAP],
         analysis_chart=analysis_chart,
         analysis_types=[name for _, name in ANALYSIS_FIELDS],
+        iqc_rows=iqc_rows,
         cur_year=cur_year)
 
 @app.route('/reports/chart-data')

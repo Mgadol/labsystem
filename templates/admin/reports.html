@@ -8,6 +8,7 @@
   <div class="tab-nav" style="margin-top:16px">
     <button class="tab-btn active" id="tab-device" onclick="switchTab('device')">🔧 Төхөөрөмжийн тайлан</button>
     <button class="tab-btn" id="tab-lab" onclick="switchTab('lab')">🧪 Лабораторийн тайлан</button>
+    <button class="tab-btn" id="tab-iqc" onclick="switchTab('iqc')">🔁 Дотоод QC тайлан</button>
   </div>
 
   <!-- ══════════════════════════════════════════
@@ -210,6 +211,53 @@
       </div>
     </div>
   </div>
+
+  <!-- ══════════════════════════════════════════
+       ТАБ 3: ДОТООД QC ТАЙЛАН
+  ══════════════════════════════════════════ -->
+  <div id="pane-iqc" style="display:none">
+    {% if iqc_rows %}
+    <div class="card" style="overflow-x:auto">
+      <table class="table" style="font-size:13px">
+        <thead><tr>
+          <th>Огноо</th>
+          <th>1-р дээж</th>
+          <th>2-р дээж</th>
+          <th style="text-align:center">Нийт үзүүлэлт</th>
+          <th style="text-align:center">QC тэнцсэн</th>
+          <th style="text-align:center">Тэнцээгүй</th>
+          <th style="text-align:center">Статус</th>
+          <th></th>
+        </tr></thead>
+        <tbody>
+        {% for r in iqc_rows %}
+        {% set total = r['total'] or 0 %}
+        {% set passed = r['passed'] or 0 %}
+        {% set failed = total - passed %}
+        <tr>
+          <td style="font-family:monospace;font-size:12px">{{ r['triggered_date'] }}</td>
+          <td><span style="font-family:monospace;color:var(--navy);font-weight:600">{{ r['lab1'] or '—' }}</span><br><span style="font-size:11px;color:#666">{{ r['sname1'] or '' }}</span></td>
+          <td><span style="font-family:monospace;color:var(--navy);font-weight:600">{{ r['lab2'] or '—' }}</span><br><span style="font-size:11px;color:#666">{{ r['sname2'] or '' }}</span></td>
+          <td style="text-align:center">{{ total }}</td>
+          <td style="text-align:center;color:#16a34a;font-weight:600">{{ passed }}</td>
+          <td style="text-align:center;color:{% if failed > 0 %}#dc2626{% else %}#999{% endif %};font-weight:600">{{ failed }}</td>
+          <td style="text-align:center">
+            <span class="badge" style="background:{% if r['status']=='done' %}#dcfce7{% else %}#fef9c3{% endif %};color:{% if r['status']=='done' %}#166534{% else %}#854d0e{% endif %}">
+              {{ 'Дууссан' if r['status']=='done' else 'Хүлээгдэж байна' }}
+            </span>
+          </td>
+          <td><a href="{{ url_for('internal_qc_measure', qc_id=r['id']) }}" class="btn btn-ghost btn-sm">Харах</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="card" style="text-align:center;padding:40px;color:var(--text-muted)">
+      🔁 Дотоод QC бүртгэл байхгүй байна.
+    </div>
+    {% endif %}
+  </div>
 </div>
 {% endblock %}
 {% block scripts %}
@@ -221,8 +269,10 @@ var NAVY = '#1a2744';
 function switchTab(t) {
   document.getElementById('pane-device').style.display = t==='device' ? 'block' : 'none';
   document.getElementById('pane-lab').style.display    = t==='lab'    ? 'block' : 'none';
+  document.getElementById('pane-iqc').style.display    = t==='iqc'    ? 'block' : 'none';
   document.getElementById('tab-device').classList.toggle('active', t==='device');
   document.getElementById('tab-lab').classList.toggle('active', t==='lab');
+  document.getElementById('tab-iqc').classList.toggle('active', t==='iqc');
 }
 
 // ── Төхөөрөмжийн тайлан ──────────────────────────────
