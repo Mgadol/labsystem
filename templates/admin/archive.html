@@ -180,7 +180,11 @@
             <a href="{{ url_for('archive_result', receipt_id=s['receipt_id']) }}" class="btn btn-ghost btn-sm">📊 Үр дүн</a>
             <a href="{{ url_for('archive_measure', receipt_id=s['receipt_id']) }}" class="btn btn-ghost btn-sm">📋 Хэмжилт</a>
             <a href="{{ url_for('analysis_export', receipt_id=s['receipt_id']) }}" class="btn btn-ghost btn-sm">📥 Excel</a>
-            <a href="{{ url_for('analysis_export_report', receipt_id=s['receipt_id']) }}" class="btn btn-ghost btn-sm">📄 Тайлан</a>
+            {% if current_user['role'] == 'admin' %}
+            <form method="POST" action="{{ url_for('archive_delete', receipt_id=s['receipt_id']) }}" onsubmit="return confirm('{{ s['lab_number'] }} — бүртгэлийг бүрмөсөн устгах уу?\nЭнэ үйлдлийг буцаах боломжгүй!')" style="display:inline">
+              <button type="submit" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">🗑 Устгах</button>
+            </form>
+            {% endif %}
             {% endif %}
           </td>
         </tr>
