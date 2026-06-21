@@ -109,7 +109,7 @@
 {% block scripts %}
 <script>
 var QC_TOL = {{ qc_tol|tojson }};
-var DB_TO_TOL = {adb:'Aad', vdb:'Vad', fcdb:'Fc', sdb:'Stad', qdb:'Qb_ad', fsi:'FSI'};
+var DB_TO_TOL = {adb:'Aad', vdb:'Vad', fcdb:'Fc', sdb:'Stad', qdb:'Qb_ad', fsi:'FSI', g_index:'G_index'};
 function calcDiff(rid, p){
   var origEl = document.getElementById('orig_'+rid+'_'+p);
   var repEl  = document.getElementById('rep_'+rid+'_'+p);
