@@ -1166,7 +1166,22 @@ def internal_qc_measure(qc_id):
         conn.close()
         flash('Бүртгэл олдсонгүй', 'error')
         return redirect(url_for('internal_qc_list'))
-    PARAMS = ['mad','aad','vad','fc','sulfur','cal_value','fsi']
+    PARAMS = ['adb','vdb','fcdb','sdb','qdb','fsi']
+    DB_LABELS = {'adb':'Adb','vdb':'Vdb','fcdb':'FCdb','sdb':'Sdb','qdb':'Qgr,db','fsi':'CSN'}
+    DB_UNITS  = {'adb':'%','vdb':'%','fcdb':'%','sdb':'%','qdb':'ккал/кг','fsi':''}
+    def ad_to_db(ed):
+        mad = ed.get('mad') or 0
+        f = 100 / (100 - mad) if mad < 100 else 1
+        result = {}
+        try:
+            if ed.get('aad') is not None: result['adb'] = round(ed['aad'] * f, 2)
+            if ed.get('vad') is not None: result['vdb'] = round(ed['vad'] * f, 2)
+            if ed.get('fc')  is not None: result['fcdb']= round(ed['fc']  * f, 2)
+            if ed.get('sulfur') is not None: result['sdb'] = round(ed['sulfur'] * f, 2)
+            if ed.get('cal_value') is not None: result['qdb'] = round(ed['cal_value'] / 4.1868 * f, 0)
+            if ed.get('fsi') is not None: result['fsi'] = ed['fsi']
+        except: pass
+        return result
     def get_orig(rid, row_num=None):
         if not rid: return {}
         if row_num:
@@ -1175,7 +1190,6 @@ def internal_qc_measure(qc_id):
             e = conn.execute("SELECT * FROM sample_entries WHERE receipt_id=? AND is_duplicate=0 AND row_status IN ('done','approved') ORDER BY row_num LIMIT 1", (rid,)).fetchone()
         if not e: return {}
         ed = dict(e)
-        # mad/aad/vad/fc NULL бол түүхий өгөгдлөөс тооцоолно
         try:
             if ed.get('mad') is None and ed.get('dc_sample') and ed['dc_sample'] > 0:
                 ed['mad'] = (ed['dc_tare'] + ed['dc_sample'] - ed['dc_dried']) / ed['dc_sample'] * 100
@@ -1185,9 +1199,8 @@ def internal_qc_measure(qc_id):
                 ed['vad'] = (ed['vol_tare'] + ed['vol_sample'] - ed['vol_burned']) / ed['vol_sample'] * 100 - ed['mad']
             if ed.get('fc') is None and all(ed.get(x) is not None for x in ['mad','aad','vad']):
                 ed['fc'] = 100 - ed['mad'] - ed['aad'] - ed['vad']
-        except:
-            pass
-        return {p: ed[p] for p in PARAMS if ed.get(p) is not None}
+        except: pass
+        return ad_to_db(ed)
     orig1 = get_orig(qc['receipt_id_1'], qc['row_num_1'])
     orig2 = get_orig(qc['receipt_id_2'], qc['row_num_2'])
     results = conn.execute("SELECT * FROM internal_qc_results WHERE qc_id=?", (qc_id,)).fetchall()
@@ -1195,7 +1208,7 @@ def internal_qc_measure(qc_id):
     conn.close()
     return render_template('analysis/internal_qc_measure.html',
         qc=qc, orig1=orig1, orig2=orig2, results=results,
-        qc_tol=qc_tol, params=PARAMS,
+        qc_tol=qc_tol, params=PARAMS, db_labels=DB_LABELS, db_units=DB_UNITS,
         lang=session.get('lang','mn'), role=session.get('role'))
 
 @app.route('/internal-qc/<int:qc_id>/done', methods=['POST'])
