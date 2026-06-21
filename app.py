@@ -1211,6 +1211,16 @@ def internal_qc_measure(qc_id):
         qc_tol=qc_tol, params=PARAMS, db_labels=DB_LABELS, db_units=DB_UNITS,
         lang=session.get('lang','mn'), role=session.get('role'))
 
+@app.route('/internal-qc/<int:qc_id>/approve')
+@senior_required
+def internal_qc_approve(qc_id):
+    conn = get_db()
+    conn.execute("UPDATE internal_qc SET status='done' WHERE id=? AND status='pending'", (qc_id,))
+    conn.commit()
+    conn.close()
+    flash('QC баталгаажлаа!', 'success')
+    return redirect(url_for('archive'))
+
 @app.route('/internal-qc/<int:qc_id>/done', methods=['POST'])
 @lab_required
 def internal_qc_done(qc_id):
@@ -2874,12 +2884,13 @@ def analysis_result(receipt_id):
 
     role = session.get('role')
     qc_row = request.args.get('qc_row', type=int)
+    qc_id = request.args.get('qc_id', type=int)
     if qc_row:
         entries_list = [e for e in entries_list if e['row_num'] == qc_row]
     pending_approve = [e for e in entries_list if e['row_status'] == 'done' and e['is_duplicate'] == 0]
     return render_template('analysis/result.html',
         receipt=receipt, entries=entries_list, lang=lang, role=role, crm_cert=crm_cert,
-        pending_approve=pending_approve, qc_row=qc_row)
+        pending_approve=pending_approve, qc_row=qc_row, qc_id=qc_id)
 
 
 @app.route('/analysis/export/<int:receipt_id>')
