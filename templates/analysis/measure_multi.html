@@ -318,7 +318,7 @@ function autoNames(){
     var uid = '{{ rid }}_' + i;
     var inp = document.getElementById('n'+uid);
     if(!inp||inp.value) continue;
-    if(isQC{{ rid }}){ inp.value = 'Дотоод QC'; continue; }
+
     if(m1_{{ rid }}) inp.value = m1_{{ rid }}[1]+(parseInt(m1_{{ rid }}[2])+i-1);
     else if(m2_{{ rid }}) inp.value = m2_{{ rid }}[1]+(parseInt(m2_{{ rid }}[2])+i-1);
     else inp.value = nm{{ rid }}+'-'+i;
