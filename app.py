@@ -3482,6 +3482,56 @@ def backup_db():
     fname = f"lab_backup_{dt.now().strftime('%Y%m%d_%H%M%S')}.db"
     return send_file(db_path, as_attachment=True, download_name=fname)
 
+@app.route('/backup/list')
+@admin_required
+def backup_list():
+    import glob, os
+    inst = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance')
+    files = []
+    for f in sorted(glob.glob(os.path.join(inst, 'lab_backup_*.db')), reverse=True):
+        stat = os.stat(f)
+        files.append({
+            'name': os.path.basename(f),
+            'size': stat.st_size,
+            'mtime': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M')
+        })
+    return jsonify(files)
+
+@app.route('/backup/download/<filename>')
+@admin_required
+def backup_download(filename):
+    import re
+    if not re.match(r'^lab_backup_[\d_]+\.db$', filename):
+        return 'Invalid', 400
+    inst = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance')
+    path = os.path.join(inst, filename)
+    if not os.path.exists(path):
+        return 'Not found', 404
+    return send_file(path, as_attachment=True, download_name=filename)
+
+@app.route('/backup/create', methods=['POST'])
+@admin_required
+def backup_create():
+    import shutil
+    from datetime import datetime as dt
+    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'lab.db')
+    bk_name = f"lab_backup_{dt.now().strftime('%Y%m%d_%H%M%S')}.db"
+    bk_path = os.path.join(os.path.dirname(db_path), bk_name)
+    shutil.copy2(db_path, bk_path)
+    return jsonify({'ok': True, 'name': bk_name})
+
+@app.route('/backup/delete/<filename>', methods=['POST'])
+@admin_required
+def backup_delete(filename):
+    import re
+    if not re.match(r'^lab_backup_[\d_]+\.db$', filename):
+        return jsonify({'ok': False}), 400
+    inst = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance')
+    path = os.path.join(inst, filename)
+    if os.path.exists(path):
+        os.remove(path)
+    return jsonify({'ok': True})
+
 
 if __name__ == '__main__':
     init_db()
