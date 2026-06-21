@@ -3303,6 +3303,13 @@ if __name__ == '__main__':
     from models import init_analysis_db
     init_analysis_db()
     ensure_tables()
+    # Автомат backup
+    import shutil
+    _db = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'lab.db')
+    _bk = _db.replace('lab.db', f'lab_backup_{datetime.now().strftime("%Y%m%d")}.db')
+    if os.path.exists(_db) and not os.path.exists(_bk):
+        shutil.copy2(_db, _bk)
+        print(f'Backup: {_bk}')
     print('Систем эхэллээ!')
     print('Браузерт нэвтрэх: http://localhost:5000')
     app.run(debug=False, host='0.0.0.0', port=5000)
