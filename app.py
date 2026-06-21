@@ -1478,6 +1478,17 @@ def archive_delete(receipt_id):
     flash('Бүртгэл бүрмөсөн устгагдлаа.', 'success')
     return redirect(url_for('archive'))
 
+@app.route('/archive/qc-delete/<int:qc_id>', methods=['POST'])
+@admin_required
+def archive_qc_delete(qc_id):
+    conn = get_db()
+    conn.execute("DELETE FROM internal_qc_results WHERE qc_id=?", (qc_id,))
+    conn.execute("DELETE FROM internal_qc WHERE id=?", (qc_id,))
+    conn.commit()
+    conn.close()
+    flash('QC бүртгэл бүрмөсөн устгагдлаа.', 'success')
+    return redirect(url_for('archive'))
+
 @app.route('/archive/export/<int:receipt_id>')
 @login_required
 def analysis_export_report(receipt_id):

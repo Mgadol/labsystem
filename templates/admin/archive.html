@@ -200,6 +200,11 @@
             {% if q['receipt_id_1'] %}
             <a href="{{ url_for('analysis_result', receipt_id=q['receipt_id_1']) }}?qc_row={{ q['row_num_1'] or 1 }}" class="btn btn-ghost btn-sm">📊 Үр дүн</a>
             {% endif %}
+            {% if current_user['role'] == 'admin' %}
+            <form method="POST" action="{{ url_for('archive_qc_delete', qc_id=q['id']) }}" onsubmit="return confirm('QC {{ q[\'lab1\'] }} — бүрмөсөн устгах уу?\nЭнэ үйлдлийг буцаах боломжгүй!')" style="display:inline">
+              <button type="submit" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">🗑 Устгах</button>
+            </form>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}
