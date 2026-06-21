@@ -1134,7 +1134,8 @@ def internal_qc_create():
     qc_id = cur.lastrowid
     conn.commit()
     conn.close()
-    return redirect(url_for('analysis_measure_multi') + f'?ids={picked[0]},{picked[1]}')
+    flash('Дотоод QC үүслээ — доорх жагсаалтаас сонгож шинжилгээ хийнэ үү', 'success')
+    return redirect(url_for('analysis'))
 
 @app.route('/internal-qc/<int:qc_id>/measure')
 @lab_required
