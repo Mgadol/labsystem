@@ -431,6 +431,22 @@
   </div>
 
   <div id="tab-backup" class="tab-pane">
+    <div class="card" style="margin-bottom:16px">
+      <div class="section-title">🖥️ Системийн Backup</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+        Өгөгдлийн сангийн нөөц файлуудыг удирдана. Серверт хадгалагдсан бүх backup-ийг харах, татах, устгах боломжтой.
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button onclick="createBackup()" class="btn btn-teal" id="createBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v14a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Одоо Backup хийх
+        </button>
+        <button onclick="loadBackups()" class="btn btn-ghost">🔄 Шинэчлэх</button>
+      </div>
+      <div id="backupList">
+        <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Уншиж байна...</div>
+      </div>
+    </div>
     <div class="card">
       <div class="section-title">💾 Мэдээллийн сангийн нөөцлөлт</div>
       <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
@@ -684,5 +700,48 @@ function searchReceipt(){
         +'</form></div>';
     });
 }
+
+function fmtSize(b){
+  if(b>1024*1024) return (b/1024/1024).toFixed(1)+' MB';
+  return (b/1024).toFixed(0)+' KB';
+}
+function loadBackups(){
+  fetch('/backup/list').then(r=>r.json()).then(function(files){
+    var el = document.getElementById('backupList');
+    if(!files.length){ el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Backup файл байхгүй байна</div>'; return; }
+    var html = '<table class="table" style="font-size:13px"><thead><tr><th>Файлын нэр</th><th>Хэмжээ</th><th>Огноо</th><th></th></tr></thead><tbody>';
+    files.forEach(function(f){
+      html += '<tr>'
+        +'<td style="font-family:monospace;font-size:12px">'+f.name+'</td>'
+        +'<td>'+fmtSize(f.size)+'</td>'
+        +'<td style="color:var(--text-muted)">'+f.mtime+'</td>'
+        +'<td><div style="display:flex;gap:6px">'
+        +'<a href="/backup/download/'+encodeURIComponent(f.name)+'" class="btn btn-ghost btn-sm">⬇️ Татах</a>'
+        +'<button onclick="deleteBackup(\''+f.name+'\')" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">🗑 Устгах</button>'
+        +'</div></td></tr>';
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  });
+}
+function createBackup(){
+  var btn = document.getElementById('createBtn');
+  btn.disabled = true; btn.textContent = 'Хийж байна...';
+  fetch('/backup/create', {method:'POST'}).then(r=>r.json()).then(function(d){
+    btn.disabled = false; btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v14a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Одоо Backup хийх';
+    if(d.ok){ loadBackups(); }
+  });
+}
+function deleteBackup(name){
+  if(!confirm(name+'\nЭнэ backup-ийг устгах уу?')) return;
+  fetch('/backup/delete/'+encodeURIComponent(name), {method:'POST'}).then(r=>r.json()).then(function(d){
+    if(d.ok) loadBackups();
+  });
+}
+// backup tab нээгдэхэд автоматаар ачаалах
+document.addEventListener('DOMContentLoaded', function(){
+  var btn = document.querySelector('[onclick*="tab-backup"]');
+  if(btn) btn.addEventListener('click', function(){ setTimeout(loadBackups, 100); });
+});
 </script>
 {% endblock %}
