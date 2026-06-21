@@ -1,16 +1,15 @@
 {% extends "partial/base.html" %}
 {% block title %}Дотоод QC — Хэмжилт{% endblock %}
 {% block content %}
-{% set LABELS = {'mad':'Mad','aad':'Aad','vad':'Vad','fc':'FC','sulfur':'Stad','cal_value':'Qgr,db','fsi':'CSN'} %}
-{% set UNITS  = {'mad':'%','aad':'%','vad':'%','fc':'%','sulfur':'%','cal_value':'ккал/кг','fsi':''} %}
+{% set LABELS = db_labels %}
+{% set UNITS  = db_units %}
 
 <!-- Toolbar -->
 <div style="padding:7px 14px;background:#1a2744;color:#fff;display:flex;gap:14px;align-items:center;font-size:12px;border-bottom:2px solid #4ade80;flex-wrap:wrap">
   <div style="font-size:9px;color:#93a8d4">Дотоод QC</div>
   <div style="font-size:15px;font-weight:700;font-family:monospace;color:#4ade80">#{{ qc['id'] }} — {{ qc['triggered_date'] }}</div>
   <div style="width:1px;background:rgba(255,255,255,.15);height:30px"></div>
-  <div><span style="font-size:9px;color:#93a8d4">1-р дээж</span><br><b style="color:#4ade80">{{ qc['lab1'] }}</b> {{ qc['sname1'] }}</div>
-  <div><span style="font-size:9px;color:#93a8d4">2-р дээж</span><br><b style="color:#4ade80">{{ qc['lab2'] }}</b> {{ qc['sname2'] }}</div>
+  <div><span style="font-size:9px;color:#93a8d4">Дээж</span><br><b style="color:#4ade80">{{ qc['lab1'] }}</b> {{ qc['sname1'] }}</div>
   <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
     <span id="qcStatus" style="font-size:11px;color:#93a8d4">
       {% if qc['status']=='done' %}✅ Дууссан{% else %}⏳ Хүлээгдэж байна{% endif %}
