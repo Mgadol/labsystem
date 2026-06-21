@@ -62,16 +62,8 @@
   <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
     <button id="editModeBtn" onclick="toggleEditMode()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">✏️ Засах</button>
     <button onclick="openDevicePopup()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">🔧 <span id="deviceSummary">Тоног</span></button>
-    {% set ns = namespace(qc_shown=false) %}
     {% for r in receipts %}
-    {% if r['id'] in qc_row_map %}
-      {% if not ns.qc_shown %}
-      <span style="background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.4);border-radius:6px;color:#4ade80;font-size:11px;padding:4px 10px">📊 Дотоод QC</span>
-      {% set ns.qc_shown = true %}
-      {% endif %}
-    {% else %}
-    <a href="{{ url_for('analysis_result', receipt_id=r['id']) }}" style="background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.4);border-radius:6px;color:#4ade80;font-size:11px;padding:4px 10px;cursor:pointer;text-decoration:none">📊 {{ r['lab_number'] }}</a>
-    {% endif %}
+    <a href="{{ url_for('analysis_result', receipt_id=r['id']) }}" style="background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.4);border-radius:6px;color:#4ade80;font-size:11px;padding:4px 10px;cursor:pointer;text-decoration:none">📊 {% if r['id'] in qc_row_map %}QC-{{ r['lab_number'] }}{% else %}{{ r['lab_number'] }}{% endif %}</a>
     {% endfor %}
     <div style="display:flex;flex-direction:column;gap:2px">
       <button onmousedown="event.preventDefault();increaseDecimal()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:3px;color:#fff;font-size:9px;padding:1px 4px;cursor:pointer;line-height:1.2">0.00</button>
