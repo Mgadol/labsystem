@@ -959,10 +959,12 @@ def staff_add():
             role_to_set = request.form.get('role','staff')
             if session.get('role') == 'senior' and role_to_set in ('admin','senior'):
                 role_to_set = 'staff'
-            can_reg = 1 if (role_to_set == 'bayjuulach' and request.form.get('can_register')) else 0
+            is_bayj = role_to_set == 'bayjuulach'
+            can_reg = 1 if (is_bayj and request.form.get('can_register')) else 0
+            can_view = 1 if (is_bayj and request.form.get('can_view_result')) else 0
             conn.execute("""
-                INSERT INTO users(employee_id,name,position,phone,email,photo,role,password_hash,joined_date,shift,can_register)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?)
+                INSERT INTO users(employee_id,name,position,phone,email,photo,role,password_hash,joined_date,shift,can_register,can_view_result)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
             """, (
                 request.form['employee_id'], request.form['name'],
                 request.form.get('position'), request.form.get('phone'),
@@ -970,7 +972,7 @@ def staff_add():
                 role_to_set, pw,
                 request.form.get('joined_date') or None,
                 request.form.get('shift') or None,
-                can_reg
+                can_reg, can_view
             ))
             uid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
             # Геологичид (харилцагч) тоног ашиглах эрх олгохгүй
@@ -1286,7 +1288,11 @@ def archive():
         ORDER BY sr.lab_serial DESC LIMIT 200
     """).fetchall()
     if session.get('role') == 'bayjuulach':
-        completed_samples = [s for s in completed_samples if 6000 <= (s['lab_serial'] or 0) <= 6999]
+        u = conn.execute("SELECT can_view_result FROM users WHERE id=?", (session.get('user_id'),)).fetchone()
+        if not u or not u['can_view_result']:
+            completed_samples = []
+        else:
+            completed_samples = [s for s in completed_samples if 6000 <= (s['lab_serial'] or 0) <= 6999]
     done_qc = conn.execute("""
         SELECT iq.*, sr1.lab_number as lab1, g1.sample_name as sname1,
                u.name as assigned_name
@@ -1680,6 +1686,8 @@ def ensure_tables():
     try: conn.execute("ALTER TABLE users ADD COLUMN shift TEXT")
     except Exception: pass
     try: conn.execute("ALTER TABLE users ADD COLUMN can_register INTEGER DEFAULT 0")
+    except Exception: pass
+    try: conn.execute("ALTER TABLE users ADD COLUMN can_view_result INTEGER DEFAULT 0")
     except Exception: pass
     # Барабан (Эргэдэг хүрд) тохиргоо — лаб дугаар 11-14 (4 параметр)
     conn.execute("""
@@ -2849,8 +2857,13 @@ def analysis_result(receipt_id):
     lang = session.get('lang','mn')
     role = session.get('role')
     conn = get_db()
-    # Баяжуулагч зөвхөн 6000-6999 серийн ажлыг харна
+    # Баяжуулах эрхтэй: зөвхөн 6000-6999 + can_view_result=1 байвал харна
     if role == 'bayjuulach':
+        u = conn.execute("SELECT can_view_result FROM users WHERE id=?", (session['user_id'],)).fetchone()
+        if not u or not u['can_view_result']:
+            conn.close()
+            flash('Үр дүн харах эрх байхгүй байна', 'error')
+            return redirect(url_for('dashboard'))
         sr = conn.execute("SELECT lab_serial FROM sample_receipt WHERE id=?", (receipt_id,)).fetchone()
         if not sr or not (6000 <= (sr['lab_serial'] or 0) <= 6999):
             conn.close()
