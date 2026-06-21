@@ -76,7 +76,7 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
       {% set cat = 'anal' if (ps2 in ('ready','done') or st2 == 'analysing') else 'prep' %}
       <tr class="sample-row" data-status="{{ s['status'] }}" data-date="{{ s['collected_date'] or '' }}" data-rid="{{ s['receipt_id'] or '' }}" data-cat="{{ cat }}">
         <td style="width:36px;text-align:center">
-          {% if is_ready and s['receipt_id'] and current_user['role'] in ('admin','senior','staff') %}
+          {% if cat == 'anal' and s['receipt_id'] and current_user['role'] in ('admin','senior','staff') %}
           <input type="checkbox" class="lot-cb" value="{{ s['receipt_id'] }}" onchange="updateMultiBtn()" style="width:15px;height:15px;cursor:pointer">
           {% endif %}
         </td>
