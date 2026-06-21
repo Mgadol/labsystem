@@ -1167,13 +1167,29 @@ def internal_qc_measure(qc_id):
         flash('Бүртгэл олдсонгүй', 'error')
         return redirect(url_for('internal_qc_list'))
     PARAMS = ['mad','aad','vad','fc','sulfur','cal_value','fsi']
-    def get_orig(rid):
+    def get_orig(rid, row_num=None):
         if not rid: return {}
-        e = conn.execute("SELECT * FROM sample_entries WHERE receipt_id=? AND is_duplicate=0 AND row_status IN ('done','approved') ORDER BY row_num LIMIT 1", (rid,)).fetchone()
+        if row_num:
+            e = conn.execute("SELECT * FROM sample_entries WHERE receipt_id=? AND row_num=? AND is_duplicate=0", (rid, row_num)).fetchone()
+        else:
+            e = conn.execute("SELECT * FROM sample_entries WHERE receipt_id=? AND is_duplicate=0 AND row_status IN ('done','approved') ORDER BY row_num LIMIT 1", (rid,)).fetchone()
         if not e: return {}
-        return {p: e[p] for p in PARAMS if e[p] is not None}
-    orig1 = get_orig(qc['receipt_id_1'])
-    orig2 = get_orig(qc['receipt_id_2'])
+        ed = dict(e)
+        # mad/aad/vad/fc NULL бол түүхий өгөгдлөөс тооцоолно
+        try:
+            if ed.get('mad') is None and ed.get('dc_sample') and ed['dc_sample'] > 0:
+                ed['mad'] = (ed['dc_tare'] + ed['dc_sample'] - ed['dc_dried']) / ed['dc_sample'] * 100
+            if ed.get('aad') is None and ed.get('ash_sample') and ed['ash_sample'] > 0:
+                ed['aad'] = (ed['ash_burned'] - ed['ash_tare']) / ed['ash_sample'] * 100
+            if ed.get('vad') is None and ed.get('vol_sample') and ed['vol_sample'] > 0 and ed.get('mad') is not None:
+                ed['vad'] = (ed['vol_tare'] + ed['vol_sample'] - ed['vol_burned']) / ed['vol_sample'] * 100 - ed['mad']
+            if ed.get('fc') is None and all(ed.get(x) is not None for x in ['mad','aad','vad']):
+                ed['fc'] = 100 - ed['mad'] - ed['aad'] - ed['vad']
+        except:
+            pass
+        return {p: ed[p] for p in PARAMS if ed.get(p) is not None}
+    orig1 = get_orig(qc['receipt_id_1'], qc['row_num_1'])
+    orig2 = get_orig(qc['receipt_id_2'], qc['row_num_2'])
     results = conn.execute("SELECT * FROM internal_qc_results WHERE qc_id=?", (qc_id,)).fetchall()
     qc_tol = {r['parameter']: r['tolerance'] for r in conn.execute("SELECT parameter, tolerance FROM qc_settings").fetchall()}
     conn.close()
