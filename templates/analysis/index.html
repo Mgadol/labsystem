@@ -88,7 +88,7 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
         <td>
           <div style="display:flex;gap:4px;flex-wrap:wrap">
             {% if current_user['role'] in ('admin','senior','staff') %}
-            <a href="{{ url_for('analysis_measure_multi') }}?ids={{ qc['receipt_id_1'] }},{{ qc['receipt_id_2'] }}" class="btn btn-ghost btn-sm">🧪 Шинжилгээ хийх</a>
+            <a href="{{ url_for('analysis_measure_multi') }}?ids={{ qc['receipt_id_1'] }},{{ qc['receipt_id_2'] }}&qc_rows={{ qc['receipt_id_1'] }}:{{ qc['row_num_1'] or 1 }},{{ qc['receipt_id_2'] }}:{{ qc['row_num_2'] or 1 }}" class="btn btn-ghost btn-sm">🧪 Шинжилгээ хийх</a>
             {% endif %}
             <a href="{{ url_for('internal_qc_measure', qc_id=qc['id']) }}" class="btn btn-ghost btn-sm">📊 Үр дүн</a>
           </div>

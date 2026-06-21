@@ -1123,14 +1123,23 @@ def internal_qc_create():
         flash('Өмнөх 7 хоногт хангалттай дээж байхгүй байна', 'error')
         return redirect(url_for('internal_qc_list'))
     picked = random.sample([r['id'] for r in candidates], 2)
+    # Тус бүрийн receipt-аас санамсаргүй 1 мөр сонгох
+    def pick_row(rid):
+        rows = conn.execute(
+            "SELECT row_num FROM sample_entries WHERE receipt_id=? AND is_duplicate=0 AND row_status IN ('done','approved')",
+            (rid,)).fetchall()
+        if not rows: return 1
+        return random.choice([r['row_num'] for r in rows])
+    rn1 = pick_row(picked[0])
+    rn2 = pick_row(picked[1])
     assigned = request.form.get('assigned_to') or session['user_id']
     # QC дугаар үүсгэх: QC-YYYYMMDD-NNN
     today_str = datetime.now().strftime('%Y%m%d')
     last = conn.execute("SELECT qc_number FROM internal_qc WHERE qc_number LIKE ? ORDER BY id DESC LIMIT 1", (f'QC-{today_str}-%',)).fetchone()
     seq = int(last['qc_number'].split('-')[-1]) + 1 if last else 1
     qc_number = f'QC-{today_str}-{seq:03d}'
-    cur = conn.execute("""INSERT INTO internal_qc (qc_number, triggered_date, receipt_id_1, receipt_id_2, assigned_to, created_by)
-        VALUES (?,?,?,?,?,?)""", (qc_number, d_to, picked[0], picked[1], assigned, session['user_id']))
+    cur = conn.execute("""INSERT INTO internal_qc (qc_number, triggered_date, receipt_id_1, receipt_id_2, row_num_1, row_num_2, assigned_to, created_by)
+        VALUES (?,?,?,?,?,?,?,?)""", (qc_number, d_to, picked[0], picked[1], rn1, rn2, assigned, session['user_id']))
     qc_id = cur.lastrowid
     conn.commit()
     conn.close()
@@ -1656,6 +1665,10 @@ def ensure_tables():
     """)
     try: conn.execute("ALTER TABLE internal_qc ADD COLUMN qc_number TEXT")
     except: pass
+    try: conn.execute("ALTER TABLE internal_qc ADD COLUMN row_num_1 INTEGER")
+    except: pass
+    try: conn.execute("ALTER TABLE internal_qc ADD COLUMN row_num_2 INTEGER")
+    except: pass
     conn.execute("""CREATE TABLE IF NOT EXISTS internal_qc (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         qc_number TEXT,
@@ -2174,7 +2187,7 @@ def analysis():
     """).fetchall()
     pending_qc = conn.execute("""
         SELECT iq.id, iq.triggered_date, iq.qc_number,
-            iq.receipt_id_1, iq.receipt_id_2,
+            iq.receipt_id_1, iq.receipt_id_2, iq.row_num_1, iq.row_num_2,
             sr1.lab_number as lab1, g1.sample_name as sname1,
             sr2.lab_number as lab2, g2.sample_name as sname2
         FROM internal_qc iq
@@ -3055,9 +3068,19 @@ def analysis_measure_multi():
     ids_str = request.args.get('ids','')
     if not ids_str:
         return redirect(url_for('analysis'))
-    
+
     ids = [int(i) for i in ids_str.split(',') if i.strip().isdigit()]
-    
+
+    # qc_rows параметр: "rid1:rn1,rid2:rn2" — зөвхөн тодорхой мөрийг харуулах
+    qc_rows_str = request.args.get('qc_rows','')
+    qc_row_map = {}  # {receipt_id: row_num}
+    if qc_rows_str:
+        for part in qc_rows_str.split(','):
+            if ':' in part:
+                r, n = part.split(':', 1)
+                if r.strip().isdigit() and n.strip().isdigit():
+                    qc_row_map[int(r.strip())] = int(n.strip())
+
     receipts = []
     for rid in ids:
         r = conn.execute("""
@@ -3072,14 +3095,14 @@ def analysis_measure_multi():
         """, (rid,)).fetchone()
         if r:
             receipts.append(r)
-    
+
     conn.close()
     if not receipts:
         return redirect(url_for('analysis'))
-    
-    return render_template('analysis/measure_multi.html', 
+
+    return render_template('analysis/measure_multi.html',
         receipts=receipts, lang=lang,
-        ids=ids_str)
+        ids=ids_str, qc_row_map=qc_row_map)
 
 # ── LAB SETTINGS ────────────────────────────────────────
 import json as _json

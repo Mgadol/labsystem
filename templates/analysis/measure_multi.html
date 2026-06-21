@@ -139,6 +139,7 @@
   {% for i in range(receipt['quantity'] or 1) %}
   {% set row_num.val = row_num.val + 1 %}
   {% set ri = i+1 %}
+  {% if qc_row_map and rid in qc_row_map and qc_row_map[rid] != ri %}{% else %}
   {% set uid = rid|string + '_' + ri|string %}
   <tr class="main-row" id="mr{{ uid }}">
     <td style="font-size:10px;color:#666;padding:0 2px">
@@ -220,6 +221,7 @@
     <td class="calc-cell" id="r{{ uid }}d_vad">—</td>
     <td class="calc-cell" id="r{{ uid }}d_fc">—</td>
   </tr>
+  {% endif %}
   {% endfor %}
   {% endfor %}
   </tbody>
