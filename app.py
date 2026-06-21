@@ -1206,7 +1206,7 @@ def internal_qc_measure(qc_id):
     results = conn.execute("SELECT * FROM internal_qc_results WHERE qc_id=?", (qc_id,)).fetchall()
     qc_tol = {r['parameter']: r['tolerance'] for r in conn.execute("SELECT parameter, tolerance FROM qc_settings").fetchall()}
     conn.close()
-    db_to_tol = {'adb':'Aad','vdb':'Vad','fcdb':'Fc','sdb':'Stad','qdb':'Qtc_ad','fsi':'Fsi'}
+    db_to_tol = {'adb':'Aad','vdb':'Vad','fcdb':'Fc','sdb':'Stad','qdb':'Qb_ad','fsi':'FSI'}
     return render_template('analysis/internal_qc_measure.html',
         qc=qc, orig1=orig1, orig2=orig2, results=results,
         qc_tol=qc_tol, params=PARAMS, db_labels=DB_LABELS, db_units=DB_UNITS,
@@ -1230,7 +1230,7 @@ def internal_qc_done(qc_id):
     notes = request.form.get('notes','')
     conn.execute("DELETE FROM internal_qc_results WHERE qc_id=?", (qc_id,))
     params = ['adb','vdb','fcdb','sdb','qdb','fsi']
-    db_to_tol = {'adb':'Aad','vdb':'Vad','fcdb':'Fc','sdb':'Stad','qdb':'Qtc_ad','fsi':'Fsi'}
+    db_to_tol = {'adb':'Aad','vdb':'Vad','fcdb':'Fc','sdb':'Stad','qdb':'Qb_ad','fsi':'FSI'}
     for receipt_id in [request.form.get('rid1'), request.form.get('rid2')]:
         if not receipt_id: continue
         for p in params:
