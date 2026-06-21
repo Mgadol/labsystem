@@ -69,6 +69,26 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
         </tr>
       </thead>
       <tbody>
+      {% for qc in pending_qc %}
+      <tr class="sample-row" data-cat="anal" data-date="{{ qc['triggered_date'] }}" data-rid="">
+        <td style="width:36px;text-align:center">
+          {% if current_user['role'] in ('admin','senior','staff') %}
+          <input type="checkbox" class="lot-cb" value="{{ qc['receipt_id_1'] }},{{ qc['receipt_id_2'] }}" onchange="updateMultiBtn()" style="width:15px;height:15px;cursor:pointer">
+          {% endif %}
+        </td>
+        <td>
+          <span style="font-size:10px;font-weight:700;color:#0d9488;background:#ccfbf1;padding:1px 5px;border-radius:3px;margin-right:4px">QC</span>
+          <strong style="font-family:monospace;color:#0d9488">{{ qc['qc_number'] or ('QC-'~qc['triggered_date']) }}</strong>
+        </td>
+        <td style="font-size:12px;color:#555">{{ qc['lab1'] }} | {{ qc['lab2'] }}</td>
+        <td><span class="badge" style="background:#ccfbf1;color:#0d9488">Дотоод QC</span></td>
+        <td>2</td>
+        <td>—</td>
+        <td>{{ qc['triggered_date'] }}</td>
+        <td><span class="badge" style="background:#e8f5f1;color:#0d6e5f">Шинжилгээнд бэлэн</span></td>
+        <td></td>
+      </tr>
+      {% endfor %}
       {% for s in samples %}
       {% set ps2 = s['prep_status'] or '' %}
       {% set st2 = s['status'] or '' %}
