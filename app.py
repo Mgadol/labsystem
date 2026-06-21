@@ -2799,6 +2799,8 @@ def row_approve():
     if total > 0 and total == approved:
         conn.execute("UPDATE geo_samples SET status='done' WHERE id=(SELECT geo_sample_id FROM sample_receipt WHERE id=?)", (rid,))
         conn.execute("UPDATE sample_receipt SET prep_status='done' WHERE id=?", (rid,))
+        # Энэ receipt QC ажил байвал internal_qc.status='done' болгоно
+        conn.execute("UPDATE internal_qc SET status='done' WHERE receipt_id_1=? AND status='pending'", (rid,))
         conn.commit()
     all_approved = (total > 0 and total == approved)
     conn.close()
