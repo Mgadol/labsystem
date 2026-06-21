@@ -3135,9 +3135,10 @@ def analysis_measure_multi():
         return redirect(url_for('analysis'))
 
     qc_receipt_ids = [str(k) for k in qc_row_map.keys()]
+    qc_id = request.args.get('qc_id', type=int)
     return render_template('analysis/measure_multi.html',
         receipts=receipts, lang=lang,
-        ids=ids_str, qc_row_map=qc_row_map, qc_receipt_ids=qc_receipt_ids)
+        ids=ids_str, qc_row_map=qc_row_map, qc_receipt_ids=qc_receipt_ids, qc_id=qc_id)
 
 # ── LAB SETTINGS ────────────────────────────────────────
 import json as _json

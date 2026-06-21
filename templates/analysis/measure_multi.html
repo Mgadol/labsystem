@@ -62,9 +62,12 @@
   <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
     <button id="editModeBtn" onclick="toggleEditMode()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">✏️ Засах</button>
     <button onclick="openDevicePopup()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">🔧 <span id="deviceSummary">Тоног</span></button>
-    {% for r in receipts %}
-    <a href="{{ url_for('analysis_result', receipt_id=r['id']) }}" style="background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.4);border-radius:6px;color:#4ade80;font-size:11px;padding:4px 10px;cursor:pointer;text-decoration:none">📊 {% if r['id'] in qc_row_map %}QC-{{ r['lab_number'] }}{% else %}{{ r['lab_number'] }}{% endif %}</a>
-    {% endfor %}
+    {% if qc_id %}
+    <a href="{{ url_for('internal_qc_measure', qc_id=qc_id) }}" style="background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.4);border-radius:6px;color:#4ade80;font-size:11px;padding:4px 10px;cursor:pointer;text-decoration:none">📊 Дотоод QC</a>
+    {% endif %}
+    {% for r in receipts %}{% if r['id'] not in qc_row_map %}
+    <a href="{{ url_for('analysis_result', receipt_id=r['id']) }}" style="background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.4);border-radius:6px;color:#4ade80;font-size:11px;padding:4px 10px;cursor:pointer;text-decoration:none">📊 {{ r['lab_number'] }}</a>
+    {% endif %}{% endfor %}
     <div style="display:flex;flex-direction:column;gap:2px">
       <button onmousedown="event.preventDefault();increaseDecimal()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:3px;color:#fff;font-size:9px;padding:1px 4px;cursor:pointer;line-height:1.2">0.00</button>
       <button onmousedown="event.preventDefault();decreaseDecimal()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:3px;color:#fff;font-size:9px;padding:1px 4px;cursor:pointer;line-height:1.2">00.0</button>
@@ -134,6 +137,7 @@
   </thead>
   <tbody id="tbody">
   {% set row_num = namespace(val=0) %}
+  {% set ns_qc = namespace(idx=0) %}
   {% if qc_row_map %}
   <tr class="lot-label">
     <td colspan="40" style="text-align:left;padding-left:10px;background:#0d4f47;color:#4ade80;font-family:monospace;font-size:11px;height:20px;padding-top:2px;padding-bottom:2px">
@@ -145,6 +149,7 @@
   {% set rid = receipt['id'] %}
   {% set stype = receipt['sample_type'] %}
   {% set sname = receipt['sample_name'] %}
+  {% if rid in qc_row_map %}{% set ns_qc.idx = ns_qc.idx + 1 %}{% endif %}
   <!-- Lot ялгах label -->
   {% if not qc_row_map or rid not in qc_row_map %}
   <tr class="lot-label">
@@ -167,7 +172,7 @@
       {% elif stype=='PIT' %}#0f6e56{% elif stype=='STOCKPILE' %}#185fa5
       {% elif stype=='EXPORT' %}#3c3489{% elif stype=='CONTROL' %}#854f0b
       {% elif stype=='EQ_CONTROL' %}#993c1d{% else %}#555{% endif %}">{{ 'QC' if (qc_row_map and rid in qc_row_map) else stype }}</td>
-    <td style="font-family:monospace;font-size:10px;color:#555">{{ receipt['lab_number'] }}</td>
+    <td style="font-family:monospace;font-size:10px;color:#555">{% if rid in qc_row_map %}QC{{ ns_qc.idx }}-{% endif %}{{ receipt['lab_number'] }}</td>
     <td><div class="name-cell"><input class="name-inp" type="text" id="n{{ uid }}" data-field="sample_name" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></div></td>
     <td><input type="number" step="0.01" data-field="mass_kg" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
     <td style="padding:2px"><button class="done-btn" id="dnbtn{{ uid }}_0" onclick="markDone('{{ rid }}','{{ ri }}',0)" title="Дууслаа">○</button></td>
