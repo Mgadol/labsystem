@@ -1180,6 +1180,7 @@ def internal_qc_measure(qc_id):
             if ed.get('sulfur') is not None: result['sdb'] = round(ed['sulfur'] * f, 2)
             if ed.get('cal_value') is not None: result['qdb'] = round(ed['cal_value'] / 4.1868 * f, 0)
             if ed.get('fsi') is not None: result['fsi'] = ed['fsi']
+            if ed.get('g_val') is not None: result['g_index'] = ed['g_val']
         except: pass
         return result
     def get_orig(rid, row_num=None):
@@ -1229,7 +1230,7 @@ def internal_qc_done(qc_id):
     conn = get_db()
     notes = request.form.get('notes','')
     conn.execute("DELETE FROM internal_qc_results WHERE qc_id=?", (qc_id,))
-    params = ['adb','vdb','fcdb','sdb','qdb','fsi']
+    params = ['adb','vdb','fcdb','sdb','qdb','fsi','g_index']
     db_to_tol = {'adb':'Aad','vdb':'Vad','fcdb':'Fc','sdb':'Stad','qdb':'Qb_ad','fsi':'FSI','g_index':'G_index'}
     for receipt_id in [request.form.get('rid1'), request.form.get('rid2')]:
         if not receipt_id: continue
