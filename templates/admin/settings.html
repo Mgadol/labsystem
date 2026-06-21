@@ -17,6 +17,7 @@
     <button class="tab-btn" onclick="switchTab(this,'tab-crm')">🔬 CRM материал</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-device-map')">🔧 Тоног холбоос</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-profile')">👤 Профайл</button>
+    <button class="tab-btn" onclick="switchTab(this,'tab-chktpl')">📋 Шалгалтын загвар</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-backup')">💾 Нөөцлөлт</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-guest')">👁 Зочны код</button>
   </div>
@@ -430,6 +431,49 @@
     </div>
   </div>
 
+  <!-- Шалгалтын загвар -->
+  <div id="tab-chktpl" class="tab-pane">
+    <div class="card">
+      <div class="section-title">📋 Дотоод шалгалтын загварууд</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+        Тоног төхөөрөмж нэмэхдээ ашиглах өдөр тутмын шалгалтын загваруудыг урьдчилан тодорхойлно.
+      </div>
+      <!-- Шинэ загвар нэмэх -->
+      <div style="border:1px solid #99f6e4;border-radius:8px;padding:14px;background:#f0fdf9;margin-bottom:16px">
+        <div style="font-size:12px;font-weight:600;color:#0d9488;margin-bottom:10px">+ Шинэ загвар нэмэх</div>
+        <div class="form-group" style="margin-bottom:10px">
+          <label class="form-label">Загварын нэр *</label>
+          <input type="text" id="tpl_name" class="form-input" placeholder="Ж: Аналитик жин" style="max-width:300px">
+        </div>
+        <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr>
+            <th style="text-align:left;padding:4px 8px;color:var(--navy)">#</th>
+            <th style="text-align:left;padding:4px 8px;color:var(--navy)">Үзүүлэлт</th>
+            <th style="text-align:left;padding:4px 8px;color:var(--navy)">Стандарт утга</th>
+            <th style="text-align:left;padding:4px 8px;color:var(--navy)">Зөвшөөрөх зөрүү</th>
+          </tr></thead>
+          <tbody>
+          {% for i in range(1,5) %}
+          <tr>
+            <td style="padding:4px 8px;color:var(--text-muted)">{{ i }}</td>
+            <td style="padding:4px 6px"><input type="text" id="tp{{ i }}" class="form-input" style="font-size:12px" placeholder="Параметр {{ i }}"></td>
+            <td style="padding:4px 6px"><input type="text" id="ts{{ i }}" class="form-input" style="font-size:12px" placeholder="Стандарт"></td>
+            <td style="padding:4px 6px"><input type="text" id="tt{{ i }}" class="form-input" style="font-size:12px" placeholder="±..."></td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        <div style="margin-top:10px">
+          <button onclick="saveTpl()" class="btn btn-teal btn-sm">💾 Хадгалах</button>
+        </div>
+      </div>
+      <!-- Хадгалагдсан загварууд -->
+      <div id="tplList"><div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Уншиж байна...</div></div>
+    </div>
+  </div>
+
   <div id="tab-backup" class="tab-pane">
     <div class="card" style="margin-bottom:16px">
       <div class="section-title">🖥️ Системийн Backup</div>
@@ -700,6 +744,48 @@ function searchReceipt(){
         +'</form></div>';
     });
 }
+
+function loadTpls(){
+  fetch('/check-templates').then(r=>r.json()).then(function(rows){
+    var el = document.getElementById('tplList');
+    if(!rows.length){el.innerHTML='<div style="text-align:center;padding:16px;color:var(--text-muted);font-size:13px">Загвар байхгүй байна</div>';return;}
+    var h='<table class="table" style="font-size:12px"><thead><tr><th>Нэр</th><th>П1</th><th>П2</th><th>П3</th><th>П4</th><th></th></tr></thead><tbody>';
+    rows.forEach(function(r){
+      h+='<tr><td style="font-weight:600">'+r.name+'</td>'
+        +'<td>'+(r.param1||'—')+'</td><td>'+(r.param2||'—')+'</td>'
+        +'<td>'+(r.param3||'—')+'</td><td>'+(r.param4||'—')+'</td>'
+        +'<td><button onclick="delTpl('+r.id+')" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">🗑</button></td></tr>';
+    });
+    h+='</tbody></table>';
+    el.innerHTML=h;
+  });
+}
+function saveTpl(){
+  var name=document.getElementById('tpl_name').value.trim();
+  if(!name){alert('Загварын нэр оруулна уу');return;}
+  var data={name:name};
+  for(var i=1;i<=4;i++){
+    data['param'+i]=document.getElementById('tp'+i).value.trim();
+    data['standard'+i]=document.getElementById('ts'+i).value.trim();
+    data['tolerance'+i]=document.getElementById('tt'+i).value.trim();
+  }
+  fetch('/check-templates/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
+    .then(r=>r.json()).then(function(d){
+      if(d.ok){
+        document.getElementById('tpl_name').value='';
+        for(var i=1;i<=4;i++){document.getElementById('tp'+i).value='';document.getElementById('ts'+i).value='';document.getElementById('tt'+i).value='';}
+        loadTpls();
+      }
+    });
+}
+function delTpl(id){
+  if(!confirm('Энэ загварыг устгах уу?'))return;
+  fetch('/check-templates/'+id+'/delete',{method:'POST'}).then(r=>r.json()).then(function(d){if(d.ok)loadTpls();});
+}
+document.addEventListener('DOMContentLoaded',function(){
+  var btn=document.querySelector('[onclick*="tab-chktpl"]');
+  if(btn)btn.addEventListener('click',function(){setTimeout(loadTpls,100);});
+});
 
 function fmtSize(b){
   if(b>1024*1024) return (b/1024/1024).toFixed(1)+' MB';

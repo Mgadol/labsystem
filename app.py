@@ -1762,6 +1762,19 @@ def ensure_tables():
         )
     """)
     except Exception: pass
+    try: conn.execute("""
+        CREATE TABLE IF NOT EXISTS check_templates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            param1 TEXT, standard1 TEXT, tolerance1 TEXT,
+            param2 TEXT, standard2 TEXT, tolerance2 TEXT,
+            param3 TEXT, standard3 TEXT, tolerance3 TEXT,
+            param4 TEXT, standard4 TEXT, tolerance4 TEXT,
+            created_by INTEGER REFERENCES users(id),
+            created_at TEXT DEFAULT (datetime('now','localtime'))
+        )
+    """)
+    except Exception: pass
     # Барабан (Эргэдэг хүрд) тохиргоо — лаб дугаар 11-14 (4 параметр)
     conn.execute("""
         UPDATE devices SET
@@ -3495,6 +3508,43 @@ def backup_db():
     from datetime import datetime as dt
     fname = f"lab_backup_{dt.now().strftime('%Y%m%d_%H%M%S')}.db"
     return send_file(db_path, as_attachment=True, download_name=fname)
+
+# ── ШАЛГАЛТЫН ЗАГВАР (check templates) ──────────────────
+@app.route('/check-templates')
+@login_required
+def check_templates_list():
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM check_templates ORDER BY name").fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+@app.route('/check-templates/add', methods=['POST'])
+@senior_required
+def check_templates_add():
+    conn = get_db()
+    data = request.get_json()
+    conn.execute("""INSERT INTO check_templates
+        (name,param1,standard1,tolerance1,param2,standard2,tolerance2,
+         param3,standard3,tolerance3,param4,standard4,tolerance4,created_by)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+        data.get('name'), data.get('param1'), data.get('standard1'), data.get('tolerance1'),
+        data.get('param2'), data.get('standard2'), data.get('tolerance2'),
+        data.get('param3'), data.get('standard3'), data.get('tolerance3'),
+        data.get('param4'), data.get('standard4'), data.get('tolerance4'),
+        session.get('user_id')
+    ))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+@app.route('/check-templates/<int:tid>/delete', methods=['POST'])
+@senior_required
+def check_templates_delete(tid):
+    conn = get_db()
+    conn.execute("DELETE FROM check_templates WHERE id=?", (tid,))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
 
 @app.route('/backup/list')
 @admin_required
