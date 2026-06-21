@@ -38,19 +38,22 @@
             <option value="staff">Ажилтан (Химич)</option>
             <option value="preparer">Бэлтгэгч</option>
             <option value="geologist">Харилцагч (Геологи)</option>
-            <option value="bayjuulach">Баяжуулагч</option>
+            <option value="bayjuulach">Баяжуулах</option>
             <option value="senior" {% if current_user['role'] in ('staff','preparer','geologist') %}disabled{% endif %}>Дэд Админ</option>
             {% if current_user['role']=='admin' %}
             <option value="admin">Админ</option>
             {% endif %}
           </select>
-          <div id="bayjuulachPerms" style="display:none;margin-top:10px;padding:10px;background:#f0fdf9;border-radius:8px;border:1px solid #99f6e4">
-            <div style="font-size:12px;font-weight:600;color:#0d9488;margin-bottom:8px">Баяжуулагчийн эрх (6000–6999 дугаар)</div>
+          <div id="bayjuulachPerms" style="display:none;margin-top:10px;padding:12px;background:#f0fdf9;border-radius:8px;border:1px solid #99f6e4">
+            <div style="font-size:12px;font-weight:600;color:#0d9488;margin-bottom:10px">Баяжуулах эрх (6000–6999 дугаар)</div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:8px">
+              <input type="checkbox" name="can_view_result" value="1">
+              Үр дүн харах
+            </label>
             <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
               <input type="checkbox" name="can_register" value="1">
-              Дээж нэмэх + үр дүн харах
+              Дээж нэмэх
             </label>
-            <div style="font-size:11px;color:#6b7280;margin-top:4px">Чагтлаагүй бол зөвхөн үр дүн харах</div>
           </div>
           {% if current_user['role']=='senior' %}
           <div style="font-size:11px;color:var(--text-muted);margin-top:4px">⚠️ {{ 'Та зөвхөн ажилтан нэмэх боломжтой' if lang=='mn' else 'You can only add staff members' }}</div>
