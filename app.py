@@ -1463,6 +1463,21 @@ def archive_reopen(receipt_id):
     conn.close()
     return redirect(url_for('analysis_result', receipt_id=receipt_id))
 
+@app.route('/archive/delete/<int:receipt_id>', methods=['POST'])
+@admin_required
+def archive_delete(receipt_id):
+    conn = get_db()
+    receipt = conn.execute('SELECT geo_sample_id FROM sample_receipt WHERE id=?', (receipt_id,)).fetchone()
+    if receipt:
+        geo_id = receipt['geo_sample_id']
+        conn.execute("DELETE FROM sample_entries WHERE receipt_id=?", (receipt_id,))
+        conn.execute("DELETE FROM sample_receipt WHERE id=?", (receipt_id,))
+        conn.execute("DELETE FROM geo_samples WHERE id=?", (geo_id,))
+    conn.commit()
+    conn.close()
+    flash('Бүртгэл бүрмөсөн устгагдлаа.', 'success')
+    return redirect(url_for('archive'))
+
 @app.route('/archive/export/<int:receipt_id>')
 @login_required
 def analysis_export_report(receipt_id):
