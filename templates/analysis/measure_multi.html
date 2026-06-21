@@ -283,6 +283,19 @@ var deviceMap = {};
 var editMode = false;
 var pendingChanges = {};
 
+// Toolbar дээр давтагдсан "Дотоод QC" товчийг нэг болгох
+(function(){
+  var toolbar = document.querySelector('[style*="margin-left:auto"]');
+  if(!toolbar) return;
+  var spans = toolbar.querySelectorAll('span,a');
+  var qcSeen = false;
+  spans.forEach(function(el){
+    if(el.textContent.trim().indexOf('Дотоод QC') !== -1){
+      if(qcSeen){ el.remove(); } else { qcSeen = true; }
+    }
+  });
+})();
+
 function toggleEditMode(){
   editMode = !editMode;
   var btn = document.getElementById('editModeBtn');
