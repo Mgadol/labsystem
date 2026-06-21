@@ -1114,7 +1114,7 @@ def internal_qc_create():
     candidates = conn.execute("""
         SELECT sr.id FROM sample_receipt sr
         JOIN geo_samples g ON g.id=sr.geo_sample_id
-        WHERE g.status='done'
+        WHERE g.status IN ('analysing','prepared','received')
         AND g.sample_type IN ('PIT','STOCKPILE','EXPORT','CONTROL')
         AND sr.received_date BETWEEN ? AND ?
     """, (d_from, d_to)).fetchall()
