@@ -1138,7 +1138,7 @@ def internal_qc_done(qc_id):
     notes = request.form.get('notes','')
     conn.execute("UPDATE internal_qc SET status='done', notes=? WHERE id=?", (notes, qc_id))
     # Save results
-    params = ['mad','aad','vad','sulfur','cal_value']
+    params = ['mad','aad','vad','fc','sulfur','cal_value','fsi']
     for receipt_id in [request.form.get('rid1'), request.form.get('rid2')]:
         if not receipt_id: continue
         for p in params:
