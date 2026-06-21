@@ -475,8 +475,12 @@ def device_add():
             lab_id,web_link,method,max_temp,particular,measuring_time,measuring_limit,
             dimension,capacity,weight_kg,other_spec,power,frequency,voltage,
             specification,operating_state,received_date,
-            check_standard,check_tolerance,check_enabled,stage,check_freq)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            check_param1,check_standard,check_tolerance,
+            check_param2,check_standard2,check_tolerance2,
+            check_param3,check_standard3,check_tolerance3,
+            check_param4,check_standard4,check_tolerance4,
+            check_enabled,stage,check_freq)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             request.form['name'],
             request.form.get('serial_number') or None,
@@ -504,8 +508,18 @@ def device_add():
             request.form.get('specification') or None,
             request.form.get('operating_state') or None,
             request.form.get('received_date') or None,
+            request.form.get('check_param1') or None,
             request.form.get('check_standard') or None,
             request.form.get('check_tolerance') or None,
+            request.form.get('check_param2') or None,
+            request.form.get('check_standard2') or None,
+            request.form.get('check_tolerance2') or None,
+            request.form.get('check_param3') or None,
+            request.form.get('check_standard3') or None,
+            request.form.get('check_tolerance3') or None,
+            request.form.get('check_param4') or None,
+            request.form.get('check_standard4') or None,
+            request.form.get('check_tolerance4') or None,
             1 if request.form.get('check_enabled') else 0,
             request.form.get('stage') or 'both',
             request.form.get('check_freq') or 'daily',
