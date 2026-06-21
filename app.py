@@ -2173,7 +2173,8 @@ def analysis():
         ORDER BY name
     """).fetchall()
     pending_qc = conn.execute("""
-        SELECT iq.id, iq.triggered_date,
+        SELECT iq.id, iq.triggered_date, iq.qc_number,
+            iq.receipt_id_1, iq.receipt_id_2,
             sr1.lab_number as lab1, g1.sample_name as sname1,
             sr2.lab_number as lab2, g2.sample_name as sname2
         FROM internal_qc iq
