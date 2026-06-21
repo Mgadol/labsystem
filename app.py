@@ -1122,8 +1122,8 @@ def internal_qc_create():
     """, (d_from, d_to)).fetchall()
     if len(candidates) < 2:
         conn.close()
-        flash('Өмнөх 7 хоногт хангалттай дээж байхгүй байна', 'error')
-        return redirect(url_for('internal_qc_list'))
+        flash('Өмнөх 7 хоногт давтан шинжлэх хангалттай дээж байхгүй байна', 'error')
+        return redirect(url_for('analysis'))
     picked = random.sample([r['id'] for r in candidates], 2)
     # Тус бүрийн receipt-аас санамсаргүй 1 мөр сонгох
     def pick_row(rid):
