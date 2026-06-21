@@ -77,11 +77,10 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
           {% endif %}
         </td>
         <td>
-          <span style="font-size:10px;font-weight:700;color:#0d9488;background:#ccfbf1;padding:1px 5px;border-radius:3px;margin-right:4px">QC</span>
-          <strong style="font-family:monospace;color:#0d9488">{{ qc['qc_number'] or ('QC-'~qc['triggered_date']) }}</strong>
+          <strong style="font-family:monospace;color:#0d9488">Дотоод QC</strong>
         </td>
         <td style="font-size:12px;color:#555">{{ qc['lab1'] }} | {{ qc['lab2'] }}</td>
-        <td><span class="badge" style="background:#ccfbf1;color:#0d9488">Дотоод QC</span></td>
+        <td><span class="badge" style="background:#ccfbf1;color:#0d9488">QC</span></td>
         <td>2</td>
         <td>—</td>
         <td>{{ qc['triggered_date'] }}</td>
