@@ -3100,9 +3100,10 @@ def analysis_measure_multi():
     if not receipts:
         return redirect(url_for('analysis'))
 
+    qc_receipt_ids = list(qc_row_map.keys())
     return render_template('analysis/measure_multi.html',
         receipts=receipts, lang=lang,
-        ids=ids_str, qc_row_map=qc_row_map)
+        ids=ids_str, qc_row_map=qc_row_map, qc_receipt_ids=qc_receipt_ids)
 
 # ── LAB SETTINGS ────────────────────────────────────────
 import json as _json
