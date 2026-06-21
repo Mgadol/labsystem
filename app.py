@@ -337,6 +337,19 @@ def dashboard():
             my_devices=my_devices, active_map=active_map, lang=lang)
     else:
         uid = session.get('user_id', 0)
+        if session.get('role') == 'bayjuulach':
+            user = conn.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
+            samples = conn.execute("""
+                SELECT sr.id as receipt_id, sr.lab_number, sr.lab_serial, sr.received_date,
+                       g.sample_name, g.sample_type, g.status
+                FROM sample_receipt sr
+                JOIN geo_samples g ON g.id=sr.geo_sample_id
+                WHERE g.status='done' AND sr.lab_serial BETWEEN 6000 AND 6999
+                ORDER BY sr.lab_serial DESC LIMIT 100
+            """).fetchall() if (user and user['can_view_result']) else []
+            conn.close()
+            return render_template('staff/dashboard_bayjuulach.html',
+                user=user, samples=samples, lang=lang)
         my_devices = conn.execute("""
             SELECT d.*, dm.manufacturer, dm.model FROM devices d
             LEFT JOIN device_marks dm ON d.mark_id=dm.id
