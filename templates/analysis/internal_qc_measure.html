@@ -15,7 +15,7 @@
     <span id="qcStatus" style="font-size:11px;color:#93a8d4">
       {% if qc['status']=='done' %}✅ Дууссан{% else %}⏳ Хүлээгдэж байна{% endif %}
     </span>
-    <a href="{{ url_for('internal_qc_list') }}" class="btn btn-ghost btn-sm" style="font-size:11px">← Буцах</a>
+    <a href="javascript:history.back()" class="btn btn-ghost btn-sm" style="font-size:11px">← Буцах</a>
   </div>
 </div>
 
