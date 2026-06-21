@@ -1133,11 +1133,13 @@ def internal_qc_create():
     rn1 = pick_row(picked[0])
     rn2 = pick_row(picked[1])
     assigned = request.form.get('assigned_to') or session['user_id']
-    # QC дугаар үүсгэх: QC-YYYYMMDD-NNN
-    today_str = datetime.now().strftime('%Y%m%d')
-    last = conn.execute("SELECT qc_number FROM internal_qc WHERE qc_number LIKE ? ORDER BY id DESC LIMIT 1", (f'QC-{today_str}-%',)).fetchone()
-    seq = int(last['qc_number'].split('-')[-1]) + 1 if last else 1
-    qc_number = f'QC-{today_str}-{seq:03d}'
+    # QC дугаар үүсгэх: QC001, QC002, ...
+    last = conn.execute("SELECT qc_number FROM internal_qc WHERE qc_number LIKE 'QC%' ORDER BY id DESC LIMIT 1").fetchone()
+    if last and last['qc_number'] and last['qc_number'][2:].isdigit():
+        seq = int(last['qc_number'][2:]) + 1
+    else:
+        seq = 1
+    qc_number = f'QC{seq:03d}'
     cur = conn.execute("""INSERT INTO internal_qc (qc_number, triggered_date, receipt_id_1, receipt_id_2, row_num_1, row_num_2, assigned_to, created_by)
         VALUES (?,?,?,?,?,?,?,?)""", (qc_number, d_to, picked[0], picked[1], rn1, rn2, assigned, session['user_id']))
     qc_id = cur.lastrowid
