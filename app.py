@@ -2812,7 +2812,11 @@ def analysis_result(receipt_id):
 
     conn.close()
 
-    # mt_result тооцоолох: нийт чийг = (mt_sample - (mt_dried - mt_tare)) / mt_sample * 100
+    # mt_result тооцоолох + display_name үүсгэх
+    import re as _re
+    _sname = receipt['sample_name'] or '' if receipt else ''
+    _m1 = _re.match(r'^(.*?)(\d+)\s*[-–]\s*(\d+)\s*$', _sname)
+    _m2 = _re.match(r'^(.*?)(\d+)$', _sname) if not _m1 else None
     entries_list = []
     for e in entries:
         ed = dict(e)
@@ -2826,6 +2830,16 @@ def analysis_result(receipt_id):
                 ed['mt_result'] = None
         except:
             ed['mt_result'] = None
+        rn = ed.get('row_num', 1)
+        en = ed.get('sample_name') or ''
+        if en and en != _sname + '-' + str(rn):
+            ed['display_name'] = en
+        elif _m1:
+            ed['display_name'] = _m1.group(1) + str(int(_m1.group(2)) + rn - 1)
+        elif _m2:
+            ed['display_name'] = _m2.group(1) + str(int(_m2.group(2)) + rn - 1)
+        else:
+            ed['display_name'] = _sname
         entries_list.append(ed)
 
     role = session.get('role')

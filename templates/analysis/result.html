@@ -138,9 +138,7 @@
     {% endif %}
     <td style="color:#666;font-size:11px">{{ ri }}</td>
     <td style="text-align:left;font-weight:500;padding-left:8px">
-      {% set _sn = e.sample_name if e and e.sample_name else '' %}
-      {% set _parts = _sn.split(';') if ';' in _sn else (receipt['sample_name'].split(';') if ';' in receipt['sample_name'] else []) %}
-      {% if _parts %}{{ _parts[ri-1].strip() if ri <= _parts|length else _parts[-1].strip() }}{% elif _sn %}{{ _sn }}{% else %}{{ receipt['sample_name'] }}{% endif %}
+      {{ e['display_name'] if e and e['display_name'] else receipt['sample_name'] }}
     </td>
     <td class="val">{{ '%.3f'|format(e['mass_kg']) if e and e['mass_kg'] else '—' }}</td>
     {% if is_done %}
