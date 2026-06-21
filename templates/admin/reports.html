@@ -215,8 +215,7 @@
       <table class="table" style="font-size:13px">
         <thead><tr>
           <th>Огноо</th>
-          <th>1-р дээж</th>
-          <th>2-р дээж</th>
+          <th>Дээж</th>
           <th style="text-align:center">Нийт үзүүлэлт</th>
           <th style="text-align:center">QC тэнцсэн</th>
           <th style="text-align:center">Тэнцээгүй</th>
@@ -231,7 +230,6 @@
         <tr>
           <td style="font-family:monospace;font-size:12px">{{ r['triggered_date'] }}</td>
           <td><span style="font-family:monospace;color:var(--navy);font-weight:600">{{ r['lab1'] or '—' }}</span><br><span style="font-size:11px;color:#666">{{ r['sname1'] or '' }}</span></td>
-          <td><span style="font-family:monospace;color:var(--navy);font-weight:600">{{ r['lab2'] or '—' }}</span><br><span style="font-size:11px;color:#666">{{ r['sname2'] or '' }}</span></td>
           <td style="text-align:center">{{ total }}</td>
           <td style="text-align:center;color:#16a34a;font-weight:600">{{ passed }}</td>
           <td style="text-align:center;color:{% if failed > 0 %}#dc2626{% else %}#999{% endif %};font-weight:600">{{ failed }}</td>
