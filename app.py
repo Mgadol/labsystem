@@ -1217,7 +1217,8 @@ def internal_qc_done(qc_id):
     conn = get_db()
     notes = request.form.get('notes','')
     conn.execute("DELETE FROM internal_qc_results WHERE qc_id=?", (qc_id,))
-    params = ['mad','aad','vad','fc','sulfur','cal_value','fsi']
+    params = ['adb','vdb','fcdb','sdb','qdb','fsi']
+    db_to_tol = {'adb':'Aad','vdb':'Vad','fcdb':'Fc','sdb':'Stad','qdb':'Qtc_ad','fsi':'Fsi'}
     for receipt_id in [request.form.get('rid1'), request.form.get('rid2')]:
         if not receipt_id: continue
         for p in params:
@@ -1227,7 +1228,8 @@ def internal_qc_done(qc_id):
                 try:
                     o,r = float(orig), float(rep)
                     diff = abs(o-r)
-                    tol = conn.execute("SELECT tolerance FROM qc_settings WHERE parameter=?", (p.capitalize(),)).fetchone()
+                    tol_key = db_to_tol.get(p, p.capitalize())
+                    tol = conn.execute("SELECT tolerance FROM qc_settings WHERE parameter=?", (tol_key,)).fetchone()
                     within = 1 if (tol and diff <= float(tol['tolerance'])) else 0
                     conn.execute("""INSERT INTO internal_qc_results (qc_id,receipt_id,parameter,original_value,repeat_value,difference,within_tolerance)
                         VALUES (?,?,?,?,?,?,?)""", (qc_id, int(receipt_id), p, o, r, diff, within))
