@@ -3019,6 +3019,7 @@ def analysis_result(receipt_id):
     # mt_result тооцоолох + display_name үүсгэх
     import re as _re
     _sname = receipt['sample_name'] or '' if receipt else ''
+    _sparts = [s.strip() for s in _sname.split(';')] if ';' in _sname else None
     _m1 = _re.match(r'^(.*?)(\d+)\s*[-–]\s*(\d+)\s*$', _sname)
     _m2 = _re.match(r'^(.*?)(\d+)$', _sname) if not _m1 else None
     entries_list = []
@@ -3036,8 +3037,10 @@ def analysis_result(receipt_id):
             ed['mt_result'] = None
         rn = ed.get('row_num', 1)
         en = ed.get('sample_name') or ''
-        if en and en != _sname + '-' + str(rn):
+        if en and en != _sname:
             ed['display_name'] = en
+        elif _sparts and len(_sparts) >= rn:
+            ed['display_name'] = _sparts[rn - 1]
         elif _m1:
             ed['display_name'] = _m1.group(1) + str(int(_m1.group(2)) + rn - 1)
         elif _m2:
