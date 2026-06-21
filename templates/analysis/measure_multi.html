@@ -47,16 +47,31 @@
 <!-- Мэдээллийн баар -->
 <div style="padding:6px 14px;background:#1a2744;color:#fff;display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:12px;border-bottom:2px solid #4ade80">
   <div style="font-size:9px;color:#93a8d4">Ажлын дугаарууд:</div>
+  {% if qc_row_map %}
+  <span style="font-family:monospace;font-weight:600;color:#4ade80;font-size:13px">🔁 Дотоод QC</span>
+  {% for r in receipts %}{% if not r['id'] in qc_row_map %}
+  <span style="color:#555">|</span>
+  <span style="font-family:monospace;font-weight:600;color:#4ade80;font-size:13px">{{ r['lab_number'] }}</span>
+  {% endif %}{% endfor %}
+  {% else %}
   {% for r in receipts %}
   <span style="font-family:monospace;font-weight:600;color:#4ade80;font-size:13px">{{ r['lab_number'] }}</span>
   {% if not loop.last %}<span style="color:#555">|</span>{% endif %}
   {% endfor %}
+  {% endif %}
   <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
     <button id="editModeBtn" onclick="toggleEditMode()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">✏️ Засах</button>
     <button onclick="openDevicePopup()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">🔧 <span id="deviceSummary">Тоног</span></button>
+    {% if qc_row_map %}
+    <span style="background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.4);border-radius:6px;color:#4ade80;font-size:11px;padding:4px 10px">📊 Дотоод QC</span>
+    {% for r in receipts %}{% if not r['id'] in qc_row_map %}
+    <a href="{{ url_for('analysis_result', receipt_id=r['id']) }}" style="background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.4);border-radius:6px;color:#4ade80;font-size:11px;padding:4px 10px;cursor:pointer;text-decoration:none">📊 {{ r['lab_number'] }}</a>
+    {% endif %}{% endfor %}
+    {% else %}
     {% for r in receipts %}
     <a href="{{ url_for('analysis_result', receipt_id=r['id']) }}" style="background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.4);border-radius:6px;color:#4ade80;font-size:11px;padding:4px 10px;cursor:pointer;text-decoration:none">📊 {{ r['lab_number'] }}</a>
     {% endfor %}
+    {% endif %}
     <div style="display:flex;flex-direction:column;gap:2px">
       <button onmousedown="event.preventDefault();increaseDecimal()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:3px;color:#fff;font-size:9px;padding:1px 4px;cursor:pointer;line-height:1.2">0.00</button>
       <button onmousedown="event.preventDefault();decreaseDecimal()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:3px;color:#fff;font-size:9px;padding:1px 4px;cursor:pointer;line-height:1.2">00.0</button>
