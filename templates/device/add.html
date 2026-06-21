@@ -55,15 +55,98 @@
       <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">
         Энэ багажийг өдөр тутмын баталгаажуулалтын хуудсанд гаргах эсэх, стандарт утга болон зөвшөөрөх зөрүүг урьдчилан тохируулна.
       </div>
+
+      <!-- Загвар сонгох -->
+      <div style="margin-bottom:14px;padding:12px;background:#f0fdf9;border:1px solid #99f6e4;border-radius:8px">
+        <div style="font-size:12px;font-weight:600;color:#0d9488;margin-bottom:8px">📋 Дотоод шалгалтын хуудасны загвар сонгох</div>
+        <select id="checkTemplate" class="form-input" style="max-width:360px" onchange="applyTemplate()">
+          <option value="">— Загвар сонгох (заавал биш) —</option>
+          <option value="analytic_balance">⚖️ Аналитик жин</option>
+          <option value="electric_balance">⚖️ Электрон жин</option>
+          <option value="muffle_furnace">🔥 Муфель зуух (үнс/дэгдэмхий)</option>
+          <option value="drying_oven">🌡️ Хатаах шүүгээ</option>
+          <option value="drum">🥁 Барабан</option>
+          <option value="calorimeter">🔬 Автомат калориметр</option>
+          <option value="sulfur">🧪 Хүхэр тодорхойлох багаж</option>
+          <option value="plastometer">📊 Пластометр</option>
+        </select>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Сонгосон загварын утгуудыг доорх талбарт автоматаар бөглөнө. Гараар өөрчилж болно.</div>
+      </div>
+
+      <!-- Параметр 1 -->
+      <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:600;color:var(--navy);margin-bottom:8px">📌 Параметр 1</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Шалгах үзүүлэлт</label>
+            <input type="text" name="check_param1" id="cp1" class="form-input" placeholder="Ж: Жин, Температур...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Стандарт утга</label>
+            <input type="text" name="check_standard" id="cs1" class="form-input" placeholder="Ж: 100.0000 г">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Зөвшөөрөх зөрүү</label>
+            <input type="text" name="check_tolerance" id="ct1" class="form-input" placeholder="Ж: ±0.0005">
+          </div>
+        </div>
+      </div>
+      <!-- Параметр 2 -->
+      <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:600;color:var(--navy);margin-bottom:8px">📌 Параметр 2 <span style="font-weight:400;color:var(--text-muted)">(сонголттой)</span></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Шалгах үзүүлэлт</label>
+            <input type="text" name="check_param2" id="cp2" class="form-input" placeholder="...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Стандарт утга</label>
+            <input type="text" name="check_standard2" id="cs2" class="form-input" placeholder="...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Зөвшөөрөх зөрүү</label>
+            <input type="text" name="check_tolerance2" id="ct2" class="form-input" placeholder="...">
+          </div>
+        </div>
+      </div>
+      <!-- Параметр 3 -->
+      <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:600;color:var(--navy);margin-bottom:8px">📌 Параметр 3 <span style="font-weight:400;color:var(--text-muted)">(сонголттой)</span></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Шалгах үзүүлэлт</label>
+            <input type="text" name="check_param3" id="cp3" class="form-input" placeholder="...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Стандарт утга</label>
+            <input type="text" name="check_standard3" id="cs3" class="form-input" placeholder="...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Зөвшөөрөх зөрүү</label>
+            <input type="text" name="check_tolerance3" id="ct3" class="form-input" placeholder="...">
+          </div>
+        </div>
+      </div>
+      <!-- Параметр 4 -->
+      <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:600;color:var(--navy);margin-bottom:8px">📌 Параметр 4 <span style="font-weight:400;color:var(--text-muted)">(сонголттой)</span></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Шалгах үзүүлэлт</label>
+            <input type="text" name="check_param4" id="cp4" class="form-input" placeholder="...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Стандарт утга</label>
+            <input type="text" name="check_standard4" id="cs4" class="form-input" placeholder="...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Зөвшөөрөх зөрүү</label>
+            <input type="text" name="check_tolerance4" id="ct4" class="form-input" placeholder="...">
+          </div>
+        </div>
+      </div>
+
       <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Стандарт утга (нэрлэсэн)</label>
-          <input type="text" name="check_standard" class="form-input" placeholder="Ж: 100.0000 г">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Зөвшөөрөх зөрүү</label>
-          <input type="text" name="check_tolerance" class="form-input" placeholder="Ж: ±0.0005">
-        </div>
         <div class="form-group">
           <label class="form-label">Шалгах давтамж</label>
           <select name="check_freq" class="form-input">
@@ -192,4 +275,69 @@
     </form>
   </div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+var TEMPLATES = {
+  analytic_balance: [
+    {p:'Жин (100 г эталон)', s:'100.0000 г', t:'±0.0002 г'},
+    {p:'Жин (200 г эталон)', s:'200.0000 г', t:'±0.0002 г'},
+    {p:'', s:'', t:''},
+    {p:'', s:'', t:''}
+  ],
+  electric_balance: [
+    {p:'Жин (500 г эталон)', s:'500.000 г', t:'±0.005 г'},
+    {p:'Жин (1000 г эталон)', s:'1000.000 г', t:'±0.010 г'},
+    {p:'', s:'', t:''},
+    {p:'', s:'', t:''}
+  ],
+  muffle_furnace: [
+    {p:'Температур (Үнс)', s:'815±10 °C', t:'±10 °C'},
+    {p:'Температур (Дэгдэмхий)', s:'900±10 °C', t:'±10 °C'},
+    {p:'', s:'', t:''},
+    {p:'', s:'', t:''}
+  ],
+  drying_oven: [
+    {p:'Температур', s:'105±5 °C', t:'±5 °C'},
+    {p:'', s:'', t:''},
+    {p:'', s:'', t:''},
+    {p:'', s:'', t:''}
+  ],
+  drum: [
+    {p:'Дотоод диаметр', s:'200 мм', t:'±2 мм'},
+    {p:'Гүн', s:'70 мм', t:'±1 мм'},
+    {p:'Эргэлтийн хурд', s:'50 эрг/мин', t:'±1'},
+    {p:'Ачааны жин', s:'112.5 г', t:'±2.5 г'}
+  ],
+  calorimeter: [
+    {p:'Бензойн хүчил (эталон)', s:'26454 Ж/г', t:'±100 Ж/г'},
+    {p:'', s:'', t:''},
+    {p:'', s:'', t:''},
+    {p:'', s:'', t:''}
+  ],
+  sulfur: [
+    {p:'Эталон дээж хүхэр', s:'', t:'±0.02 %'},
+    {p:'', s:'', t:''},
+    {p:'', s:'', t:''},
+    {p:'', s:'', t:''}
+  ],
+  plastometer: [
+    {p:'Температур', s:'300±1 °C', t:'±1 °C'},
+    {p:'', s:'', t:''},
+    {p:'', s:'', t:''},
+    {p:'', s:'', t:''}
+  ]
+};
+function applyTemplate(){
+  var key = document.getElementById('checkTemplate').value;
+  var t = TEMPLATES[key];
+  if(!t) return;
+  for(var i=1;i<=4;i++){
+    var d = t[i-1]||{p:'',s:'',t:''};
+    document.getElementById('cp'+i).value = d.p;
+    document.getElementById('cs'+i).value = d.s;
+    document.getElementById('ct'+i).value = d.t;
+  }
+}
+</script>
 {% endblock %}
