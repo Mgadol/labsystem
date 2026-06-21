@@ -1124,13 +1124,17 @@ def internal_qc_create():
         return redirect(url_for('internal_qc_list'))
     picked = random.sample([r['id'] for r in candidates], 2)
     assigned = request.form.get('assigned_to') or session['user_id']
-    cur = conn.execute("""INSERT INTO internal_qc (triggered_date, receipt_id_1, receipt_id_2, assigned_to, created_by)
-        VALUES (?,?,?,?,?)""", (d_to, picked[0], picked[1], assigned, session['user_id']))
+    # QC дугаар үүсгэх: QC-YYYYMMDD-NNN
+    today_str = datetime.now().strftime('%Y%m%d')
+    last = conn.execute("SELECT qc_number FROM internal_qc WHERE qc_number LIKE ? ORDER BY id DESC LIMIT 1", (f'QC-{today_str}-%',)).fetchone()
+    seq = int(last['qc_number'].split('-')[-1]) + 1 if last else 1
+    qc_number = f'QC-{today_str}-{seq:03d}'
+    cur = conn.execute("""INSERT INTO internal_qc (qc_number, triggered_date, receipt_id_1, receipt_id_2, assigned_to, created_by)
+        VALUES (?,?,?,?,?,?)""", (qc_number, d_to, picked[0], picked[1], assigned, session['user_id']))
     qc_id = cur.lastrowid
     conn.commit()
     conn.close()
-    flash('Дотоод QC даалгавар үүслээ — жагсаалтаас сонгоно уу', 'success')
-    return redirect(url_for('analysis'))
+    return redirect(url_for('analysis_measure_multi') + f'?ids={picked[0]},{picked[1]}')
 
 @app.route('/internal-qc/<int:qc_id>/measure')
 @lab_required
@@ -1649,8 +1653,11 @@ def ensure_tables():
             check_freq='daily', check_enabled=1
         WHERE lab_id IN ('15','16')
     """)
+    try: conn.execute("ALTER TABLE internal_qc ADD COLUMN qc_number TEXT")
+    except: pass
     conn.execute("""CREATE TABLE IF NOT EXISTS internal_qc (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        qc_number TEXT,
         triggered_date TEXT NOT NULL,
         receipt_id_1 INTEGER REFERENCES sample_receipt(id),
         receipt_id_2 INTEGER REFERENCES sample_receipt(id),

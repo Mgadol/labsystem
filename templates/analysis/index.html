@@ -38,22 +38,6 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
     </div>
   </div>
 
-  <!-- Дотоод QC хүлээгдэж байгаа -->
-  {% if pending_qc %}
-  <div style="margin-bottom:16px">
-    {% for qc in pending_qc %}
-    <a href="{{ url_for('internal_qc_measure', qc_id=qc['id']) }}" style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;text-decoration:none;margin-bottom:6px">
-      <span style="font-size:18px">🔁</span>
-      <div>
-        <div style="font-size:12px;font-weight:700;color:#166534">Дотоод QC — {{ qc['triggered_date'] }}</div>
-        <div style="font-size:11px;color:#555">{{ qc['lab1'] }} ({{ qc['sname1'] }}) &nbsp;|&nbsp; {{ qc['lab2'] }} ({{ qc['sname2'] }})</div>
-      </div>
-      <span style="margin-left:auto;font-size:11px;color:#16a34a;font-weight:600">Хэмжилт хийх →</span>
-    </a>
-    {% endfor %}
-  </div>
-  {% endif %}
-
   <!-- Таб -->
   {% set prep_samples = samples|selectattr('prep_status','ne','ready')|selectattr('prep_status','ne','done')|selectattr('status','ne','analysing')|list %}
   {% set prep_count = prep_samples|length %}
@@ -85,6 +69,24 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
         </tr>
       </thead>
       <tbody>
+      {% for qc in pending_qc %}
+      <tr style="background:#f0fdf4">
+        <td><input type="checkbox" disabled style="width:15px;height:15px;opacity:.3"></td>
+        <td>
+          <span style="font-size:10px;font-weight:700;color:#0d9488;background:#ccfbf1;padding:1px 5px;border-radius:3px;margin-right:4px">QC</span>
+          <span style="font-family:monospace;font-weight:600;color:#0d9488">{{ qc['qc_number'] or ('QC-' ~ qc['triggered_date']) }}</span>
+        </td>
+        <td style="font-size:12px">{{ qc['lab1'] }} | {{ qc['lab2'] }}</td>
+        <td><span class="badge" style="background:#ccfbf1;color:#0d9488">Дотоод QC</span></td>
+        <td>2</td>
+        <td>—</td>
+        <td>{{ qc['triggered_date'] }}</td>
+        <td><span class="badge" style="background:#fef9c3;color:#854d0e">Хүлээгдэж байна</span></td>
+        <td style="white-space:nowrap">
+          <a href="/analysis/measure/multi?ids={{ qc['receipt_id_1'] }},{{ qc['receipt_id_2'] }}" class="btn btn-teal btn-sm">🔬 Шинжилгээ хийх</a>
+        </td>
+      </tr>
+      {% endfor %}
       {% for s in samples %}
       {% set ps2 = s['prep_status'] or '' %}
       {% set st2 = s['status'] or '' %}
