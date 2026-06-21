@@ -441,7 +441,7 @@ function loadAllData(){
       });
       calc(uid,parseInt(dup),'{{ receipt["id"] }}',row);
       if(e.row_status==='done'){var btn=document.getElementById('dnbtn'+uid+'_'+dup);if(btn){btn.classList.add('done');btn.textContent='✓';}}
-      if(dup==='1'&&!document.getElementById('dr'+uid).classList.contains('show')) toggleDup(uid);
+
     });
   });
   {% endfor %}
