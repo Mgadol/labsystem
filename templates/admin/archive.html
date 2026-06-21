@@ -130,6 +130,13 @@
                 </button>
               </form>
               {% endif %}
+              {% if current_user['role'] == 'admin' %}
+              <form method="POST" action="{{ url_for('staff_delete', uid=u['id']) }}" onsubmit="return confirm('{{ u['name'] }} ажилтныг бүрмөсөн устгах уу? Энэ үйлдлийг буцаах боломжгүй!')">
+                <button type="submit" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">
+                  🗑 Устгах
+                </button>
+              </form>
+              {% endif %}
             </div>
           </td>
         </tr>
