@@ -24,7 +24,7 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
         Дээж бүртгэх
       </a>
       {% if current_user['role'] in ('admin','senior','staff','preparer','guest') %}
-      <form method="POST" action="{{ url_for('internal_qc_create') }}" style="display:inline" onsubmit="return confirm('Өмнөх 7 хоногийн дээжнүүдээс санамсаргүй 2 дээж сонгох уу?')">
+      <form method="POST" action="{{ url_for('internal_qc_create') }}" style="display:inline" onsubmit="return confirm('Өмнөх 7 хоногийн дээжнүүдээс санамсаргүй 1 дээж сонгох уу?')">
         <button type="submit" class="btn" style="background:#0d9488;color:#fff;">🔁 Дотоод QC</button>
       </form>
       <a href="{{ url_for('analysis_crm_register') }}" class="btn" style="background:#7C3AED;color:#fff;">🔬 CRM дээж</a>
