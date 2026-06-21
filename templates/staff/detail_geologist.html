@@ -25,8 +25,12 @@
         <div style="width:140px;height:160px;border-radius:10px;background:#7C3AED;color:#e9d5ff;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:600;margin:0 auto 10px">{{ target['name'][:2] }}</div>
         {% endif %}
         <div style="font-size:14px;font-weight:600">{{ target['name'] }}</div>
-        <div style="font-size:12px;color:var(--text-muted);margin-top:2px">{{ target['position'] or 'Геологич' }}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px">{{ target['position'] or ('Баяжуулах' if target['role']=='bayjuulach' else 'Геологич') }}</div>
+        {% if target['role']=='bayjuulach' %}
+        <span class="badge" style="margin-top:6px;display:inline-block;background:#ccfbf1;color:#0d9488">Харилцагч (Баяжуулах)</span>
+        {% else %}
         <span class="badge" style="margin-top:6px;display:inline-block;background:#f0e6ff;color:#7C3AED">Харилцагч (Геологи)</span>
+        {% endif %}
       </div>
 
       <div class="card-sm">
@@ -56,7 +60,7 @@
       <!-- Stat cards -->
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
         <div class="card" style="padding:14px;text-align:center">
-          <div style="font-size:28px;font-weight:700;color:#7C3AED">{{ geo_total }}</div>
+          <div style="font-size:28px;font-weight:700;color:{{ '#0d9488' if target['role']=='bayjuulach' else '#7C3AED' }}">{{ geo_total }}</div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Нийт бүртгэсэн дээж</div>
         </div>
         <div class="card" style="padding:14px;text-align:center">
@@ -131,8 +135,8 @@ new Chart(document.getElementById('barChart'), {
     datasets: [{
       label: 'Бүртгэсэн дээж',
       data: BAR_COUNTS,
-      backgroundColor: 'rgba(124,58,237,0.7)',
-      borderColor: 'rgba(124,58,237,1)',
+      backgroundColor: '{{ "rgba(13,148,136,0.7)" if target["role"]=="bayjuulach" else "rgba(124,58,237,0.7)" }}',
+      borderColor: '{{ "rgba(13,148,136,1)" if target["role"]=="bayjuulach" else "rgba(124,58,237,1)" }}',
       borderWidth: 1,
       borderRadius: 4
     }]

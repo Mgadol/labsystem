@@ -1024,8 +1024,8 @@ def staff_detail(uid):
         conn.close()
         return redirect(url_for('staff_list'))
 
-    # ── ГЕОЛОГИЧ (харилцагч): зөвхөн дээж бүртгэлийн мэдээлэл ──
-    if target['role'] == 'geologist':
+    # ── ХАРИЛЦАГЧ (геологи + баяжуулах): зөвхөн дээж бүртгэлийн мэдээлэл ──
+    if target['role'] in ('geologist', 'bayjuulach'):
         geo_total = conn.execute("SELECT COUNT(*) FROM geo_samples WHERE registered_by=?", (uid,)).fetchone()[0]
         geo_done  = conn.execute("SELECT COUNT(*) FROM geo_samples WHERE registered_by=? AND status='done'", (uid,)).fetchone()[0]
         geo_active = geo_total - geo_done
