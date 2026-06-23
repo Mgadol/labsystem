@@ -140,11 +140,12 @@
         {% set g1 = device['check_group1'] %}
         {% set g2 = device['check_group2'] %}
         {% set g3 = device['check_group3'] %}
-        {% set gc1 = device['check_group1_cols']|int if device['check_group1_cols'] else 2 %}
+        {% set gc1 = device['check_group1_cols']|int if device['check_group1_cols'] is not none else 2 %}
         {% set gc2 = device['check_group2_cols']|int if device['check_group2_cols'] else 1 %}
         {% set gc3 = device['check_group3_cols']|int if device['check_group3_cols'] else 1 %}
+        {% set is_vertical = (device['check_group1_cols'] is not none and gc1 == 0) %}
         {% set pcols = 4 + (1 if p5 else 0) %}
-        {% if p2 and device['check_group2'] %}
+        {% if p2 and not is_vertical %}
         <!-- Олон параметртэй: группчилсан загвар (Excel загвараар) -->
         <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px">
           <table style="width:100%;border-collapse:collapse;table-layout:fixed">
@@ -414,8 +415,8 @@
         </form>
         {% endif %}
 
-        <!-- Жингийн загварын тохиргоо (бүлгийн гарчиггүй, 1-5 параметр) -->
-        {% if not device['check_group2'] and (device['check_enabled'] or device['check_standard']) %}
+        <!-- Жингийн загварын тохиргоо (босоо мөрт загвар: is_vertical=true) -->
+        {% if (not p2 or is_vertical) and (device['check_enabled'] or device['check_standard']) %}
         {% set sp_params = [
           (device['check_param1'], device['check_standard'],  device['check_tolerance'],  device['check_photo1']),
           (device['check_param2'], device['check_standard2'], device['check_tolerance2'], device['check_photo2']),
@@ -440,14 +441,14 @@
               {% for pname, pstd, ptol, pphoto in sp_params %}
               {% if pname or (loop.index == 1 and device['check_standard']) %}
               <tr style="border-top:1px solid var(--border);background:{% if loop.index % 2 == 0 %}#fafbfc{% else %}#fff{% endif %}">
-                <td style="padding:8px 10px;font-size:13px;font-weight:500;color:var(--navy)">{{ pname or ('Хэмжсэн' if loop.index == 1 else '') }}</td>
-                <td style="padding:8px 10px;text-align:center;font-size:14px;font-weight:700;color:var(--navy)">{{ pstd or '—' }}</td>
-                <td style="padding:8px 10px;text-align:center;font-size:12px;color:var(--text-muted)">{{ ptol or '—' }}</td>
-                <td style="padding:8px 10px;text-align:center">
+                <td style="padding:5px 10px;font-size:12px;font-weight:500;color:var(--navy)">{{ pname or ('Хэмжсэн' if loop.index == 1 else '') }}</td>
+                <td style="padding:5px 10px;text-align:center;font-size:13px;font-weight:700;color:var(--navy)">{{ pstd or '—' }}</td>
+                <td style="padding:5px 10px;text-align:center;font-size:11px;color:var(--text-muted)">{{ ptol or '—' }}</td>
+                <td style="padding:4px 10px;text-align:center">
                   {% if pphoto %}
-                  <img src="{{ url_for('static',filename='uploads/'+pphoto) }}" style="max-height:70px;max-width:120px;object-fit:contain;border-radius:4px">
+                  <img src="{{ url_for('static',filename='uploads/'+pphoto) }}" style="max-height:45px;max-width:80px;object-fit:contain;border-radius:3px">
                   {% else %}
-                  <span style="color:#ccc;font-size:11px">📷 байхгүй</span>
+                  <span style="color:#ccc;font-size:10px">📷</span>
                   {% endif %}
                 </td>
               </tr>
@@ -462,6 +463,7 @@
               <form method="POST" action="{{ url_for('device_edit', did=device['id']) }}" enctype="multipart/form-data">
                 <input type="hidden" name="_check_config_only" value="1">
                 <input type="hidden" name="check_group2" value="">
+                <input type="hidden" name="check_group1_cols" value="0">
                 <div style="margin-bottom:10px">
                   <label class="form-label" style="font-size:11px">Гарчгийн нэр (хүснэгтийн толгой)</label>
                   <input type="text" name="check_group1" class="form-input" style="width:220px;padding:5px 8px;font-size:12px" value="{{ device['check_group1'] or '' }}" placeholder="Ж: Нэрлэсэн утга">
@@ -512,8 +514,8 @@
           {% set p3 = device['check_param3'] %}
           {% set p4 = device['check_param4'] %}
           {% set p5 = device['check_param5'] %}
-          {% set is_group = device['check_group2'] %}
-          {% set has_multi = (p2 or p3 or p4 or p5) and is_group %}
+          {% set is_vert = (device['check_group1_cols'] is not none and device['check_group1_cols']|int == 0) %}
+          {% set has_multi = (p2 or p3 or p4 or p5) and not is_vert %}
           {% set tbl_cols = 7 + (2 if has_multi and p2 else (1 if p2 and not is_group else 1)) + (2 if has_multi and p3 else (1 if p3 and not is_group else 0)) + (2 if has_multi and p4 else (1 if p4 and not is_group else 0)) + (2 if has_multi and p5 else (1 if p5 and not is_group else 0)) + (1 if current_user['role'] in ('admin','senior') else 0) %}
           <thead>
             {% if has_multi %}
