@@ -551,7 +551,8 @@ def device_edit(did):
                 check_param2=?, check_standard2=?, check_tolerance2=?,
                 check_param3=?, check_standard3=?, check_tolerance3=?,
                 check_param4=?, check_standard4=?, check_tolerance4=?,
-                check_param5=?, check_standard5=?, check_tolerance5=?
+                check_param5=?, check_standard5=?, check_tolerance5=?,
+                check_group1_cols=?, check_group2_cols=?, check_group3_cols=?
                 WHERE id=?""", (
                 request.form.get('check_group1') or None,
                 request.form.get('check_group2') or None,
@@ -571,6 +572,9 @@ def device_edit(did):
                 request.form.get('check_param5') or None,
                 request.form.get('check_standard5') or None,
                 request.form.get('check_tolerance5') or None,
+                int(request.form.get('check_group1_cols') or 2),
+                int(request.form.get('check_group2_cols') or 1),
+                int(request.form.get('check_group3_cols') or 1),
                 did))
             for i in ['1','2','3','4','5']:
                 f = request.files.get(f'check_photo{i}')
@@ -1798,6 +1802,7 @@ def ensure_tables():
         try: conn.execute(f"ALTER TABLE devices ADD COLUMN {col}")
         except Exception: pass
     for col in ['check_group1 TEXT', 'check_group2 TEXT', 'check_group3 TEXT',
+                'check_group1_cols INTEGER', 'check_group2_cols INTEGER', 'check_group3_cols INTEGER',
                 'check_photo1 TEXT', 'check_photo2 TEXT', 'check_photo3 TEXT', 'check_photo4 TEXT', 'check_photo5 TEXT']:
         try: conn.execute(f"ALTER TABLE devices ADD COLUMN {col}")
         except Exception: pass
