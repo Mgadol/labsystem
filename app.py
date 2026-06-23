@@ -3628,7 +3628,7 @@ def check_templates_delete(tid):
 def fix_check_freq():
     """Лаб 15,16 холигч болон бусад тохируулаагүй төхөөрөмжийн check_freq=weekly болгох."""
     conn = get_db()
-    # Лаб 15,16 — холигч: weekly, параметр цэвэрлэх
+    # Лаб 15,16 — холигч: lab_id эсвэл нэрээр хайж weekly болгох
     r1 = conn.execute("""
         UPDATE devices SET
             check_freq='weekly', check_enabled=1,
@@ -3638,6 +3638,8 @@ def fix_check_freq():
             check_param3=NULL, check_standard3=NULL, check_tolerance3=NULL,
             check_param4=NULL, check_standard4=NULL, check_tolerance4=NULL
         WHERE CAST(lab_id AS TEXT) IN ('15','16','015','016')
+           OR LOWER(name) LIKE '%холигч%'
+           OR LOWER(name) LIKE '%mixer%'
     """)
     # Лаб 01-05 аас бусад, параметр хоосон байгаа бүгд: weekly
     r2 = conn.execute("""
