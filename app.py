@@ -577,11 +577,16 @@ def device_edit(did):
                     int(request.form.get('check_group2_cols') or 1),
                     int(request.form.get('check_group3_cols') or 1),
                     did))
+                conn.commit()
             except Exception:
-                # check_group1_cols багана байхгүй эсвэл өөр алдаа — энгийн UPDATE
+                try: conn.rollback()
+                except Exception: pass
                 conn.execute("""UPDATE devices SET
                     check_group1=?, check_standard=?, check_tolerance=?,
-                    check_param1=?, check_param2=?, check_standard2=?, check_tolerance2=?
+                    check_param1=?, check_param2=?, check_standard2=?, check_tolerance2=?,
+                    check_param3=?, check_standard3=?, check_tolerance3=?,
+                    check_param4=?, check_standard4=?, check_tolerance4=?,
+                    check_param5=?, check_standard5=?, check_tolerance5=?
                     WHERE id=?""", (
                     request.form.get('check_group1') or None,
                     request.form.get('check_standard') or None,
@@ -590,7 +595,18 @@ def device_edit(did):
                     request.form.get('check_param2') or None,
                     request.form.get('check_standard2') or None,
                     request.form.get('check_tolerance2') or None,
+                    request.form.get('check_param3') or None,
+                    request.form.get('check_standard3') or None,
+                    request.form.get('check_tolerance3') or None,
+                    request.form.get('check_param4') or None,
+                    request.form.get('check_standard4') or None,
+                    request.form.get('check_tolerance4') or None,
+                    request.form.get('check_param5') or None,
+                    request.form.get('check_standard5') or None,
+                    request.form.get('check_tolerance5') or None,
                     did))
+                conn.commit()
+            # Зураг тусад нь хадгалах
             for i in ['1','2','3','4','5']:
                 try: conn.execute(f"ALTER TABLE devices ADD COLUMN check_photo{i} TEXT")
                 except Exception: pass
@@ -599,7 +615,8 @@ def device_edit(did):
                     fn = save_file(f, 'devices')
                     if fn:
                         conn.execute(f"UPDATE devices SET check_photo{i}=? WHERE id=?", (fn, did))
-            conn.commit(); conn.close()
+                        conn.commit()
+            conn.close()
             flash('Шалгалтын тохиргоо хадгалагдлаа!', 'success')
             return redirect(url_for('device_detail', did=did) + '#tab-check')
         photo = save_file(request.files.get('photo'), 'devices')
