@@ -167,7 +167,8 @@
                 {% set ph2 = device['check_photo2'] %}
                 {% set ph3 = device['check_photo3'] %}
                 {% set ph4 = device['check_photo4'] %}
-                {% for ph in [ph1, ph2, ph3, ph4] %}
+                {% set ph5 = device['check_photo5'] %}
+                {% for ph in ([ph1, ph2, ph3, ph4, ph5] if p5 else [ph1, ph2, ph3, ph4]) %}
                 <td style="padding:14px;vertical-align:middle;border-right:1px solid var(--border)">
                   {% if ph %}
                   <img src="{{ url_for('static',filename='uploads/'+ph) }}" style="max-height:110px;max-width:100%;object-fit:contain">
@@ -176,11 +177,6 @@
                   {% endif %}
                 </td>
                 {% endfor %}
-                {% if p5 %}
-                <td style="padding:14px;vertical-align:middle">
-                  <div style="color:#ccc;font-size:12px;padding:16px 4px"><div style="font-size:26px;margin-bottom:4px">📷</div>Зураг байхгүй</div>
-                </td>
-                {% endif %}
               </tr>
               <!-- Параметрийн нэр -->
               <tr style="background:#f8f9fa;text-align:center;font-size:12px;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border)">
@@ -283,6 +279,10 @@
                   <div>
                     <label class="form-label" style="font-size:11px">4. {{ g3 or p4 or 'Зураг 4' }}</label>
                     <input type="file" name="check_photo4" accept="image/*" style="font-size:12px">
+                  </div>
+                  <div>
+                    <label class="form-label" style="font-size:11px">5. {{ p5 or 'Зураг 5' }}</label>
+                    <input type="file" name="check_photo5" accept="image/*" style="font-size:12px">
                   </div>
                 </div>
                 <button type="submit" class="btn btn-sm" style="padding:5px 14px;font-size:12px">Хадгалах</button>
