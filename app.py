@@ -572,7 +572,7 @@ def device_edit(did):
                 request.form.get('check_standard5') or None,
                 request.form.get('check_tolerance5') or None,
                 did))
-            for i in ['1','2','3','4']:
+            for i in ['1','2','3','4','5']:
                 f = request.files.get(f'check_photo{i}')
                 if f and f.filename:
                     fn = save_file(f, 'devices')
@@ -1798,7 +1798,7 @@ def ensure_tables():
         try: conn.execute(f"ALTER TABLE devices ADD COLUMN {col}")
         except Exception: pass
     for col in ['check_group1 TEXT', 'check_group2 TEXT', 'check_group3 TEXT',
-                'check_photo1 TEXT', 'check_photo2 TEXT', 'check_photo3 TEXT', 'check_photo4 TEXT']:
+                'check_photo1 TEXT', 'check_photo2 TEXT', 'check_photo3 TEXT', 'check_photo4 TEXT', 'check_photo5 TEXT']:
         try: conn.execute(f"ALTER TABLE devices ADD COLUMN {col}")
         except Exception: pass
     for col in ['measured_value3 TEXT', 'standard_value3 TEXT', 'tolerance3 TEXT',
