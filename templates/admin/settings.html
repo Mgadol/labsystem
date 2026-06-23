@@ -476,17 +476,6 @@
 
   <div id="tab-backup" class="tab-pane">
     <div class="card" style="margin-bottom:16px">
-      <div class="section-title">🔧 Тоног төхөөрөмжийн шалгалтын давтамж засах</div>
-      <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">
-        Лаб 15, 16 (холигч) болон тохируулаагүй бусад төхөөрөмжийг <b>7 хоногт нэг</b> (бүлгийн загвар) болгон шинэчилнэ.
-        Лаб 01-05 (жин) хэвээр үлдэнэ.
-      </div>
-      <form method="POST" action="{{ url_for('fix_check_freq') }}"
-        onsubmit="return confirm('Лаб 15,16 болон параметр хоосон бусад төхөөрөмжийн давтамжийг weekly болгох уу?')">
-        <button type="submit" class="btn btn-teal">🔄 Давтамж засах (weekly болгох)</button>
-      </form>
-    </div>
-    <div class="card" style="margin-bottom:16px">
       <div class="section-title">🖥️ Системийн Backup</div>
       <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
         Өгөгдлийн сангийн нөөц файлуудыг удирдана. Серверт хадгалагдсан бүх backup-ийг харах, татах, устгах боломжтой.
