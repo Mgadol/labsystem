@@ -516,7 +516,7 @@
           {% set p5 = device['check_param5'] %}
           {% set is_vert = (device['check_group1_cols'] is not none and device['check_group1_cols']|int == 0) %}
           {% set has_multi = (p2 or p3 or p4 or p5) and not is_vert %}
-          {% set tbl_cols = 7 + (2 if has_multi and p2 else (1 if p2 and not is_group else 1)) + (2 if has_multi and p3 else (1 if p3 and not is_group else 0)) + (2 if has_multi and p4 else (1 if p4 and not is_group else 0)) + (2 if has_multi and p5 else (1 if p5 and not is_group else 0)) + (1 if current_user['role'] in ('admin','senior') else 0) %}
+          {% set tbl_cols = 7 + (2 if has_multi and p2 else (1 if p2 and is_vert else 1)) + (2 if has_multi and p3 else (1 if p3 and is_vert else 0)) + (2 if has_multi and p4 else (1 if p4 and is_vert else 0)) + (2 if has_multi and p5 else (1 if p5 and is_vert else 0)) + (1 if current_user['role'] in ('admin','senior') else 0) %}
           <thead>
             {% if has_multi %}
             <!-- Бүлгийн загвар: стандарт + хэмжсэн хос багана -->
