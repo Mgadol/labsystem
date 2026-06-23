@@ -147,8 +147,7 @@
         {% set pcols = 4 + (1 if p5 else 0) %}
         {% if p2 and not is_vertical %}
         <!-- Олон параметртэй: группчилсан загвар (Excel загвараар) -->
-        <div style="overflow-x:auto;margin-bottom:16px">
-        <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;min-width:500px">
+        <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px;max-width:100%">
           <table style="width:100%;border-collapse:collapse;table-layout:fixed">
             <colgroup>
               {% for _ in range(pcols) %}<col style="width:{{ (100/pcols)|round(1) }}%">{% endfor %}
@@ -174,11 +173,11 @@
                 {% set ph4 = device['check_photo4'] %}
                 {% set ph5 = device['check_photo5'] %}
                 {% for ph in ([ph1, ph2, ph3, ph4, ph5] if p5 else [ph1, ph2, ph3, ph4]) %}
-                <td style="padding:14px;vertical-align:middle;border-right:1px solid var(--border)">
+                <td style="padding:8px 4px;vertical-align:middle;border-right:1px solid var(--border);overflow:hidden;max-width:0">
                   {% if ph %}
-                  <img src="{{ url_for('static',filename='uploads/'+ph) }}" style="max-height:110px;max-width:100%;object-fit:contain">
+                  <img src="{{ url_for('static',filename='uploads/'+ph) }}" style="max-height:90px;max-width:100%;width:100%;object-fit:contain;display:block">
                   {% else %}
-                  <div style="color:#ccc;font-size:12px;padding:16px 4px"><div style="font-size:26px;margin-bottom:4px">📷</div>Зураг байхгүй</div>
+                  <div style="color:#ccc;font-size:11px;text-align:center;padding:8px 2px"><div style="font-size:20px">📷</div></div>
                   {% endif %}
                 </td>
                 {% endfor %}
@@ -255,7 +254,7 @@
                     </div>
                   </div>
                 </div>
-                <table style="border-collapse:collapse;margin-bottom:10px">
+                <table style="border-collapse:collapse;margin-bottom:10px;width:100%;max-width:100%;table-layout:fixed">
                   <thead><tr style="font-size:11px;color:var(--text-muted)">
                     <th style="padding:3px 8px;text-align:left;width:160px">Параметрийн нэр</th>
                     <th style="padding:3px 8px;text-align:left;width:130px">Стандарт</th>
@@ -505,7 +504,6 @@
             </div>
           </details>
           {% endif %}
-        </div>
         </div>
         {% endif %}
 
