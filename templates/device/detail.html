@@ -147,7 +147,8 @@
         {% set pcols = 4 + (1 if p5 else 0) %}
         {% if p2 and not is_vertical %}
         <!-- Олон параметртэй: группчилсан загвар (Excel загвараар) -->
-        <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px">
+        <div style="overflow-x:auto;margin-bottom:16px">
+        <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;min-width:500px">
           <table style="width:100%;border-collapse:collapse;table-layout:fixed">
             <colgroup>
               {% for _ in range(pcols) %}<col style="width:{{ (100/pcols)|round(1) }}%">{% endfor %}
@@ -504,6 +505,7 @@
             </div>
           </details>
           {% endif %}
+        </div>
         </div>
         {% endif %}
 
