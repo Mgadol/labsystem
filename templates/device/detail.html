@@ -144,7 +144,7 @@
         {% set gc2 = device['check_group2_cols']|int if device['check_group2_cols'] else 1 %}
         {% set gc3 = device['check_group3_cols']|int if device['check_group3_cols'] else 1 %}
         {% set pcols = 4 + (1 if p5 else 0) %}
-        {% if p2 %}
+        {% if p2 and device['check_group2'] %}
         <!-- Олон параметртэй: группчилсан загвар (Excel загвараар) -->
         <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px">
           <table style="width:100%;border-collapse:collapse;table-layout:fixed">
@@ -512,9 +512,12 @@
           {% set p3 = device['check_param3'] %}
           {% set p4 = device['check_param4'] %}
           {% set p5 = device['check_param5'] %}
-          {% set tbl_cols = 7 + (2 if p2 else 1) + (2 if p3 else 0) + (2 if p4 else 0) + (2 if p5 else 0) + (1 if current_user['role'] in ('admin','senior') else 0) %}
+          {% set is_group = device['check_group2'] %}
+          {% set has_multi = (p2 or p3 or p4 or p5) and is_group %}
+          {% set tbl_cols = 7 + (2 if has_multi and p2 else (1 if p2 and not is_group else 1)) + (2 if has_multi and p3 else (1 if p3 and not is_group else 0)) + (2 if has_multi and p4 else (1 if p4 and not is_group else 0)) + (2 if has_multi and p5 else (1 if p5 and not is_group else 0)) + (1 if current_user['role'] in ('admin','senior') else 0) %}
           <thead>
-            {% if p2 or p3 or p4 or p5 %}
+            {% if has_multi %}
+            <!-- Бүлгийн загвар: стандарт + хэмжсэн хос багана -->
             <tr>
               <th rowspan="2">Огноо</th>
               <th colspan="2" style="text-align:center;border-bottom:1px solid var(--border)">{{ p1 }}</th>
@@ -536,6 +539,22 @@
               {% if p4 %}<th>Стандарт</th><th>Хэмжсэн</th>{% endif %}
               {% if p5 %}<th>Стандарт</th><th>Хэмжсэн</th>{% endif %}
             </tr>
+            {% elif p2 or p3 or p4 or p5 %}
+            <!-- Жингийн загвар: зөвхөн хэмжсэн утга (стандарт тохиргоонд харагдана) -->
+            <tr>
+              <th>Огноо</th>
+              <th>{{ p1 }}</th>
+              {% if p2 %}<th>{{ p2 }}</th>{% endif %}
+              {% if p3 %}<th>{{ p3 }}</th>{% endif %}
+              {% if p4 %}<th>{{ p4 }}</th>{% endif %}
+              {% if p5 %}<th>{{ p5 }}</th>{% endif %}
+              <th>Үр дүн</th>
+              <th style="text-align:center">Тохир</th>
+              <th>Шалгасан</th>
+              <th>Тэмдэглэл</th>
+              <th>Зураг</th>
+              {% if current_user['role'] in ('admin','senior') %}<th></th>{% endif %}
+            </tr>
             {% else %}
             <tr>
               <th>Огноо</th>
@@ -555,25 +574,23 @@
           {% for ch in checks %}
           <tr>
             <td style="font-size:12px">{{ ch['check_date'] }}</td>
+            {% if has_multi %}
             <td style="font-family:monospace;font-size:12px">{{ ch['standard_value'] or '—' }}</td>
             <td style="font-family:monospace;font-size:12px">{{ ch['measured_value'] or '—' }}</td>
-            {% if p2 %}
-            <td style="font-family:monospace;font-size:12px">{{ ch['standard_value2'] or '—' }}</td>
-            <td style="font-family:monospace;font-size:12px">{{ ch['measured_value2'] or '—' }}</td>
+            {% if p2 %}<td style="font-family:monospace;font-size:12px">{{ ch['standard_value2'] or '—' }}</td><td style="font-family:monospace;font-size:12px">{{ ch['measured_value2'] or '—' }}</td>{% endif %}
+            {% if p3 %}<td style="font-family:monospace;font-size:12px">{{ ch.get('standard_value3') or '—' }}</td><td style="font-family:monospace;font-size:12px">{{ ch.get('measured_value3') or '—' }}</td>{% endif %}
+            {% if p4 %}<td style="font-family:monospace;font-size:12px">{{ ch.get('standard_value4') or '—' }}</td><td style="font-family:monospace;font-size:12px">{{ ch.get('measured_value4') or '—' }}</td>{% endif %}
+            {% if p5 %}<td style="font-family:monospace;font-size:12px">{{ ch.get('standard_value5') or '—' }}</td><td style="font-family:monospace;font-size:12px">{{ ch.get('measured_value5') or '—' }}</td>{% endif %}
+            {% elif p2 or p3 or p4 or p5 %}
+            <td style="font-family:monospace;font-size:12px">{{ ch['measured_value'] or '—' }}</td>
+            {% if p2 %}<td style="font-family:monospace;font-size:12px">{{ ch['measured_value2'] or '—' }}</td>{% endif %}
+            {% if p3 %}<td style="font-family:monospace;font-size:12px">{{ ch.get('measured_value3') or '—' }}</td>{% endif %}
+            {% if p4 %}<td style="font-family:monospace;font-size:12px">{{ ch.get('measured_value4') or '—' }}</td>{% endif %}
+            {% if p5 %}<td style="font-family:monospace;font-size:12px">{{ ch.get('measured_value5') or '—' }}</td>{% endif %}
             {% else %}
+            <td style="font-family:monospace;font-size:12px">{{ ch['standard_value'] or '—' }}</td>
+            <td style="font-family:monospace;font-size:12px">{{ ch['measured_value'] or '—' }}</td>
             <td style="font-family:monospace;font-size:12px">{{ ch['tolerance'] or '—' }}</td>
-            {% endif %}
-            {% if p3 %}
-            <td style="font-family:monospace;font-size:12px">{{ ch.get('standard_value3') or '—' }}</td>
-            <td style="font-family:monospace;font-size:12px">{{ ch.get('measured_value3') or '—' }}</td>
-            {% endif %}
-            {% if p4 %}
-            <td style="font-family:monospace;font-size:12px">{{ ch.get('standard_value4') or '—' }}</td>
-            <td style="font-family:monospace;font-size:12px">{{ ch.get('measured_value4') or '—' }}</td>
-            {% endif %}
-            {% if p5 %}
-            <td style="font-family:monospace;font-size:12px">{{ ch.get('standard_value5') or '—' }}</td>
-            <td style="font-family:monospace;font-size:12px">{{ ch.get('measured_value5') or '—' }}</td>
             {% endif %}
             <td>
               {% if ch['result']=='pass' %}<span class="badge badge-active">✓ Тэнцсэн</span>
