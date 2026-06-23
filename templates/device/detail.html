@@ -140,6 +140,9 @@
         {% set g1 = device['check_group1'] %}
         {% set g2 = device['check_group2'] %}
         {% set g3 = device['check_group3'] %}
+        {% set gc1 = device['check_group1_cols']|int if device['check_group1_cols'] else 2 %}
+        {% set gc2 = device['check_group2_cols']|int if device['check_group2_cols'] else 1 %}
+        {% set gc3 = device['check_group3_cols']|int if device['check_group3_cols'] else 1 %}
         {% set pcols = 4 + (1 if p5 else 0) %}
         {% if p2 %}
         <!-- Олон параметртэй: группчилсан загвар (Excel загвараар) -->
@@ -154,9 +157,9 @@
                 {% if not g2 and not g3 %}
                 <td colspan="{{ pcols }}" style="padding:7px 12px">{% if g1 %}{{ g1 }}{% endif %}</td>
                 {% else %}
-                <td colspan="2" style="padding:7px 12px;border-right:1px solid var(--border)">{% if g1 %}1. {{ g1 }}{% endif %}</td>
-                <td style="padding:7px 12px;border-right:1px solid var(--border)">{% if g2 %}2. {{ g2 }}{% endif %}</td>
-                <td {% if p5 %}colspan="2"{% endif %} style="padding:7px 12px">{% if g3 %}3. {{ g3 }}{% endif %}</td>
+                <td colspan="{{ gc1 }}" style="padding:7px 12px;border-right:1px solid var(--border)">{% if g1 %}{{ g1 }}{% endif %}</td>
+                {% if g2 %}<td colspan="{{ gc2 }}" style="padding:7px 12px;border-right:1px solid var(--border)">{{ g2 }}</td>{% endif %}
+                {% if g3 %}<td colspan="{{ gc3 }}" style="padding:7px 12px">{{ g3 }}</td>{% endif %}
                 {% endif %}
               </tr>
             </thead>
@@ -215,18 +218,39 @@
             <div style="padding:12px;background:#f8f9fa">
               <form method="POST" action="{{ url_for('device_edit', did=device['id']) }}" enctype="multipart/form-data">
                 <input type="hidden" name="_check_config_only" value="1">
-                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-                  <div>
-                    <label class="form-label" style="font-size:11px">1-р бүлгийн гарчиг</label>
-                    <input type="text" name="check_group1" class="form-input" style="padding:4px 7px;font-size:12px;width:180px" value="{{ device['check_group1'] or '' }}" placeholder="Жишээ: Эргэдэг хүрд">
-                  </div>
-                  <div>
-                    <label class="form-label" style="font-size:11px">2-р бүлгийн гарчиг</label>
-                    <input type="text" name="check_group2" class="form-input" style="padding:4px 7px;font-size:12px;width:180px" value="{{ device['check_group2'] or '' }}" placeholder="Жишээ: Эргэлдэх барабан">
-                  </div>
-                  <div>
-                    <label class="form-label" style="font-size:11px">3-р бүлгийн гарчиг</label>
-                    <input type="text" name="check_group3" class="form-input" style="padding:4px 7px;font-size:12px;width:180px" value="{{ device['check_group3'] or '' }}" placeholder="Жишээ: Ачаа">
+                <div style="margin-bottom:10px">
+                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">Бүлгийн гарчиг — хэдэн багана хамрах</div>
+                  <div style="display:flex;gap:10px;flex-wrap:wrap">
+                    <div style="display:flex;gap:6px;align-items:flex-end">
+                      <div>
+                        <label class="form-label" style="font-size:11px">1-р бүлэг</label>
+                        <input type="text" name="check_group1" class="form-input" style="padding:4px 7px;font-size:12px;width:150px" value="{{ device['check_group1'] or '' }}" placeholder="Нэр">
+                      </div>
+                      <div>
+                        <label class="form-label" style="font-size:11px">Багана</label>
+                        <input type="number" name="check_group1_cols" class="form-input" style="padding:4px 7px;font-size:12px;width:55px" min="1" max="5" value="{{ device['check_group1_cols'] or 2 }}">
+                      </div>
+                    </div>
+                    <div style="display:flex;gap:6px;align-items:flex-end">
+                      <div>
+                        <label class="form-label" style="font-size:11px">2-р бүлэг</label>
+                        <input type="text" name="check_group2" class="form-input" style="padding:4px 7px;font-size:12px;width:150px" value="{{ device['check_group2'] or '' }}" placeholder="Нэр (сонголттой)">
+                      </div>
+                      <div>
+                        <label class="form-label" style="font-size:11px">Багана</label>
+                        <input type="number" name="check_group2_cols" class="form-input" style="padding:4px 7px;font-size:12px;width:55px" min="1" max="5" value="{{ device['check_group2_cols'] or 1 }}">
+                      </div>
+                    </div>
+                    <div style="display:flex;gap:6px;align-items:flex-end">
+                      <div>
+                        <label class="form-label" style="font-size:11px">3-р бүлэг</label>
+                        <input type="text" name="check_group3" class="form-input" style="padding:4px 7px;font-size:12px;width:150px" value="{{ device['check_group3'] or '' }}" placeholder="Нэр (сонголттой)">
+                      </div>
+                      <div>
+                        <label class="form-label" style="font-size:11px">Багана</label>
+                        <input type="number" name="check_group3_cols" class="form-input" style="padding:4px 7px;font-size:12px;width:55px" min="1" max="5" value="{{ device['check_group3_cols'] or 1 }}">
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <table style="border-collapse:collapse;margin-bottom:10px">
