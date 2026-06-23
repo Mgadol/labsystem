@@ -1892,16 +1892,17 @@ def ensure_tables():
             check_group1_cols = 0
         WHERE CAST(lab_id AS TEXT) IN ('02','03','04','05','002','003','004','005')
     """)
-    # Барабан (Эргэдэг хүрд) тохиргоо — лаб дугаар 11-14 (4 параметр)
+    # Лаб 11-14: лаб 06-тай ижил (зуухны температур, daily)
     conn.execute("""
         UPDATE devices SET
-            check_param1='Дотоод диаметр', check_standard='200', check_tolerance='',
-            check_param2='Гүн', check_standard2='70', check_tolerance2='',
-            check_param3='Эргэлтийн хурд', check_standard3='50', check_tolerance3='±1',
-            check_param4='Ачааны жин', check_standard4='112.5', check_tolerance4='±2.5',
-            check_group1='Эргэдэг хүрд', check_group2='Эргэлдэх барабан', check_group3='Ачаа',
-            check_freq='weekly', check_enabled=1
-        WHERE lab_id IN ('11','12','13','14')
+            check_group1='Зуухны температур', check_group2=NULL, check_group3=NULL,
+            check_param1='Температур 1', check_standard='850±10 °C', check_tolerance='6 мин - 850 °C',
+            check_param2='Температур 2', check_standard2='900±20 °C', check_tolerance2='3 мин - 900 °C',
+            check_param3=NULL, check_standard3=NULL, check_tolerance3=NULL,
+            check_param4=NULL, check_standard4=NULL, check_tolerance4=NULL,
+            check_freq='daily', check_enabled=1, check_group1_cols=4
+        WHERE CAST(lab_id AS TEXT) IN ('11','12','13','14','011','012','013','014')
+           OR LOWER(name) LIKE '%барабан%'
     """)
     # Зуух — лаб дугаар 6,7,8 (2 параметр: температур)
     conn.execute("""
