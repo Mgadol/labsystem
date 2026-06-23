@@ -592,14 +592,13 @@ def device_edit(did):
                     request.form.get('check_tolerance2') or None,
                     did))
             for i in ['1','2','3','4','5']:
+                try: conn.execute(f"ALTER TABLE devices ADD COLUMN check_photo{i} TEXT")
+                except Exception: pass
                 f = request.files.get(f'check_photo{i}')
                 if f and f.filename:
                     fn = save_file(f, 'devices')
                     if fn:
-                        try:
-                            conn.execute(f"UPDATE devices SET check_photo{i}=? WHERE id=?", (fn, did))
-                        except Exception:
-                            pass
+                        conn.execute(f"UPDATE devices SET check_photo{i}=? WHERE id=?", (fn, did))
             conn.commit(); conn.close()
             flash('Шалгалтын тохиргоо хадгалагдлаа!', 'success')
             return redirect(url_for('device_detail', did=did) + '#tab-check')
