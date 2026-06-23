@@ -1841,6 +1841,18 @@ def ensure_tables():
         )
     """)
     except Exception: pass
+    # Лаб 02-05: лаб 01-ийн жингийн тохиргоог хуулна (photo-оос бусад)
+    conn.execute("""
+        UPDATE devices SET
+            check_param1   = (SELECT check_param1   FROM devices WHERE lab_id='01' LIMIT 1),
+            check_standard = (SELECT check_standard FROM devices WHERE lab_id='01' LIMIT 1),
+            check_tolerance= (SELECT check_tolerance FROM devices WHERE lab_id='01' LIMIT 1),
+            check_param2   = (SELECT check_param2   FROM devices WHERE lab_id='01' LIMIT 1),
+            check_group1   = (SELECT check_group1   FROM devices WHERE lab_id='01' LIMIT 1),
+            check_freq     = (SELECT check_freq     FROM devices WHERE lab_id='01' LIMIT 1),
+            check_enabled  = (SELECT check_enabled  FROM devices WHERE lab_id='01' LIMIT 1)
+        WHERE CAST(lab_id AS TEXT) IN ('02','03','04','05','002','003','004','005')
+    """)
     # Барабан (Эргэдэг хүрд) тохиргоо — лаб дугаар 11-14 (4 параметр)
     conn.execute("""
         UPDATE devices SET
