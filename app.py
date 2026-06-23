@@ -3623,6 +3623,35 @@ def check_templates_delete(tid):
     conn.close()
     return jsonify({'ok': True})
 
+@app.route('/admin/fix-check-freq', methods=['POST'])
+@admin_required
+def fix_check_freq():
+    """Лаб 15,16 холигч болон бусад тохируулаагүй төхөөрөмжийн check_freq=weekly болгох."""
+    conn = get_db()
+    # Лаб 15,16 — холигч: weekly, параметр цэвэрлэх
+    r1 = conn.execute("""
+        UPDATE devices SET
+            check_freq='weekly', check_enabled=1,
+            check_group1=NULL, check_group2=NULL, check_group3=NULL,
+            check_param1=NULL, check_standard=NULL, check_tolerance=NULL,
+            check_param2=NULL, check_standard2=NULL, check_tolerance2=NULL,
+            check_param3=NULL, check_standard3=NULL, check_tolerance3=NULL,
+            check_param4=NULL, check_standard4=NULL, check_tolerance4=NULL
+        WHERE CAST(lab_id AS TEXT) IN ('15','16','015','016')
+    """)
+    # Лаб 01-05 аас бусад, параметр хоосон байгаа бүгд: weekly
+    r2 = conn.execute("""
+        UPDATE devices SET check_freq='weekly', check_enabled=1
+        WHERE lab_id IS NOT NULL
+          AND CAST(lab_id AS TEXT) NOT IN ('01','02','03','04','05','1','2','3','4','5')
+          AND (check_param1 IS NULL OR check_param1='')
+    """)
+    conn.commit()
+    changed = r1.rowcount + r2.rowcount
+    conn.close()
+    flash(f'{changed} төхөөрөмжийн check_freq шинэчлэгдлээ.', 'success')
+    return redirect(url_for('lab_settings') + '#tab-device')
+
 @app.route('/backup/list')
 @admin_required
 def backup_list():
