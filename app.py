@@ -1900,7 +1900,7 @@ def ensure_tables():
             check_param2='Температур 2', check_standard2='900±20 °C', check_tolerance2='3 мин - 900 °C',
             check_param3=NULL, check_standard3=NULL, check_tolerance3=NULL,
             check_param4=NULL, check_standard4=NULL, check_tolerance4=NULL,
-            check_freq='daily', check_enabled=1, check_group1_cols=4
+            check_freq=COALESCE(check_freq,'daily'), check_enabled=1, check_group1_cols=4
         WHERE CAST(lab_id AS TEXT) IN ('11','12','13','14','011','012','013','014')
            OR LOWER(name) LIKE '%барабан%'
     """)
@@ -1913,7 +1913,7 @@ def ensure_tables():
             check_param3=NULL, check_standard3=NULL, check_tolerance3=NULL,
             check_param4=NULL, check_standard4=NULL, check_tolerance4=NULL,
             check_param5=NULL, check_standard5=NULL, check_tolerance5=NULL,
-            check_freq='daily', check_enabled=1, check_group1_cols=4
+            check_freq=COALESCE(check_freq,'daily'), check_enabled=1, check_group1_cols=4
         WHERE CAST(lab_id AS TEXT) IN ('06','07','08','006','007','008')
            OR LOWER(name) LIKE '%муфель%' OR LOWER(name) LIKE '%muffle%'
            OR LOWER(name) LIKE '%зуух%'
@@ -1927,7 +1927,7 @@ def ensure_tables():
             check_param3=NULL, check_standard3=NULL, check_tolerance3=NULL,
             check_param4=NULL, check_standard4=NULL, check_tolerance4=NULL,
             check_param5=NULL, check_standard5=NULL, check_tolerance5=NULL,
-            check_freq='daily', check_enabled=1, check_group1_cols=4
+            check_freq=COALESCE(check_freq,'daily'), check_enabled=1, check_group1_cols=4
         WHERE CAST(lab_id AS TEXT) IN ('19','20','21','019','020','021')
            OR LOWER(name) LIKE '%хатаах%' OR LOWER(name) LIKE '%шүүгээ%'
            OR LOWER(name) LIKE '%drying%'
@@ -1941,7 +1941,7 @@ def ensure_tables():
             check_param3=NULL, check_standard3=NULL, check_tolerance3=NULL,
             check_param4=NULL, check_standard4=NULL, check_tolerance4=NULL,
             check_param5=NULL, check_standard5=NULL, check_tolerance5=NULL,
-            check_freq='daily', check_enabled=1, check_group1_cols=4
+            check_freq=COALESCE(check_freq,'daily'), check_enabled=1, check_group1_cols=4
         WHERE CAST(lab_id AS TEXT) IN ('15','16','015','016')
            OR LOWER(name) LIKE '%холигч%' OR LOWER(name) LIKE '%mixer%'
     """)
