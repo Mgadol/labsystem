@@ -136,30 +136,32 @@
         {% set p2 = device['check_param2'] %}
         {% set p3 = device['check_param3'] %}
         {% set p4 = device['check_param4'] %}
+        {% set p5 = device['check_param5'] %}
         {% set g1 = device['check_group1'] %}
         {% set g2 = device['check_group2'] %}
         {% set g3 = device['check_group3'] %}
+        {% set pcols = 4 + (1 if p5 else 0) %}
         {% if p2 %}
         <!-- Олон параметртэй: группчилсан загвар (Excel загвараар) -->
         <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px">
           <table style="width:100%;border-collapse:collapse;table-layout:fixed">
             <colgroup>
-              <col style="width:25%"><col style="width:25%"><col style="width:25%"><col style="width:25%">
+              {% for _ in range(pcols) %}<col style="width:{{ (100/pcols)|round(1) }}%">{% endfor %}
             </colgroup>
             <!-- Группийн гарчиг -->
             <thead>
               <tr style="background:#e8edf3;font-size:12px;font-weight:700;text-align:center;color:var(--navy)">
                 {% if not g2 and not g3 %}
-                <td colspan="4" style="padding:7px 12px">{% if g1 %}{{ g1 }}{% endif %}</td>
+                <td colspan="{{ pcols }}" style="padding:7px 12px">{% if g1 %}{{ g1 }}{% endif %}</td>
                 {% else %}
                 <td colspan="2" style="padding:7px 12px;border-right:1px solid var(--border)">{% if g1 %}1. {{ g1 }}{% endif %}</td>
                 <td style="padding:7px 12px;border-right:1px solid var(--border)">{% if g2 %}2. {{ g2 }}{% endif %}</td>
-                <td style="padding:7px 12px">{% if g3 %}3. {{ g3 }}{% endif %}</td>
+                <td {% if p5 %}colspan="2"{% endif %} style="padding:7px 12px">{% if g3 %}3. {{ g3 }}{% endif %}</td>
                 {% endif %}
               </tr>
             </thead>
             <tbody>
-              <!-- Зургийн мөр — 4 тусдаа нүд -->
+              <!-- Зургийн мөр -->
               <tr style="background:#fff;text-align:center;border-bottom:1px solid var(--border)">
                 {% set ph1 = device['check_photo1'] %}
                 {% set ph2 = device['check_photo2'] %}
@@ -174,13 +176,19 @@
                   {% endif %}
                 </td>
                 {% endfor %}
+                {% if p5 %}
+                <td style="padding:14px;vertical-align:middle">
+                  <div style="color:#ccc;font-size:12px;padding:16px 4px"><div style="font-size:26px;margin-bottom:4px">📷</div>Зураг байхгүй</div>
+                </td>
+                {% endif %}
               </tr>
               <!-- Параметрийн нэр -->
               <tr style="background:#f8f9fa;text-align:center;font-size:12px;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border)">
                 <th style="padding:8px 12px;border-right:1px solid var(--border)">{{ p1 }}</th>
                 <th style="padding:8px 12px;border-right:1px solid var(--border)">{{ p2 }}</th>
                 <th style="padding:8px 12px;border-right:1px solid var(--border)">{{ p3 or '' }}</th>
-                <th style="padding:8px 12px">{{ p4 or '' }}</th>
+                <th style="padding:8px 12px{% if p5 %};border-right:1px solid var(--border){% endif %}">{{ p4 or '' }}</th>
+                {% if p5 %}<th style="padding:8px 12px">{{ p5 }}</th>{% endif %}
               </tr>
               <!-- Стандарт утга -->
               <tr style="background:#fff;text-align:center">
@@ -193,9 +201,14 @@
                 <td style="padding:10px 8px;border-right:1px solid var(--border);font-size:15px;font-weight:700;color:var(--navy);word-break:break-word">
                   {{ device['check_standard3'] or '—' }}{% if device['check_tolerance3'] %}<div style="font-size:11px;color:var(--text-muted);font-weight:400">({{ device['check_tolerance3'] }})</div>{% endif %}
                 </td>
-                <td style="padding:10px 8px;font-size:15px;font-weight:700;color:var(--navy);word-break:break-word">
+                <td style="padding:10px 8px;{% if p5 %}border-right:1px solid var(--border);{% endif %}font-size:15px;font-weight:700;color:var(--navy);word-break:break-word">
                   {{ device['check_standard4'] or '—' }}{% if device['check_tolerance4'] %}<div style="font-size:11px;color:var(--text-muted);font-weight:400">({{ device['check_tolerance4'] }})</div>{% endif %}
                 </td>
+                {% if p5 %}
+                <td style="padding:10px 8px;font-size:15px;font-weight:700;color:var(--navy);word-break:break-word">
+                  {{ device['check_standard5'] or '—' }}{% if device['check_tolerance5'] %}<div style="font-size:11px;color:var(--text-muted);font-weight:400">({{ device['check_tolerance5'] }})</div>{% endif %}
+                </td>
+                {% endif %}
               </tr>
             </tbody>
           </table>
@@ -247,6 +260,11 @@
                       <td style="padding:3px 8px"><input type="text" name="check_standard4" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_standard4'] or '' }}"></td>
                       <td style="padding:3px 8px"><input type="text" name="check_tolerance4" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_tolerance4'] or '' }}" placeholder="±..."></td>
                     </tr>
+                    <tr>
+                      <td style="padding:3px 8px"><input type="text" name="check_param5" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_param5'] or '' }}" placeholder="Параметр 5 (сонголттой)"></td>
+                      <td style="padding:3px 8px"><input type="text" name="check_standard5" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_standard5'] or '' }}"></td>
+                      <td style="padding:3px 8px"><input type="text" name="check_tolerance5" class="form-input" style="padding:4px 7px;font-size:12px" value="{{ device['check_tolerance5'] or '' }}" placeholder="±..."></td>
+                    </tr>
                   </tbody>
                 </table>
                 <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">
@@ -294,6 +312,8 @@
             <input type="hidden" name="check_tolerance3" value="">
             <input type="hidden" name="check_standard4" value="">
             <input type="hidden" name="check_tolerance4" value="">
+            <input type="hidden" name="check_standard5" value="">
+            <input type="hidden" name="check_tolerance5" value="">
             <button type="submit" class="btn btn-sm" style="padding:5px 14px;font-size:12px">Хадгалах</button>
           </form>
         </div>
@@ -314,6 +334,7 @@
         {% set p2 = device['check_param2'] %}
         {% set p3 = device['check_param3'] %}
         {% set p4 = device['check_param4'] %}
+        {% set p5 = device['check_param5'] %}
         <form method="POST" action="{{ url_for('device_check_add', did=device['id']) }}" enctype="multipart/form-data" style="background:var(--gray);border-radius:8px;padding:14px;margin-bottom:16px">
           <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.04em">Шинэ дотоод шалгалт</div>
           <!-- Огноо + Үр дүн + Тэмдэглэл -->
@@ -340,6 +361,7 @@
           {% if p2 %}<input type="hidden" name="standard_value2" value="{{ device['check_standard2'] or '' }}">{% endif %}
           {% if p3 %}<input type="hidden" name="standard_value3" value="{{ device['check_standard3'] or '' }}">{% endif %}
           {% if p4 %}<input type="hidden" name="standard_value4" value="{{ device['check_standard4'] or '' }}">{% endif %}
+          {% if p5 %}<input type="hidden" name="standard_value5" value="{{ device['check_standard5'] or '' }}">{% endif %}
           <!-- Параметрүүд: зөвхөн хэмжсэн утга бичнэ -->
           <table style="width:100%;border-collapse:collapse;margin-bottom:12px">
             <thead>
@@ -376,6 +398,13 @@
                 <td style="padding:5px 8px"><input type="text" name="measured_value4" class="form-input" style="padding:5px 8px;max-width:200px" placeholder="хэмжсэн..."></td>
               </tr>
               {% endif %}
+              {% if p5 %}
+              <tr>
+                <td style="padding:5px 8px;font-size:13px;font-weight:500">{{ p5 }}</td>
+                <td style="padding:5px 8px;font-size:12px;color:#888">{{ device['check_standard5'] or '—' }}{% if device['check_tolerance5'] %} <span style="font-size:11px">({{ device['check_tolerance5'] }})</span>{% endif %}</td>
+                <td style="padding:5px 8px"><input type="text" name="measured_value5" class="form-input" style="padding:5px 8px;max-width:200px" placeholder="хэмжсэн..."></td>
+              </tr>
+              {% endif %}
             </tbody>
           </table>
           <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
@@ -393,17 +422,17 @@
           {% set p2 = device['check_param2'] %}
           {% set p3 = device['check_param3'] %}
           {% set p4 = device['check_param4'] %}
-          {% set tbl_cols = 7 + (2 if p2 else 1) + (2 if p3 else 0) + (2 if p4 else 0) + (1 if current_user['role'] in ('admin','senior') else 0) %}
+          {% set p5 = device['check_param5'] %}
+          {% set tbl_cols = 7 + (2 if p2 else 1) + (2 if p3 else 0) + (2 if p4 else 0) + (2 if p5 else 0) + (1 if current_user['role'] in ('admin','senior') else 0) %}
           <thead>
-            {% if p2 or p3 or p4 %}
+            {% if p2 or p3 or p4 or p5 %}
             <tr>
               <th rowspan="2">Огноо</th>
-              {% if p2 or p3 or p4 %}
               <th colspan="2" style="text-align:center;border-bottom:1px solid var(--border)">{{ p1 }}</th>
               {% if p2 %}<th colspan="2" style="text-align:center;border-bottom:1px solid var(--border)">{{ p2 }}</th>{% endif %}
               {% if p3 %}<th colspan="2" style="text-align:center;border-bottom:1px solid var(--border)">{{ p3 }}</th>{% endif %}
               {% if p4 %}<th colspan="2" style="text-align:center;border-bottom:1px solid var(--border)">{{ p4 }}</th>{% endif %}
-              {% endif %}
+              {% if p5 %}<th colspan="2" style="text-align:center;border-bottom:1px solid var(--border)">{{ p5 }}</th>{% endif %}
               <th rowspan="2">Үр дүн</th>
               <th rowspan="2" style="text-align:center">Тохир</th>
               <th rowspan="2">Шалгасан</th>
@@ -416,6 +445,7 @@
               {% if p2 %}<th>Стандарт</th><th>Хэмжсэн</th>{% endif %}
               {% if p3 %}<th>Стандарт</th><th>Хэмжсэн</th>{% endif %}
               {% if p4 %}<th>Стандарт</th><th>Хэмжсэн</th>{% endif %}
+              {% if p5 %}<th>Стандарт</th><th>Хэмжсэн</th>{% endif %}
             </tr>
             {% else %}
             <tr>
@@ -451,6 +481,10 @@
             {% if p4 %}
             <td style="font-family:monospace;font-size:12px">{{ ch.get('standard_value4') or '—' }}</td>
             <td style="font-family:monospace;font-size:12px">{{ ch.get('measured_value4') or '—' }}</td>
+            {% endif %}
+            {% if p5 %}
+            <td style="font-family:monospace;font-size:12px">{{ ch.get('standard_value5') or '—' }}</td>
+            <td style="font-family:monospace;font-size:12px">{{ ch.get('measured_value5') or '—' }}</td>
             {% endif %}
             <td>
               {% if ch['result']=='pass' %}<span class="badge badge-active">✓ Тэнцсэн</span>

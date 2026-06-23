@@ -479,8 +479,9 @@ def device_add():
             check_param2,check_standard2,check_tolerance2,
             check_param3,check_standard3,check_tolerance3,
             check_param4,check_standard4,check_tolerance4,
+            check_param5,check_standard5,check_tolerance5,
             check_enabled,stage,check_freq)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             request.form['name'],
             request.form.get('serial_number') or None,
@@ -520,6 +521,9 @@ def device_add():
             request.form.get('check_param4') or None,
             request.form.get('check_standard4') or None,
             request.form.get('check_tolerance4') or None,
+            request.form.get('check_param5') or None,
+            request.form.get('check_standard5') or None,
+            request.form.get('check_tolerance5') or None,
             1 if request.form.get('check_enabled') else 0,
             request.form.get('stage') or 'both',
             request.form.get('check_freq') or 'daily',
@@ -546,7 +550,8 @@ def device_edit(did):
                 check_param1=?, check_standard=?, check_tolerance=?,
                 check_param2=?, check_standard2=?, check_tolerance2=?,
                 check_param3=?, check_standard3=?, check_tolerance3=?,
-                check_param4=?, check_standard4=?, check_tolerance4=?
+                check_param4=?, check_standard4=?, check_tolerance4=?,
+                check_param5=?, check_standard5=?, check_tolerance5=?
                 WHERE id=?""", (
                 request.form.get('check_group1') or None,
                 request.form.get('check_group2') or None,
@@ -563,6 +568,9 @@ def device_edit(did):
                 request.form.get('check_param4') or None,
                 request.form.get('check_standard4') or None,
                 request.form.get('check_tolerance4') or None,
+                request.form.get('check_param5') or None,
+                request.form.get('check_standard5') or None,
+                request.form.get('check_tolerance5') or None,
                 did))
             for i in ['1','2','3','4']:
                 f = request.files.get(f'check_photo{i}')
@@ -721,8 +729,9 @@ def device_check_add(did):
         INSERT INTO device_checks(device_id,checked_by,check_date,standard_value,
         measured_value,tolerance,result,standard_value2,measured_value2,tolerance2,
         standard_value3,measured_value3,tolerance3,
-        standard_value4,measured_value4,tolerance4,notes,photo)
-        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        standard_value4,measured_value4,tolerance4,
+        standard_value5,measured_value5,tolerance5,notes,photo)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, (did, session.get('user_id', 0),
           request.form.get('check_date') or date.today().isoformat(),
           request.form.get('standard_value') or None,
@@ -738,6 +747,9 @@ def device_check_add(did):
           request.form.get('standard_value4') or None,
           request.form.get('measured_value4') or None,
           request.form.get('tolerance4') or None,
+          request.form.get('standard_value5') or None,
+          request.form.get('measured_value5') or None,
+          request.form.get('tolerance5') or None,
           request.form.get('notes') or None,
           photo))
     conn.commit(); conn.close()
@@ -821,8 +833,9 @@ def checks_save():
             measured_value,tolerance,result,calibration_adjusted,
             standard_value2,measured_value2,tolerance2,
             standard_value3,measured_value3,tolerance3,
-            standard_value4,measured_value4,tolerance4,notes)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            standard_value4,measured_value4,tolerance4,
+            standard_value5,measured_value5,tolerance5,notes)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (did, uid, sel_date,
               request.form.get(f'standard_{did}') or None,
               measured,
@@ -838,6 +851,9 @@ def checks_save():
               request.form.get(f'standard4_{did}') or None,
               request.form.get(f'measured4_{did}') or None,
               request.form.get(f'tolerance4_{did}') or None,
+              request.form.get(f'standard5_{did}') or None,
+              request.form.get(f'measured5_{did}') or None,
+              request.form.get(f'tolerance5_{did}') or None,
               request.form.get(f'notes_{did}') or None))
         saved += 1
     conn.commit(); conn.close()
@@ -1777,7 +1793,8 @@ def ensure_tables():
     for col in ['check_standard2 TEXT', 'check_tolerance2 TEXT',
                 'check_param1 TEXT', 'check_param2 TEXT',
                 'check_param3 TEXT', 'check_standard3 TEXT', 'check_tolerance3 TEXT',
-                'check_param4 TEXT', 'check_standard4 TEXT', 'check_tolerance4 TEXT']:
+                'check_param4 TEXT', 'check_standard4 TEXT', 'check_tolerance4 TEXT',
+                'check_param5 TEXT', 'check_standard5 TEXT', 'check_tolerance5 TEXT']:
         try: conn.execute(f"ALTER TABLE devices ADD COLUMN {col}")
         except Exception: pass
     for col in ['check_group1 TEXT', 'check_group2 TEXT', 'check_group3 TEXT',
@@ -1785,7 +1802,8 @@ def ensure_tables():
         try: conn.execute(f"ALTER TABLE devices ADD COLUMN {col}")
         except Exception: pass
     for col in ['measured_value3 TEXT', 'standard_value3 TEXT', 'tolerance3 TEXT',
-                'measured_value4 TEXT', 'standard_value4 TEXT', 'tolerance4 TEXT']:
+                'measured_value4 TEXT', 'standard_value4 TEXT', 'tolerance4 TEXT',
+                'measured_value5 TEXT', 'standard_value5 TEXT', 'tolerance5 TEXT']:
         try: conn.execute(f"ALTER TABLE device_checks ADD COLUMN {col}")
         except Exception: pass
     try: conn.execute("ALTER TABLE device_checks ADD COLUMN photo TEXT")
