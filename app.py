@@ -1904,7 +1904,7 @@ def ensure_tables():
         WHERE CAST(lab_id AS TEXT) IN ('11','12','13','14','011','012','013','014')
            OR LOWER(name) LIKE '%барабан%'
     """)
-    # Зуух — лаб дугаар 6,7,8 (2 параметр: температур)
+    # Зуух (муфель зуух) — нэрээр тааруулна
     conn.execute("""
         UPDATE devices SET
             check_group1='Зуухны температур', check_group2=NULL, check_group3=NULL,
@@ -1912,21 +1912,27 @@ def ensure_tables():
             check_param2='Температур 2', check_standard2='900±20 °C', check_tolerance2='3 мин - 900 °C',
             check_param3=NULL, check_standard3=NULL, check_tolerance3=NULL,
             check_param4=NULL, check_standard4=NULL, check_tolerance4=NULL,
-            check_freq='daily', check_enabled=1
-        WHERE lab_id IN ('06','07','08')
+            check_param5=NULL, check_standard5=NULL, check_tolerance5=NULL,
+            check_freq='daily', check_enabled=1, check_group1_cols=4
+        WHERE CAST(lab_id AS TEXT) IN ('06','07','08','006','007','008')
+           OR LOWER(name) LIKE '%муфель%' OR LOWER(name) LIKE '%muffle%'
+           OR LOWER(name) LIKE '%зуух%'
     """)
-    # Хатаах шүүгээ — лаб 19,20,21 (зуухтай ижил загвар)
+    # Хатаах шүүгээ — нэрээр тааруулна
     conn.execute("""
         UPDATE devices SET
             check_group1='Зуухны температур', check_group2=NULL, check_group3=NULL,
-            check_param1='Температур 1', check_standard='850±10 °C', check_tolerance='6 мин - 850 °C',
-            check_param2='Температур 2', check_standard2='900±20 °C', check_tolerance2='3 мин - 900 °C',
+            check_param1='Температур 1', check_standard='105±2 °C', check_tolerance='±2 °C',
+            check_param2='Температур 2', check_standard2='105±2 °C', check_tolerance2='±2 °C',
             check_param3=NULL, check_standard3=NULL, check_tolerance3=NULL,
             check_param4=NULL, check_standard4=NULL, check_tolerance4=NULL,
-            check_freq='daily', check_enabled=1
-        WHERE lab_id IN ('19','20','21')
+            check_param5=NULL, check_standard5=NULL, check_tolerance5=NULL,
+            check_freq='daily', check_enabled=1, check_group1_cols=4
+        WHERE CAST(lab_id AS TEXT) IN ('19','20','21','019','020','021')
+           OR LOWER(name) LIKE '%хатаах%' OR LOWER(name) LIKE '%шүүгээ%'
+           OR LOWER(name) LIKE '%drying%'
     """)
-    # Холигч — лаб 15,16: лаб 06-тай ижил загвар (зуухны температур, өдөр бүр)
+    # Холигч — нэрээр тааруулна
     conn.execute("""
         UPDATE devices SET
             check_group1='Зуухны температур', check_group2=NULL, check_group3=NULL,
@@ -1934,11 +1940,13 @@ def ensure_tables():
             check_param2='Температур 2', check_standard2='900±20 °C', check_tolerance2='3 мин - 900 °C',
             check_param3=NULL, check_standard3=NULL, check_tolerance3=NULL,
             check_param4=NULL, check_standard4=NULL, check_tolerance4=NULL,
-            check_freq='daily', check_enabled=1
+            check_param5=NULL, check_standard5=NULL, check_tolerance5=NULL,
+            check_freq='daily', check_enabled=1, check_group1_cols=4
         WHERE CAST(lab_id AS TEXT) IN ('15','16','015','016')
-           OR LOWER(name) LIKE '%холигч%'
-           OR LOWER(name) LIKE '%mixer%'
+           OR LOWER(name) LIKE '%холигч%' OR LOWER(name) LIKE '%mixer%'
     """)
+    # Буруу орсон check_param5='5' утгыг цэвэрлэнэ
+    conn.execute("UPDATE devices SET check_param5=NULL, check_standard5=NULL, check_tolerance5=NULL WHERE check_param5='5'")
     try: conn.execute("ALTER TABLE internal_qc ADD COLUMN qc_number TEXT")
     except: pass
     try: conn.execute("ALTER TABLE internal_qc ADD COLUMN row_num_1 INTEGER")
@@ -3720,11 +3728,15 @@ def backup_delete(filename):
     return jsonify({'ok': True})
 
 
-if __name__ == '__main__':
+def _startup():
     init_db()
     from models import init_analysis_db
     init_analysis_db()
     ensure_tables()
+
+_startup()
+
+if __name__ == '__main__':
     # Автомат backup
     import shutil
     _db = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'lab.db')
