@@ -57,20 +57,27 @@
       </div>
 
       <!-- Үндсэн загвар сонгох -->
-      <div style="display:flex;gap:10px;margin-bottom:14px">
+      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
         <button type="button" onclick="applyMainTemplate('weight')"
-          style="flex:1;padding:14px;border:2px solid var(--border);border-radius:10px;background:#fff;cursor:pointer;text-align:center;transition:.15s"
+          style="flex:1;min-width:140px;padding:12px;border:2px solid var(--border);border-radius:10px;background:#fff;cursor:pointer;text-align:center;transition:.15s"
           id="tmpl-weight" onmouseover="this.style.borderColor='#0d9488'" onmouseout="if(activeMainTmpl!='weight')this.style.borderColor='var(--border)'">
-          <div style="font-size:22px;margin-bottom:4px">⚖️</div>
-          <div style="font-size:13px;font-weight:600;color:var(--navy)">Жингийн загвар</div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Өдөр бүр · Нэг параметр</div>
+          <div style="font-size:20px;margin-bottom:3px">⚖️</div>
+          <div style="font-size:12px;font-weight:600;color:var(--navy)">Жингийн загвар</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Өдөр бүр · Нэг параметр</div>
+        </button>
+        <button type="button" onclick="applyMainTemplate('furnace')"
+          style="flex:1;min-width:140px;padding:12px;border:2px solid var(--border);border-radius:10px;background:#fff;cursor:pointer;text-align:center;transition:.15s"
+          id="tmpl-furnace" onmouseover="this.style.borderColor='#dc2626'" onmouseout="if(activeMainTmpl!='furnace')this.style.borderColor='var(--border)'">
+          <div style="font-size:20px;margin-bottom:3px">🔥</div>
+          <div style="font-size:12px;font-weight:600;color:var(--navy)">Зуухны загвар</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Өдөр бүр · 2 температур</div>
         </button>
         <button type="button" onclick="applyMainTemplate('group')"
-          style="flex:1;padding:14px;border:2px solid var(--border);border-radius:10px;background:#fff;cursor:pointer;text-align:center;transition:.15s"
+          style="flex:1;min-width:140px;padding:12px;border:2px solid var(--border);border-radius:10px;background:#fff;cursor:pointer;text-align:center;transition:.15s"
           id="tmpl-group" onmouseover="this.style.borderColor='#7C3AED'" onmouseout="if(activeMainTmpl!='group')this.style.borderColor='var(--border)'">
-          <div style="font-size:22px;margin-bottom:4px">🔧</div>
-          <div style="font-size:13px;font-weight:600;color:var(--navy)">Бүлгийн загвар</div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">7 хоногт нэг · Олон параметр · Бүлэг гарчигтай</div>
+          <div style="font-size:20px;margin-bottom:3px">🔧</div>
+          <div style="font-size:12px;font-weight:600;color:var(--navy)">Бүлгийн загвар</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px">7 хоногт нэг · Олон бүлэг</div>
         </button>
       </div>
 
@@ -318,29 +325,38 @@
 {% block scripts %}
 <script>
 var activeMainTmpl = '';
+var tmplColors = {weight:'#0d9488', furnace:'#dc2626', group:'#7C3AED'};
+var tmplBg     = {weight:'#f0fdf9', furnace:'#fef2f2', group:'#f5f3ff'};
 function applyMainTemplate(type) {
   activeMainTmpl = type;
-  // Товчны visual
-  ['weight','group'].forEach(function(t){
+  ['weight','furnace','group'].forEach(function(t){
     var btn = document.getElementById('tmpl-'+t);
-    btn.style.borderColor = t===type ? (t==='weight'?'#0d9488':'#7C3AED') : 'var(--border)';
-    btn.style.background = t===type ? (t==='weight'?'#f0fdf9':'#f5f3ff') : '#fff';
+    if(!btn) return;
+    btn.style.borderColor = t===type ? tmplColors[t] : 'var(--border)';
+    btn.style.background  = t===type ? tmplBg[t]    : '#fff';
   });
+  var ce = document.querySelector('[name=check_enabled]');
+  if(ce) ce.checked = true;
   if(type==='weight'){
-    // Жингийн загвар: өдөр бүр, check_enabled=1, param2-5 цэвэрлэх
     document.querySelector('[name=check_freq]').value = 'daily';
-    var ce = document.querySelector('[name=check_enabled]');
-    if(ce) ce.checked = true;
-    // param2-5 цэвэрлэх
     ['2','3','4','5'].forEach(function(i){
-      var p=document.getElementById('cp'+i), s=document.getElementById('cs'+i), t=document.getElementById('ct'+i);
-      if(p) p.value=''; if(s) s.value=''; if(t) t.value='';
+      var p=document.getElementById('cp'+i),s=document.getElementById('cs'+i),t=document.getElementById('ct'+i);
+      if(p)p.value=''; if(s)s.value=''; if(t)t.value='';
+    });
+    var g1=document.querySelector('[name=check_group1]'); if(g1) g1.value='';
+  } else if(type==='furnace'){
+    document.querySelector('[name=check_freq]').value = 'daily';
+    var g1=document.querySelector('[name=check_group1]'); if(g1) g1.value='Зуухны температур';
+    var p1=document.getElementById('cp1'),s1=document.getElementById('cs1'),t1=document.getElementById('ct1');
+    if(p1)p1.value='Температур 1'; if(s1)s1.value='850±10 °C'; if(t1)t1.value='6 мин - 850 °C';
+    var p2=document.getElementById('cp2'),s2=document.getElementById('cs2'),t2=document.getElementById('ct2');
+    if(p2)p2.value='Температур 2'; if(s2)s2.value='900±20 °C'; if(t2)t2.value='3 мин - 900 °C';
+    ['3','4','5'].forEach(function(i){
+      var p=document.getElementById('cp'+i),s=document.getElementById('cs'+i),t=document.getElementById('ct'+i);
+      if(p)p.value=''; if(s)s.value=''; if(t)t.value='';
     });
   } else {
-    // Бүлгийн загвар: 7 хоногт нэг, check_enabled=1
     document.querySelector('[name=check_freq]').value = 'weekly';
-    var ce = document.querySelector('[name=check_enabled]');
-    if(ce) ce.checked = true;
   }
 }
 var DB_TEMPLATES = [];
