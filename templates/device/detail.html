@@ -173,40 +173,42 @@
                 {% set ph4 = device['check_photo4'] %}
                 {% set ph5 = device['check_photo5'] %}
                 {% for ph in ([ph1, ph2, ph3, ph4, ph5] if p5 else [ph1, ph2, ph3, ph4]) %}
-                <td style="padding:8px 4px;vertical-align:middle;border-right:1px solid var(--border);overflow:hidden">
+                <td style="padding:8px 4px;vertical-align:middle;border-right:1px solid var(--border);max-width:0;overflow:hidden">
+                  <div style="overflow:hidden;width:100%;text-align:center">
                   {% if ph %}
                   <img src="{{ url_for('static',filename='uploads/'+ph) }}" style="max-height:90px;max-width:100%;object-fit:contain;display:block;margin:0 auto">
                   {% else %}
                   <div style="color:#ccc;font-size:11px;text-align:center;padding:8px 2px"><div style="font-size:20px">📷</div></div>
                   {% endif %}
+                  </div>
                 </td>
                 {% endfor %}
               </tr>
               <!-- Параметрийн нэр -->
               <tr style="background:#f8f9fa;text-align:center;font-size:11px;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border)">
-                <th style="padding:6px 4px;border-right:1px solid var(--border);overflow:hidden;word-break:break-word">{{ p1 }}</th>
-                <th style="padding:6px 4px;border-right:1px solid var(--border);overflow:hidden;word-break:break-word">{{ p2 }}</th>
-                <th style="padding:6px 4px;border-right:1px solid var(--border);overflow:hidden;word-break:break-word">{{ p3 or '' }}</th>
-                <th style="padding:6px 4px{% if p5 %};border-right:1px solid var(--border){% endif %};overflow:hidden;word-break:break-word">{{ p4 or '' }}</th>
-                {% if p5 %}<th style="padding:6px 4px;overflow:hidden;word-break:break-word">{{ p5 }}</th>{% endif %}
+                <th style="padding:6px 4px;border-right:1px solid var(--border);max-width:0;overflow:hidden"><div style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis;width:100%">{{ p1 }}</div></th>
+                <th style="padding:6px 4px;border-right:1px solid var(--border);max-width:0;overflow:hidden"><div style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis;width:100%">{{ p2 }}</div></th>
+                <th style="padding:6px 4px;border-right:1px solid var(--border);max-width:0;overflow:hidden"><div style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis;width:100%">{{ p3 or '' }}</div></th>
+                <th style="padding:6px 4px{% if p5 %};border-right:1px solid var(--border){% endif %};max-width:0;overflow:hidden"><div style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis;width:100%">{{ p4 or '' }}</div></th>
+                {% if p5 %}<th style="padding:6px 4px;max-width:0;overflow:hidden"><div style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis;width:100%">{{ p5 }}</div></th>{% endif %}
               </tr>
               <!-- Стандарт утга -->
               <tr style="background:#fff;text-align:center">
-                <td style="padding:8px 4px;border-right:1px solid var(--border);font-size:13px;font-weight:700;color:var(--navy);word-break:break-word;overflow:hidden">
-                  {{ device['check_standard'] or '—' }}{% if device['check_tolerance'] %}<div style="font-size:10px;color:var(--text-muted);font-weight:400">({{ device['check_tolerance'] }})</div>{% endif %}
+                <td style="padding:8px 4px;border-right:1px solid var(--border);max-width:0;overflow:hidden">
+                  <div style="overflow:hidden;width:100%;font-size:13px;font-weight:700;color:var(--navy);word-break:break-word">{{ device['check_standard'] or '—' }}{% if device['check_tolerance'] %}<div style="font-size:10px;color:var(--text-muted);font-weight:400">({{ device['check_tolerance'] }})</div>{% endif %}</div>
                 </td>
-                <td style="padding:8px 4px;border-right:1px solid var(--border);font-size:13px;font-weight:700;color:var(--navy);word-break:break-word;overflow:hidden">
-                  {{ device['check_standard2'] or '—' }}{% if device['check_tolerance2'] %}<div style="font-size:10px;color:var(--text-muted);font-weight:400">({{ device['check_tolerance2'] }})</div>{% endif %}
+                <td style="padding:8px 4px;border-right:1px solid var(--border);max-width:0;overflow:hidden">
+                  <div style="overflow:hidden;width:100%;font-size:13px;font-weight:700;color:var(--navy);word-break:break-word">{{ device['check_standard2'] or '—' }}{% if device['check_tolerance2'] %}<div style="font-size:10px;color:var(--text-muted);font-weight:400">({{ device['check_tolerance2'] }})</div>{% endif %}</div>
                 </td>
-                <td style="padding:8px 4px;border-right:1px solid var(--border);font-size:13px;font-weight:700;color:var(--navy);word-break:break-word;overflow:hidden">
-                  {{ device['check_standard3'] or '—' }}{% if device['check_tolerance3'] %}<div style="font-size:10px;color:var(--text-muted);font-weight:400">({{ device['check_tolerance3'] }})</div>{% endif %}
+                <td style="padding:8px 4px;border-right:1px solid var(--border);max-width:0;overflow:hidden">
+                  <div style="overflow:hidden;width:100%;font-size:13px;font-weight:700;color:var(--navy);word-break:break-word">{{ device['check_standard3'] or '—' }}{% if device['check_tolerance3'] %}<div style="font-size:10px;color:var(--text-muted);font-weight:400">({{ device['check_tolerance3'] }})</div>{% endif %}</div>
                 </td>
-                <td style="padding:8px 4px;{% if p5 %}border-right:1px solid var(--border);{% endif %}font-size:13px;font-weight:700;color:var(--navy);word-break:break-word;overflow:hidden">
-                  {{ device['check_standard4'] or '—' }}{% if device['check_tolerance4'] %}<div style="font-size:10px;color:var(--text-muted);font-weight:400">({{ device['check_tolerance4'] }})</div>{% endif %}
+                <td style="padding:8px 4px;{% if p5 %}border-right:1px solid var(--border);{% endif %}max-width:0;overflow:hidden">
+                  <div style="overflow:hidden;width:100%;font-size:13px;font-weight:700;color:var(--navy);word-break:break-word">{{ device['check_standard4'] or '—' }}{% if device['check_tolerance4'] %}<div style="font-size:10px;color:var(--text-muted);font-weight:400">({{ device['check_tolerance4'] }})</div>{% endif %}</div>
                 </td>
                 {% if p5 %}
-                <td style="padding:10px 8px;font-size:15px;font-weight:700;color:var(--navy);word-break:break-word">
-                  {{ device['check_standard5'] or '—' }}{% if device['check_tolerance5'] %}<div style="font-size:11px;color:var(--text-muted);font-weight:400">({{ device['check_tolerance5'] }})</div>{% endif %}
+                <td style="padding:8px 4px;max-width:0;overflow:hidden">
+                  <div style="overflow:hidden;width:100%;font-size:13px;font-weight:700;color:var(--navy);word-break:break-word">{{ device['check_standard5'] or '—' }}{% if device['check_tolerance5'] %}<div style="font-size:10px;color:var(--text-muted);font-weight:400">({{ device['check_tolerance5'] }})</div>{% endif %}</div>
                 </td>
                 {% endif %}
               </tr>
