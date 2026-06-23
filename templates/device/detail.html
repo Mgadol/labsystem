@@ -415,7 +415,7 @@
         {% endif %}
 
         <!-- Нэг параметртэй жингийн загварын тохиргоо — формын доор -->
-        {% if not p2 and device['check_enabled'] %}
+        {% if not p2 and (device['check_enabled'] or device['check_standard']) %}
         <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px">
           <table style="width:100%;border-collapse:collapse">
             <thead>
@@ -449,6 +449,8 @@
             <div style="padding:12px;background:#f8f9fa">
               <form method="POST" action="{{ url_for('device_edit', did=device['id']) }}" enctype="multipart/form-data" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
                 <input type="hidden" name="_check_config_only" value="1">
+                <input type="hidden" name="check_param1" value="{{ device['check_param1'] or '' }}">
+                <input type="hidden" name="check_group1" value="{{ device['check_group1'] or '' }}">
                 <div>
                   <label class="form-label" style="font-size:11px">{{ p1 or 'Нэрлэсэн утга' }} — стандарт</label>
                   <input type="text" name="check_standard" class="form-input" style="width:120px;padding:5px 8px;font-size:12px" value="{{ device['check_standard'] or '' }}" placeholder="Ж: 1.0000">
