@@ -1874,16 +1874,24 @@ def ensure_tables():
             check_freq='daily', check_enabled=1
         WHERE lab_id IN ('19','20','21')
     """)
-    # Холигч — лаб 15,16 (зуухтай ижил загвар)
+    # Холигч — лаб 15,16: бүлгийн загвар (7 хоногт нэг, олон параметр, параметрийн нэрийг гараар бөглөнө)
     conn.execute("""
         UPDATE devices SET
-            check_group1='Зуухны температур', check_group2=NULL, check_group3=NULL,
-            check_param1='Температур 1', check_standard='850±10 °C', check_tolerance='6 мин - 850 °C',
-            check_param2='Температур 2', check_standard2='900±20 °C', check_tolerance2='3 мин - 900 °C',
+            check_group1=NULL, check_group2=NULL, check_group3=NULL,
+            check_param1=NULL, check_standard=NULL, check_tolerance=NULL,
+            check_param2=NULL, check_standard2=NULL, check_tolerance2=NULL,
             check_param3=NULL, check_standard3=NULL, check_tolerance3=NULL,
             check_param4=NULL, check_standard4=NULL, check_tolerance4=NULL,
-            check_freq='daily', check_enabled=1
+            check_freq='weekly', check_enabled=1
         WHERE lab_id IN ('15','16')
+    """)
+    # Лаб 01-05 аас бусад, одоогоор тохируулаагүй (check_param1 IS NULL) төхөөрөмжүүдэд бүлгийн загвар
+    conn.execute("""
+        UPDATE devices SET check_freq='weekly', check_enabled=1
+        WHERE lab_id IS NOT NULL
+          AND lab_id NOT IN ('01','02','03','04','05')
+          AND (check_param1 IS NULL OR check_param1='')
+          AND check_enabled IS NULL
     """)
     try: conn.execute("ALTER TABLE internal_qc ADD COLUMN qc_number TEXT")
     except: pass
