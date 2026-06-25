@@ -2139,6 +2139,18 @@ def ensure_tables():
         WHERE CAST(lab_id AS TEXT) IN ('15','16','015','016')
            OR LOWER(name) LIKE '%холигч%' OR LOWER(name) LIKE '%mixer%'
     """)
+    # Хөөлтийн зэрэг тодорхойлох багаж — зуухтай ижил
+    conn.execute("""
+        UPDATE devices SET
+            check_group1='Зуухны температур', check_group2=NULL, check_group3=NULL,
+            check_param1='Температур 1', check_standard='850±10 °C', check_tolerance='6 мин - 850 °C',
+            check_param2='Температур 2', check_standard2='900±20 °C', check_tolerance2='3 мин - 900 °C',
+            check_param3=NULL, check_standard3=NULL, check_tolerance3=NULL,
+            check_param4=NULL, check_standard4=NULL, check_tolerance4=NULL,
+            check_param5=NULL, check_standard5=NULL, check_tolerance5=NULL,
+            check_freq=COALESCE(check_freq,'daily'), check_enabled=1, check_group1_cols=4
+        WHERE name LIKE '%Хөөлт%' OR name LIKE '%хөөлт%'
+    """)
     # Калориметр — сарын шалгалт
     conn.execute("""
         UPDATE devices SET
