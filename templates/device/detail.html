@@ -131,7 +131,7 @@
           Дотоод шалгалт — стандарт жин/утгаар өөрсдөө шалгана. (Жилийн нэг удаагийн хэмжил зүйн баталгаажуулалт нь "Баталгаажуулалт" хэсэгт)
         </div>
 
-        {% if device['check_freq'] == 'monthly' %}
+        {% if device['check_freq'] == 'monthly' and ('хүхэр' in device['name']|lower or 'sulfur' in device['name']|lower) %}
         <!-- САРЫН КАЛИБРОВКИЙН ШАЛГАЛТ (хүхрийн багаж) -->
         <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:20px">
           <div style="background:#e8edf3;padding:10px 14px;font-size:13px;font-weight:700;color:var(--navy)">
