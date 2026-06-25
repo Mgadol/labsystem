@@ -2150,6 +2150,9 @@ def ensure_tables():
             check_param5=NULL, check_standard5=NULL, check_tolerance5=NULL,
             check_freq=COALESCE(check_freq,'daily'), check_enabled=1, check_group1_cols=4
         WHERE name LIKE '%Хөөлт%' OR name LIKE '%хөөлт%'
+           OR name LIKE '%Алхан%' OR name LIKE '%алхан%'
+           OR name LIKE '%Аяган%' OR name LIKE '%аяган%'
+           OR name LIKE '%Роторт%' OR name LIKE '%роторт%'
     """)
     # Калориметр — сарын шалгалт
     conn.execute("""
