@@ -131,6 +131,89 @@
           Дотоод шалгалт — стандарт жин/утгаар өөрсдөө шалгана. (Жилийн нэг удаагийн хэмжил зүйн баталгаажуулалт нь "Баталгаажуулалт" хэсэгт)
         </div>
 
+        {% if device['check_freq'] == 'monthly' %}
+        <!-- САРЫН КАЛИБРОВКИЙН ШАЛГАЛТ (хүхрийн багаж) -->
+        <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:20px">
+          <div style="background:#e8edf3;padding:10px 14px;font-size:13px;font-weight:700;color:var(--navy)">
+            📉 Шугман регрессийн калибровкийн шалгалт — сард нэг удаа
+          </div>
+          {% if current_user['role'] != 'guest' %}
+          <form method="POST" action="{{ url_for('device_calib_check_add', did=device['id']) }}" style="padding:14px;background:#f8f9fa;border-bottom:1px solid var(--border)">
+            <div style="display:grid;grid-template-columns:160px 1fr;gap:10px;margin-bottom:12px">
+              <div>
+                <label class="form-label">Огноо</label>
+                <input type="date" name="check_date" class="form-input" value="{{ today }}" required>
+              </div>
+              <div>
+                <label class="form-label">Тэмдэглэл</label>
+                <input type="text" name="notes" class="form-input" placeholder="Сонголттой...">
+              </div>
+            </div>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:12px">
+              <thead>
+                <tr style="background:#e8edf3;font-size:11px;color:var(--text-muted)">
+                  <th style="padding:5px 8px;text-align:left;width:40px">№</th>
+                  <th style="padding:5px 8px;text-align:left">Стандарт утга (x, %)</th>
+                  <th style="padding:5px 8px;text-align:left">Хэмжсэн утга (y, %)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for i in range(1,6) %}
+                <tr>
+                  <td style="padding:4px 8px;font-size:12px;color:var(--text-muted)">{{ i }}</td>
+                  <td style="padding:4px 8px"><input type="number" name="x{{ i }}" class="form-input" step="0.0001" placeholder="0.0000" style="padding:4px 8px;font-size:13px"></td>
+                  <td style="padding:4px 8px"><input type="number" name="y{{ i }}" class="form-input" step="0.0001" placeholder="0.0000" style="padding:4px 8px;font-size:13px"></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+            <button type="submit" class="btn btn-primary btn-sm">💾 Хадгалах &amp; Тооцоолох</button>
+          </form>
+          {% endif %}
+          <!-- Калибровкийн түүх -->
+          {% if calib_checks %}
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr style="background:#f0f3f7;font-size:11px;color:var(--text-muted)">
+                <th style="padding:6px 10px;text-align:left">Огноо</th>
+                <th style="padding:6px 10px;text-align:center">B (налуу)</th>
+                <th style="padding:6px 10px;text-align:center">A (огтлолцол)</th>
+                <th style="padding:6px 10px;text-align:center">R²</th>
+                <th style="padding:6px 10px;text-align:center">Үр дүн</th>
+                <th style="padding:6px 10px;text-align:left">Хийсэн</th>
+                <th style="padding:6px 10px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for cc in calib_checks %}
+              <tr style="border-top:1px solid var(--border);font-size:12px">
+                <td style="padding:6px 10px">{{ cc['check_date'] }}</td>
+                <td style="padding:6px 10px;text-align:center;font-family:monospace">{{ '%.5f'|format(cc['slope_b']) if cc['slope_b'] is not none else '—' }}</td>
+                <td style="padding:6px 10px;text-align:center;font-family:monospace">{{ '%.5f'|format(cc['intercept_a']) if cc['intercept_a'] is not none else '—' }}</td>
+                <td style="padding:6px 10px;text-align:center;font-weight:700;color:{{ 'var(--teal)' if cc['r_squared'] and cc['r_squared']>=0.999 else 'var(--coral)' }}">
+                  {{ '%.4f'|format(cc['r_squared']) if cc['r_squared'] is not none else '—' }}
+                </td>
+                <td style="padding:6px 10px;text-align:center">
+                  {% if cc['result']=='pass' %}<span class="badge badge-active">✓ Тэнцсэн</span>{% else %}<span class="badge" style="background:#faeeda;color:#854f0b">✗ Тэнцээгүй</span>{% endif %}
+                </td>
+                <td style="padding:6px 10px;color:var(--text-muted)">{{ cc['uname'] or '—' }}</td>
+                <td style="padding:6px 10px">
+                  {% if current_user['role'] in ('admin','senior') %}
+                  <form method="POST" action="{{ url_for('device_calib_check_delete', cid=cc['id']) }}" onsubmit="return confirm('Устгах уу?')">
+                    <button type="submit" class="btn btn-danger btn-sm" style="padding:2px 8px;font-size:11px">🗑</button>
+                  </form>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div style="padding:16px;text-align:center;color:var(--text-muted);font-size:13px">Одоогоор бүртгэл байхгүй</div>
+          {% endif %}
+        </div>
+        {% endif %}
+
         <!-- ШАЛГАЛТЫН ТОХИРГОО -->
         {% set p1 = device['check_param1'] %}
         {% set p2 = device['check_param2'] %}
