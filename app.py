@@ -2212,7 +2212,6 @@ def ensure_tables():
 @app.route('/reports')
 @senior_required
 def reports():
-    import calendar as cal_mod
     conn = get_db()
     try:
         lab_records = conn.execute(
@@ -2222,7 +2221,6 @@ def reports():
         ).fetchall()
     except Exception:
         lab_records = []
-    cur_year = datetime.now().year
     SAMPLE_TYPES_MAP = [
         ('PIT','Уурхай'),('STOCKPILE','Овоолго'),('EXPORT','Ачилт'),
         ('CONTROL','Хяналт'),('DP','Баяжуулах'),('EQ_CONTROL','Гадаад хяналт'),
@@ -2231,22 +2229,6 @@ def reports():
         ('mt_dried','Нийт чийг'),('mad','Дотоод чийг'),('aad','Үнслэг'),('vad','Дэгдэмхий'),
         ('sulfur','Хүхэр'),('cal_value','Илчлэг'),('g_coke','G индекс'),('fsi','Чөлөөт хөөлтийн зэрэг'),
     ]
-    sample_chart = {name: [] for _, name in SAMPLE_TYPES_MAP}
-    analysis_chart = {name: [] for _, name in ANALYSIS_FIELDS}
-    for m in range(1, 13):
-        d0 = f"{cur_year}-{m:02d}-01"
-        _, ld = cal_mod.monthrange(cur_year, m)
-        d1 = f"{cur_year}-{m:02d}-{ld:02d}"
-        for code, name in SAMPLE_TYPES_MAP:
-            v = conn.execute(
-                'SELECT COUNT(*) as c FROM geo_samples WHERE sample_type=? AND collected_date BETWEEN ? AND ?',
-                (code, d0, d1)).fetchone()['c']
-            sample_chart[name].append(v)
-        for field, name in ANALYSIS_FIELDS:
-            v = conn.execute(
-                f'SELECT COUNT(*) as c FROM sample_entries WHERE {field} IS NOT NULL AND done_at BETWEEN ? AND ?',
-                (d0 + ' 00:00:00', d1 + ' 23:59:59')).fetchone()['c']
-            analysis_chart[name].append(v)
     iqc_rows = conn.execute("""
         SELECT iq.id, iq.triggered_date, iq.status,
             sr1.lab_number as lab1, g1.sample_name as sname1,
@@ -2263,12 +2245,10 @@ def reports():
     """).fetchall()
     conn.close()
     return render_template('admin/reports.html', lang=session.get('lang','mn'),
-        lab_records=lab_records, sample_chart=sample_chart,
+        lab_records=lab_records,
         sample_types=[name for _, name in SAMPLE_TYPES_MAP],
-        analysis_chart=analysis_chart,
         analysis_types=[name for _, name in ANALYSIS_FIELDS],
-        iqc_rows=iqc_rows,
-        cur_year=cur_year)
+        iqc_rows=iqc_rows)
 
 @app.route('/reports/chart-data')
 @senior_required
