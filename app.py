@@ -430,10 +430,19 @@ def device_detail(did):
         LEFT JOIN users u ON u.id=ch.checked_by
         WHERE ch.device_id=? ORDER BY ch.check_date DESC, ch.id DESC LIMIT 60
     """, (did,)).fetchall()]
+    calib_checks = []
+    try:
+        calib_checks = [dict(r) for r in conn.execute("""
+            SELECT cc.*, u.name as uname FROM device_calib_checks cc
+            LEFT JOIN users u ON u.id=cc.checked_by
+            WHERE cc.device_id=? ORDER BY cc.check_date DESC LIMIT 24
+        """, (did,)).fetchall()]
+    except Exception: pass
     conn.close()
     return render_template('device/detail.html',
         device=device, calibrations=cals, repairs=reps,
         usage_logs=logs, active_log=active, checks=checks,
+        calib_checks=calib_checks,
         monthly_hours=round(mhours,2),
         analysis_usage=analysis_usage,
         lang=lang, today=date.today().isoformat())
@@ -801,6 +810,66 @@ def device_check_delete(cid):
     row = conn.execute("SELECT device_id FROM device_checks WHERE id=?", (cid,)).fetchone()
     did = row['device_id'] if row else None
     conn.execute("DELETE FROM device_checks WHERE id=?", (cid,))
+    conn.commit(); conn.close()
+    if did:
+        return redirect(url_for('device_detail', did=did) + '#tab-check')
+    return redirect(url_for('devices'))
+
+@app.route('/devices/<int:did>/calib-check', methods=['POST'])
+@lab_required
+def device_calib_check_add(did):
+    lang = session.get('lang','mn')
+    conn = get_db()
+    check_date = request.form.get('check_date') or date.today().isoformat()
+    notes = request.form.get('notes') or None
+    pairs = []
+    for i in range(1, 6):
+        xs = request.form.get(f'x{i}','').strip()
+        ys = request.form.get(f'y{i}','').strip()
+        if xs and ys:
+            try: pairs.append((float(xs), float(ys)))
+            except ValueError: pass
+    result = 'fail'
+    slope_b = intercept_a = r_squared = None
+    if len(pairs) >= 2:
+        n = len(pairs)
+        sx  = sum(p[0] for p in pairs)
+        sy  = sum(p[1] for p in pairs)
+        sxy = sum(p[0]*p[1] for p in pairs)
+        sx2 = sum(p[0]**2 for p in pairs)
+        sy2 = sum(p[1]**2 for p in pairs)
+        denom = n*sx2 - sx**2
+        if denom != 0:
+            slope_b = (n*sxy - sx*sy) / denom
+            intercept_a = (sy - slope_b*sx) / n
+            r_num = (n*sxy - sx*sy)**2
+            r_den = denom * (n*sy2 - sy**2)
+            r_squared = r_num/r_den if r_den != 0 else None
+            if r_squared is not None and r_squared >= 0.999:
+                result = 'pass'
+    xs = [p[0] for p in pairs] + [None]*(5-len(pairs))
+    ys = [p[1] for p in pairs] + [None]*(5-len(pairs))
+    try: conn.execute("ALTER TABLE device_calib_checks ADD COLUMN x1 REAL")
+    except Exception: pass
+    conn.execute("""
+        INSERT INTO device_calib_checks
+        (device_id,checked_by,check_date,x1,y1,x2,y2,x3,y3,x4,y4,x5,y5,
+         slope_b,intercept_a,r_squared,result,notes)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    """, (did, session.get('user_id',0), check_date,
+          xs[0],ys[0], xs[1],ys[1], xs[2],ys[2], xs[3],ys[3], xs[4],ys[4],
+          slope_b, intercept_a, r_squared, result, notes))
+    conn.commit(); conn.close()
+    flash('Калибровкийн шалгалт бүртгэгдлээ!', 'success')
+    return redirect(url_for('device_detail', did=did) + '#tab-check')
+
+@app.route('/devices/calib-check/<int:cid>/delete', methods=['POST'])
+@senior_required
+def device_calib_check_delete(cid):
+    conn = get_db()
+    row = conn.execute("SELECT device_id FROM device_calib_checks WHERE id=?", (cid,)).fetchone()
+    did = row['device_id'] if row else None
+    conn.execute("DELETE FROM device_calib_checks WHERE id=?", (cid,))
     conn.commit(); conn.close()
     if did:
         return redirect(url_for('device_detail', did=did) + '#tab-check')
@@ -1875,6 +1944,26 @@ def ensure_tables():
         )
     """)
     except Exception: pass
+    try: conn.execute("""
+        CREATE TABLE IF NOT EXISTS device_calib_checks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id INTEGER NOT NULL REFERENCES devices(id),
+            checked_by INTEGER REFERENCES users(id),
+            check_date TEXT NOT NULL,
+            x1 REAL, y1 REAL,
+            x2 REAL, y2 REAL,
+            x3 REAL, y3 REAL,
+            x4 REAL, y4 REAL,
+            x5 REAL, y5 REAL,
+            slope_b REAL,
+            intercept_a REAL,
+            r_squared REAL,
+            result TEXT DEFAULT 'pass',
+            notes TEXT,
+            created_at TEXT DEFAULT (datetime('now','localtime'))
+        )
+    """)
+    except Exception: pass
     # Лаб 01-05: жингийн босоо загвар тэмдэглэх (check_group1_cols=0)
     conn.execute("""
         UPDATE devices SET check_group1_cols=0
@@ -1944,6 +2033,16 @@ def ensure_tables():
             check_freq=COALESCE(check_freq,'daily'), check_enabled=1, check_group1_cols=4
         WHERE CAST(lab_id AS TEXT) IN ('15','16','015','016')
            OR LOWER(name) LIKE '%холигч%' OR LOWER(name) LIKE '%mixer%'
+    """)
+    # Хүхрийн багаж — сарын калибровкийн шалгалт
+    conn.execute("""
+        UPDATE devices SET
+            check_freq=COALESCE(NULLIF(check_freq,'daily'),'monthly'),
+            check_enabled=1,
+            check_param1=NULL, check_standard=NULL, check_tolerance=NULL,
+            check_param2=NULL, check_standard2=NULL, check_tolerance2=NULL,
+            check_group1='Шугман регрессийн калибровк'
+        WHERE LOWER(name) LIKE '%хүхэр%' OR LOWER(name) LIKE '%sulfur%'
     """)
     # Буруу орсон check_param5='5' утгыг цэвэрлэнэ
     conn.execute("UPDATE devices SET check_param5=NULL, check_standard5=NULL, check_tolerance5=NULL WHERE check_param5='5'")
