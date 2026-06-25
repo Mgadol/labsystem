@@ -266,6 +266,7 @@ function switchTab(t) {
   document.getElementById('tab-device').classList.toggle('active', t==='device');
   document.getElementById('tab-lab').classList.toggle('active', t==='lab');
   document.getElementById('tab-iqc').classList.toggle('active', t==='iqc');
+  if (t === 'lab') { sampleChart.resize(); analysisChart.resize(); fetchChartData(); }
 }
 
 // ── Төхөөрөмжийн тайлан ──────────────────────────────
@@ -321,6 +322,7 @@ function setLabType(t) {
   document.getElementById('lrow-half').style.display  = (t==='half')  ? 'block' : 'none';
   updateChartLabel();
   filterRecords(t);
+  fetchChartData();
 }
 function filterRecords(t) {
   var y = document.getElementById('l-year').value;
