@@ -214,6 +214,116 @@
         </div>
         {% endif %}
 
+        {% if 'калориметр' in device['name']|lower %}
+        <!-- КАЛОРИМЕТРИЙН САРЫН ШАЛГАЛТ -->
+        <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:20px">
+          <div style="background:#e8edf3;padding:10px 14px;font-size:13px;font-weight:700;color:var(--navy)">
+            🔥 Калориметрийн шалгалт — сард нэг удаа (Бензойн хүчил)
+          </div>
+          {% if current_user['role'] != 'guest' %}
+          <form method="POST" action="{{ url_for('device_calorimeter_check_add', did=device['id']) }}" style="padding:14px;background:#f8f9fa;border-bottom:1px solid var(--border)">
+            <div style="display:grid;grid-template-columns:150px 120px 1fr 1fr;gap:10px;margin-bottom:12px;align-items:end">
+              <div>
+                <label class="form-label">Огноо</label>
+                <input type="date" name="check_date" class="form-input" value="{{ today }}" required>
+              </div>
+              <div>
+                <label class="form-label">Бомб №</label>
+                <input type="text" name="bomb_no" class="form-input" placeholder="1, 2...">
+              </div>
+              <div>
+                <label class="form-label">Хуучин дулаан багтаамж (МЖ/кг)</label>
+                <input type="number" name="old_ee" class="form-input" step="0.0001" placeholder="Жишээ: 10.4521">
+              </div>
+              <div>
+                <label class="form-label">Шинэ дулаан багтаамж (МЖ/кг)</label>
+                <input type="number" name="new_ee" class="form-input" step="0.0001" placeholder="Жишээ: 10.4560">
+              </div>
+            </div>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:12px">
+              <thead>
+                <tr style="background:#e8edf3;font-size:11px;color:var(--text-muted)">
+                  <th style="padding:5px 8px;text-align:left;width:40px">№</th>
+                  <th style="padding:5px 8px;text-align:left">Масс (гр)</th>
+                  <th style="padding:5px 8px;text-align:left">Илчлэгийн утга (МЖ/кг)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for i in range(1,8) %}
+                <tr>
+                  <td style="padding:4px 8px;font-size:12px;color:var(--text-muted)">{{ i }}</td>
+                  <td style="padding:4px 8px"><input type="number" name="mass{{ i }}" class="form-input" step="0.0001" placeholder="0.0000" style="padding:4px 8px;font-size:13px"></td>
+                  <td style="padding:4px 8px"><input type="number" name="cv{{ i }}" class="form-input" step="0.0001" placeholder="0.0000" style="padding:4px 8px;font-size:13px"></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;padding:8px;background:#fff3cd;border-radius:4px">
+              ⚠️ <b>Зөвшөөрөгдөх хэмжээ:</b> CV % хүрээ ≤ 0.5% → тэнцсэн &nbsp;|&nbsp; EE өөрчлөлт ≥ 0.2% → анхааруулга
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 120px;gap:10px;align-items:end">
+              <div>
+                <label class="form-label">Тэмдэглэл</label>
+                <input type="text" name="notes" class="form-input" placeholder="Сонголттой...">
+              </div>
+              <button type="submit" class="btn btn-primary btn-sm">💾 Хадгалах</button>
+            </div>
+          </form>
+          {% endif %}
+          {% if cal_checks %}
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="background:#f0f3f7;font-size:11px;color:var(--text-muted)">
+                <th style="padding:6px 8px;text-align:left">Огноо</th>
+                <th style="padding:6px 8px;text-align:left">Бомб №</th>
+                <th style="padding:6px 8px;text-align:center">n</th>
+                <th style="padding:6px 8px;text-align:center">CV дундаж</th>
+                <th style="padding:6px 8px;text-align:center">CV хүрээ</th>
+                <th style="padding:6px 8px;text-align:center">% хүрээ</th>
+                <th style="padding:6px 8px;text-align:center">% RSD</th>
+                <th style="padding:6px 8px;text-align:center">EE%</th>
+                <th style="padding:6px 8px;text-align:center">Үр дүн</th>
+                <th style="padding:6px 8px;text-align:left">Хийсэн</th>
+                <th style="padding:6px 8px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for cc in cal_checks %}
+              <tr style="border-top:1px solid var(--border)">
+                <td style="padding:6px 8px">{{ cc['check_date'] }}</td>
+                <td style="padding:6px 8px">{{ cc['bomb_no'] or '—' }}</td>
+                <td style="padding:6px 8px;text-align:center">{{ cc['n_samples'] or '—' }}</td>
+                <td style="padding:6px 8px;text-align:center;font-family:monospace">{{ '%.4f'|format(cc['cv_avg']) if cc['cv_avg'] is not none else '—' }}</td>
+                <td style="padding:6px 8px;text-align:center;font-family:monospace">{{ '%.4f'|format(cc['cv_range']) if cc['cv_range'] is not none else '—' }}</td>
+                <td style="padding:6px 8px;text-align:center;font-weight:700;color:{{ 'var(--teal)' if cc['cv_range_pct'] is not none and cc['cv_range_pct']<=0.5 else 'var(--coral)' }}">
+                  {{ '%.3f'|format(cc['cv_range_pct'])+'%' if cc['cv_range_pct'] is not none else '—' }}
+                </td>
+                <td style="padding:6px 8px;text-align:center;font-family:monospace">{{ '%.3f'|format(cc['cv_rsd'])+'%' if cc['cv_rsd'] is not none else '—' }}</td>
+                <td style="padding:6px 8px;text-align:center;color:{{ 'var(--coral)' if cc['ee_warning'] else 'inherit' }}">
+                  {{ '%.3f'|format(cc['ee_change_pct'])+'%' if cc['ee_change_pct'] is not none else '—' }}
+                  {% if cc['ee_warning'] %} ⚠️{% endif %}
+                </td>
+                <td style="padding:6px 8px;text-align:center">
+                  {% if cc['result']=='pass' %}<span class="badge badge-active">✓</span>{% else %}<span class="badge" style="background:#faeeda;color:#854f0b">✗</span>{% endif %}
+                </td>
+                <td style="padding:6px 8px;color:var(--text-muted)">{{ cc['uname'] or '—' }}</td>
+                <td style="padding:6px 8px">
+                  {% if current_user['role'] in ('admin','senior') %}
+                  <form method="POST" action="{{ url_for('device_calorimeter_check_delete', cid=cc['id']) }}" onsubmit="return confirm('Устгах уу?')">
+                    <button type="submit" class="btn btn-danger btn-sm" style="padding:2px 8px;font-size:11px">🗑</button>
+                  </form>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div style="padding:16px;text-align:center;color:var(--text-muted);font-size:13px">Одоогоор бүртгэл байхгүй</div>
+          {% endif %}
+        </div>
+        {% endif %}
+
         <!-- ШАЛГАЛТЫН ТОХИРГОО -->
         {% set p1 = device['check_param1'] %}
         {% set p2 = device['check_param2'] %}

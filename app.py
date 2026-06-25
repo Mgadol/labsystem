@@ -438,11 +438,19 @@ def device_detail(did):
             WHERE cc.device_id=? ORDER BY cc.check_date DESC LIMIT 24
         """, (did,)).fetchall()]
     except Exception: pass
+    cal_checks = []
+    try:
+        cal_checks = [dict(r) for r in conn.execute("""
+            SELECT cc.*, u.name as uname FROM device_calorimeter_checks cc
+            LEFT JOIN users u ON u.id=cc.checked_by
+            WHERE cc.device_id=? ORDER BY cc.check_date DESC LIMIT 24
+        """, (did,)).fetchall()]
+    except Exception: pass
     conn.close()
     return render_template('device/detail.html',
         device=device, calibrations=cals, repairs=reps,
         usage_logs=logs, active_log=active, checks=checks,
-        calib_checks=calib_checks,
+        calib_checks=calib_checks, cal_checks=cal_checks,
         monthly_hours=round(mhours,2),
         analysis_usage=analysis_usage,
         lang=lang, today=date.today().isoformat())
@@ -849,6 +857,35 @@ def device_calib_check_add(did):
                 result = 'pass'
     xs = [p[0] for p in pairs] + [None]*(5-len(pairs))
     ys = [p[1] for p in pairs] + [None]*(5-len(pairs))
+    try: conn.execute("""
+        CREATE TABLE IF NOT EXISTS device_calorimeter_checks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id INTEGER NOT NULL REFERENCES devices(id),
+            checked_by INTEGER REFERENCES users(id),
+            check_date TEXT NOT NULL,
+            bomb_no TEXT,
+            old_ee REAL,
+            new_ee REAL,
+            ee_change_pct REAL,
+            mass1 REAL, cv1 REAL,
+            mass2 REAL, cv2 REAL,
+            mass3 REAL, cv3 REAL,
+            mass4 REAL, cv4 REAL,
+            mass5 REAL, cv5 REAL,
+            mass6 REAL, cv6 REAL,
+            mass7 REAL, cv7 REAL,
+            cv_avg REAL,
+            cv_range REAL,
+            cv_range_pct REAL,
+            cv_rsd REAL,
+            n_samples INTEGER,
+            result TEXT DEFAULT 'pass',
+            ee_warning INTEGER DEFAULT 0,
+            notes TEXT,
+            created_at TEXT DEFAULT (datetime('now','localtime'))
+        )
+    """)
+    except Exception: pass
     try: conn.execute("ALTER TABLE device_calib_checks ADD COLUMN x1 REAL")
     except Exception: pass
     conn.execute("""
@@ -870,6 +907,74 @@ def device_calib_check_delete(cid):
     row = conn.execute("SELECT device_id FROM device_calib_checks WHERE id=?", (cid,)).fetchone()
     did = row['device_id'] if row else None
     conn.execute("DELETE FROM device_calib_checks WHERE id=?", (cid,))
+    conn.commit(); conn.close()
+    if did:
+        return redirect(url_for('device_detail', did=did) + '#tab-check')
+    return redirect(url_for('devices'))
+
+@app.route('/devices/<int:did>/calorimeter-check', methods=['POST'])
+@lab_required
+def device_calorimeter_check_add(did):
+    import math
+    conn = get_db()
+    check_date = request.form.get('check_date') or date.today().isoformat()
+    bomb_no    = request.form.get('bomb_no') or None
+    notes      = request.form.get('notes') or None
+    old_ee = request.form.get('old_ee') or None
+    new_ee = request.form.get('new_ee') or None
+    try: old_ee = float(old_ee)
+    except: old_ee = None
+    try: new_ee = float(new_ee)
+    except: new_ee = None
+    ee_change_pct = None
+    ee_warning = 0
+    if old_ee and new_ee and old_ee != 0:
+        ee_change_pct = abs(new_ee - old_ee) / old_ee * 100
+        if ee_change_pct >= 0.2:
+            ee_warning = 1
+    masses, cvs = [], []
+    for i in range(1, 8):
+        ms = request.form.get(f'mass{i}','').strip()
+        cs = request.form.get(f'cv{i}','').strip()
+        if ms and cs:
+            try:
+                masses.append(float(ms))
+                cvs.append(float(cs))
+            except ValueError: pass
+    cv_avg = cv_range = cv_range_pct = cv_rsd = None
+    result = 'fail'
+    n = len(cvs)
+    if n >= 2:
+        cv_avg = sum(cvs) / n
+        cv_range = max(cvs) - min(cvs)
+        cv_range_pct = cv_range / cv_avg * 100 if cv_avg else None
+        variance = sum((v - cv_avg)**2 for v in cvs) / (n - 1)
+        cv_rsd = math.sqrt(variance) / cv_avg * 100 if cv_avg else None
+        if cv_range_pct is not None and cv_range_pct <= 0.5:
+            result = 'pass'
+    def _f(lst, i): return lst[i] if i < len(lst) else None
+    conn.execute("""
+        INSERT INTO device_calorimeter_checks
+        (device_id,checked_by,check_date,bomb_no,old_ee,new_ee,ee_change_pct,
+         mass1,cv1,mass2,cv2,mass3,cv3,mass4,cv4,mass5,cv5,mass6,cv6,mass7,cv7,
+         cv_avg,cv_range,cv_range_pct,cv_rsd,n_samples,result,ee_warning,notes)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    """, (did, session.get('user_id',0), check_date, bomb_no, old_ee, new_ee, ee_change_pct,
+          _f(masses,0),_f(cvs,0), _f(masses,1),_f(cvs,1), _f(masses,2),_f(cvs,2),
+          _f(masses,3),_f(cvs,3), _f(masses,4),_f(cvs,4), _f(masses,5),_f(cvs,5),
+          _f(masses,6),_f(cvs,6),
+          cv_avg, cv_range, cv_range_pct, cv_rsd, n, result, ee_warning, notes))
+    conn.commit(); conn.close()
+    flash('Калориметрийн шалгалт бүртгэгдлээ!', 'success')
+    return redirect(url_for('device_detail', did=did) + '#tab-check')
+
+@app.route('/devices/calorimeter-check/<int:cid>/delete', methods=['POST'])
+@senior_required
+def device_calorimeter_check_delete(cid):
+    conn = get_db()
+    row = conn.execute("SELECT device_id FROM device_calorimeter_checks WHERE id=?", (cid,)).fetchone()
+    did = row['device_id'] if row else None
+    conn.execute("DELETE FROM device_calorimeter_checks WHERE id=?", (cid,))
     conn.commit(); conn.close()
     if did:
         return redirect(url_for('device_detail', did=did) + '#tab-check')
@@ -2033,6 +2138,16 @@ def ensure_tables():
             check_freq=COALESCE(check_freq,'daily'), check_enabled=1, check_group1_cols=4
         WHERE CAST(lab_id AS TEXT) IN ('15','16','015','016')
            OR LOWER(name) LIKE '%холигч%' OR LOWER(name) LIKE '%mixer%'
+    """)
+    # Калориметр — сарын шалгалт
+    conn.execute("""
+        UPDATE devices SET
+            check_freq=COALESCE(NULLIF(check_freq,'daily'),'monthly'),
+            check_enabled=1,
+            check_param1=NULL, check_standard=NULL, check_tolerance=NULL,
+            check_param2=NULL, check_standard2=NULL, check_tolerance2=NULL,
+            check_group1='Калориметрийн шалгалт'
+        WHERE LOWER(name) LIKE '%калориметр%'
     """)
     # Хүхрийн багаж — сарын калибровкийн шалгалт
     conn.execute("""
