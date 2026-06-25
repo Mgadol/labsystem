@@ -117,7 +117,7 @@
       <th class="cg-st">Нийт хүхэр</th>
       <th colspan="2" class="cg-il">Илчлэгийн утга</th>
       <th class="cg-fsi">Чөлөөт<br>хөөлт</th>
-      <th colspan="4">Тооцоо</th>
+      <th colspan="8">Тооцоо</th>
     </tr>
     <tr class="h2">
       <th class="cg-ff gs">Дээжний масс<br>[гр]</th><th class="cg-ff ge">Хатаасан масс<br>[гр]</th>
@@ -129,7 +129,7 @@
       <th class="cg-st gs ge">Sad [%]</th>
       <th class="cg-il gs">Qb,ad [J/g]</th><th class="cg-il ge">Өрөө ⁰C</th>
       <th class="cg-fsi gs ge">CSN</th>
-      <th class="gs">Mad%</th><th>Aad%</th><th>Vad%</th><th>FCad%</th>
+      <th class="gs">TM%</th><th>Mad%</th><th>Aad%</th><th>Vad%</th><th>FCad%</th><th>G</th><th>Sad%</th><th>Qb,ad</th>
     </tr>
   </thead>
   <tbody id="tbody">
@@ -196,14 +196,18 @@
     <td class="cg-gi"><input type="number" step="0.0001" data-field="g_coke" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
     <td class="cg-gi"><input type="number" step="0.0001" data-field="g_sieve1" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
     <td class="cg-gi ge"><input type="number" step="0.0001" data-field="g_sieve2" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-st gs ge"><input type="number" step="0.001" data-field="sulfur" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
-    <td class="cg-il gs"><input type="number" step="0.01" data-field="cal_value" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-st gs ge"><input type="number" step="0.001" data-field="sulfur" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-il gs"><input type="number" step="0.01" data-field="cal_value" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
     <td class="cg-il ge"><input type="number" step="0.1" data-field="cal_temp" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
     <td class="cg-fsi gs ge"><input type="number" step="0.5" data-field="fsi" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
-    <td class="calc-cell gs" id="r{{ uid }}_mad">—</td>
+    <td class="calc-cell gs" id="r{{ uid }}_tm">—</td>
+    <td class="calc-cell" id="r{{ uid }}_mad">—</td>
     <td class="calc-cell" id="r{{ uid }}_aad">—</td>
     <td class="calc-cell" id="r{{ uid }}_vad">—</td>
     <td class="calc-cell" id="r{{ uid }}_fc">—</td>
+    <td class="calc-cell" id="r{{ uid }}_g">—</td>
+    <td class="calc-cell" id="r{{ uid }}_sad">—</td>
+    <td class="calc-cell" id="r{{ uid }}_qb">—</td>
   </tr>
   <!-- Зэрэгцээ мөр -->
   <tr class="dup-row" id="dr{{ uid }}">
@@ -232,14 +236,18 @@
     <td class="cg-gi"><input type="number" step="0.0001" data-field="g_coke" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
     <td class="cg-gi"><input type="number" step="0.0001" data-field="g_sieve1" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
     <td class="cg-gi ge"><input type="number" step="0.0001" data-field="g_sieve2" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-st gs ge"><input type="number" step="0.001" data-field="sulfur" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
-    <td class="cg-il gs"><input type="number" step="0.01" data-field="cal_value" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-st gs ge"><input type="number" step="0.001" data-field="sulfur" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-il gs"><input type="number" step="0.01" data-field="cal_value" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
     <td class="cg-il ge"></td>
     <td class="cg-fsi gs ge"><input type="number" step="0.5" data-field="fsi" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
-    <td class="calc-cell gs" id="r{{ uid }}d_mad">—</td>
+    <td class="calc-cell gs" id="r{{ uid }}d_tm">—</td>
+    <td class="calc-cell" id="r{{ uid }}d_mad">—</td>
     <td class="calc-cell" id="r{{ uid }}d_aad">—</td>
     <td class="calc-cell" id="r{{ uid }}d_vad">—</td>
     <td class="calc-cell" id="r{{ uid }}d_fc">—</td>
+    <td class="calc-cell" id="r{{ uid }}d_g">—</td>
+    <td class="calc-cell" id="r{{ uid }}d_sad">—</td>
+    <td class="calc-cell" id="r{{ uid }}d_qb">—</td>
   </tr>
   {% endif %}
   {% endfor %}
@@ -375,15 +383,29 @@ function gvr(rid,row,dup,field){
 }
 function calc(uid,dup,rid,ri){
   var id=dup?uid+'d':uid+'';
+  // TM (чөлөөт чийг)
+  var ffs=gvr(rid,ri,dup,'ff_sample'),ffd=gvr(rid,ri,dup,'ff_dried');
+  var tm=(ffs&&ffs>0&&ffd!=null)?(ffs-ffd)/ffs*100:null;
+  // Mad
   var t=gvr(rid,ri,dup,'dc_tare'),s=gvr(rid,ri,dup,'dc_sample'),d=gvr(rid,ri,dup,'dc_dried');
   var mad=(t!=null&&s&&s>0&&d!=null)?(t+s-d)/s*100:null;
+  // Aad
   var pt=gvr(rid,ri,dup,'ash_tare'),ps=gvr(rid,ri,dup,'ash_sample'),pb=gvr(rid,ri,dup,'ash_burned');
   var aad=(pt!=null&&ps&&ps>0&&pb!=null)?(pb-pt)/ps*100:null;
+  // Vad
   var vt=gvr(rid,ri,dup,'vol_tare'),vs=gvr(rid,ri,dup,'vol_sample'),vb=gvr(rid,ri,dup,'vol_burned');
   var vad=(vt!=null&&vs&&vs>0&&vb!=null&&mad!=null)?(vt+vs-vb)/vs*100-mad:null;
   var fc=(mad!=null&&aad!=null&&vad!=null)?100-mad-aad-vad:null;
+  // G-index
+  var gt=gvr(rid,ri,dup,'g_tare'),gc=gvr(rid,ri,dup,'g_coke'),gs1=gvr(rid,ri,dup,'g_sieve1'),gs2=gvr(rid,ri,dup,'g_sieve2');
+  var g=(gt!=null&&gc!=null&&gs1!=null&&gs2!=null&&(gc-gt)>0)?(gs1+gs2)/(gc-gt)*100:null;
+  // Sad, Qb (direct inputs → reflect to calc cells)
+  var sad=gvr(rid,ri,dup,'sulfur');
+  var qb=gvr(rid,ri,dup,'cal_value');
+  setC('r'+id+'_tm',tm,2);
   setC('r'+id+'_mad',mad,4);setC('r'+id+'_aad',aad,4);
   setC('r'+id+'_vad',vad,4);setC('r'+id+'_fc',fc,4);
+  setC('r'+id+'_g',g,1);setC('r'+id+'_sad',sad,3);setC('r'+id+'_qb',qb,0);
   if(dup) checkQC(uid,rid,ri);
   if(mad!=null||aad!=null)
     fetch('/analysis/autosave/calc',{method:'POST',headers:{'Content-Type':'application/json'},
