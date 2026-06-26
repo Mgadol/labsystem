@@ -663,27 +663,38 @@ function loadDeviceMap(){
     var mapping = data.mapping;
     var html = '';
     ANALYSIS_TYPES.forEach(function(at){
-      var sel = '<select class="form-input" style="font-size:12px;padding:4px 8px" onchange="saveDeviceMap(&quot;'+at.key+'&quot;,this.value)">';
-      sel += '<option value="">— тоног сонгоогүй —</option>';
-      devices.forEach(function(d){
-        var selected = mapping[at.key] == d.id ? 'selected' : '';
-        sel += '<option value="'+d.id+'" '+selected+'>'+d.name+'</option>';
-      });
-      sel += '</select>';
-      html += '<tr><td style="font-weight:500">'+at.name+'</td><td>'+sel+'</td><td style="color:var(--teal);font-size:12px" id="dmap_'+at.key+'"></td></tr>';
+      var mapped = mapping[at.key] || [];
+      var boxes = '';
+      if(devices.length === 0){
+        boxes = '<span style="color:var(--text-muted);font-size:12px">Идэвхтэй тоног байхгүй</span>';
+      } else {
+        devices.forEach(function(d){
+          var chk = mapped.indexOf(d.id) >= 0 ? 'checked' : '';
+          boxes += '<label style="display:flex;align-items:center;gap:6px;margin-bottom:4px;cursor:pointer;font-size:13px">';
+          boxes += '<input type="checkbox" value="'+d.id+'" '+chk+' onchange="saveDeviceMap(&quot;'+at.key+'&quot;)">';
+          boxes += d.name+'</label>';
+        });
+      }
+      html += '<tr>';
+      html += '<td style="font-weight:500;vertical-align:top;padding-top:8px">'+at.name+'</td>';
+      html += '<td>'+boxes+'</td>';
+      html += '<td style="color:var(--teal);font-size:12px;vertical-align:top;padding-top:8px" id="dmap_'+at.key+'"></td>';
+      html += '</tr>';
     });
     document.getElementById('deviceMapBody').innerHTML = html;
   });
 }
 
-function saveDeviceMap(analysisType, deviceId){
+function saveDeviceMap(analysisType){
+  var row = document.getElementById('dmap_'+analysisType).closest('tr');
+  var checked = row.querySelectorAll('input[type=checkbox]:checked');
   var fd = new FormData();
   fd.append('analysis_type', analysisType);
-  fd.append('device_id', deviceId);
+  checked.forEach(function(cb){ fd.append('device_ids[]', cb.value); });
   fetch('/analysis/device-map', {method:'POST', body:fd})
     .then(r=>r.json()).then(function(d){
       var el = document.getElementById('dmap_'+analysisType);
-      if(el) { el.textContent = '✅ Хадгалагдлаа'; setTimeout(function(){ el.textContent=''; }, 2000); }
+      if(el){ el.textContent = '✅ Хадгалагдлаа'; setTimeout(function(){ el.textContent=''; }, 2000); }
     });
 }
 

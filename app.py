@@ -3655,20 +3655,21 @@ def device_map():
     conn = get_db()
     if request.method == 'POST':
         analysis_type = request.form.get('analysis_type')
-        device_id = request.form.get('device_id')
-        # Хуучин устгаад шинэ нэмэх
+        device_ids = request.form.getlist('device_ids[]')
         conn.execute("DELETE FROM analysis_device_map WHERE analysis_type=?", (analysis_type,))
-        if device_id:
-            conn.execute("""INSERT INTO analysis_device_map(analysis_type, device_id, updated_by, updated_at)
-                           VALUES(?,?,?,?)""",
-                        (analysis_type, device_id, session['user_id'], datetime.now().isoformat()))
+        for did in device_ids:
+            if did:
+                conn.execute("""INSERT INTO analysis_device_map(analysis_type, device_id, is_active, updated_by, updated_at)
+                               VALUES(?,?,1,?,?)""",
+                            (analysis_type, did, session['user_id'], datetime.now().isoformat()))
         conn.commit()
         conn.close()
         return jsonify({'ok': True})
-    
+
     devices = conn.execute("SELECT * FROM devices WHERE status='active' AND (stage='analysis' OR stage='both' OR stage IS NULL) ORDER BY name").fetchall()
-    mapping = {r['analysis_type']: r['device_id'] for r in
-               conn.execute("SELECT * FROM analysis_device_map WHERE is_active=1").fetchall()}
+    mapping = {}
+    for r in conn.execute("SELECT * FROM analysis_device_map WHERE is_active=1").fetchall():
+        mapping.setdefault(r['analysis_type'], []).append(r['device_id'])
     conn.close()
     return jsonify({'devices': [dict(d) for d in devices], 'mapping': mapping})
 
