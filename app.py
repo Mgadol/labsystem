@@ -2333,7 +2333,9 @@ def reports_chart_data():
     sample_totals = []
     for code, name in SAMPLE_TYPES_MAP:
         v = conn.execute(
-            'SELECT COUNT(*) FROM geo_samples WHERE sample_type=? AND collected_date BETWEEN ? AND ? AND status != \'deleted\'',
+            '''SELECT COUNT(*) FROM geo_samples g
+               JOIN sample_receipt sr ON sr.geo_sample_id=g.id
+               WHERE g.sample_type=? AND sr.received_date BETWEEN ? AND ?''',
             (code, d0s, d1s)).fetchone()[0]
         sample_totals.append(v)
     analysis_totals = []
