@@ -339,7 +339,7 @@ function filterRecords(t) {
 }
 function exportLab() {
   var y = document.getElementById('l-year').value;
-  var url = '/lab-reports/export?type='+labType+'&year='+y;
+  var url = '/reports/export?type='+labType+'&year='+y;
   if (labType==='week')  url += '&week='+document.getElementById('l-week').value;
   if (labType==='month') url += '&month='+document.getElementById('l-month').value;
   if (labType==='half')  url += '&half='+document.getElementById('l-half').value;

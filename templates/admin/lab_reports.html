@@ -172,7 +172,7 @@ function setType(t) {
 
 function doExport() {
   var y   = document.getElementById('year').value;
-  var url = '/lab-reports/export?type=' + currentType + '&year=' + y;
+  var url = '/reports/export?type=' + currentType + '&year=' + y;
   if (currentType === 'week')       url += '&week='  + document.getElementById('week').value;
   else if (currentType === 'month') url += '&month=' + document.getElementById('month').value;
   else if (currentType === 'half')  url += '&half='  + document.getElementById('half').value;
