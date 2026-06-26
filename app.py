@@ -2471,7 +2471,10 @@ def report_export():
     title(ws5,'ДОТООД ШАЛГАЛТЫН БҮРТГЭЛ',8)
     for ci,h in enumerate(['№','Огноо','Төхөөрөмж','Стандарт','Хэмжсэн','Зөрүү зөвшөөрөл','Үр дүн','Тохируулга'],1):
         hdr(ws5,2,ci,h,bg='2D6A4F')
-    wch = f"strftime('%Y-%m',ch.check_date) IN ({ym_list})"
+    if date_filter_mode == 'range':
+        wch = f"ch.check_date BETWEEN '{date_start}' AND '{date_end}'"
+    else:
+        wch = f"strftime('%Y-%m',ch.check_date) IN ({ym_list})"
     chks=conn.execute(f'''SELECT ch.*,d.name as dname,u.name as uname
         FROM device_checks ch
         LEFT JOIN devices d ON d.id=ch.device_id
