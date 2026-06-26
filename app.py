@@ -2868,7 +2868,9 @@ def analysis():
             WHERE g.status='done' AND sr.lab_serial BETWEEN 6000 AND 6999
             ORDER BY sr.lab_serial DESC LIMIT 100
         """).fetchall()
-        return render_template('analysis/index.html', samples=samples, lang=session.get('lang','mn'))
+        conn.close()
+        return render_template('analysis/index.html', samples=samples, lang=session.get('lang','mn'),
+            today=datetime.now().strftime('%Y-%m-%d'), prep_devices=[], pending_qc=[])
     if role == 'geologist':
         samples = conn.execute("""
             SELECT g.*, u.name as reg_name,
