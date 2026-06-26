@@ -2382,6 +2382,9 @@ def reports_chart_data():
 @app.route('/reports/export')
 @perm_required('can_report')
 def report_export():
+    if session.get('role') == 'guest':
+        flash('Зочин горимд Excel татах боломжгүй.', 'error')
+        return redirect(url_for('reports'))
     import datetime as dt_mod
     rtype   = request.args.get('type', 'month')
     year    = int(request.args.get('year', datetime.now().year))
