@@ -113,7 +113,9 @@ textarea.form-input{resize:vertical;min-height:80px}
       <a href="{{ url_for('staff_list') }}" class="{% if 'staff' in request.endpoint %}active{% endif %}">Ажилтан</a>
       <a href="{{ url_for('analysis') }}" class="{% if 'analysis' in request.endpoint and 'internal_qc' not in request.endpoint %}active{% endif %}">Шинжилгээ</a>
       <a href="{{ url_for('devices') }}" class="{% if 'device' in request.endpoint %}active{% endif %}">Төхөөрөмж</a>
+      {% if current_user and (current_user['role'] in ('admin','senior') or current_user['can_report']) %}
       <a href="{{ url_for('reports') }}" class="{% if 'report' in request.endpoint or 'lab_report' in request.endpoint %}active{% endif %}">Тайлан</a>
+      {% endif %}
       <a href="{{ url_for('archive') }}" class="{% if request.endpoint=='archive' %}active{% endif %}">Нэгдсэн архив</a>
       <a href="{{ url_for('lab_settings') }}" class="{% if request.endpoint in ('lab_settings','profile') %}active{% endif %}">Тохиргоо</a>
     </div>
