@@ -3374,9 +3374,8 @@ def analysis_result(receipt_id):
 @login_required
 def analysis_export(receipt_id):
     import openpyxl
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-    from openpyxl.utils import get_column_letter
-    import io
+    from openpyxl.styles import Font, Alignment
+    import io, os
 
     conn = get_db()
     receipt = conn.execute("""
@@ -3394,346 +3393,107 @@ def analysis_export(receipt_id):
     """, (receipt_id,)).fetchall()
     conn.close()
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Analysis results"
+    # Template ачаалах
+    tmpl = os.path.join(os.path.dirname(__file__), 'static', 'report_template.xlsx')
+    wb = openpyxl.load_workbook(tmpl)
+    ws = wb.worksheets[0]
 
-    # ── Styles ───────────────────────────────────────────────────────────
-    thin  = Side(style='thin',   color="BBBBBB")
-    med   = Side(style='medium', color="1E3A5F")
-    bord  = Border(left=thin, right=thin, top=thin, bottom=thin)
-    mbord = Border(left=med,  right=med,  top=med,  bottom=med)
-    ctr   = Alignment(horizontal='center', vertical='center', wrap_text=True)
-    lft   = Alignment(horizontal='left',   vertical='center', wrap_text=True)
-
-    navy_fill  = PatternFill("solid", fgColor="1E3A5F")
-    head_fill  = PatternFill("solid", fgColor="D6E4F0")
-    meth_fill  = PatternFill("solid", fgColor="F0F5FA")
-    appr_fill  = PatternFill("solid", fgColor="E6FFF8")
-    done_fill  = PatternFill("solid", fgColor="FFF8F0")
-    dup_fill   = PatternFill("solid", fgColor="EEF5FF")
-    white_fill = PatternFill("solid", fgColor="FFFFFF")
-
-    # ── Column widths ────────────────────────────────────────────────────
-    for col, w in [('A',4),('B',18),('C',11),('D',9),('E',9),('F',8),('G',8),
-                   ('H',9),('I',8),('J',8),('K',10),('L',9),('M',8),
-                   ('N',11),('O',11),('P',12),('Q',12)]:
-        ws.column_dimensions[col].width = w
-
-    # ── Row 1: Navy top bar ──────────────────────────────────────────────
-    ws.merge_cells('A1:Q1')
-    ws['A1'].fill = navy_fill
-    ws.row_dimensions[1].height = 8
-
-    # ── Rows 2–6: Company header ─────────────────────────────────────────
-    ws.merge_cells('A2:I2')
-    c = ws['A2']
-    c.value = ' ХҮРЭНШАНД УУРХАЙН ЛАБОРАТОРИ'
-    c.font  = Font(bold=True, size=12, color="1E3A5F")
-    c.alignment = lft
-    ws['J2'].value = 'KHURENSHAND MINING LABORATORY'
-    ws['J2'].font  = Font(bold=True, size=11, color="1E3A5F")
-    ws.row_dimensions[2].height = 14
-
-    for r, mn, en in [
-        (3,'Монгол улс, Өмнө говь аймаг, Гурвантэс сум','Gurvantes soum, Umnu-Govi province, Mongolia'),
-        (4,'Хүрэншанд нүүрсний уурхай','Khurenshand coal mine'),
-        (5,'Утас: 976-70003203-535','Tel: 976-70003203-535'),
-        (6,'Вэб: www.Usukhzoos.mn','Web: www.Usukhzoos.mn'),
-    ]:
-        ws.cell(r, 9, mn).alignment  = Alignment(horizontal='right', vertical='center')
-        ws.cell(r, 9).font           = Font(size=9, color="555555")
-        ws.cell(r, 10, en).font      = Font(size=9, color="555555")
-        ws.row_dimensions[r].height  = 14
-
-    ws.row_dimensions[7].height = 6
-    ws.row_dimensions[8].height = 8
-
-    # ── Row 9: Mongolian title ───────────────────────────────────────────
-    ws.merge_cells('A9:Q9')
-    c = ws['A9']
-    c.value     = f' СОРИЛТЫН ҮР ДҮНГИЙН ТАЙЛАН №  {receipt["lab_number"]}'
-    c.font      = Font(bold=True, size=13, color="1E3A5F")
-    c.alignment = ctr
-    ws.row_dimensions[9].height = 16
-
-    # ── Row 10: English title ────────────────────────────────────────────
-    ws.merge_cells('A10:Q10')
-    c = ws['A10']
-    c.value     = 'ANALYSIS REPORT'
-    c.font      = Font(bold=True, size=11, color="555555")
-    c.alignment = ctr
-    ws.row_dimensions[10].height = 14
-    ws.row_dimensions[11].height = 10
-
-    # ── Sample type display ──────────────────────────────────────────────
+    # ── Мэдээлэл нөхөх ──────────────────────────────────────
     TYPE_DISPLAY = {
         'PIT':'Уурхай\nPIT','STOCKPILE':'Овоолго\nStockpile','EXPORT':'Экспорт\nExport',
         'CONTROL':'Гааль\nControl','EQ_CONTROL':'Гадаад хяналт\nEQ control','DP':'Баяжуулах\nDP',
     }
-    stype_disp = TYPE_DISPLAY.get(receipt['sample_type'], receipt['sample_type'])
 
-    analysed_date = receipt.get('prep_done_at') or ''
-    if analysed_date and 'T' in str(analysed_date):
-        analysed_date = str(analysed_date).split('T')[0]
+    # A9: гарчигт лаб дугаар нэмэх
+    ws['A9'] = f" СОРИЛТЫН ҮР ДҮНГИЙН ТАЙЛАН №   {receipt['lab_number']}"
 
-    # ── Rows 12–14: Info block ───────────────────────────────────────────
-    def set_label(cell, text):
-        c = ws[cell]
-        c.value = text
-        c.font  = Font(bold=True, size=8, color="1E3A5F")
-        c.alignment = lft
+    # C12: лаб дугаар
+    ws['C12'] = receipt['lab_number']
 
-    def set_val(cell, text):
-        c = ws[cell]
-        c.value = text
-        c.font  = Font(size=9)
-        c.alignment = lft
-        c.border = Border(bottom=Side(style='thin', color="AAAAAA"))
+    # H12: хүлээн авсан огноо
+    ws['H12'] = receipt['received_date'] or ''
 
-    ws.merge_cells('A12:C12'); set_label('A12', 'ЛАБ. ДУГААР:\nLAB. NUMBER:')
-    set_val('D12', receipt['lab_number'])
-    ws.merge_cells('E12:I12'); set_label('E12', 'ХҮЛЭЭН АВСАН ОГНОО:\nDATE SAMPLES RECEIVED:')
-    ws.merge_cells('J12:Q12'); set_val('J12', receipt.get('received_date') or '')
-    ws.row_dimensions[12].height = 22
+    # C13: дээжний төрөл
+    ws['C13'] = TYPE_DISPLAY.get(receipt['sample_type'], receipt['sample_type'])
 
-    ws.merge_cells('A13:B13'); set_label('A13', 'ДЭЭЖИЙН ТӨРӨЛ:\nSAMPLE TYPE:')
-    ws.merge_cells('C13:D13'); set_val('C13', stype_disp)
-    ws.merge_cells('E13:I13'); set_label('E13', 'ШИНЖИЛГЭЭ ХИЙСЭН ОГНОО:\nDATE SAMPLES ANALYSED:')
-    ws.merge_cells('J13:Q13'); set_val('J13', analysed_date)
-    ws.row_dimensions[13].height = 22
+    # H13: шинжилгээ хийсэн огноо
+    analysed = receipt['prep_done_at'] or ''
+    if analysed and 'T' in str(analysed):
+        analysed = str(analysed).split('T')[0]
+    ws['H13'] = analysed
 
-    ws.merge_cells('A14:B14'); set_label('A14', 'ҮЙЛЧЛҮҮЛЭГЧИЙН НЭР:\nCLIENT NAME:')
-    ws.merge_cells('C14:D14'); set_val('C14', 'Хүрэншанд нүүрсний уурхай\nKhurenshand Coal Mine')
-    ws.merge_cells('E14:I14'); set_label('E14', 'ТАЙЛАН ХЭВЛЭСЭН ОГНОО:\nREPORT PUBLISHED DATE:')
-    ws.merge_cells('J14:Q14'); set_val('J14', datetime.now().strftime('%Y-%m-%d'))
-    ws.row_dimensions[14].height = 22
-    ws.row_dimensions[15].height = 6
+    # H14: тайлан хэвлэсэн огноо
+    ws['H14'] = datetime.now().strftime('%Y-%m-%d')
 
-    # ── Row 16: Parameter group headers ─────────────────────────────────
-    def gh(cell, text, merge_to=None):
-        if merge_to:
-            ws.merge_cells(f'{cell}:{merge_to}')
-        c = ws[cell]
-        c.value     = text
-        c.fill      = navy_fill
-        c.font      = Font(bold=True, color="FFFFFF", size=9)
-        c.alignment = ctr
-        c.border    = bord
-
-    ws.merge_cells('A16:C16')
-    gh('A16', 'Үзүүлэлт\n/Parameter/')
-    gh('D16', 'Нийт чийг\n/Total Moisture/')
-    gh('E16', 'Дотоод чийг\n/Inherent Moisture/')
-    gh('F16', 'Үнслэг\n/Ash/', 'G16')
-    gh('H16', 'Дэгдэмхий бодис\n/Volatile Matter/', 'J16')
-    gh('K16', 'Бэхэжсэн нүүрстөрөгч\n/Fixed Carbon/')
-    gh('L16', 'Нийт хүхэр\n/Total sulfur/', 'M16')
-    gh('N16', 'Илчлэгийн утга\n/Calorific Value/', 'O16')
-    gh('P16', 'Бөсөх индекс\n/Caking index/')
-    gh('Q16', 'Чөлөөт хөөлтийн зэрэг\n/Free Swelling Index/')
-    ws.row_dimensions[16].height = 42
-
-    # ── Row 17: Unit headers ─────────────────────────────────────────────
-    def uh(cell, text):
-        c = ws[cell]
-        c.value     = text
-        c.fill      = head_fill
-        c.font      = Font(bold=True, size=8)
-        c.alignment = ctr
-        c.border    = bord
-
-    ws.merge_cells('A17:C17')
-    uh('A17', 'Тэмдэглэгээ, нэгж\n/Note, unit/')
-    for col, txt in [('D','Mt, %'),('E','Mad, %'),('F','Aad, %'),('G','Adb, %'),
-                     ('H','Vad, %'),('I','Vdb, %'),('J','Vdaf, %'),('K','FCad, %'),
-                     ('L','Sad, %'),('M','Sdb, %'),('N','Qb,ad\nккал/кг'),
-                     ('O','Qnet,ar\nккал/кг'),('P','GR.I (1:5)'),('Q','FSI')]:
-        uh(col+'17', txt)
-    ws.row_dimensions[17].height = 21
-
-    # ── Row 18: Methods ──────────────────────────────────────────────────
-    def mh(cell, text, merge_to=None):
-        if merge_to:
-            ws.merge_cells(f'{cell}:{merge_to}')
-        c = ws[cell]
-        c.value     = text
-        c.fill      = meth_fill
-        c.font      = Font(size=7, italic=True, color="444444")
-        c.alignment = ctr
-        c.border    = bord
-
-    ws.merge_cells('A18:C18')
-    mh('A18', 'Сорилтын арга\n/Methods/')
-    mh('D18', 'GB/T\n211-2017')
-    mh('E18', 'MNS GB/T 212-2015', 'K18')
-    mh('L18', 'MNS GB/T 214-2024', 'M18')
-    mh('N18', 'MNS GB/T 213-2024', 'O18')
-    mh('P18', 'GB/T 5447:2014')
-    mh('Q18', 'GB/T 5448-2014')
-    ws.row_dimensions[18].height = 21
-
-    # ── Row 19: Data table header ────────────────────────────────────────
-    for col, txt in [('A','No.'),('B','Дээжийн нэр\n/Sample name/'),('C','Жин, кг\n/Sample mass/')]:
-        c = ws[col+'19']
-        c.value     = txt
-        c.fill      = head_fill
-        c.font      = Font(bold=True, size=8)
-        c.alignment = ctr
-        c.border    = bord
-    ws.merge_cells('D19:Q19')
-    c = ws['D19']
-    c.value     = 'Шинжилсэн утга /Analysed value/'
-    c.fill      = head_fill
-    c.font      = Font(bold=True, size=9)
-    c.alignment = ctr
-    c.border    = bord
-    ws.row_dimensions[19].height = 22
-
-    # ── Data rows ────────────────────────────────────────────────────────
+    # ── Өгөгдлийн мөрүүд (20-р мөрөөс) ─────────────────────
     row_map = {(e['row_num'], e['is_duplicate']): e for e in entries}
 
+    def safe(e, field, dec=None):
+        try:
+            v = e[field]
+            if v is None:
+                return None
+            return round(float(v), dec) if dec is not None else v
+        except Exception:
+            return None
+
     def calc_mt(e):
-        if e and e['ff_sample'] and e['ff_sample'] > 0 and e['ff_dried'] is not None:
-            return round((e['ff_sample'] - e['ff_dried']) / e['ff_sample'] * 100, 2)
+        fs = safe(e, 'ff_sample')
+        fd = safe(e, 'ff_dried')
+        if fs and fs > 0 and fd is not None:
+            return round((fs - fd) / fs * 100, 2)
         return None
 
     def calc_g(e):
-        if not e:
-            return None
-        if e['g_val'] is not None:
-            return round(e['g_val'], 1)
-        if e['g_coke'] is not None and e['g_tare'] is not None and e['g_sieve1'] is not None and e['g_sieve2'] is not None:
-            d = e['g_coke'] - e['g_tare']
-            if d > 0:
-                return round((e['g_sieve1'] + e['g_sieve2']) / d * 100, 1)
+        try:
+            if e['g_val'] is not None:
+                return round(float(e['g_val']), 1)
+            gc = safe(e,'g_coke'); gt = safe(e,'g_tare')
+            gs1 = safe(e,'g_sieve1'); gs2 = safe(e,'g_sieve2')
+            if gc is not None and gt is not None and gs1 is not None and gs2 is not None:
+                d = gc - gt
+                if d > 0:
+                    return round((gs1 + gs2) / d * 100, 1)
+        except Exception:
+            pass
         return None
-
-    # Number formats per column index (1-based)
-    NUM_FMT = {4:'0.00',5:'0.00',6:'0.00',7:'0.00',8:'0.00',9:'0.00',10:'0.00',
-               11:'0.00',12:'0.000',13:'0.000',14:'0',15:'0',16:'0.0',17:'0.0'}
-
-    def write_data_row(dr, vals, fill):
-        for ci, v in enumerate(vals, 1):
-            c = ws.cell(dr, ci, v)
-            c.fill      = fill
-            c.border    = bord
-            c.alignment = lft if ci == 2 else ctr
-            if ci >= 4 and v is not None and ci in NUM_FMT:
-                c.number_format = NUM_FMT[ci]
 
     data_row = 20
     for ri in range(1, (receipt['quantity'] or 1) + 1):
         e  = row_map.get((ri, 0))
         de = row_map.get((ri, 1))
-        is_appr = e and e['row_status'] == 'approved'
-        is_done = e and e['row_status'] in ('done', 'approved')
-        fill = appr_fill if is_appr else (done_fill if is_done else white_fill)
 
-        vals = [
-            ri,
-            e['sample_name'] if e and e['sample_name'] else f'Дээж {ri}',
-            round(e['mass_kg'], 3) if e and e['mass_kg'] else None,
-            calc_mt(e),
-            round(e['mad'],      2) if e and e['mad']      else None,
-            round(e['aad'],      2) if e and e['aad']      else None,
-            None,   # Adb
-            round(e['vad'],      2) if e and e['vad']      else None,
-            None,   # Vdb
-            None,   # Vdaf
-            round(e['fc'],       2) if e and e['fc']       else None,
-            round(e['sulfur'],   3) if e and e['sulfur']   else None,
-            None,   # Sdb
-            round(e['cal_value'],0) if e and e['cal_value'] else None,
-            None,   # Qnet,ar
-            calc_g(e),
-            round(e['fsi'],      1) if e and e['fsi']      else None,
-        ]
-        write_data_row(data_row, vals, fill)
-        ws.row_dimensions[data_row].height = 16
+        ws.cell(data_row, 1,  ri)
+        ws.cell(data_row, 2,  safe(e,'sample_name') or f'Дээж {ri}')
+        ws.cell(data_row, 3,  safe(e,'mass_kg', 3))
+        ws.cell(data_row, 4,  calc_mt(e))
+        ws.cell(data_row, 5,  safe(e,'mad', 2))
+        ws.cell(data_row, 6,  safe(e,'aad', 2))
+        # col 7 (Adb) - хоосон
+        ws.cell(data_row, 8,  safe(e,'vad', 2))
+        # col 9 (Vdb), 10 (Vdaf) - хоосон
+        ws.cell(data_row, 11, safe(e,'fc', 2))
+        ws.cell(data_row, 12, safe(e,'sulfur', 3))
+        # col 13 (Sdb) - хоосон
+        ws.cell(data_row, 14, safe(e,'cal_value', 0))
+        # col 15 (Qnet,ar) - хоосон
+        ws.cell(data_row, 16, calc_g(e))
+        ws.cell(data_row, 17, safe(e,'fsi', 1))
         data_row += 1
 
+        # Зэрэгцээ мөр
         if de and de['row_status'] in ('done', 'approved'):
-            dv = [
-                '', '↳ зэрэгцээ', '',
-                calc_mt(de),
-                round(de['mad'],      2) if de['mad']      else None,
-                round(de['aad'],      2) if de['aad']      else None,
-                None,
-                round(de['vad'],      2) if de['vad']      else None,
-                None, None,
-                round(de['fc'],       2) if de['fc']       else None,
-                round(de['sulfur'],   3) if de['sulfur']   else None,
-                None,
-                round(de['cal_value'],0) if de['cal_value'] else None,
-                None,
-                calc_g(de),
-                round(de['fsi'],      1) if de['fsi']      else None,
-            ]
-            write_data_row(data_row, dv, dup_fill)
-            ws.cell(data_row, 2).font = Font(italic=True, color="185FA5", size=9)
-            ws.row_dimensions[data_row].height = 13
+            ws.cell(data_row, 2,  '↳ зэрэгцээ').font = Font(italic=True, color="185FA5", size=8)
+            ws.cell(data_row, 4,  calc_mt(de))
+            ws.cell(data_row, 5,  safe(de,'mad', 2))
+            ws.cell(data_row, 6,  safe(de,'aad', 2))
+            ws.cell(data_row, 8,  safe(de,'vad', 2))
+            ws.cell(data_row, 11, safe(de,'fc', 2))
+            ws.cell(data_row, 12, safe(de,'sulfur', 3))
+            ws.cell(data_row, 14, safe(de,'cal_value', 0))
+            ws.cell(data_row, 16, calc_g(de))
+            ws.cell(data_row, 17, safe(de,'fsi', 1))
             data_row += 1
-
-    # ── Footer disclaimer ────────────────────────────────────────────────
-    data_row += 1
-    ws.merge_cells(f'A{data_row}:Q{data_row}')
-    c = ws.cell(data_row, 1,
-        'Сорилтын дүн нь тухайн дээжинд хүчинтэй. '
-        'Лабораторийн зөвшөөрөлгүйгээр хуулбарлахыг хориглоно.')
-    c.font = Font(italic=True, size=8, color="666666")
-    c.alignment = lft
-    ws.row_dimensions[data_row].height = 14
-
-    # ── QC reference material section ───────────────────────────────────
-    data_row += 1
-    ws.merge_cells(f'A{data_row}:C{data_row}')
-    ws.cell(data_row, 1, 'Баталгаажсан стандарт загварын нэр\n/Certified reference material/').font = Font(size=8)
-    for col, val in [(4,'GBW11102j'),(6,'GBW11102j'),(8,'GBW11102j'),(10,'Benzoic acid')]:
-        ws.cell(data_row, col, val).font = Font(size=8)
-    ws.merge_cells(f'M{data_row}:Q{data_row}')
-    c = ws.cell(data_row, 13, 'ar - хүлээн авсан төлөв /as received/\nad - агаарт хатаасан төлөв /air dried/')
-    c.font = Font(size=7, color="555555"); c.alignment = lft
-    ws.row_dimensions[data_row].height = 20
-
-    data_row += 1
-    for col, txt in [(1,'Үзүүлэлт, нэгж\n/Parameter, unit/'),(4,'Adb, %'),(6,'Vdb, %'),(8,'Sdb, %'),(10,'Qgr,db ж/г')]:
-        c = ws.cell(data_row, col, txt)
-        c.font = Font(bold=True, size=8); c.alignment = ctr; c.border = bord
-    ws.merge_cells(f'A{data_row}:C{data_row}')
-    ws.row_dimensions[data_row].height = 16
-
-    data_row += 1
-    for col, txt in [(1,'Гэрчилгээний утга\n/Certificate value/'),(4,'9.39±0.10'),(6,'34.01±0.26'),(8,'1.46±0.04'),(10,'26470±50')]:
-        c = ws.cell(data_row, col, txt)
-        c.font = Font(size=8); c.alignment = ctr; c.border = bord
-    ws.merge_cells(f'A{data_row}:C{data_row}')
-    ws.row_dimensions[data_row].height = 14
-
-    data_row += 1
-    ws.merge_cells(f'A{data_row}:C{data_row}')
-    ws.cell(data_row, 1, 'Шинжилсэн утга\n/Analysed value/').font = Font(size=8)
-    for col in [4, 6, 8, 10]:
-        ws.cell(data_row, col).border = bord
-    ws.row_dimensions[data_row].height = 14
-
-    # ── Signature lines ──────────────────────────────────────────────────
-    data_row += 2
-    ws.merge_cells(f'A{data_row}:H{data_row}')
-    ws.cell(data_row, 1, 'Шинжилгээ хийсэн: Ахлах химич  /Analysed: Senior Chemist/').font = Font(size=9)
-    data_row += 1
-    ws.merge_cells(f'A{data_row}:H{data_row}')
-    ws.cell(data_row, 1, 'Хянасан: Ахлах химич  /Reviewed: Senior Chemist/').font = Font(size=9)
-
-    ws.freeze_panes = 'A20'
-
-    # ── Г.Ү sheet ────────────────────────────────────────────────────────
-    ws2 = wb.create_sheet('Г.Ү')
-    ws2['F23'] = 'Шинжилгээ хийсэн: Ахлах химич\n/Analysed: Senior Chemist/'
-    ws2['F24'] = 'Хянасан: Ахлах химич\n/Reviewed: Senior Chemist/'
-    for r, txt in [(28,'Уурхай\nPIT'),(29,'Овоолго\nStockpile'),(30,'Экспорт\nExport'),
-                   (31,'Гааль\nControl'),(32,'Гадаад хяналт\nEQ control'),(33,'Баяжуулах\nDP')]:
-        ws2.cell(r, 6, txt)
 
     output = io.BytesIO()
     wb.save(output)
