@@ -2613,14 +2613,14 @@ def report_export():
         dat(ws7,ri,1,ri-2,bg=bg)
         dat(ws7,ri,2,SAMPLE_TYPE_MN.get(t,t),bg=bg,left=True)
         dat(ws7,ri,3,r['cnt'],bg=bg)
-        dat(ws7,ri,4,c['mt'] or None,bg=bg)
-        dat(ws7,ri,5,c['mad'] or None,bg=bg)
-        dat(ws7,ri,6,c['aad'] or None,bg=bg)
-        dat(ws7,ri,7,c['vad'] or None,bg=bg)
-        dat(ws7,ri,8,c['fc'] or None,bg=bg)
-        dat(ws7,ri,9,c['sulfur'] or None,bg=bg)
-        dat(ws7,ri,10,c['cal_value'] or None,bg=bg)
-        dat(ws7,ri,11,c['g'] or None,bg=bg)
+        dat(ws7,ri,4,c['mt'],bg=bg)
+        dat(ws7,ri,5,c['mad'],bg=bg)
+        dat(ws7,ri,6,c['aad'],bg=bg)
+        dat(ws7,ri,7,c['vad'],bg=bg)
+        dat(ws7,ri,8,c['fc'],bg=bg)
+        dat(ws7,ri,9,c['sulfur'],bg=bg)
+        dat(ws7,ri,10,c['cal_value'],bg=bg)
+        dat(ws7,ri,11,c['g'],bg=bg)
 
     for ci,w in enumerate([5,24,14,10,10,10,10,10,10,10,10],1):
         ws7.column_dimensions[get_column_letter(ci)].width=w
