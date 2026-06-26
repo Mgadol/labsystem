@@ -81,7 +81,12 @@ body{font-family:'Inter',sans-serif;background:#f0ede8;min-height:100vh;display:
 function guestLogin(){
   var code = document.getElementById('guestCode').value.trim().toUpperCase();
   if(!code){ alert('Кодоо оруулна уу'); return; }
-  var token = code.startsWith('DEMO-') ? code.slice(5) : code;
+  var token = code;
+  if(code.includes('/GUEST/')) {
+    token = code.split('/GUEST/').pop().split(/[?# ]/)[0];
+  } else if(code.startsWith('DEMO-')) {
+    token = code.slice(5);
+  }
   window.location.href = '/guest/' + token;
 }
 document.getElementById('guestCode').addEventListener('keydown', function(e){
