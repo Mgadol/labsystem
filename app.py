@@ -134,6 +134,35 @@ def admin_required(f):
         return f(*a, **kw)
     return dec
 
+def _has_perm(perm):
+    """Тухайн хэрэглэгч тусгай эрхтэй эсэхийг шалгана (senior/admin автоматаар эрхтэй)"""
+    role = session.get('role')
+    if role in ('admin', 'senior'): return True
+    uid = session.get('user_id')
+    if not uid: return False
+    conn = get_db()
+    u = conn.execute(f"SELECT {perm} FROM users WHERE id=?", (uid,)).fetchone()
+    conn.close()
+    return bool(u and u[perm])
+
+def perm_required(perm):
+    """Тусгай эрх шаардлагатай decorator"""
+    def decorator(f):
+        @wraps(f)
+        def dec(*a, **kw):
+            if session.get('role') == 'guest':
+                if request.method == 'POST':
+                    flash('Зочин горимд өөрчлөлт хийх боломжгүй.', 'error')
+                    return redirect(request.referrer or url_for('dashboard'))
+                return f(*a, **kw)
+            if 'user_id' not in session: return redirect(url_for('login'))
+            if not _has_perm(perm):
+                flash('Энэ үйлдэл хийх эрх байхгүй байна.', 'error')
+                return redirect(url_for('dashboard'))
+            return f(*a, **kw)
+        return dec
+    return decorator
+
 def senior_required(f):
     """Админ + Ахлах химич хоёулан нэвтэрч болно"""
     @wraps(f)
@@ -1678,7 +1707,7 @@ def analysis_delete(receipt_id):
     return redirect(url_for('analysis'))
 
 @app.route('/archive/reopen/<int:receipt_id>', methods=['POST'])
-@senior_required
+@perm_required('can_reopen')
 def archive_reopen(receipt_id):
     conn = get_db()
     receipt = conn.execute('SELECT geo_sample_id FROM sample_receipt WHERE id=?', (receipt_id,)).fetchone()
@@ -1757,13 +1786,18 @@ def staff_edit(uid):
             if session.get('role') == 'senior' and role_to_set in ('admin','senior'):
                 role_to_set = target['role']
             is_client = role_to_set in ('bayjuulach', 'geologist')
+            is_lab    = role_to_set in ('staff', 'preparer')
             can_reg    = 1 if (is_client and request.form.get('can_register'))    else 0
             can_view   = 1 if (is_client and request.form.get('can_view_result')) else 0
             can_export = 1 if (is_client and request.form.get('can_export'))      else 0
+            can_approve = 1 if (is_lab and request.form.get('can_approve')) else 0
+            can_report  = 1 if (is_lab and request.form.get('can_report'))  else 0
+            can_reopen  = 1 if (is_lab and request.form.get('can_reopen'))  else 0
             is_active  = 1 if request.form.get('is_active') else 0
             conn.execute("""
                 UPDATE users SET name=?,position=?,phone=?,email=?,role=?,joined_date=?,shift=?,
-                                 can_register=?,can_view_result=?,can_export=?,is_active=?
+                                 can_register=?,can_view_result=?,can_export=?,is_active=?,
+                                 can_approve=?,can_report=?,can_reopen=?
                 WHERE id=?
             """, (
                 request.form.get('name', target['name']),
@@ -1774,6 +1808,7 @@ def staff_edit(uid):
                 request.form.get('joined_date') or None,
                 request.form.get('shift') or None,
                 can_reg, can_view, can_export, is_active,
+                can_approve, can_report, can_reopen,
                 uid
             ))
             if photo:
@@ -2032,6 +2067,12 @@ def ensure_tables():
     except Exception: pass
     try: conn.execute("ALTER TABLE users ADD COLUMN can_export INTEGER DEFAULT 0")
     except Exception: pass
+    try: conn.execute("ALTER TABLE users ADD COLUMN can_approve INTEGER DEFAULT 0")
+    except Exception: pass
+    try: conn.execute("ALTER TABLE users ADD COLUMN can_report INTEGER DEFAULT 0")
+    except Exception: pass
+    try: conn.execute("ALTER TABLE users ADD COLUMN can_reopen INTEGER DEFAULT 0")
+    except Exception: pass
     try: conn.execute("""
         CREATE TABLE IF NOT EXISTS result_view_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2215,7 +2256,7 @@ def ensure_tables():
 
 # ── REPORTS ─────────────────────────────────────────────
 @app.route('/reports')
-@senior_required
+@perm_required('can_report')
 def reports():
     conn = get_db()
     try:
@@ -2310,7 +2351,7 @@ def reports_chart_data():
     })
 
 @app.route('/reports/export')
-@senior_required
+@perm_required('can_report')
 def report_export():
     import datetime as dt_mod
     rtype   = request.args.get('type', 'month')
@@ -3413,7 +3454,7 @@ def row_done_all():
     return jsonify({'ok': True})
 
 @app.route('/analysis/row/approve', methods=['POST'])
-@senior_required
+@perm_required('can_approve')
 def row_approve():
     """Ахлах химич мөрийг баталгаажуулна"""
     data = request.get_json()

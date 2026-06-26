@@ -68,6 +68,7 @@
               <input type="checkbox" name="is_active" value="1" {{ 'checked' if target['is_active'] }}>
               <span style="font-weight:600">Идэвхтэй</span> <span style="color:var(--text-muted);font-size:11px">(идэвхгүй бол нэвтрэх боломжгүй)</span>
             </label>
+            <!-- Харилцагчийн эрхүүд -->
             <div id="clientPerms" style="display:{% if target['role'] in ('geologist','bayjuulach') %}flex{% else %}none{% endif %};gap:16px;flex-wrap:wrap;width:100%;padding-top:10px;border-top:1px solid #e5e5e3;margin-top:4px">
               <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
                 <input type="checkbox" name="can_view_result" value="1" {{ 'checked' if target['can_view_result'] }}>
@@ -80,6 +81,22 @@
               <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
                 <input type="checkbox" name="can_export" value="1" {{ 'checked' if target['can_export'] }}>
                 Excel татах <span style="color:var(--text-muted);font-size:11px">(зөвхөн баталгаажсан үед)</span>
+              </label>
+            </div>
+            <!-- Лабын ажилтны нэмэлт эрхүүд -->
+            <div id="labPerms" style="display:{% if target['role'] in ('staff','preparer') %}flex{% else %}none{% endif %};gap:16px;flex-wrap:wrap;width:100%;padding-top:10px;border-top:1px solid #e5e5e3;margin-top:4px">
+              <div style="width:100%;font-size:11px;color:var(--text-muted)">Ахлах химичийн эрхээс нэмэх:</div>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+                <input type="checkbox" name="can_approve" value="1" {{ 'checked' if target['can_approve'] }}>
+                Мөр баталгаажуулах
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+                <input type="checkbox" name="can_report" value="1" {{ 'checked' if target['can_report'] }}>
+                Тайлан харах/татах
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+                <input type="checkbox" name="can_reopen" value="1" {{ 'checked' if target['can_reopen'] }}>
+                Архив дахин нээх
               </label>
             </div>
           </div>
@@ -142,15 +159,17 @@ function togglePw(inputId, btnId){
 }
 function toggleDevicePerm(){
   var role = document.getElementById('roleSelect').value;
-  var sec = document.getElementById('devicePermSection');
-  var cp  = document.getElementById('clientPerms');
-  if(role==='geologist'||role==='bayjuulach'){
-    if(sec) { sec.style.display='none'; sec.querySelectorAll('input[type=checkbox]').forEach(function(c){ c.checked=false; }); }
-    if(cp) cp.style.display='flex';
-  } else {
-    if(sec) sec.style.display='';
-    if(cp) { cp.style.display='none'; cp.querySelectorAll('input[type=checkbox]').forEach(function(c){ c.checked=false; }); }
-  }
+  var sec  = document.getElementById('devicePermSection');
+  var cp   = document.getElementById('clientPerms');
+  var lp   = document.getElementById('labPerms');
+  var isClient = role==='geologist'||role==='bayjuulach';
+  var isLab    = role==='staff'||role==='preparer';
+  if(sec) sec.style.display = isClient ? 'none' : '';
+  if(sec && isClient) sec.querySelectorAll('input[type=checkbox]').forEach(function(c){ c.checked=false; });
+  if(cp) cp.style.display = isClient ? 'flex' : 'none';
+  if(cp && !isClient) cp.querySelectorAll('input[type=checkbox]').forEach(function(c){ c.checked=false; });
+  if(lp) lp.style.display = isLab ? 'flex' : 'none';
+  if(lp && !isLab) lp.querySelectorAll('input[type=checkbox]').forEach(function(c){ c.checked=false; });
 }
 </script>
 {% endblock %}
