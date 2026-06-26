@@ -2926,8 +2926,16 @@ def analysis():
 def analysis_register():
     """Геологи дээж бүртгэнэ"""
     lang = session.get('lang','mn')
-    if session.get('role') not in ('admin','senior','staff','preparer','geologist'):
+    role = session.get('role')
+    if role not in ('admin','senior','staff','preparer','geologist','bayjuulach'):
         return redirect(url_for('dashboard'))
+    if role == 'bayjuulach':
+        conn2 = get_db()
+        u2 = conn2.execute("SELECT can_register FROM users WHERE id=?", (session.get('user_id'),)).fetchone()
+        conn2.close()
+        if not u2 or not u2['can_register']:
+            flash('Дээж бүртгэх эрх байхгүй байна.', 'error')
+            return redirect(url_for('dashboard'))
     if request.method == 'POST':
         conn = get_db()
         sample_type = request.form['sample_type']
@@ -3261,7 +3269,16 @@ def analysis_autosave():
         field  = data.get('field')
         value  = data.get('value')
 
-        if not all([rid, row, field]):
+        ALLOWED_FIELDS = {
+            'ff_sample','ff_dried',
+            'mt_bux','mt_tare','mt_sample','mt_dried',
+            'dc_bux','dc_tare','dc_sample','dc_dried',
+            'ash_tav','ash_tare','ash_sample','ash_burned',
+            'vol_tig','vol_tare','vol_sample','vol_burned',
+            'g_tig','g_tare','g_coke','g_sieve1','g_sieve2',
+            'sulfur','cal_value','cal_temp','fsi','sample_name','mass_kg',
+        }
+        if not all([rid, row, field]) or field not in ALLOWED_FIELDS:
             return jsonify({'ok': False, 'error': 'Missing params'})
 
         conn = get_db()
