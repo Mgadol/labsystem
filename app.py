@@ -2333,13 +2333,16 @@ def reports_chart_data():
     sample_totals = []
     for code, name in SAMPLE_TYPES_MAP:
         v = conn.execute(
-            'SELECT COUNT(*) FROM geo_samples WHERE sample_type=? AND collected_date BETWEEN ? AND ?',
+            'SELECT COUNT(*) FROM geo_samples WHERE sample_type=? AND collected_date BETWEEN ? AND ? AND status != \'deleted\'',
             (code, d0s, d1s)).fetchone()[0]
         sample_totals.append(v)
     analysis_totals = []
     for field, name in ANALYSIS_FIELDS:
         v = conn.execute(
-            f'SELECT COUNT(*) FROM sample_entries WHERE {field} IS NOT NULL AND done_at BETWEEN ? AND ?',
+            f'''SELECT COUNT(*) FROM sample_entries se
+                JOIN sample_receipt sr ON sr.id=se.receipt_id
+                JOIN geo_samples g ON g.id=sr.geo_sample_id
+                WHERE se.{field} IS NOT NULL AND se.done_at BETWEEN ? AND ?''',
             (d0s + ' 00:00:00', d1s + ' 23:59:59')).fetchone()[0]
         analysis_totals.append(v)
     conn.close()
