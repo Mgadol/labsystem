@@ -103,14 +103,34 @@ def save_file(file, subfolder):
         return f"{subfolder}/{name}"
     return None
 
+def _validate_guest():
+    """Зочны token DB-д байгаа эсэх, хугацаа дууссан эсэхийг шалгана"""
+    token = session.get('guest_token')
+    if not token:
+        session.clear()
+        return False
+    conn = get_db()
+    now = datetime.now().isoformat()
+    row = conn.execute(
+        "SELECT id FROM guest_tokens WHERE token=? AND expires_at >= ?", (token, now)
+    ).fetchone()
+    conn.close()
+    if not row:
+        session.clear()
+        return False
+    return True
+
 def login_required(f):
     @wraps(f)
     def dec(*a, **kw):
         if 'user_id' not in session and session.get('role') != 'guest':
             return redirect(url_for('login'))
-        if session.get('role') == 'guest' and request.method == 'POST':
-            flash('Зочин горимд өөрчлөлт хийх боломжгүй.', 'error')
-            return redirect(request.referrer or url_for('dashboard'))
+        if session.get('role') == 'guest':
+            if not _validate_guest():
+                return redirect(url_for('login'))
+            if request.method == 'POST':
+                flash('Зочин горимд өөрчлөлт хийх боломжгүй.', 'error')
+                return redirect(request.referrer or url_for('dashboard'))
         return f(*a, **kw)
     return dec
 
@@ -269,6 +289,7 @@ def guest_login(token):
     session['role'] = 'guest'
     session['lang'] = 'mn'
     session['guest_label'] = row['label'] or ''
+    session['guest_token'] = token.upper()
     return redirect(url_for('dashboard'))
 
 @app.route('/guest/token/delete/<int:tid>', methods=['POST'])
