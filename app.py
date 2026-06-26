@@ -2316,8 +2316,8 @@ def reports_chart_data():
     conn = get_db()
     if rtype == 'week':
         import datetime as dt_mod
-        d0 = dt_mod.date(year, 1, 1) + dt_mod.timedelta(weeks=week-1)
-        d1 = d0 + dt_mod.timedelta(days=6)
+        d0 = dt_mod.datetime.fromisocalendar(year, week, 1).date()
+        d1 = dt_mod.datetime.fromisocalendar(year, week, 7).date()
         d0s, d1s = d0.isoformat(), d1.isoformat()
     elif rtype == 'month':
         _, ld = cal_mod.monthrange(year, month)
