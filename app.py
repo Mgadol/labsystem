@@ -2307,13 +2307,25 @@ def reports_chart_data():
 @app.route('/reports/export')
 @senior_required
 def report_export():
+    import datetime as dt_mod
     rtype   = request.args.get('type', 'month')
     year    = int(request.args.get('year', datetime.now().year))
     month   = int(request.args.get('month', datetime.now().month))
     quarter = int(request.args.get('quarter', 1))
     half    = int(request.args.get('half', 1))
+    week    = int(request.args.get('week', datetime.now().isocalendar()[1]))
 
-    if rtype == 'month':
+    date_filter_mode = 'ym'  # 'ym' or 'range'
+
+    if rtype == 'week':
+        # ISO week → эхлэх/дуусах огноо
+        week_start = dt_mod.datetime.fromisocalendar(year, week, 1).date()
+        week_end   = dt_mod.datetime.fromisocalendar(year, week, 7).date()
+        period_label = f"{year} оны {week}-р 7 хоног ({week_start} – {week_end})"
+        date_filter_mode = 'range'
+        date_start = str(week_start)
+        date_end   = str(week_end)
+    elif rtype == 'month':
         months = [month]
         period_label = f"{year} оны {month}-р сар"
     elif rtype == 'quarter':
@@ -2327,11 +2339,19 @@ def report_export():
         months = list(range(1,13))
         period_label = f"{year} он"
 
-    ym_list = ",".join([f"'{year}-{m:02d}'" for m in months])
-    wu  = f"strftime('%Y-%m',ul.start_time) IN ({ym_list})"
-    wc  = f"strftime('%Y-%m',c.calibration_date) IN ({ym_list})"
-    wr  = f"strftime('%Y-%m',r.reported_date) IN ({ym_list})"
-    wd  = f"strftime('%Y-%m',start_time) IN ({ym_list})"
+    if date_filter_mode == 'range':
+        wu  = f"date(ul.start_time) BETWEEN '{date_start}' AND '{date_end}'"
+        wc  = f"c.calibration_date BETWEEN '{date_start}' AND '{date_end}'"
+        wr  = f"r.reported_date BETWEEN '{date_start}' AND '{date_end}'"
+        wd  = f"date(start_time) BETWEEN '{date_start}' AND '{date_end}'"
+        ws_filter = f"sr.received_date BETWEEN '{date_start}' AND '{date_end}'"
+    else:
+        ym_list = ",".join([f"'{year}-{m:02d}'" for m in months])
+        wu  = f"strftime('%Y-%m',ul.start_time) IN ({ym_list})"
+        wc  = f"strftime('%Y-%m',c.calibration_date) IN ({ym_list})"
+        wr  = f"strftime('%Y-%m',r.reported_date) IN ({ym_list})"
+        wd  = f"strftime('%Y-%m',start_time) IN ({ym_list})"
+        ws_filter = f"strftime('%Y-%m', sr.received_date) IN ({ym_list})"
 
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -2509,7 +2529,7 @@ def report_export():
                sr.mass_kg, g.quantity, g.status
         FROM sample_receipt sr
         JOIN geo_samples g ON g.id=sr.geo_sample_id
-        WHERE strftime('%Y-%m', sr.received_date) IN ({ym_list})
+        WHERE {ws_filter}
         ORDER BY sr.received_date, sr.lab_number
     ''').fetchall()
 
@@ -2545,7 +2565,7 @@ def report_export():
                COALESCE(SUM(sr.mass_kg),0) as total_kg
         FROM sample_receipt sr
         JOIN geo_samples g ON g.id=sr.geo_sample_id
-        WHERE strftime('%Y-%m', sr.received_date) IN ({ym_list})
+        WHERE {ws_filter}
         GROUP BY g.sample_type
         ORDER BY cnt DESC
     ''').fetchall()
