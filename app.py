@@ -218,7 +218,9 @@ def inject_user():
     if session.get('role') == 'guest':
         user = {'id': 0, 'name': 'Зочин', 'role': 'guest', 'photo': None,
                 'employee_id': 'GUEST', 'position': 'Зочин', 'phone': None,
-                'email': None, 'joined_date': None, 'is_active': 1}
+                'email': None, 'joined_date': None, 'is_active': 1,
+                'can_report': 0, 'can_approve': 0, 'can_reopen': 0,
+                'can_export': 0, 'can_view_result': 0, 'can_register': 0}
     elif 'user_id' in session:
         user = get_user(session.get('user_id', 0))
     return dict(current_user=user, now=datetime.now())
@@ -2297,7 +2299,7 @@ def reports():
         iqc_rows=iqc_rows)
 
 @app.route('/reports/chart-data')
-@senior_required
+@perm_required('can_report')
 def reports_chart_data():
     import calendar as cal_mod
     rtype  = request.args.get('type', 'month')
@@ -3118,7 +3120,7 @@ def analysis_receive(geo_id):
             session['user_id'],
             request.form.get('notes')
         ))
-        conn.execute("UPDATE geo_samples SET status='prepared' WHERE id=?", (geo_id,))
+        conn.execute("UPDATE geo_samples SET status='received' WHERE id=?", (geo_id,))
         conn.commit(); conn.close()
         flash(f'Дээж хүлээн авлаа! Ажлын дугаар: {lab_num}', 'success')
         return redirect(url_for('analysis'))
@@ -3333,7 +3335,7 @@ def prep_start(receipt_id):
     conn = get_db()
     conn.execute("""UPDATE sample_receipt SET prep_status='preparing', prep_started_at=?
                    WHERE id=?""", (datetime.now().isoformat(), receipt_id))
-    conn.execute("UPDATE geo_samples SET status='preparing' WHERE id=(SELECT geo_sample_id FROM sample_receipt WHERE id=?)", (receipt_id,))
+    conn.execute("UPDATE geo_samples SET status='received' WHERE id=(SELECT geo_sample_id FROM sample_receipt WHERE id=?)", (receipt_id,))
     conn.commit(); conn.close()
     flash('Дээж бэлтгэж эхэллээ!', 'success')
     return redirect(url_for('analysis'))
@@ -3352,7 +3354,7 @@ def prep_done(receipt_id):
         WHERE id=?""", (datetime.now().isoformat(), notes,
                         prep_operator, prep_position, prep_devices,
                         receipt_id))
-    conn.execute("UPDATE geo_samples SET status='ready' WHERE id=(SELECT geo_sample_id FROM sample_receipt WHERE id=?)", (receipt_id,))
+    conn.execute("UPDATE geo_samples SET status='prepared' WHERE id=(SELECT geo_sample_id FROM sample_receipt WHERE id=?)", (receipt_id,))
     lab_num = conn.execute('SELECT lab_number FROM sample_receipt WHERE id=?', (receipt_id,)).fetchone()
     lab_str = lab_num[0] if lab_num else ''
     conn.commit(); conn.close()
