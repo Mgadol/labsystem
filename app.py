@@ -2622,6 +2622,24 @@ def report_export():
         dat(ws7,ri,10,c['cal_value'] or None,bg=bg)
         dat(ws7,ri,11,c['g'] or None,bg=bg)
 
+    # Нийт нийлбэр мөр
+    total_row = 3 + len(type_receipts)
+    all_c = defaultdict(int)
+    for t_data in type_cnt.values():
+        for k,v in t_data.items():
+            all_c[k] += v
+    dat(ws7,total_row,1,'',bg='D6F0E8')
+    dat(ws7,total_row,2,'НИЙТ',bold=True,bg='D6F0E8',left=True)
+    dat(ws7,total_row,3,sum(r['cnt'] for r in type_receipts),bold=True,bg='D6F0E8')
+    dat(ws7,total_row,4,all_c['mt'] or None,bold=True,bg='D6F0E8')
+    dat(ws7,total_row,5,all_c['mad'] or None,bold=True,bg='D6F0E8')
+    dat(ws7,total_row,6,all_c['aad'] or None,bold=True,bg='D6F0E8')
+    dat(ws7,total_row,7,all_c['vad'] or None,bold=True,bg='D6F0E8')
+    dat(ws7,total_row,8,all_c['fc'] or None,bold=True,bg='D6F0E8')
+    dat(ws7,total_row,9,all_c['sulfur'] or None,bold=True,bg='D6F0E8')
+    dat(ws7,total_row,10,all_c['cal_value'] or None,bold=True,bg='D6F0E8')
+    dat(ws7,total_row,11,all_c['g'] or None,bold=True,bg='D6F0E8')
+
     for ci,w in enumerate([5,24,14,10,10,10,10,10,10,10,10],1):
         ws7.column_dimensions[get_column_letter(ci)].width=w
 
