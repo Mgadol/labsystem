@@ -22,7 +22,7 @@ else:
 # ── SESSION COOKIE АЮУЛГҮЙ ТОХИРГОО ───────────────────────────
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['SESSION_COOKIE_SECURE']   = False  # HTTPS ашиглах үед True болгоно
+app.config['SESSION_COOKIE_SECURE']   = os.environ.get('HTTPS_ENABLED', 'false').lower() == 'true'
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
@@ -2850,7 +2850,7 @@ def calculate_results(m):
             r['Y_index'] = round(4.89 + r['G_index'] ** 2 * 0.00102, 2)
 
     except Exception as e:
-        print(f"Calculation error: {e}")
+        app.logger.error(f"Calculation error: {e}")
     return r
 
 def check_qc(results, is_duplicate, meas1, meas2=None):
