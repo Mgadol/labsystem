@@ -399,7 +399,8 @@ def dashboard():
 def devices():
     lang = session.get('lang','mn')
     conn = get_db()
-    if session.get('role') == 'admin':
+    role = session.get('role')
+    if role in ('admin', 'guest'):
         devs = conn.execute("""
             SELECT d.*, dm.manufacturer, dm.model, dm.category FROM devices d
             LEFT JOIN device_marks dm ON d.mark_id=dm.id
