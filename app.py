@@ -2562,47 +2562,28 @@ def report_export():
     ws7=wb.create_sheet('Шинжилгээ')
     ws7.sheet_view.showGridLines=False
     title(ws7,'ШИНЖИЛГЭЭНИЙ ҮР ДҮНГИЙН ХҮСНЭГТ',10)
-    hdrs7=['№','Дээжний төрөл','Шинжилгээний тоо',
-           'Нийт чийг\nMt (%)','Дотоод чийг\nMad (%)','Үнс\nAad (%)',
-           'Дэгдэмхий бодис\nVad (%)','Бэхэжсэн нүүрстөрөгч\nFc (%)','Нийт хүхэр\nSt (%)',
-           'Илчлэг\nQ (кал/г)','G индекс']
+    hdrs7=['№','Дээжний төрөл','Нийт дээж','Mt','Mad','Aad','Vad','Fc','St','Q','G']
     for ci,h in enumerate(hdrs7,1):
         hdr(ws7,2,ci,h,bg=TEAL)
-    ws7.row_dimensions[2].height=36
+    ws7.row_dimensions[2].height=22
 
-    def r2(v, d=2):
-        try: return round(float(v), d) if v is not None else None
-        except: return None
-    def calc_mt7(row):
-        fs=r2(row['ff_sample']); fd=r2(row['ff_dried'])
-        if fs and fs>0 and fd is not None:
-            return round((fs-fd)/fs*100, 2)
-        return None
-    def calc_g7(row):
-        if row['g_val'] is not None: return r2(row['g_val'],1)
-        gc=r2(row['g_coke']); gt=r2(row['g_tare'])
-        gs1=r2(row['g_sieve1']); gs2=r2(row['g_sieve2'])
-        if gc is not None and gt is not None and gs1 is not None and gs2 is not None:
-            d=gc-gt
-            if d>0: return round((gs1+gs2)/d*100,1)
-        return None
-    def avg(lst): return round(sum(lst)/len(lst), 2) if lst else None
+    def has_mt(row):
+        try: return row['ff_sample'] is not None and float(row['ff_sample'])>0 and row['ff_dried'] is not None
+        except: return False
+    def has_g(row):
+        if row['g_val'] is not None: return True
+        try: return all(row[f] is not None for f in ['g_coke','g_tare','g_sieve1','g_sieve2'])
+        except: return False
 
-    # Дээжний тоо = unique receipt тус бүр (не entry)
     type_receipts = conn.execute(f'''
         SELECT g.sample_type, COUNT(DISTINCT sr.id) as cnt
         FROM sample_receipt sr
         JOIN geo_samples g ON g.id=sr.geo_sample_id
-        JOIN sample_entries se ON se.receipt_id=sr.id
         WHERE {ws_filter}
-          AND se.is_duplicate=0
-          AND se.row_status IN ('done','approved')
         GROUP BY g.sample_type
         ORDER BY cnt DESC
     ''').fetchall()
-    receipt_cnt = {r['sample_type']: r['cnt'] for r in type_receipts}
 
-    # Дундаж тооцоолох — зөвхөн бүрэн дүүрсэн утгуудаас
     analysis_rows=conn.execute(f'''
         SELECT g.sample_type, se.mad, se.aad, se.vad, se.fc,
                se.sulfur, se.cal_value, se.g_val,
@@ -2612,38 +2593,36 @@ def report_export():
         JOIN geo_samples g ON g.id=sr.geo_sample_id
         JOIN sample_entries se ON se.receipt_id=sr.id
         WHERE {ws_filter}
-          AND se.is_duplicate=0
           AND se.row_status IN ('done','approved')
     ''').fetchall()
 
     from collections import defaultdict
-    type_vals = defaultdict(lambda: {'mad':[],'aad':[],'vad':[],'fc':[],'sulfur':[],'cal_value':[],'g':[],'mt':[]})
+    type_cnt = defaultdict(lambda: {k:0 for k in ['mt','mad','aad','vad','fc','sulfur','cal_value','g']})
     for s in analysis_rows:
         t = s['sample_type']
-        mt = calc_mt7(s)
-        if mt is not None: type_vals[t]['mt'].append(mt)
+        if has_mt(s): type_cnt[t]['mt'] += 1
         for f in ['mad','aad','vad','fc','sulfur','cal_value']:
-            v = r2(s[f], 3)
-            if v is not None: type_vals[t][f].append(v)
-        g = calc_g7(s)
-        if g is not None: type_vals[t]['g'].append(g)
+            if s[f] is not None: type_cnt[t][f] += 1
+        if has_g(s): type_cnt[t]['g'] += 1
 
-    for ri, stype in enumerate(receipt_cnt.keys(), 3):
+    receipt_map = {r['sample_type']: r['cnt'] for r in type_receipts}
+    for ri, r in enumerate(type_receipts, 3):
         bg = WHITE if ri%2==0 else GRAY
-        vals = type_vals[stype]
+        t = r['sample_type']
+        c = type_cnt[t]
         dat(ws7,ri,1,ri-2,bg=bg)
-        dat(ws7,ri,2,SAMPLE_TYPE_MN.get(stype, stype),bg=bg,left=True)
-        dat(ws7,ri,3,receipt_cnt[stype],bg=bg)
-        dat(ws7,ri,4,avg(vals['mt']),fmt='0.00',bg=bg)
-        dat(ws7,ri,5,avg(vals['mad']),fmt='0.00',bg=bg)
-        dat(ws7,ri,6,avg(vals['aad']),fmt='0.00',bg=bg)
-        dat(ws7,ri,7,avg(vals['vad']),fmt='0.00',bg=bg)
-        dat(ws7,ri,8,avg(vals['fc']),fmt='0.00',bg=bg)
-        dat(ws7,ri,9,avg(vals['sulfur']),fmt='0.000',bg=bg)
-        dat(ws7,ri,10,avg(vals['cal_value']),fmt='#,##0',bg=bg)
-        dat(ws7,ri,11,avg(vals['g']),fmt='0.0',bg=bg)
+        dat(ws7,ri,2,SAMPLE_TYPE_MN.get(t,t),bg=bg,left=True)
+        dat(ws7,ri,3,r['cnt'],bg=bg)
+        dat(ws7,ri,4,c['mt'] or None,bg=bg)
+        dat(ws7,ri,5,c['mad'] or None,bg=bg)
+        dat(ws7,ri,6,c['aad'] or None,bg=bg)
+        dat(ws7,ri,7,c['vad'] or None,bg=bg)
+        dat(ws7,ri,8,c['fc'] or None,bg=bg)
+        dat(ws7,ri,9,c['sulfur'] or None,bg=bg)
+        dat(ws7,ri,10,c['cal_value'] or None,bg=bg)
+        dat(ws7,ri,11,c['g'] or None,bg=bg)
 
-    for ci,w in enumerate([5,24,16,12,12,12,12,16,10,14,10],1):
+    for ci,w in enumerate([5,24,14,10,10,10,10,10,10,10,10],1):
         ws7.column_dimensions[get_column_letter(ci)].width=w
 
     for ws in [ws1,ws2,ws3,ws4,ws5,ws6,ws7]:
