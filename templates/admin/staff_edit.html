@@ -49,7 +49,7 @@
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Эрх</label>
+          <label class="form-label">Эрх (Role)</label>
           <select name="role" class="form-input" id="roleSelect" onchange="toggleDevicePerm()">
             <option value="staff" {{ 'selected' if target['role']=='staff' }}>Ажилтан (Химич)</option>
             <option value="preparer" {{ 'selected' if target['role']=='preparer' }}>Бэлтгэгч</option>
@@ -60,16 +60,28 @@
             <option value="admin" {{ 'selected' if target['role']=='admin' }}>Админ</option>
             {% endif %}
           </select>
-          <div id="bayjuulachPerms" style="display:{% if target['role']=='bayjuulach' %}block{% else %}none{% endif %};margin-top:10px;padding:12px;background:#f0fdf9;border-radius:8px;border:1px solid #99f6e4">
-            <div style="font-size:12px;font-weight:600;color:#0d9488;margin-bottom:10px">Баяжуулах эрх (6000–6999 дугаар)</div>
-            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:8px">
-              <input type="checkbox" name="can_view_result" value="1" {{ 'checked' if target['can_view_result'] }}>
-              Үр дүн харах
-            </label>
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Хандах эрх</label>
+          <div style="padding:14px;background:#f7f7f5;border-radius:8px;border:1px solid #e5e5e3;display:flex;flex-wrap:wrap;gap:16px">
             <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
-              <input type="checkbox" name="can_register" value="1" {{ 'checked' if target['can_register'] }}>
-              Дээж нэмэх
+              <input type="checkbox" name="is_active" value="1" {{ 'checked' if target['is_active'] }}>
+              <span style="font-weight:600">Идэвхтэй</span> <span style="color:var(--text-muted);font-size:11px">(идэвхгүй бол нэвтрэх боломжгүй)</span>
             </label>
+            <div id="clientPerms" style="display:{% if target['role'] in ('geologist','bayjuulach') %}flex{% else %}none{% endif %};gap:16px;flex-wrap:wrap;width:100%;padding-top:10px;border-top:1px solid #e5e5e3;margin-top:4px">
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+                <input type="checkbox" name="can_view_result" value="1" {{ 'checked' if target['can_view_result'] }}>
+                Үр дүн харах
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+                <input type="checkbox" name="can_register" value="1" {{ 'checked' if target['can_register'] }}>
+                Дээж бүртгэх
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+                <input type="checkbox" name="can_export" value="1" {{ 'checked' if target['can_export'] }}>
+                Excel татах <span style="color:var(--text-muted);font-size:11px">(зөвхөн баталгаажсан үед)</span>
+              </label>
+            </div>
           </div>
         </div>
         <div class="form-group">
@@ -131,14 +143,14 @@ function togglePw(inputId, btnId){
 function toggleDevicePerm(){
   var role = document.getElementById('roleSelect').value;
   var sec = document.getElementById('devicePermSection');
-  var bp  = document.getElementById('bayjuulachPerms');
+  var cp  = document.getElementById('clientPerms');
   if(role==='geologist'||role==='bayjuulach'){
-    sec.style.display='none';
-    sec.querySelectorAll('input[type=checkbox]').forEach(function(c){ c.checked=false; });
+    if(sec) { sec.style.display='none'; sec.querySelectorAll('input[type=checkbox]').forEach(function(c){ c.checked=false; }); }
+    if(cp) cp.style.display='flex';
   } else {
-    sec.style.display='';
+    if(sec) sec.style.display='';
+    if(cp) { cp.style.display='none'; cp.querySelectorAll('input[type=checkbox]').forEach(function(c){ c.checked=false; }); }
   }
-  bp.style.display = role==='bayjuulach' ? '' : 'none';
 }
 </script>
 {% endblock %}

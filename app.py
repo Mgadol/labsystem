@@ -1756,11 +1756,14 @@ def staff_edit(uid):
             role_to_set = request.form.get('role', target['role'])
             if session.get('role') == 'senior' and role_to_set in ('admin','senior'):
                 role_to_set = target['role']
-            is_bayj = role_to_set == 'bayjuulach'
-            can_reg  = 1 if (is_bayj and request.form.get('can_register')) else 0
-            can_view = 1 if (is_bayj and request.form.get('can_view_result')) else 0
+            is_client = role_to_set in ('bayjuulach', 'geologist')
+            can_reg    = 1 if (is_client and request.form.get('can_register'))    else 0
+            can_view   = 1 if (is_client and request.form.get('can_view_result')) else 0
+            can_export = 1 if (is_client and request.form.get('can_export'))      else 0
+            is_active  = 1 if request.form.get('is_active') else 0
             conn.execute("""
-                UPDATE users SET name=?,position=?,phone=?,email=?,role=?,joined_date=?,shift=?,can_register=?,can_view_result=?
+                UPDATE users SET name=?,position=?,phone=?,email=?,role=?,joined_date=?,shift=?,
+                                 can_register=?,can_view_result=?,can_export=?,is_active=?
                 WHERE id=?
             """, (
                 request.form.get('name', target['name']),
@@ -1770,7 +1773,7 @@ def staff_edit(uid):
                 role_to_set,
                 request.form.get('joined_date') or None,
                 request.form.get('shift') or None,
-                can_reg, can_view,
+                can_reg, can_view, can_export, is_active,
                 uid
             ))
             if photo:
@@ -2026,6 +2029,8 @@ def ensure_tables():
     try: conn.execute("ALTER TABLE users ADD COLUMN can_register INTEGER DEFAULT 0")
     except Exception: pass
     try: conn.execute("ALTER TABLE users ADD COLUMN can_view_result INTEGER DEFAULT 0")
+    except Exception: pass
+    try: conn.execute("ALTER TABLE users ADD COLUMN can_export INTEGER DEFAULT 0")
     except Exception: pass
     try: conn.execute("""
         CREATE TABLE IF NOT EXISTS result_view_log (
@@ -2807,9 +2812,22 @@ def analysis():
     uid = session.get('user_id', 0)
 
     if role == 'bayjuulach':
-        # Баяжуулагч зөвхөн 6000-6999 серийн дууссан ажлын үр дүнг харна
-        conn.close()
-        return redirect(url_for('archive') + '#tab-analysis')
+        # Баяжуулагч зөвхөн 6000-6999 серийн дүүрсэн ажлыг харна
+        u = conn.execute("SELECT can_view_result FROM users WHERE id=?", (uid,)).fetchone()
+        if not u or not u['can_view_result']:
+            conn.close()
+            flash('Үр дүн харах эрх байхгүй байна', 'error')
+            return redirect(url_for('dashboard'))
+        samples = conn.execute("""
+            SELECT g.*, u.name as reg_name,
+                   sr.lab_number, sr.lab_serial, sr.received_date, sr.mass_kg, sr.id as receipt_id, sr.prep_status
+            FROM geo_samples g
+            LEFT JOIN users u ON u.id=g.registered_by
+            LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
+            WHERE g.status='done' AND sr.lab_serial BETWEEN 6000 AND 6999
+            ORDER BY sr.lab_serial DESC LIMIT 100
+        """).fetchall()
+        return render_template('analysis/index.html', samples=samples, lang=session.get('lang','mn'))
     if role == 'geologist':
         samples = conn.execute("""
             SELECT g.*, u.name as reg_name,
@@ -3529,6 +3547,15 @@ def analysis_export(receipt_id):
     import openpyxl
     from openpyxl.styles import Font, Alignment
     import io, os
+    # Харилцагч эрх шалгах
+    role = session.get('role')
+    if role in ('geologist', 'bayjuulach'):
+        conn_chk = get_db()
+        u = conn_chk.execute("SELECT can_export FROM users WHERE id=?", (session['user_id'],)).fetchone()
+        conn_chk.close()
+        if not u or not u['can_export']:
+            flash('Excel татах эрх байхгүй байна', 'error')
+            return redirect(url_for('analysis_result', receipt_id=receipt_id))
 
     conn = get_db()
     receipt = conn.execute("""
