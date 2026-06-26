@@ -3481,19 +3481,6 @@ def analysis_export(receipt_id):
         ws.cell(data_row, 17, safe(e,'fsi', 1))
         data_row += 1
 
-        # Зэрэгцээ мөр
-        if de and de['row_status'] in ('done', 'approved'):
-            ws.cell(data_row, 2,  '↳ зэрэгцээ').font = Font(italic=True, color="185FA5", size=8)
-            ws.cell(data_row, 4,  calc_mt(de))
-            ws.cell(data_row, 5,  safe(de,'mad', 2))
-            ws.cell(data_row, 6,  safe(de,'aad', 2))
-            ws.cell(data_row, 8,  safe(de,'vad', 2))
-            ws.cell(data_row, 11, safe(de,'fc', 2))
-            ws.cell(data_row, 12, safe(de,'sulfur', 3))
-            ws.cell(data_row, 14, safe(de,'cal_value', 0))
-            ws.cell(data_row, 16, calc_g(de))
-            ws.cell(data_row, 17, safe(de,'fsi', 1))
-            data_row += 1
 
     output = io.BytesIO()
     wb.save(output)
