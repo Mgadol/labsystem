@@ -2620,6 +2620,48 @@ def report_export():
     for ci,w in enumerate([5,16,26,20,14,12,12,12,12,12,10,14,10],1):
         ws7.column_dimensions[get_column_letter(ci)].width=w
 
+    # Дээжний төрлөөр нэгтгэсэн дүн
+    from collections import defaultdict
+    type_vals = defaultdict(lambda: {'mad':[],'aad':[],'vad':[],'fc':[],'sulfur':[],'cal_value':[],'g':[],'mt':[]})
+    for s in analysis_rows:
+        t = s['sample_type']
+        mt = calc_mt7(s)
+        if mt is not None: type_vals[t]['mt'].append(mt)
+        for f in ['mad','aad','vad','fc','sulfur','cal_value']:
+            v = r2(s[f], 3)
+            if v is not None: type_vals[t][f].append(v)
+        g = calc_g7(s)
+        if g is not None: type_vals[t]['g'].append(g)
+
+    if type_vals:
+        sr = 3 + len(analysis_rows) + 1
+        ws7.merge_cells(start_row=sr, start_column=1, end_row=sr, end_column=13)
+        c = ws7.cell(row=sr, column=1, value='ДҮГНЭЛТ — ДУНДАЖ УТГА (ДЭЭЖНИЙ ТӨРЛӨӨР)')
+        c.font = Font(name='Arial', bold=True, size=10, color=WHITE)
+        c.fill = PatternFill('solid', fgColor=TEAL)
+        c.alignment = Alignment(horizontal='center', vertical='center')
+        ws7.row_dimensions[sr].height = 20
+        sr += 1
+
+        def avg(lst): return round(sum(lst)/len(lst), 2) if lst else None
+
+        for stype, vals in type_vals.items():
+            bg = 'E8F4F1'
+            dat(ws7,sr,1,'',bg=bg)
+            dat(ws7,sr,2,SAMPLE_TYPE_MN.get(stype, stype),bg=bg,bold=True,left=True)
+            dat(ws7,sr,3,f"{len(vals['mad'])} дээж",bg=bg,left=True)
+            dat(ws7,sr,4,'Дундаж',bg=bg)
+            dat(ws7,sr,5,'',bg=bg)
+            dat(ws7,sr,6,avg(vals['mt']),fmt='0.00',bg=bg)
+            dat(ws7,sr,7,avg(vals['mad']),fmt='0.00',bg=bg)
+            dat(ws7,sr,8,avg(vals['aad']),fmt='0.00',bg=bg)
+            dat(ws7,sr,9,avg(vals['vad']),fmt='0.00',bg=bg)
+            dat(ws7,sr,10,avg(vals['fc']),fmt='0.00',bg=bg)
+            dat(ws7,sr,11,avg(vals['sulfur']),fmt='0.000',bg=bg)
+            dat(ws7,sr,12,avg(vals['cal_value']),fmt='#,##0',bg=bg)
+            dat(ws7,sr,13,avg(vals['g']),fmt='0.0',bg=bg)
+            sr += 1
+
     for ws in [ws1,ws2,ws3,ws4,ws5,ws6,ws7]:
         ws.page_setup.orientation='landscape'
         ws.page_setup.fitToPage=True; ws.page_setup.fitToWidth=1
