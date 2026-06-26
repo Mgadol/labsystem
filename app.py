@@ -2489,7 +2489,83 @@ def report_export():
     for ci,w in enumerate([5,14,28,14,14,16,14,12],1):
         ws5.column_dimensions[get_column_letter(ci)].width=w
 
-    for ws in [ws1,ws2,ws3,ws4,ws5]:
+    # ── Лабораторийн шинжилгээний тайлан ──────────────────
+    ws6=wb.create_sheet('Шинжилгээний тайлан')
+    ws6.sheet_view.showGridLines=False
+    title(ws6,'ШИНЖИЛГЭЭНИЙ ТАЙЛАН',5)
+
+    SAMPLE_TYPE_MN = {
+        'PIT':'Уурхай (PIT)', 'STOCKPILE':'Овоолго (Stockpile)',
+        'EXPORT':'Экспорт (Export)', 'CONTROL':'Гааль (Control)',
+        'EQ_CONTROL':'Гадаад хяналт (EQ Control)', 'DP':'Баяжуулах (DP)',
+    }
+
+    # Дэлгэрэнгүй жагсаалт
+    for ci,h in enumerate(['№','Лаб дугаар','Дээжний нэр','Дээжний төрөл','Хүлээн авсан огноо','Жин (кг)','Тоо ширхэг','Статус'],1):
+        hdr(ws6,2,ci,h,bg=TEAL)
+
+    ws_samples=conn.execute(f'''
+        SELECT sr.lab_number, g.sample_name, g.sample_type, sr.received_date,
+               sr.mass_kg, g.quantity, g.status
+        FROM sample_receipt sr
+        JOIN geo_samples g ON g.id=sr.geo_sample_id
+        WHERE strftime('%Y-%m', sr.received_date) IN ({ym_list})
+        ORDER BY sr.received_date, sr.lab_number
+    ''').fetchall()
+
+    STATUS_MN = {'pending':'Хүлээгдэж байна','received':'Хүлээн авсан',
+                 'prepared':'Бэлтгэсэн','analysing':'Шинжилж байна','done':'Дууссан'}
+
+    for ri,s in enumerate(ws_samples,3):
+        bg=WHITE if ri%2==0 else GRAY
+        dat(ws6,ri,1,ri-2,bg=bg)
+        dat(ws6,ri,2,s['lab_number'] or '',bg=bg)
+        dat(ws6,ri,3,s['sample_name'] or '',bg=bg,left=True)
+        dat(ws6,ri,4,SAMPLE_TYPE_MN.get(s['sample_type'], s['sample_type'] or ''),bg=bg)
+        dat(ws6,ri,5,s['received_date'] or '',bg=bg)
+        dat(ws6,ri,6,round(s['mass_kg'],2) if s['mass_kg'] else 0,fmt='0.00',bg=bg)
+        dat(ws6,ri,7,s['quantity'] or 0,bg=bg)
+        dat(ws6,ri,8,STATUS_MN.get(s['status'], s['status'] or ''),bg=bg)
+
+    # Дээжний төрлөөр нэгтгэсэн хүснэгт
+    summary_row = 3 + len(ws_samples) + 2
+    ws6.merge_cells(start_row=summary_row-1, start_column=1, end_row=summary_row-1, end_column=5)
+    c=ws6.cell(row=summary_row-1, column=1, value='ДЭЭЖНИЙ ТӨРЛӨӨР НЭГТГЭСЭН')
+    c.font=Font(name='Arial',bold=True,size=11,color=WHITE)
+    c.fill=PatternFill('solid',fgColor=TEAL)
+    c.alignment=Alignment(horizontal='center',vertical='center')
+    ws6.row_dimensions[summary_row-1].height=22
+
+    for ci,h in enumerate(['Дээжний төрөл','Шинжилгээний тоо','Нийт жин (кг)'],1):
+        hdr(ws6,summary_row,ci,h,bg='0F6E56')
+
+    type_summary=conn.execute(f'''
+        SELECT g.sample_type,
+               COUNT(*) as cnt,
+               COALESCE(SUM(sr.mass_kg),0) as total_kg
+        FROM sample_receipt sr
+        JOIN geo_samples g ON g.id=sr.geo_sample_id
+        WHERE strftime('%Y-%m', sr.received_date) IN ({ym_list})
+        GROUP BY g.sample_type
+        ORDER BY cnt DESC
+    ''').fetchall()
+
+    for ri2,t in enumerate(type_summary, summary_row+1):
+        bg=WHITE if ri2%2==0 else GRAY
+        dat(ws6,ri2,1,SAMPLE_TYPE_MN.get(t['sample_type'], t['sample_type'] or ''),bg=bg,left=True)
+        dat(ws6,ri2,2,t['cnt'],bg=bg)
+        dat(ws6,ri2,3,round(t['total_kg'],2),fmt='0.00',bg=bg)
+
+    total_row=summary_row+1+len(type_summary)
+    ws6.merge_cells(start_row=total_row,start_column=1,end_row=total_row,end_column=1)
+    dat(ws6,total_row,1,'НИЙТ',bold=True,bg='D6F0E8',left=True)
+    dat(ws6,total_row,2,sum(t['cnt'] for t in type_summary),bold=True,bg='D6F0E8')
+    dat(ws6,total_row,3,round(sum(t['total_kg'] for t in type_summary),2),fmt='0.00',bold=True,bg='D6F0E8')
+
+    for ci,w in enumerate([5,16,28,22,16,12,12,14],1):
+        ws6.column_dimensions[get_column_letter(ci)].width=w
+
+    for ws in [ws1,ws2,ws3,ws4,ws5,ws6]:
         ws.page_setup.orientation='landscape'
         ws.page_setup.fitToPage=True; ws.page_setup.fitToWidth=1
 
