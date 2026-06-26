@@ -427,15 +427,18 @@ function fetchChartData() {
   fetch(url).then(function(r){ return r.json(); }).then(function(d){
     var sTotal = d.sample_data.reduce(function(a,b){ return a+b; },0);
     var noSampleEl = document.getElementById('no-sample-msg');
+    var sCanvas = document.getElementById('chartSample');
     if(sTotal === 0){
+      sCanvas.style.display = 'none';
       if(!noSampleEl){
         var msg = document.createElement('div');
         msg.id = 'no-sample-msg';
-        msg.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:13px;pointer-events:none';
+        msg.style.cssText = 'display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:13px;height:200px';
         msg.textContent = 'Энэ хугацаанд дээж байхгүй байна';
         document.getElementById('cpane-sample').appendChild(msg);
       }
     } else {
+      sCanvas.style.display = '';
       if(noSampleEl) noSampleEl.remove();
     }
     sampleChart.data.labels = d.sample_labels;
@@ -443,15 +446,18 @@ function fetchChartData() {
     sampleChart.update();
     var aTotal = d.analysis_data.reduce(function(a,b){ return a+b; },0);
     var noAnalysisEl = document.getElementById('no-analysis-msg');
+    var aCanvas = document.getElementById('chartAnalysis');
     if(aTotal === 0){
+      aCanvas.style.display = 'none';
       if(!noAnalysisEl){
         var msg2 = document.createElement('div');
         msg2.id = 'no-analysis-msg';
-        msg2.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:13px;pointer-events:none';
+        msg2.style.cssText = 'display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:13px;height:200px';
         msg2.textContent = 'Энэ хугацаанд шинжилгээ байхгүй байна';
         document.getElementById('cpane-analysis').appendChild(msg2);
       }
     } else {
+      aCanvas.style.display = '';
       if(noAnalysisEl) noAnalysisEl.remove();
     }
     analysisChart.data.datasets[0].data = d.analysis_data;
