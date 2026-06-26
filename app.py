@@ -2558,32 +2558,17 @@ def report_export():
     for ci,w in enumerate([28,20,18],1):
         ws6.column_dimensions[get_column_letter(ci)].width=w
 
-    # ── Sheet 7: Шинжилгээний үр дүн ──────────────────────
+    # ── Sheet 7: Шинжилгээний үр дүн (төрлөөр нэгтгэсэн) ─
     ws7=wb.create_sheet('Шинжилгээ')
     ws7.sheet_view.showGridLines=False
-    title(ws7,'ШИНЖИЛГЭЭНИЙ ҮР ДҮНГИЙН ХҮСНЭГТ',13)
-    hdrs7=['№','Лаб дугаар','Дээжний нэр','Дээжний төрөл','Огноо',
+    title(ws7,'ШИНЖИЛГЭЭНИЙ ҮР ДҮНГИЙН ХҮСНЭГТ',10)
+    hdrs7=['№','Дээжний төрөл','Шинжилгээний тоо',
            'Нийт чийг\nMt (%)','Дотоод чийг\nMad (%)','Үнслэг\nAad (%)',
            'Дэгдэмхий\nVad (%)','Байнгын нүүрстөрөгч\nFc (%)','Хүхэр\nSt (%)',
            'Дулааны чадал\nQ (кал/г)','G индекс']
     for ci,h in enumerate(hdrs7,1):
         hdr(ws7,2,ci,h,bg=TEAL)
     ws7.row_dimensions[2].height=36
-
-    analysis_rows=conn.execute(f'''
-        SELECT sr.lab_number, g.sample_name, g.sample_type, sr.received_date,
-               se.row_num, se.mad, se.aad, se.vad, se.fc,
-               se.sulfur, se.cal_value, se.g_val,
-               se.ff_sample, se.ff_dried,
-               se.g_coke, se.g_tare, se.g_sieve1, se.g_sieve2
-        FROM sample_receipt sr
-        JOIN geo_samples g ON g.id=sr.geo_sample_id
-        JOIN sample_entries se ON se.receipt_id=sr.id
-        WHERE {ws_filter}
-          AND se.is_duplicate=0
-          AND se.row_status IN ('done','approved')
-        ORDER BY sr.received_date, sr.lab_number, se.row_num
-    ''').fetchall()
 
     def r2(v, d=2):
         try: return round(float(v), d) if v is not None else None
@@ -2601,26 +2586,36 @@ def report_export():
             d=gc-gt
             if d>0: return round((gs1+gs2)/d*100,1)
         return None
+    def avg(lst): return round(sum(lst)/len(lst), 2) if lst else None
 
-    for ri,s in enumerate(analysis_rows,3):
-        bg=WHITE if ri%2==0 else GRAY
-        dat(ws7,ri,1,ri-2,bg=bg)
-        dat(ws7,ri,2,s['lab_number'] or '',bg=bg)
-        dat(ws7,ri,3,s['sample_name'] or '',bg=bg,left=True)
-        dat(ws7,ri,4,SAMPLE_TYPE_MN.get(s['sample_type'], s['sample_type'] or ''),bg=bg)
-        dat(ws7,ri,5,s['received_date'] or '',bg=bg)
-        dat(ws7,ri,6,calc_mt7(s),fmt='0.00',bg=bg)
-        dat(ws7,ri,7,r2(s['mad']),fmt='0.00',bg=bg)
-        dat(ws7,ri,8,r2(s['aad']),fmt='0.00',bg=bg)
-        dat(ws7,ri,9,r2(s['vad']),fmt='0.00',bg=bg)
-        dat(ws7,ri,10,r2(s['fc']),fmt='0.00',bg=bg)
-        dat(ws7,ri,11,r2(s['sulfur'],3),fmt='0.000',bg=bg)
-        dat(ws7,ri,12,r2(s['cal_value'],0),fmt='#,##0',bg=bg)
-        dat(ws7,ri,13,calc_g7(s),fmt='0.0',bg=bg)
-    for ci,w in enumerate([5,16,26,20,14,12,12,12,12,12,10,14,10],1):
-        ws7.column_dimensions[get_column_letter(ci)].width=w
+    # Дээжний тоо = unique receipt тус бүр (не entry)
+    type_receipts = conn.execute(f'''
+        SELECT g.sample_type, COUNT(DISTINCT sr.id) as cnt
+        FROM sample_receipt sr
+        JOIN geo_samples g ON g.id=sr.geo_sample_id
+        JOIN sample_entries se ON se.receipt_id=sr.id
+        WHERE {ws_filter}
+          AND se.is_duplicate=0
+          AND se.row_status IN ('done','approved')
+        GROUP BY g.sample_type
+        ORDER BY cnt DESC
+    ''').fetchall()
+    receipt_cnt = {r['sample_type']: r['cnt'] for r in type_receipts}
 
-    # Дээжний төрлөөр нэгтгэсэн дүн
+    # Дундаж тооцоолох — зөвхөн бүрэн дүүрсэн утгуудаас
+    analysis_rows=conn.execute(f'''
+        SELECT g.sample_type, se.mad, se.aad, se.vad, se.fc,
+               se.sulfur, se.cal_value, se.g_val,
+               se.ff_sample, se.ff_dried,
+               se.g_coke, se.g_tare, se.g_sieve1, se.g_sieve2
+        FROM sample_receipt sr
+        JOIN geo_samples g ON g.id=sr.geo_sample_id
+        JOIN sample_entries se ON se.receipt_id=sr.id
+        WHERE {ws_filter}
+          AND se.is_duplicate=0
+          AND se.row_status IN ('done','approved')
+    ''').fetchall()
+
     from collections import defaultdict
     type_vals = defaultdict(lambda: {'mad':[],'aad':[],'vad':[],'fc':[],'sulfur':[],'cal_value':[],'g':[],'mt':[]})
     for s in analysis_rows:
@@ -2633,34 +2628,23 @@ def report_export():
         g = calc_g7(s)
         if g is not None: type_vals[t]['g'].append(g)
 
-    if type_vals:
-        sr = 3 + len(analysis_rows) + 1
-        ws7.merge_cells(start_row=sr, start_column=1, end_row=sr, end_column=13)
-        c = ws7.cell(row=sr, column=1, value='ДҮГНЭЛТ — ДУНДАЖ УТГА (ДЭЭЖНИЙ ТӨРЛӨӨР)')
-        c.font = Font(name='Arial', bold=True, size=10, color=WHITE)
-        c.fill = PatternFill('solid', fgColor=TEAL)
-        c.alignment = Alignment(horizontal='center', vertical='center')
-        ws7.row_dimensions[sr].height = 20
-        sr += 1
+    for ri, stype in enumerate(receipt_cnt.keys(), 3):
+        bg = WHITE if ri%2==0 else GRAY
+        vals = type_vals[stype]
+        dat(ws7,ri,1,ri-2,bg=bg)
+        dat(ws7,ri,2,SAMPLE_TYPE_MN.get(stype, stype),bg=bg,left=True)
+        dat(ws7,ri,3,receipt_cnt[stype],bg=bg)
+        dat(ws7,ri,4,avg(vals['mt']),fmt='0.00',bg=bg)
+        dat(ws7,ri,5,avg(vals['mad']),fmt='0.00',bg=bg)
+        dat(ws7,ri,6,avg(vals['aad']),fmt='0.00',bg=bg)
+        dat(ws7,ri,7,avg(vals['vad']),fmt='0.00',bg=bg)
+        dat(ws7,ri,8,avg(vals['fc']),fmt='0.00',bg=bg)
+        dat(ws7,ri,9,avg(vals['sulfur']),fmt='0.000',bg=bg)
+        dat(ws7,ri,10,avg(vals['cal_value']),fmt='#,##0',bg=bg)
+        dat(ws7,ri,11,avg(vals['g']),fmt='0.0',bg=bg)
 
-        def avg(lst): return round(sum(lst)/len(lst), 2) if lst else None
-
-        for stype, vals in type_vals.items():
-            bg = 'E8F4F1'
-            dat(ws7,sr,1,'',bg=bg)
-            dat(ws7,sr,2,SAMPLE_TYPE_MN.get(stype, stype),bg=bg,bold=True,left=True)
-            dat(ws7,sr,3,f"{len(vals['mad'])} дээж",bg=bg,left=True)
-            dat(ws7,sr,4,'Дундаж',bg=bg)
-            dat(ws7,sr,5,'',bg=bg)
-            dat(ws7,sr,6,avg(vals['mt']),fmt='0.00',bg=bg)
-            dat(ws7,sr,7,avg(vals['mad']),fmt='0.00',bg=bg)
-            dat(ws7,sr,8,avg(vals['aad']),fmt='0.00',bg=bg)
-            dat(ws7,sr,9,avg(vals['vad']),fmt='0.00',bg=bg)
-            dat(ws7,sr,10,avg(vals['fc']),fmt='0.00',bg=bg)
-            dat(ws7,sr,11,avg(vals['sulfur']),fmt='0.000',bg=bg)
-            dat(ws7,sr,12,avg(vals['cal_value']),fmt='#,##0',bg=bg)
-            dat(ws7,sr,13,avg(vals['g']),fmt='0.0',bg=bg)
-            sr += 1
+    for ci,w in enumerate([5,24,16,12,12,12,12,16,10,14,10],1):
+        ws7.column_dimensions[get_column_letter(ci)].width=w
 
     for ws in [ws1,ws2,ws3,ws4,ws5,ws6,ws7]:
         ws.page_setup.orientation='landscape'
