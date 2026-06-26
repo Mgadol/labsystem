@@ -2605,7 +2605,6 @@ def report_export():
             if s[f] is not None: type_cnt[t][f] += 1
         if has_g(s): type_cnt[t]['g'] += 1
 
-    receipt_map = {r['sample_type']: r['cnt'] for r in type_receipts}
     for ri, r in enumerate(type_receipts, 3):
         bg = WHITE if ri%2==0 else GRAY
         t = r['sample_type']
