@@ -2558,23 +2558,66 @@ def report_export():
     for ci,w in enumerate([28,20,18],1):
         ws6.column_dimensions[get_column_letter(ci)].width=w
 
-    # ── Sheet 7: Шинжилгээ (дэлгэрэнгүй) ──────────────────
+    # ── Sheet 7: Шинжилгээний үр дүн ──────────────────────
     ws7=wb.create_sheet('Шинжилгээ')
     ws7.sheet_view.showGridLines=False
-    title(ws7,'ШИНЖИЛГЭЭНИЙ ДЭЛГЭРЭНГҮЙ ЖАГСААЛТ',8)
-    for ci,h in enumerate(['№','Лаб дугаар','Дээжний нэр','Дээжний төрөл','Хүлээн авсан огноо','Жин (кг)','Тоо ширхэг','Статус'],1):
+    title(ws7,'ШИНЖИЛГЭЭНИЙ ҮР ДҮНГИЙН ХҮСНЭГТ',13)
+    hdrs7=['№','Лаб дугаар','Дээжний нэр','Дээжний төрөл','Огноо',
+           'Нийт чийг\nMt (%)','Дотоод чийг\nMad (%)','Үнслэг\nAad (%)',
+           'Дэгдэмхий\nVad (%)','Байнгын нүүрстөрөгч\nFc (%)','Хүхэр\nSt (%)',
+           'Дулааны чадал\nQ (кал/г)','G индекс']
+    for ci,h in enumerate(hdrs7,1):
         hdr(ws7,2,ci,h,bg=TEAL)
-    for ri,s in enumerate(ws_samples,3):
+    ws7.row_dimensions[2].height=36
+
+    analysis_rows=conn.execute(f'''
+        SELECT sr.lab_number, g.sample_name, g.sample_type, sr.received_date,
+               se.row_num, se.mad, se.aad, se.vad, se.fc,
+               se.sulfur, se.cal_value, se.g_val,
+               se.ff_sample, se.ff_dried,
+               se.g_coke, se.g_tare, se.g_sieve1, se.g_sieve2
+        FROM sample_receipt sr
+        JOIN geo_samples g ON g.id=sr.geo_sample_id
+        JOIN sample_entries se ON se.receipt_id=sr.id
+        WHERE {ws_filter}
+          AND se.is_duplicate=0
+          AND se.row_status IN ('done','approved')
+        ORDER BY sr.received_date, sr.lab_number, se.row_num
+    ''').fetchall()
+
+    def r2(v, d=2):
+        try: return round(float(v), d) if v is not None else None
+        except: return None
+    def calc_mt7(row):
+        fs=r2(row['ff_sample']); fd=r2(row['ff_dried'])
+        if fs and fs>0 and fd is not None:
+            return round((fs-fd)/fs*100, 2)
+        return None
+    def calc_g7(row):
+        if row['g_val'] is not None: return r2(row['g_val'],1)
+        gc=r2(row['g_coke']); gt=r2(row['g_tare'])
+        gs1=r2(row['g_sieve1']); gs2=r2(row['g_sieve2'])
+        if gc is not None and gt is not None and gs1 is not None and gs2 is not None:
+            d=gc-gt
+            if d>0: return round((gs1+gs2)/d*100,1)
+        return None
+
+    for ri,s in enumerate(analysis_rows,3):
         bg=WHITE if ri%2==0 else GRAY
         dat(ws7,ri,1,ri-2,bg=bg)
         dat(ws7,ri,2,s['lab_number'] or '',bg=bg)
         dat(ws7,ri,3,s['sample_name'] or '',bg=bg,left=True)
         dat(ws7,ri,4,SAMPLE_TYPE_MN.get(s['sample_type'], s['sample_type'] or ''),bg=bg)
         dat(ws7,ri,5,s['received_date'] or '',bg=bg)
-        dat(ws7,ri,6,round(s['mass_kg'],2) if s['mass_kg'] else 0,fmt='0.00',bg=bg)
-        dat(ws7,ri,7,s['quantity'] or 0,bg=bg)
-        dat(ws7,ri,8,STATUS_MN.get(s['status'], s['status'] or ''),bg=bg)
-    for ci,w in enumerate([5,16,28,22,16,12,12,14],1):
+        dat(ws7,ri,6,calc_mt7(s),fmt='0.00',bg=bg)
+        dat(ws7,ri,7,r2(s['mad']),fmt='0.00',bg=bg)
+        dat(ws7,ri,8,r2(s['aad']),fmt='0.00',bg=bg)
+        dat(ws7,ri,9,r2(s['vad']),fmt='0.00',bg=bg)
+        dat(ws7,ri,10,r2(s['fc']),fmt='0.00',bg=bg)
+        dat(ws7,ri,11,r2(s['sulfur'],3),fmt='0.000',bg=bg)
+        dat(ws7,ri,12,r2(s['cal_value'],0),fmt='#,##0',bg=bg)
+        dat(ws7,ri,13,calc_g7(s),fmt='0.0',bg=bg)
+    for ci,w in enumerate([5,16,26,20,14,12,12,12,12,12,10,14,10],1):
         ws7.column_dimensions[get_column_letter(ci)].width=w
 
     for ws in [ws1,ws2,ws3,ws4,ws5,ws6,ws7]:
