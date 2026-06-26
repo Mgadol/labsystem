@@ -2561,7 +2561,7 @@ def report_export():
     # ── Sheet 7: Шинжилгээний үр дүн (төрлөөр нэгтгэсэн) ─
     ws7=wb.create_sheet('Шинжилгээ')
     ws7.sheet_view.showGridLines=False
-    title(ws7,'ШИНЖИЛГЭЭНИЙ ҮР ДҮНГИЙН ХҮСНЭГТ',10)
+    title(ws7,'ШИНЖИЛГЭЭНИЙ ҮР ДҮНГИЙН ХҮСНЭГТ',11)
     hdrs7=['№','Дээжний төрөл','Нийт дээж','Mt','Mad','Aad','Vad','Fc','St','Q','G']
     for ci,h in enumerate(hdrs7,1):
         hdr(ws7,2,ci,h,bg=TEAL)
