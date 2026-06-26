@@ -397,6 +397,8 @@ def dashboard():
 @app.route('/devices')
 @login_required
 def devices():
+    if session.get('role') == 'guest':
+        return redirect(url_for('dashboard'))
     lang = session.get('lang','mn')
     conn = get_db()
     if session.get('role') == 'admin':
@@ -425,6 +427,8 @@ def devices():
 @app.route('/devices/<int:did>')
 @login_required
 def device_detail(did):
+    if session.get('role') == 'guest':
+        return redirect(url_for('dashboard'))
     lang = session.get('lang','mn')
     conn = get_db()
     device = conn.execute("SELECT d.*, dm.manufacturer, dm.model, dm.category FROM devices d LEFT JOIN device_marks dm ON d.mark_id=dm.id WHERE d.id=?", (did,)).fetchone()
