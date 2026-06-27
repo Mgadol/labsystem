@@ -614,11 +614,31 @@ function deleteQC(param){
 }
 function copyGuestUrl(token){
   var url = window.location.origin + '/guest/' + token;
-  navigator.clipboard.writeText(url).then(function(){
-    alert('Хаяг хуулагдлаа:\n' + url);
-  }).catch(function(){
-    prompt('Хаягийг хуулна уу:', url);
-  });
+  if(navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(url).then(function(){
+      alert('Хаяг хуулагдлаа:\n' + url);
+    }).catch(function(){
+      fallbackCopy(url);
+    });
+  } else {
+    fallbackCopy(url);
+  }
+}
+function fallbackCopy(text){
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try {
+    document.execCommand('copy');
+    alert('Хаяг хуулагдлаа:\n' + text);
+  } catch(e){
+    prompt('Хаягийг гараар хуулна уу:', text);
+  }
+  document.body.removeChild(ta);
 }
 // URL-н ?tab= параметрээр идэвхтэй табыг тохируулна
 document.addEventListener('DOMContentLoaded', function(){
