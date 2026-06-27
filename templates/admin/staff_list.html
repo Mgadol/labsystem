@@ -54,10 +54,23 @@
     {% for shift_code, shift_name, bg, color in shifts %}
     {% set grp = users_a if shift_code=='A' else users_b %}
     {% set lab_grp = grp|rejectattr('role','eq','geologist')|rejectattr('role','eq','bayjuulach')|list %}
+    {% set active_cnt = lab_grp|selectattr('is_active')|list|length %}
     <div style="margin-bottom:20px">
-      <div class="shift-header" style="background:{{ bg }};color:{{ color }};border-radius:8px 8px 0 0">
-        {{ shift_name }}
-        <span style="font-weight:400;font-size:11px;margin-left:8px">{{ lab_grp|length }} ажилтан</span>
+      <div class="shift-header" style="background:{{ bg }};color:{{ color }};border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between">
+        <span>
+          {{ shift_name }}
+          <span style="font-weight:400;font-size:11px;margin-left:8px">{{ active_cnt }} идэвхтэй / {{ lab_grp|length }} нийт</span>
+        </span>
+        {% if current_user['role'] in ('admin','senior') %}
+        <span style="display:flex;gap:6px">
+          <form method="POST" action="{{ url_for('staff_shift_bulk', shift=shift_code, action='rest') }}" onsubmit="return confirm('{{ shift_name }}-ийн бүх хүнийг амраах (идэвхгүй болгох) уу?')">
+            <button type="submit" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">😴 Амраах</button>
+          </form>
+          <form method="POST" action="{{ url_for('staff_shift_bulk', shift=shift_code, action='work') }}" onsubmit="return confirm('{{ shift_name }}-ийн бүх хүнийг ажиллуулах (идэвхжүүлэх) үү?')">
+            <button type="submit" class="btn btn-sm" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">▶ Ажиллуулах</button>
+          </form>
+        </span>
+        {% endif %}
       </div>
       <div class="card" style="border-radius:0 0 8px 8px;margin-top:0;padding:0">
         <table class="table">
@@ -68,7 +81,7 @@
           </thead>
           <tbody>
           {% for u in lab_grp %}
-          <tr class="staff-row">
+          <tr class="staff-row" style="{% if not u['is_active'] %}opacity:.5;background:#f7f7f5{% endif %}">
             <td>
               <div class="flex gap-8">
                 {% if u['photo'] %}
@@ -95,7 +108,7 @@
             <td>
               <div style="display:flex;gap:6px;flex-wrap:wrap">
                 <a href="{{ url_for('staff_detail', uid=u['id']) }}" class="btn btn-ghost btn-sm">Харах</a>
-                {% if current_user['role'] == 'admin' %}
+                {% if current_user['role'] in ('admin','senior') %}
                 <a href="{{ url_for('staff_edit', uid=u['id']) }}" class="btn btn-ghost btn-sm">✏️ Засах</a>
                 {% if u['id'] != session['user_id'] %}
                   {% if u['is_active'] %}
@@ -137,7 +150,7 @@
           </thead>
           <tbody>
           {% for u in lab_none %}
-          <tr class="staff-row">
+          <tr class="staff-row" style="{% if not u['is_active'] %}opacity:.5;background:#f7f7f5{% endif %}">
             <td>
               <div class="flex gap-8">
                 {% if u['photo'] %}
@@ -164,7 +177,7 @@
             <td>
               <div style="display:flex;gap:6px;flex-wrap:wrap">
                 <a href="{{ url_for('staff_detail', uid=u['id']) }}" class="btn btn-ghost btn-sm">Харах</a>
-                {% if current_user['role'] == 'admin' %}
+                {% if current_user['role'] in ('admin','senior') %}
                 <a href="{{ url_for('staff_edit', uid=u['id']) }}" class="btn btn-ghost btn-sm">✏️ Засах</a>
                 {% if u['id'] != session['user_id'] %}
                   {% if u['is_active'] %}
@@ -200,7 +213,7 @@
         </thead>
         <tbody>
         {% for u in bayj_users %}
-        <tr>
+        <tr style="{% if not u['is_active'] %}opacity:.5;background:#f7f7f5{% endif %}">
           <td>
             <div class="flex gap-8">
               {% if u['photo'] %}
@@ -259,7 +272,7 @@
         <tbody>
         {% set all_geo = (users_a|selectattr('role','eq','geologist')|list) + (users_b|selectattr('role','eq','geologist')|list) + (users_none|selectattr('role','eq','geologist')|list) %}
         {% for u in all_geo %}
-        <tr class="geo-row">
+        <tr class="geo-row" style="{% if not u['is_active'] %}opacity:.5;background:#f7f7f5{% endif %}">
           <td>
             <div class="flex gap-8">
               {% if u['photo'] %}
