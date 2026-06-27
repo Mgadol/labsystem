@@ -1226,15 +1226,17 @@ def staff_list():
     conn = get_db()
     is_admin = session.get('role') == 'admin'
     role_filter = '' if is_admin else "AND role != 'admin'"
+    # Идэвхтэй болон ээлжид идэвхгүй болсон (амарсан) хүмүүсийг хоёуланг харуулна.
+    # Ээлжгүй идэвхгүй хүмүүс (бүрмөсөн гарсан) зөвхөн архивт харагдана.
     users_a = conn.execute(f"""
-        SELECT * FROM users WHERE is_active=1 AND shift='A' {role_filter}
-        ORDER BY CASE role
+        SELECT * FROM users WHERE shift='A' {role_filter}
+        ORDER BY is_active DESC, CASE role
             WHEN 'admin' THEN 1 WHEN 'senior' THEN 2 WHEN 'staff' THEN 3
             WHEN 'preparer' THEN 4 WHEN 'geologist' THEN 5 ELSE 6 END, name
     """).fetchall()
     users_b = conn.execute(f"""
-        SELECT * FROM users WHERE is_active=1 AND shift='B' {role_filter}
-        ORDER BY CASE role
+        SELECT * FROM users WHERE shift='B' {role_filter}
+        ORDER BY is_active DESC, CASE role
             WHEN 'admin' THEN 1 WHEN 'senior' THEN 2 WHEN 'staff' THEN 3
             WHEN 'preparer' THEN 4 WHEN 'geologist' THEN 5 ELSE 6 END, name
     """).fetchall()
@@ -1244,7 +1246,7 @@ def staff_list():
             WHEN 'admin' THEN 1 WHEN 'senior' THEN 2 WHEN 'staff' THEN 3
             WHEN 'preparer' THEN 4 WHEN 'geologist' THEN 5 ELSE 6 END, name
     """).fetchall()
-    _bayj_raw = conn.execute("SELECT * FROM users WHERE is_active=1 AND role='bayjuulach'").fetchall()
+    _bayj_raw = conn.execute("SELECT * FROM users WHERE role='bayjuulach' AND (is_active=1 OR shift IN ('A','B'))").fetchall()
     _pos_rank = ['Үйлдвэрийн дарга','Ашиглалтын ахлах инженер','Ашиглалтын инженер',
                  'Цахилгаан автоматжуулалтын инженер','Удирдлагын оператор',
                  'Орчуулагч, бичиг хэргийн мэргэжилтэн']
@@ -1921,6 +1923,29 @@ def staff_deactivate(uid):
     conn.commit()
     conn.close()
     flash('Ажилтан идэвхгүй болголоо.' if lang=='mn' else 'Staff deactivated.', 'success')
+    return redirect(url_for('staff_list'))
+
+@app.route('/staff/shift/<shift>/<action>', methods=['POST'])
+@senior_required
+def staff_shift_bulk(shift, action):
+    """Ээлжээр бөөнөөр идэвхгүй (амраах) / идэвхтэй (ажиллуулах) болгоно"""
+    lang = session.get('lang','mn')
+    if shift not in ('A','B') or action not in ('rest','work'):
+        flash('Буруу хүсэлт.', 'error')
+        return redirect(url_for('staff_list'))
+    new_active = 0 if action == 'rest' else 1
+    conn = get_db()
+    # Өөрийгөө болон админыг хөндөхгүй
+    me = session.get('user_id', 0)
+    conn.execute(
+        "UPDATE users SET is_active=? WHERE shift=? AND role != 'admin' AND id != ?",
+        (new_active, shift, me))
+    conn.commit()
+    conn.close()
+    if action == 'rest':
+        flash(f'{shift} ээлж амрав (идэвхгүй болголоо).', 'success')
+    else:
+        flash(f'{shift} ээлж ажилд орлоо (идэвхжүүлэв).', 'success')
     return redirect(url_for('staff_list'))
 
 @app.route('/staff/<int:uid>/activate', methods=['POST'])
