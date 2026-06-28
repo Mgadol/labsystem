@@ -2006,6 +2006,31 @@ def device_restore(did):
     flash('Төхөөрөмж сэргээгдлээ.' if lang=='mn' else 'Device restored.', 'success')
     return redirect(url_for('devices'))
 
+@app.route('/devices/<int:did>/delete', methods=['POST'])
+@admin_required
+def device_delete(did):
+    """Төхөөрөмжийг бүрмөсөн устгана (зөвхөн архивлагдсаныг, зөвхөн Админ)"""
+    lang = session.get('lang','mn')
+    conn = get_db()
+    dev = conn.execute("SELECT status FROM devices WHERE id=?", (did,)).fetchone()
+    if not dev:
+        conn.close()
+        flash('Төхөөрөмж олдсонгүй.', 'error')
+        return redirect(url_for('archive'))
+    if dev['status'] not in ('archived','replaced','decommissioned','standby'):
+        conn.close()
+        flash('Зөвхөн архивлагдсан төхөөрөмжийг бүрмөсөн устгана.', 'error')
+        return redirect(url_for('archive'))
+    # Холбоотой бичлэгүүдийг устгана
+    conn.execute("DELETE FROM staff_device_permissions WHERE device_id=?", (did,))
+    conn.execute("DELETE FROM calibrations WHERE device_id=?", (did,))
+    conn.execute("DELETE FROM repairs WHERE device_id=?", (did,))
+    conn.execute("DELETE FROM usage_logs WHERE device_id=?", (did,))
+    conn.execute("DELETE FROM devices WHERE id=?", (did,))
+    conn.commit(); conn.close()
+    flash('Төхөөрөмж бүрмөсөн устгагдлаа.' if lang=='mn' else 'Device permanently deleted.', 'success')
+    return redirect(url_for('archive'))
+
 # ── MARKS ───────────────────────────────────────────────
 @app.route('/marks/add', methods=['POST'])
 @admin_required
