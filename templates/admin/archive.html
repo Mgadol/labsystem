@@ -70,6 +70,13 @@
                 </button>
               </form>
               {% endif %}
+              {% if current_user['role'] == 'admin' %}
+              <form method="POST" action="{{ url_for('device_delete', did=d['id']) }}" onsubmit="return confirm('{{ d['name'] }} төхөөрөмжийг БҮРМӨСӨН устгах уу? Энэ үйлдлийг буцаах боломжгүй!')">
+                <button type="submit" class="btn btn-sm" style="background:#faece7;color:#b91c1c;border:1px solid #f5c4b3">
+                  🗑 {{ 'Бүрмөсөн устгах' if lang=='mn' else 'Delete' }}
+                </button>
+              </form>
+              {% endif %}
             </div>
           </td>
         </tr>
