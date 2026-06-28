@@ -599,6 +599,10 @@ def device_add():
             request.form.get('check_freq') or 'daily',
         ))
         did = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        # Аналитик жин — босоо жингийн загвар (check_group1_cols=0) автоматаар тохируулна
+        _nm = (request.form['name'] or '').lower()
+        if 'жин' in _nm or 'налитик' in _nm:
+            conn.execute("UPDATE devices SET check_group1=COALESCE(NULLIF(check_group1,''),'Туухай'), check_group1_cols=0 WHERE id=?", (did,))
         conn.commit(); conn.close()
         flash('Төхөөрөмж нэмэгдлээ!' if lang=='mn' else 'Device added!', 'success')
         return redirect(url_for('device_detail', did=did))
