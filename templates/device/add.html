@@ -325,8 +325,8 @@ function applyMainTemplate(type) {
     btn.style.borderColor = t===type ? (t==='weight'?'#0d9488':'#7C3AED') : 'var(--border)';
     btn.style.background = t===type ? (t==='weight'?'#f0fdf9':'#f5f3ff') : '#fff';
   });
+  // check_freq-г дарж бичихгүй — хэрэглэгчийн "Шалгах давтамж" сонголтыг хүндэтгэнэ
   if(type==='weight'){
-    document.querySelector('[name=check_freq]').value = 'daily';
     var ce = document.querySelector('[name=check_enabled]');
     if(ce) ce.checked = true;
     ['2','3','4','5'].forEach(function(i){
@@ -334,7 +334,6 @@ function applyMainTemplate(type) {
       if(p) p.value=''; if(s) s.value=''; if(t) t.value='';
     });
   } else {
-    document.querySelector('[name=check_freq]').value = 'weekly';
     var ce = document.querySelector('[name=check_enabled]');
     if(ce) ce.checked = true;
   }
