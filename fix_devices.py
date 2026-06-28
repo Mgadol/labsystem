@@ -17,10 +17,14 @@ cur.execute("""UPDATE devices SET check_freq='monthly'
        OR LOWER(name) LIKE '%хүхэр%'
        OR LOWER(name) LIKE '%sulfur%'""")
 
-# 3) Холигч, Хөөлтийн зэрэг тодорхойлох багаж — 7 хоногийн шалгалт
+# 3) Холигч, Хоолт/Хөөлтийн зэрэг тодорхойлох багаж — 7 хоногийн шалгалт
 cur.execute("""UPDATE devices SET check_freq='weekly'
     WHERE LOWER(name) LIKE '%холигч%'
-       OR LOWER(name) LIKE '%хөөлт%'""")
+       OR LOWER(name) LIKE '%хоолт%'
+       OR LOWER(name) LIKE '%хөөлт%'
+       OR LOWER(name) LIKE '%зэрэг тодорхойлох%'
+       OR LOWER(name) LIKE '%mixer%'""")
+print('Weekly болгосон:', cur.rowcount)
 
 # 4) Жин (аналитик/техник/электрон) — өдөр бүр, босоо жингийн загвар
 cur.execute("""UPDATE devices SET check_group1='Туухай', check_group1_cols=0
