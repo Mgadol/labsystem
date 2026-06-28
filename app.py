@@ -2193,13 +2193,16 @@ def ensure_tables():
         )
     """)
     except Exception: pass
-    # Лаб 01-05: жингийн босоо загвар тэмдэглэх (check_group1_cols=0)
-    conn.execute("""
+    # ── Төхөөрөмжийн автомат тохиргоо — ЗӨВХӨН НЭГ УДАА ажиллана ──
+    # (PRAGMA user_version=1 болсон бол дахин ажиллахгүй — user/гар тохиргоог хадгална)
+    if conn.execute("PRAGMA user_version").fetchone()[0] < 1:
+      # Лаб 01-05: жингийн босоо загвар тэмдэглэх (check_group1_cols=0)
+      conn.execute("""
         UPDATE devices SET check_group1_cols=0
         WHERE CAST(lab_id AS TEXT) IN ('01','02','03','04','05','001','002','003','004','005')
-    """)
-    # Лаб 02-05: лаб 01-ийн жингийн тохиргоог хуулна (photo-оос бусад)
-    conn.execute("""
+      """)
+      # Лаб 02-05: лаб 01-ийн жингийн тохиргоог хуулна (photo-оос бусад)
+      conn.execute("""
         UPDATE devices SET
             check_param1   = (SELECT check_param1   FROM devices WHERE lab_id='01' LIMIT 1),
             check_standard = (SELECT check_standard FROM devices WHERE lab_id='01' LIMIT 1),
@@ -2209,9 +2212,9 @@ def ensure_tables():
             check_enabled  = (SELECT check_enabled  FROM devices WHERE lab_id='01' LIMIT 1),
             check_group1_cols = 0
         WHERE CAST(lab_id AS TEXT) IN ('02','03','04','05','002','003','004','005')
-    """)
-    # Лаб 11-14: лаб 06-тай ижил (зуухны температур, daily)
-    conn.execute("""
+      """)
+      # Лаб 11-14: лаб 06-тай ижил (зуухны температур, daily)
+      conn.execute("""
         UPDATE devices SET
             check_group1='Зуухны температур', check_group2=NULL, check_group3=NULL,
             check_param1='Температур 1', check_standard='850±10 °C', check_tolerance='6 мин - 850 °C',
@@ -2221,9 +2224,9 @@ def ensure_tables():
             check_freq=COALESCE(check_freq,'daily'), check_enabled=1, check_group1_cols=4
         WHERE CAST(lab_id AS TEXT) IN ('11','12','13','14','011','012','013','014')
            OR LOWER(name) LIKE '%барабан%'
-    """)
-    # Зуух (муфель зуух) — нэрээр тааруулна
-    conn.execute("""
+      """)
+      # Зуух (муфель зуух) — нэрээр тааруулна
+      conn.execute("""
         UPDATE devices SET
             check_group1='Зуухны температур', check_group2=NULL, check_group3=NULL,
             check_param1='Температур 1', check_standard='850±10 °C', check_tolerance='6 мин - 850 °C',
@@ -2235,9 +2238,9 @@ def ensure_tables():
         WHERE CAST(lab_id AS TEXT) IN ('06','07','08','006','007','008')
            OR LOWER(name) LIKE '%муфель%' OR LOWER(name) LIKE '%muffle%'
            OR LOWER(name) LIKE '%зуух%'
-    """)
-    # Хатаах шүүгээ — нэрээр тааруулна
-    conn.execute("""
+      """)
+      # Хатаах шүүгээ — нэрээр тааруулна
+      conn.execute("""
         UPDATE devices SET
             check_group1='Зуухны температур', check_group2=NULL, check_group3=NULL,
             check_param1='Температур 1', check_standard='105±2 °C', check_tolerance='±2 °C',
@@ -2249,9 +2252,9 @@ def ensure_tables():
         WHERE CAST(lab_id AS TEXT) IN ('19','20','21','019','020','021')
            OR LOWER(name) LIKE '%хатаах%' OR LOWER(name) LIKE '%шүүгээ%'
            OR LOWER(name) LIKE '%drying%'
-    """)
-    # Холигч — нэрээр тааруулна
-    conn.execute("""
+      """)
+      # Холигч — нэрээр тааруулна
+      conn.execute("""
         UPDATE devices SET
             check_group1='Зуухны температур', check_group2=NULL, check_group3=NULL,
             check_param1='Температур 1', check_standard='850±10 °C', check_tolerance='6 мин - 850 °C',
@@ -2262,9 +2265,9 @@ def ensure_tables():
             check_freq=COALESCE(check_freq,'daily'), check_enabled=1, check_group1_cols=4
         WHERE CAST(lab_id AS TEXT) IN ('15','16','015','016')
            OR LOWER(name) LIKE '%холигч%' OR LOWER(name) LIKE '%mixer%'
-    """)
-    # Хөөлтийн зэрэг тодорхойлох багаж — зуухтай ижил
-    conn.execute("""
+      """)
+      # Хөөлтийн зэрэг тодорхойлох багаж — зуухтай ижил
+      conn.execute("""
         UPDATE devices SET
             check_group1='Зуухны температур', check_group2=NULL, check_group3=NULL,
             check_param1='Температур 1', check_standard='850±10 °C', check_tolerance='6 мин - 850 °C',
@@ -2277,9 +2280,9 @@ def ensure_tables():
            OR name LIKE '%Алхан%' OR name LIKE '%алхан%'
            OR name LIKE '%Аяган%' OR name LIKE '%аяган%'
            OR name LIKE '%Роторт%' OR name LIKE '%роторт%'
-    """)
-    # Калориметр — сарын шалгалт
-    conn.execute("""
+      """)
+      # Калориметр — сарын шалгалт
+      conn.execute("""
         UPDATE devices SET
             check_freq=COALESCE(NULLIF(check_freq,'daily'),'monthly'),
             check_enabled=1,
@@ -2287,9 +2290,9 @@ def ensure_tables():
             check_param2=NULL, check_standard2=NULL, check_tolerance2=NULL,
             check_group1='Калориметрийн шалгалт'
         WHERE LOWER(name) LIKE '%калориметр%'
-    """)
-    # Хүхрийн багаж — сарын калибровкийн шалгалт
-    conn.execute("""
+      """)
+      # Хүхрийн багаж — сарын калибровкийн шалгалт
+      conn.execute("""
         UPDATE devices SET
             check_freq=COALESCE(NULLIF(check_freq,'daily'),'monthly'),
             check_enabled=1,
@@ -2297,9 +2300,11 @@ def ensure_tables():
             check_param2=NULL, check_standard2=NULL, check_tolerance2=NULL,
             check_group1='Шугман регрессийн калибровк'
         WHERE LOWER(name) LIKE '%хүхэр%' OR LOWER(name) LIKE '%sulfur%'
-    """)
-    # Буруу орсон check_param5='5' утгыг цэвэрлэнэ
-    conn.execute("UPDATE devices SET check_param5=NULL, check_standard5=NULL, check_tolerance5=NULL WHERE check_param5='5'")
+      """)
+      # Буруу орсон check_param5='5' утгыг цэвэрлэнэ
+      conn.execute("UPDATE devices SET check_param5=NULL, check_standard5=NULL, check_tolerance5=NULL WHERE check_param5='5'")
+      # Энэ блок дахин ажиллахгүй болгоно
+      conn.execute("PRAGMA user_version=1")
     try: conn.execute("ALTER TABLE internal_qc ADD COLUMN qc_number TEXT")
     except: pass
     try: conn.execute("ALTER TABLE internal_qc ADD COLUMN row_num_1 INTEGER")

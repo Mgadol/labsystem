@@ -25,6 +25,8 @@ for r in rows:
     if 'жин' in nm:
         c.execute("UPDATE devices SET check_group1='Туухай', check_group1_cols=0 WHERE id=?", (r['id'],))
         n_weight += 1
+# Автомат тохиргоо дахин ажиллахгүй болгоно (restart хийхэд энэ тохиргоо хадгалагдана)
+c.execute("PRAGMA user_version=1")
 c.commit()
 
 print(f'daily={n_daily}  weekly={n_weekly}  monthly={n_monthly}  жин(cols=0)={n_weight}')
