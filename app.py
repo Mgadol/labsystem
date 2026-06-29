@@ -1824,10 +1824,17 @@ def staff_edit(uid):
             can_report  = 1 if (is_lab and request.form.get('can_report'))  else 0
             can_reopen  = 1 if (is_lab and request.form.get('can_reopen'))  else 0
             is_active  = 1 if request.form.get('is_active') else 0
+            # Геологчийн харах мужууд (checkbox-оор). Зөвхөн геологчид хадгална.
+            if role_to_set == 'geologist':
+                _ranges = request.form.getlist('view_ranges')  # ['1','2',...]
+                _ranges = [r for r in _ranges if r.isdigit()]
+                view_ranges = ','.join(_ranges) if _ranges else ''
+            else:
+                view_ranges = None
             conn.execute("""
                 UPDATE users SET name=?,position=?,phone=?,email=?,role=?,joined_date=?,shift=?,
                                  can_register=?,can_view_result=?,can_export=?,is_active=?,
-                                 can_approve=?,can_report=?,can_reopen=?
+                                 can_approve=?,can_report=?,can_reopen=?,view_ranges=?
                 WHERE id=?
             """, (
                 request.form.get('name', target['name']),
@@ -1838,7 +1845,7 @@ def staff_edit(uid):
                 request.form.get('joined_date') or None,
                 request.form.get('shift') or None,
                 can_reg, can_view, can_export, is_active,
-                can_approve, can_report, can_reopen,
+                can_approve, can_report, can_reopen, view_ranges,
                 uid
             ))
             if photo:
@@ -2150,6 +2157,9 @@ def ensure_tables():
     try: conn.execute("ALTER TABLE users ADD COLUMN can_report INTEGER DEFAULT 0")
     except Exception: pass
     try: conn.execute("ALTER TABLE users ADD COLUMN can_reopen INTEGER DEFAULT 0")
+    except Exception: pass
+    # Геологчийн харах эрхтэй ажлын дугаарын муж (мянгатаар: "1,2,6"). NULL = бүгдийг харах
+    try: conn.execute("ALTER TABLE users ADD COLUMN view_ranges TEXT")
     except Exception: pass
     try: conn.execute("""
         CREATE TABLE IF NOT EXISTS result_view_log (
@@ -2963,15 +2973,35 @@ def analysis():
         return render_template('analysis/index.html', samples=samples, lang=session.get('lang','mn'),
             today=datetime.now().strftime('%Y-%m-%d'), prep_devices=[], pending_qc=[])
     if role == 'geologist':
-        samples = conn.execute("""
-            SELECT g.*, u.name as reg_name,
-                   sr.lab_number, sr.lab_serial, sr.received_date, sr.mass_kg, sr.id as receipt_id, sr.prep_status
-            FROM geo_samples g
-            LEFT JOIN users u ON u.id=g.registered_by
-            LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
-            WHERE g.registered_by=? AND g.status != 'done'
-            ORDER BY sr.lab_serial DESC, g.created_at DESC LIMIT 50
-        """, (uid,)).fetchall()
+        # Геологч зөвшөөрөгдсөн ажлын дугаарын мужийн дээжийг л харна (view_ranges).
+        # view_ranges NULL бол бүгдийг харна (default).
+        _u = conn.execute("SELECT view_ranges FROM users WHERE id=?", (uid,)).fetchone()
+        _vr = _u['view_ranges'] if _u else None
+        if _vr is None:
+            samples = conn.execute("""
+                SELECT g.*, u.name as reg_name,
+                       sr.lab_number, sr.lab_serial, sr.received_date, sr.mass_kg, sr.id as receipt_id, sr.prep_status
+                FROM geo_samples g
+                LEFT JOIN users u ON u.id=g.registered_by
+                LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
+                WHERE g.status != 'done'
+                ORDER BY sr.lab_serial DESC, g.created_at DESC LIMIT 200
+            """).fetchall()
+        else:
+            _thousands = [int(x) for x in _vr.split(',') if x.strip().isdigit()]
+            if not _thousands:
+                samples = []
+            else:
+                _ph = ','.join('?' * len(_thousands))
+                samples = conn.execute(f"""
+                    SELECT g.*, u.name as reg_name,
+                           sr.lab_number, sr.lab_serial, sr.received_date, sr.mass_kg, sr.id as receipt_id, sr.prep_status
+                    FROM geo_samples g
+                    LEFT JOIN users u ON u.id=g.registered_by
+                    LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
+                    WHERE g.status != 'done' AND (sr.lab_serial/1000) IN ({_ph})
+                    ORDER BY sr.lab_serial DESC, g.created_at DESC LIMIT 200
+                """, _thousands).fetchall()
     else:
         samples = conn.execute("""
             SELECT g.*, u.name as reg_name,
@@ -3618,6 +3648,17 @@ def analysis_result(receipt_id):
                      (session['user_id'], receipt_id))
         conn.commit()
     elif role == 'geologist':
+        # Зөвшөөрөгдсөн мужийн дээж эсэхийг шалгана (view_ranges)
+        _u = conn.execute("SELECT view_ranges FROM users WHERE id=?", (session['user_id'],)).fetchone()
+        _vr = _u['view_ranges'] if _u else None
+        if _vr is not None:
+            _thousands = [int(x) for x in _vr.split(',') if x.strip().isdigit()]
+            _sr = conn.execute("SELECT lab_serial FROM sample_receipt WHERE id=?", (receipt_id,)).fetchone()
+            _ser = (_sr['lab_serial'] or 0) if _sr else 0
+            if (_ser // 1000) not in _thousands:
+                conn.close()
+                flash('Энэ ажлыг харах эрх байхгүй байна', 'error')
+                return redirect(url_for('analysis'))
         conn.execute("INSERT INTO result_view_log(user_id, receipt_id) VALUES(?,?)",
                      (session['user_id'], receipt_id))
         conn.commit()
