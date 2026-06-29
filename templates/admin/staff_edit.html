@@ -83,6 +83,22 @@
                 Excel татах <span style="color:var(--text-muted);font-size:11px">(зөвхөн баталгаажсан үед)</span>
               </label>
             </div>
+            <!-- Геологчийн харах ажлын дугаарын муж -->
+            {% set vr = target['view_ranges'] %}
+            {% set vr_list = vr.split(',') if vr is not none and vr != '' else [] %}
+            {% set vr_all = (vr is none) %}
+            <div id="geoRanges" style="display:{% if target['role']=='geologist' %}block{% else %}none{% endif %};width:100%;padding-top:10px;border-top:1px solid #e5e5e3;margin-top:4px">
+              <div style="font-size:12px;font-weight:600;margin-bottom:8px">Харах ажлын дугаарын муж <span style="color:var(--text-muted);font-weight:400;font-size:11px">(сонгоогүй бол тухайн мужийг харахгүй)</span></div>
+              <div style="display:flex;flex-wrap:wrap;gap:12px">
+                {% set ranges = [(1,'1000 — Уурхай'),(2,'2000 — Овоолго'),(3,'3000 — Ачилт'),(4,'4000 — Хяналт'),(5,'5000 — Гадаад хяналт'),(6,'6000 — Баяжуулах'),(7,'7000'),(8,'8000')] %}
+                {% for num, lbl in ranges %}
+                <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+                  <input type="checkbox" name="view_ranges" value="{{ num }}" {{ 'checked' if vr_all or (num|string in vr_list) }}>
+                  {{ lbl }}
+                </label>
+                {% endfor %}
+              </div>
+            </div>
             <!-- Лабын ажилтны нэмэлт эрхүүд -->
             <div id="labPerms" style="display:{% if target['role'] in ('staff','preparer') %}flex{% else %}none{% endif %};gap:16px;flex-wrap:wrap;width:100%;padding-top:10px;border-top:1px solid #e5e5e3;margin-top:4px">
               <div style="width:100%;font-size:11px;color:var(--text-muted)">Ахлах химичийн эрхээс нэмэх:</div>
@@ -170,6 +186,9 @@ function toggleDevicePerm(){
   if(cp && !isClient) cp.querySelectorAll('input[type=checkbox]').forEach(function(c){ c.checked=false; });
   if(lp) lp.style.display = isLab ? 'flex' : 'none';
   if(lp && !isLab) lp.querySelectorAll('input[type=checkbox]').forEach(function(c){ c.checked=false; });
+  // Геологчийн харах муж — зөвхөн геологчид
+  var gr = document.getElementById('geoRanges');
+  if(gr) gr.style.display = (role==='geologist') ? 'block' : 'none';
 }
 </script>
 {% endblock %}
