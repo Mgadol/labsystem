@@ -1625,6 +1625,13 @@ def archive():
             completed_samples = []
         else:
             completed_samples = [s for s in completed_samples if 6000 <= (s['lab_serial'] or 0) <= 6999]
+    elif session.get('role') == 'geologist':
+        # Геологч зөвхөн зөвшөөрсөн мужийн дууссан дээжийг архиваас харна (view_ranges)
+        u = conn.execute("SELECT view_ranges FROM users WHERE id=?", (session.get('user_id'),)).fetchone()
+        vr = u['view_ranges'] if u else None
+        if vr is not None:
+            thousands = [int(x) for x in vr.split(',') if x.strip().isdigit()]
+            completed_samples = [s for s in completed_samples if ((s['lab_serial'] or 0)//1000) in thousands]
     done_qc = conn.execute("""
         SELECT iq.*, sr1.lab_number as lab1, g1.sample_name as sname1,
                u.name as assigned_name
@@ -1635,6 +1642,12 @@ def archive():
         WHERE iq.status='done'
         ORDER BY iq.triggered_date DESC LIMIT 200
     """).fetchall()
+    # Харилцагч (геологч, баяжуулагч) нар зөвхөн шинжилгээ харна — бусдыг хоослоно
+    if session.get('role') in ('geologist', 'bayjuulach'):
+        archived_devices = []
+        archived_staff = []
+        completed_repairs = []
+        done_qc = []
     conn.close()
     return render_template('admin/archive.html',
         archived_devices=archived_devices,
