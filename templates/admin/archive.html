@@ -6,7 +6,9 @@
   <p class="page-sub">{{ 'Бүх архивласан мэдээлэл нэг дор' if lang=='mn' else 'All archived records in one place' }}</p>
 
   <!-- Tab цэс -->
+  {% set is_client = current_user and current_user['role'] in ('geologist','bayjuulach') %}
   <div class="tab-nav" style="margin-bottom:20px">
+    {% if not is_client %}
     <button class="tab-btn active" data-tab="tab-devices" onclick="switchTab(this,'tab-devices')">
       ⚙️ {{ 'Тоног төхөөрөмж' if lang=='mn' else 'Devices' }}
       <span style="background:#eee;color:#888;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px">{{ archived_devices|length }}</span>
@@ -15,20 +17,23 @@
       👥 {{ 'Ажилтан' if lang=='mn' else 'Staff' }}
       <span style="background:#eee;color:#888;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px">{{ archived_staff|length }}</span>
     </button>
-    <button class="tab-btn" data-tab="tab-analysis" onclick="switchTab(this,'tab-analysis')">
+    {% endif %}
+    <button class="tab-btn {% if is_client %}active{% endif %}" data-tab="tab-analysis" onclick="switchTab(this,'tab-analysis')">
       🧪 {{ 'Шинжилгээ' if lang=='mn' else 'Analysis' }}
       <span style="background:#eee;color:#888;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px">{{ (done_samples|length) + (done_qc|length) }}</span>
     </button>
+    {% if not is_client %}
     <button class="tab-btn" data-tab="tab-repair" onclick="switchTab(this,'tab-repair')">
       🔧 {{ 'Засвар' if lang=='mn' else 'Repairs' }}
     </button>
     <button class="tab-btn" data-tab="tab-report" onclick="switchTab(this,'tab-report')">
       📋 {{ 'Тайлан' if lang=='mn' else 'Reports' }}
     </button>
+    {% endif %}
   </div>
 
   <!-- Тоног төхөөрөмж -->
-  <div id="tab-devices" class="tab-pane active">
+  <div id="tab-devices" class="tab-pane{% if not is_client %} active{% endif %}">
     <div class="card">
       {% if archived_devices %}
       <table class="table">
@@ -159,7 +164,7 @@
   </div>
 
   <!-- Шинжилгээ -->
-  <div id="tab-analysis" class="tab-pane">
+  <div id="tab-analysis" class="tab-pane{% if is_client %} active{% endif %}">
     <div class="card">
       <div style="margin-bottom:12px">
         <input type="text" id="archiveSearch" placeholder="Ажлын дугаараар хайх..." oninput="filterArchive(this.value)" class="form-input" style="max-width:260px">
