@@ -281,6 +281,7 @@
 {% block scripts %}
 <script>
 var QC = {mad:0.20, aad:0.30, vad:0.30};
+var rawVals = {};
 var deviceMap = {};
 var editMode = false;
 var pendingChanges = {};
@@ -409,19 +410,34 @@ function calc(uid,dup,rid,ri){
   var sad=gvr(rid,ri,dup,'sulfur');
   var qb=gvr(rid,ri,dup,'cal_value');
   setC('r'+id+'_tm',tm,2);
-  setC('r'+id+'_mad',mad,4);setC('r'+id+'_aad',aad,4);
-  setC('r'+id+'_vad',vad,4);setC('r'+id+'_fc',fc,4);
-  setC('r'+id+'_g',g,1);setC('r'+id+'_sad',sad,3);setC('r'+id+'_qb',qb,0);
-  if(dup) checkQC(uid,rid,ri);
+  setC('r'+id+'_mad',mad,2);setC('r'+id+'_aad',aad,2);
+  setC('r'+id+'_vad',vad,2);setC('r'+id+'_fc',fc,2);
+  setC('r'+id+'_g',g,2);setC('r'+id+'_sad',sad,3);setC('r'+id+'_qb',qb,1);
+  rawVals[uid+'_'+dup]={tm:tm,mad:mad,aad:aad,vad:vad,fc:fc,g:g,sad:sad,qb:qb};
+  checkQC(uid,rid,ri);
   if(mad!=null||aad!=null)
     fetch('/analysis/autosave/calc',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({receipt_id:parseInt(rid),row_num:parseInt(ri),is_duplicate:dup,mad:mad,aad:aad,vad:vad,fc:fc})});
 }
-function setC(id,v,d){var e=document.getElementById(id);if(e){e.textContent=v!=null?v.toFixed(d):'—';e.className='calc-cell'+(id.includes('_mad')?' gs':'');}}
+function setC(id,v,d){var e=document.getElementById(id);if(e){e.textContent=v!=null?v.toFixed(d):'—';e.className='calc-cell'+(id.includes('_tm')?' gs':'');}}
 function checkQC(uid,rid,ri){
-  [['mad',QC.mad],['aad',QC.aad],['vad',QC.vad]].forEach(function(p){
-    var v1=getN('r'+uid+'_'+p[0]),v2=getN('r'+uid+'d_'+p[0]);
-    if(v1!=null&&v2!=null){var ok=Math.abs(v1-v2)<=p[1];cqc('r'+uid+'_'+p[0],ok);cqc('r'+uid+'d_'+p[0],ok);}
+  // Үндсэн мөрөнд дундаж, зэрэгцээ мөрөнд зөрүү харуулна
+  var qcMap={mad:QC.mad,aad:QC.aad,vad:QC.vad};
+  var decMap={tm:2,mad:2,aad:2,vad:2,fc:2,g:2,sad:3,qb:1};
+  var d0=rawVals[uid+'_0']||{};
+  var d1=rawVals[uid+'_1']||{};
+  ['tm','mad','aad','vad','fc','g','sad','qb'].forEach(function(p){
+    var v1=d0[p],v2=d1[p];
+    var el=document.getElementById('r'+uid+'_'+p);
+    var el2=document.getElementById('r'+uid+'d_'+p);
+    var dec=decMap[p]||2;
+    if(v1!=null&&v2!=null){
+      var diff=Math.round(Math.abs(v1-v2)*100000)/100000;
+      var avg=(v1+v2)/2;
+      var ok=qcMap[p]==null||diff<=qcMap[p];
+      if(el){el.textContent=avg.toFixed(dec);el.className='calc-cell'+(p==='tm'?' gs':'');el.style.color=(qcMap[p]!=null&&ok)?'#0a6e3f':'';}
+      if(el2){el2.textContent=diff.toFixed(dec);el2.className='calc-cell'+((qcMap[p]!=null&&!ok)?' qc-warn':'');el2.style.color='';}
+    }
   });
 }
 function getN(id){var e=document.getElementById(id);return e&&e.textContent!='—'?parseFloat(e.textContent):null;}
