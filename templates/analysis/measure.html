@@ -401,11 +401,10 @@ function autoSave(inp){
     pendingChanges[key] = {receipt_id:RID,row_num:parseInt(inp.dataset.row),is_duplicate:parseInt(inp.dataset.dup),field:inp.dataset.field,value:inp.value===''?null:inp.value};
     return;
   }
-  if(!inp.value) return;
   setSave('pending');
   fetch('/analysis/autosave',{
     method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({receipt_id:RID,row_num:parseInt(inp.dataset.row),is_duplicate:parseInt(inp.dataset.dup),field:inp.dataset.field,value:inp.value})
+    body:JSON.stringify({receipt_id:RID,row_num:parseInt(inp.dataset.row),is_duplicate:parseInt(inp.dataset.dup),field:inp.dataset.field,value:inp.value===''?null:inp.value})
   }).then(r=>r.json()).then(d=>setSave(d.ok?'ok':'err')).catch(()=>setSave('err'));
 }
 
