@@ -775,6 +775,12 @@ def usage_start(did):
     already = conn.execute("SELECT id FROM usage_logs WHERE user_id=? AND device_id=? AND end_time IS NULL", (uid, did)).fetchone()
     if already:
         conn.close(); return jsonify({'error': 'Та энэ төхөөрөмж дээр аль хэдийн ажиллаж байна!'}), 400
+    # Өөр хүн ашиглаж байвал түгжигдэнэ (нэг зэрэг нэг л хүн)
+    busy = conn.execute("""SELECT u.name FROM usage_logs ul LEFT JOIN users u ON u.id=ul.user_id
+                           WHERE ul.device_id=? AND ul.end_time IS NULL AND ul.user_id!=?""",
+                        (did, uid)).fetchone()
+    if busy:
+        conn.close(); return jsonify({'error': f'Энэ төхөөрөмжийг {busy["name"]} ашиглаж байна. Дуустал хүлээнэ үү.'}), 400
     now = datetime.now().isoformat()
     conn.execute("INSERT INTO usage_logs(device_id,user_id,start_time) VALUES(?,?,?)", (did, uid, now))
     lid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
