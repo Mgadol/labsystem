@@ -385,9 +385,13 @@ function gvr(rid,row,dup,field){
 }
 function calc(uid,dup,rid,ri){
   var id=dup?uid+'d':uid+'';
-  // TM (чөлөөт чийг)
+  // TM (Нийт чийг) = чөлөөт чийг + үлдэгдэл чийг
   var ffs=gvr(rid,ri,dup,'ff_sample'),ffd=gvr(rid,ri,dup,'ff_dried');
-  var tm=(ffs&&ffs>0&&ffd!=null)?(ffs-ffd)/ffs*100:null;
+  var chch=(ffs&&ffs>0&&ffd!=null)?(ffs-ffd)/ffs*100:0;
+  var mtt=gvr(rid,ri,dup,'mt_tare'),mts=gvr(rid,ri,dup,'mt_sample'),mtd=gvr(rid,ri,dup,'mt_dried');
+  var tm_raw=(mtt!=null&&mts&&mts>0&&mtd!=null)?(mtt+mts-mtd)/mts*100:null;
+  var tm=null;
+  if(tm_raw!=null){tm=chch?(chch+tm_raw*(1-chch/100)):tm_raw;}
   // Mad
   var t=gvr(rid,ri,dup,'dc_tare'),s=gvr(rid,ri,dup,'dc_sample'),d=gvr(rid,ri,dup,'dc_dried');
   var mad=(t!=null&&s&&s>0&&d!=null)?(t+s-d)/s*100:null;
@@ -400,7 +404,7 @@ function calc(uid,dup,rid,ri){
   var fc=(mad!=null&&aad!=null&&vad!=null)?100-mad-aad-vad:null;
   // G-index
   var gt=gvr(rid,ri,dup,'g_tare'),gc=gvr(rid,ri,dup,'g_coke'),gs1=gvr(rid,ri,dup,'g_sieve1'),gs2=gvr(rid,ri,dup,'g_sieve2');
-  var g=(gt!=null&&gc!=null&&gs1!=null&&gs2!=null&&(gc-gt)>0)?(gs1+gs2)/(gc-gt)*100:null;
+  var g=(gt!=null&&gc!=null&&gs1!=null&&gs2!=null&&(gc-gt)>0)?10+(30*(gs1-gt)+70*(gs2-gt))/(gc-gt):null;
   // Sad, Qb (direct inputs → reflect to calc cells)
   var sad=gvr(rid,ri,dup,'sulfur');
   var qb=gvr(rid,ri,dup,'cal_value');
