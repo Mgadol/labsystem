@@ -430,7 +430,7 @@ function checkQC(uid,rid,ri){
     var v1=d0[p],v2=d1[p];
     var el=document.getElementById('r'+uid+'_'+p);
     var el2=document.getElementById('r'+uid+'d_'+p);
-    var dec=decMap[p]||2;
+    var dec=decMap[p]!=null?decMap[p]:2;
     if(v1!=null&&v2!=null){
       var diff=Math.round(Math.abs(v1-v2)*100000)/100000;
       var avg=(v1+v2)/2;

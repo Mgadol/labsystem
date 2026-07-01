@@ -456,7 +456,7 @@ function checkQC(ri){
   ['tm','mad','aad','vad','fc','g','sad','qb'].forEach(function(p){
     var v1=d0[p],v2=d1[p];
     if(v1!=null&&v2!=null){
-      var d=decMap[p]||2;
+      var d=decMap[p]!=null?decMap[p]:2;
       var diff=Math.round(Math.abs(v1-v2)*100000)/100000;
       var avg=(v1+v2)/2;
       var el=document.getElementById('r'+ri+'_'+p);
