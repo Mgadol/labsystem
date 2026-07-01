@@ -503,7 +503,13 @@ function loadAllData(){
       });
       calc(uid,parseInt(dup),'{{ receipt["id"] }}',row);
       if(e.row_status==='done'){var btn=document.getElementById('dnbtn'+uid+'_'+dup);if(btn){btn.classList.add('done');btn.textContent='✓';}}
-
+      // Зэрэгцээ мөрийг бодит хэмжилтийн утгатай үед задлана
+      if(dup==='1'){
+        var meta=['id','receipt_id','row_num','is_duplicate','created_at','updated_at','updated_by','row_status','done_by','done_at','approved_by','approved_at','sample_name','mass_kg','mad','aad','vad','fc'];
+        var hasData=Object.keys(e).some(function(f){return meta.indexOf(f)===-1&&e[f]!=null&&e[f]!=='';});
+        var drow=document.getElementById('dr'+uid);
+        if(hasData&&drow&&!drow.classList.contains('show')) toggleDup(uid);
+      }
     });
   });
   {% endfor %}
