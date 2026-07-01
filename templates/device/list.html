@@ -108,7 +108,7 @@
               {% if busy %}
                 {% for b in busy %}
                   {% if b['user_id'] != session['user_id'] %}
-                  <span title="{{ b['name'] }} — {{ b['start'] }}-с эхэлсэн" style="font-size:9px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:4px;padding:2px 6px;white-space:nowrap;flex-shrink:0;font-weight:600">🔴 {{ b['name'] }} ажиллаж байна</span>
+                  <span title="{{ b['name'] }} ажиллаж байна — {{ b['start'] }}-с" style="font-size:9px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:4px;padding:2px 5px;white-space:nowrap;flex-shrink:0;font-weight:600">🔴 {{ b['name'].split(' ')[0] }}</span>
                   {% endif %}
                 {% endfor %}
               {% endif %}
