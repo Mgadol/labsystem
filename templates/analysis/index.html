@@ -150,6 +150,12 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
             {% set ps = s['prep_status'] or '' %}
             {% set st = s['status'] or '' %}
             {% set rid = s['receipt_id'] %}
+            {% if current_user['role'] in ('admin','senior') and s['sample_type'] != 'CRM' %}
+            <button type="button"
+              onclick="openSampleEdit({{ s['id'] }}, this)"
+              data-name="{{ s['sample_name']|e }}" data-serial="{{ s['lab_serial'] or '' }}"
+              class="btn btn-ghost btn-sm" title="Нэр/дугаар засах" style="padding:3px 8px">✏️</button>
+            {% endif %}
             {% set role = current_user['role'] %}
 
             {% if st == 'pending' %}
@@ -199,6 +205,30 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
 
 
 {% block scripts %}
+<!-- Дээж засах modal -->
+<div id="sampleEditModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:120;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;padding:22px;width:380px;max-width:95%">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h3 style="font-size:15px;font-weight:700">✏️ Дээж засах</h3>
+      <button type="button" onclick="closeSampleEdit()" style="background:none;border:none;font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <form id="sampleEditForm" method="POST">
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">Дээжийн нэр</label>
+        <input type="text" name="sample_name" id="seName" class="form-input" placeholder="Ж: 1-10 эсвэл a;b;c">
+      </div>
+      <div class="form-group" style="margin-bottom:6px">
+        <label class="form-label">Ажлын дугаар (serial)</label>
+        <input type="number" name="lab_serial" id="seSerial" class="form-input" placeholder="Ж: 1046">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Хоосон бол дугаар өөрчлөгдөхгүй. Огноо хэвээр үлдэнэ.</div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button type="button" onclick="closeSampleEdit()" class="btn btn-ghost">Болих</button>
+        <button type="submit" class="btn btn-primary">Хадгалах</button>
+      </div>
+    </form>
+  </div>
+</div>
 <!-- Бэлтгэж дууслаа modal -->
 <div id="doneModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:10px;padding:24px;max-width:480px;width:95%;max-height:90vh;overflow-y:auto">
@@ -268,6 +298,14 @@ function switchTab(tab){
   document.getElementById('tab-anal').classList.toggle('active', tab==='anal');
   applyFilters();
 }
+function openSampleEdit(geoId, btn){
+  var f = document.getElementById('sampleEditForm');
+  f.action = '/analysis/sample/' + geoId + '/edit';
+  document.getElementById('seName').value = btn.dataset.name || '';
+  document.getElementById('seSerial').value = btn.dataset.serial || '';
+  document.getElementById('sampleEditModal').style.display = 'flex';
+}
+function closeSampleEdit(){ document.getElementById('sampleEditModal').style.display='none'; }
 function filterDate(){
   applyFilters();
 }

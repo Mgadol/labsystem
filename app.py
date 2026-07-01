@@ -3186,6 +3186,44 @@ def analysis_crm_register():
     return render_template('analysis/crm_register.html', today=datetime.now().strftime('%Y-%m-%d'),
                            crm_materials=crm_materials)
 
+@app.route('/analysis/sample/<int:geo_id>/edit', methods=['POST'])
+@senior_required
+def sample_edit(geo_id):
+    """Бүртгэсэн дээжийн нэр болон ажлын дугаарыг засах (Админ/Дэд админ)"""
+    lang = session.get('lang','mn')
+    new_name   = (request.form.get('sample_name') or '').strip()
+    new_serial = request.form.get('lab_serial','').strip()
+    conn = get_db()
+    geo = conn.execute("SELECT * FROM geo_samples WHERE id=?", (geo_id,)).fetchone()
+    if not geo:
+        conn.close()
+        flash('Дээж олдсонгүй.', 'error')
+        return redirect(url_for('analysis'))
+    # Нэр засах
+    if new_name:
+        conn.execute("UPDATE geo_samples SET sample_name=? WHERE id=?", (new_name, geo_id))
+    # Ажлын дугаар засах (receipt байвал)
+    if new_serial and new_serial.isdigit():
+        new_serial = int(new_serial)
+        receipt = conn.execute("SELECT * FROM sample_receipt WHERE geo_sample_id=?", (geo_id,)).fetchone()
+        if receipt:
+            # Давхцал шалгах (өөр дээж дээр ижил дугаар байвал болохгүй)
+            dup = conn.execute(
+                "SELECT id FROM sample_receipt WHERE lab_serial=? AND id!=?",
+                (new_serial, receipt['id'])).fetchone()
+            if dup:
+                conn.close()
+                flash(f'{new_serial} дугаар өөр ажилд бүртгэгдсэн байна.', 'error')
+                return redirect(request.referrer or url_for('analysis'))
+            date_str = (receipt['received_date'] or '').replace('-','')
+            new_labnum = f"{new_serial}-{date_str}" if date_str else str(new_serial)
+            conn.execute("UPDATE sample_receipt SET lab_serial=?, lab_number=? WHERE id=?",
+                         (new_serial, new_labnum, receipt['id']))
+    conn.commit()
+    conn.close()
+    flash('Дээжийн мэдээлэл засагдлаа.', 'success')
+    return redirect(request.referrer or url_for('analysis'))
+
 @app.route('/analysis/crm/chart')
 @login_required
 def crm_control_chart():
