@@ -592,7 +592,12 @@ function loadData(){
       });
       calc(parseInt(row),parseInt(dup));
       if(e.row_status==='done'){var btn=document.getElementById('dnbtn'+row+'_'+dup);if(btn){btn.classList.add('done');btn.textContent='✓';}}
-      if(dup==='1'&&!document.getElementById('dr'+row).classList.contains('show')) toggleDup(parseInt(row));
+      // Зэрэгцээ мөрийг зөвхөн БОДИТ хэмжилтийн утгатай үед л задлана (хоосон бичлэгээр задлахгүй)
+      if(dup==='1'){
+        var meta=['id','receipt_id','row_num','is_duplicate','created_at','updated_at','updated_by','row_status','done_by','done_at','approved_by','approved_at','sample_name','mass_kg','mad','aad','vad','fc'];
+        var hasData=Object.keys(e).some(function(f){return meta.indexOf(f)===-1&&e[f]!=null&&e[f]!=='';});
+        if(hasData&&!document.getElementById('dr'+row).classList.contains('show')) toggleDup(parseInt(row));
+      }
     });
     setSave('ok');
   });
