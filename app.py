@@ -3396,19 +3396,16 @@ def analysis_autosave():
         field  = data.get('field')
         value  = data.get('value')
 
-        ALLOWED_FIELDS = {
-            'ff_sample','ff_dried',
-            'mt_bux','mt_tare','mt_sample','mt_dried',
-            'dc_bux','dc_tare','dc_sample','dc_dried',
-            'ash_tav','ash_tare','ash_sample','ash_burned',
-            'vol_tig','vol_tare','vol_sample','vol_burned',
-            'g_tig','g_tare','g_coke','g_sieve1','g_sieve2',
-            'sulfur','cal_value','cal_temp','fsi','sample_name','mass_kg',
-        }
-        if not all([rid, row, field]) or field not in ALLOWED_FIELDS:
+        if rid is None or row is None or not field:
             return jsonify({'ok': False, 'error': 'Missing params'})
 
         conn = get_db()
+        # SQL injection-оос хамгаалах: field нь sample_entries-ийн жинхэнэ багана байх ёстой
+        _cols = {r[1] for r in conn.execute("PRAGMA table_info(sample_entries)")}
+        _protected = {'id','receipt_id','row_num','is_duplicate','created_at'}
+        if field not in _cols or field in _protected:
+            conn.close()
+            return jsonify({'ok': False, 'error': 'Invalid field'})
         # Мөр байгаа эсэх шалгах
         existing = conn.execute(
             "SELECT id FROM sample_entries WHERE receipt_id=? AND row_num=? AND is_duplicate=?",
