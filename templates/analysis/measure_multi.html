@@ -409,10 +409,10 @@ function calc(uid,dup,rid,ri){
   // Sad, Qb (direct inputs → reflect to calc cells)
   var sad=gvr(rid,ri,dup,'sulfur');
   var qb=gvr(rid,ri,dup,'cal_value');
-  setC('r'+id+'_tm',tm,2);
+  setC('r'+id+'_tm',tm,1);
   setC('r'+id+'_mad',mad,2);setC('r'+id+'_aad',aad,2);
   setC('r'+id+'_vad',vad,2);setC('r'+id+'_fc',fc,2);
-  setC('r'+id+'_g',g,2);setC('r'+id+'_sad',sad,3);setC('r'+id+'_qb',qb,1);
+  setC('r'+id+'_g',g,0);setC('r'+id+'_sad',sad,3);setC('r'+id+'_qb',qb,1);
   rawVals[uid+'_'+dup]={tm:tm,mad:mad,aad:aad,vad:vad,fc:fc,g:g,sad:sad,qb:qb};
   checkQC(uid,rid,ri);
   if(mad!=null||aad!=null)
@@ -423,7 +423,7 @@ function setC(id,v,d){var e=document.getElementById(id);if(e){e.textContent=v!=n
 function checkQC(uid,rid,ri){
   // Үндсэн мөрөнд дундаж, зэрэгцээ мөрөнд зөрүү харуулна
   var qcMap={mad:QC.mad,aad:QC.aad,vad:QC.vad};
-  var decMap={tm:2,mad:2,aad:2,vad:2,fc:2,g:2,sad:3,qb:1};
+  var decMap={tm:1,mad:2,aad:2,vad:2,fc:2,g:0,sad:3,qb:1};
   var d0=rawVals[uid+'_0']||{};
   var d1=rawVals[uid+'_1']||{};
   ['tm','mad','aad','vad','fc','g','sad','qb'].forEach(function(p){
