@@ -102,7 +102,7 @@
     <col class="cg-st" style="width:50px">
     <col class="cg-il" style="width:65px"><col class="cg-il" style="width:40px">
     <col class="cg-fsi" style="width:40px">
-    <col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px">
+    <col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px">
   </colgroup>
   <thead>
     <tr class="h1">
@@ -137,7 +137,7 @@
   {% set ns_qc = namespace(idx=0) %}
   {% if qc_row_map %}
   <tr class="lot-label">
-    <td colspan="40" style="text-align:left;padding-left:10px;background:#0d4f47;color:#4ade80;font-family:monospace;font-size:11px;height:20px;padding-top:2px;padding-bottom:2px">
+    <td colspan="41" style="text-align:left;padding-left:10px;background:#0d4f47;color:#4ade80;font-family:monospace;font-size:11px;height:20px;padding-top:2px;padding-bottom:2px">
       🔁 Дотоод QC &nbsp;·&nbsp; <span style="color:#fbbf24">QC</span> &nbsp;·&nbsp; {{ qc_row_map|length }} дээж
     </td>
   </tr>
@@ -150,7 +150,7 @@
   <!-- Lot ялгах label -->
   {% if not qc_row_map or rid not in qc_row_map %}
   <tr class="lot-label">
-    <td colspan="40" style="text-align:left;padding-left:10px;background:#1e3a5f;color:#4ade80;font-family:monospace;font-size:11px;height:20px;padding-top:2px;padding-bottom:2px">
+    <td colspan="41" style="text-align:left;padding-left:10px;background:#1e3a5f;color:#4ade80;font-family:monospace;font-size:11px;height:20px;padding-top:2px;padding-bottom:2px">
       📋 {{ receipt['lab_number'] }} — {{ receipt['sample_name'] }} &nbsp;·&nbsp; <span style="color:#fbbf24">{{ receipt['sample_type'] }}</span> &nbsp;·&nbsp; {{ receipt['quantity'] }} дээж
     </td>
   </tr>
