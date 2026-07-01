@@ -438,11 +438,22 @@ def devices():
     # Хэрэглэгчийн бүх идэвхтэй ашиглалт (олон төхөөрөмж зэрэг ашиглаж болно)
     active_rows = conn.execute("SELECT id, device_id FROM usage_logs WHERE user_id=? AND end_time IS NULL",
                           (session.get('user_id', 0),)).fetchall()
+    # Бүх хэрэглэгчийн идэвхтэй ашиглалт (хэн ямар төхөөрөмж дээр ажиллаж байгааг бусдад харуулах)
+    busy_rows = conn.execute("""
+        SELECT ul.device_id, ul.user_id, u.name as uname, ul.start_time
+        FROM usage_logs ul LEFT JOIN users u ON u.id=ul.user_id
+        WHERE ul.end_time IS NULL
+    """).fetchall()
     conn.close()
-    # device_id → log_id харгалзаа
+    # device_id → log_id харгалзаа (өөрийн)
     active_map = {r['device_id']: r['id'] for r in active_rows}
+    # device_id → {хэрэглэгчийн нэр, эхэлсэн цаг} (бусдын ашиглалт)
+    busy_map = {}
+    for r in busy_rows:
+        busy_map.setdefault(r['device_id'], []).append(
+            {'user_id': r['user_id'], 'name': r['uname'], 'start': (r['start_time'] or '')[11:16]})
     return render_template('device/list.html', devices=devs, lang=lang,
-        active_map=active_map)
+        active_map=active_map, busy_map=busy_map)
 
 @app.route('/devices/<int:did>')
 @login_required
@@ -776,11 +787,18 @@ def usage_stop(lid):
     uid  = session.get('user_id', 0)
     conn = get_db()
     log  = conn.execute("SELECT * FROM usage_logs WHERE id=?", (lid,)).fetchone()
-    if not log or (log['user_id'] != uid and session.get('role') != 'admin'):
+    if not log:
+        conn.close(); return jsonify({'success': True})  # аль хэдийн устсан/байхгүй
+    if log['user_id'] != uid and session.get('role') != 'admin':
         conn.close(); return jsonify({'error': 'Эрх байхгүй'}), 403
+    if log['end_time']:
+        conn.close(); return jsonify({'success': True})  # аль хэдийн хаагдсан
     now  = datetime.now()
-    start= datetime.fromisoformat(log['start_time'])
-    dur  = round((now - start).total_seconds() / 3600, 2)
+    try:
+        start = datetime.fromisoformat(log['start_time'])
+        dur   = round((now - start).total_seconds() / 3600, 2)
+    except Exception:
+        dur = 0
     notes= request.json.get('notes','') if request.is_json else ''
     conn.execute("UPDATE usage_logs SET end_time=?,duration_hours=?,notes=? WHERE id=?",
                  (now.isoformat(), dur, notes, lid))
