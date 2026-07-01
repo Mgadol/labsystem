@@ -368,14 +368,13 @@ function setSave(st){
   txt.textContent=st==='pending'?'Хадгалж байна...':st==='err'?'Алдаа':'Хадгалагдсан';
 }
 function autoSave(inp){
-  if(!inp.value) return;
   var rid = inp.dataset.rid;
   var row = inp.dataset.row;
   var dup = inp.dataset.dup;
   setSave('pending');
   fetch('/analysis/autosave',{
     method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({receipt_id:parseInt(rid),row_num:parseInt(row),is_duplicate:parseInt(dup),field:inp.dataset.field,value:inp.value})
+    body:JSON.stringify({receipt_id:parseInt(rid),row_num:parseInt(row),is_duplicate:parseInt(dup),field:inp.dataset.field,value:inp.value===''?null:inp.value})
   }).then(r=>r.json()).then(d=>setSave(d.ok?'ok':'err')).catch(()=>setSave('err'));
 }
 

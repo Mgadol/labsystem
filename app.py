@@ -3468,12 +3468,14 @@ def analysis_autosave():
             (rid, row, is_dup)
         ).fetchone()
 
+        _empty = (value is None or value == '')
         if existing:
             conn.execute(
                 f"UPDATE sample_entries SET {field}=?, updated_by=?, updated_at=? WHERE receipt_id=? AND row_num=? AND is_duplicate=?",
                 (value, session['user_id'], datetime.now().isoformat(), rid, row, is_dup)
             )
-        else:
+        elif not _empty:
+            # Хоосон утгаар шинэ мөр үүсгэхгүй (дэмий хоосон бичлэг гарахаас сэргийлнэ)
             conn.execute(
                 f"INSERT INTO sample_entries(receipt_id, row_num, is_duplicate, {field}, updated_by, updated_at) VALUES(?,?,?,?,?,?)",
                 (rid, row, is_dup, value, session['user_id'], datetime.now().isoformat())
