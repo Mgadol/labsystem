@@ -141,7 +141,7 @@
     {% endif %}
     <td style="color:#666;font-size:11px">{{ ri }}</td>
     <td style="text-align:left;font-weight:500;padding-left:8px">
-      {{ e['display_name'] if e and e['display_name'] else receipt['sample_name'] }}
+      {{ e['display_name'] if e and e['display_name'] else (row_names[ri-1] if row_names and row_names|length >= ri else receipt['sample_name']) }}
     </td>
     <td class="val">{{ '%.3f'|format(e['mass_kg']) if e and e['mass_kg'] else '—' }}</td>
     {% if is_done %}
