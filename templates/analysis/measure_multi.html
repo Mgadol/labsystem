@@ -300,7 +300,9 @@ var pendingChanges = {};
 })();
 
 function setSheetReadonly(state){
-  document.querySelectorAll('.tbl input').forEach(function(i){ i.readOnly = state; });
+  document.querySelectorAll('.tbl input').forEach(function(i){
+    i.readOnly = state ? (i.value!==''&&i.value!=null) : false;
+  });
 }
 function toggleEditMode(){
   editMode = !editMode;
@@ -378,6 +380,8 @@ function autoSave(inp){
   var row = inp.dataset.row;
   var dup = inp.dataset.dup;
   setSave('pending');
+  // Утга орсон нүд түгжигдэнэ (Засах горимд түгжихгүй)
+  if(!editMode && inp.value!=='') inp.readOnly = true;
   fetch('/analysis/autosave',{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({receipt_id:parseInt(rid),row_num:parseInt(row),is_duplicate:parseInt(dup),field:inp.dataset.field,value:inp.value===''?null:inp.value})
@@ -536,6 +540,7 @@ function loadAllData(){
         if(hasData&&drow&&!drow.classList.contains('show')) toggleDup(uid);
       }
     });
+    if(!editMode) setSheetReadonly(true);
   });
   {% endfor %}
   setSave('ok');

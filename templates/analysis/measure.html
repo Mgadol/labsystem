@@ -353,7 +353,10 @@ function autoNames(){
 var editMode = false;
 var pendingChanges = {};
 function setSheetReadonly(state){
-  document.querySelectorAll('.tbl input').forEach(function(i){ i.readOnly = state; });
+  // state=true: зөвхөн УТГАТАЙ нүдийг түгжинэ (хоосон нүд чөлөөтэй), false: бүгдийг тайлна
+  document.querySelectorAll('.tbl input').forEach(function(i){
+    i.readOnly = state ? (i.value!==''&&i.value!=null) : false;
+  });
 }
 function toggleEditMode(){
   editMode = !editMode;
@@ -407,6 +410,8 @@ function autoSave(inp){
     return;
   }
   setSave('pending');
+  // Утга орсон нүд түгжигдэнэ (санамсаргүй өөрчлөхөөс сэргийлнэ)
+  if(inp.value!=='') inp.readOnly = true;
   fetch('/analysis/autosave',{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({receipt_id:RID,row_num:parseInt(inp.dataset.row),is_duplicate:parseInt(inp.dataset.dup),field:inp.dataset.field,value:inp.value===''?null:inp.value})
@@ -604,6 +609,7 @@ function loadData(){
       }
     });
     setSave('ok');
+    if(!editMode) setSheetReadonly(true);
   });
   var saved=localStorage.getItem('dmap_'+RID);
   if(saved){try{deviceMap=JSON.parse(saved);}catch(e){}}
