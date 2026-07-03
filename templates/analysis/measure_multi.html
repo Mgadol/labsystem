@@ -415,9 +415,9 @@ function calc(uid,dup,rid,ri){
   setC('r'+id+'_g',g,0);setC('r'+id+'_sad',sad,2);setC('r'+id+'_qb',qb,1);
   rawVals[uid+'_'+dup]={tm:tm,mad:mad,aad:aad,vad:vad,fc:fc,g:g,sad:sad,qb:qb};
   checkQC(uid,rid,ri);
-  if(mad!=null||aad!=null)
+  if(mad!=null||aad!=null||g!=null)
     fetch('/analysis/autosave/calc',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({receipt_id:parseInt(rid),row_num:parseInt(ri),is_duplicate:dup,mad:mad,aad:aad,vad:vad,fc:fc})});
+      body:JSON.stringify({receipt_id:parseInt(rid),row_num:parseInt(ri),is_duplicate:dup,mad:mad,aad:aad,vad:vad,fc:fc,g_val:g})});
 }
 function setC(id,v,d){var e=document.getElementById(id);if(e){e.textContent=v!=null?v.toFixed(d):'—';e.className='calc-cell'+(id.includes('_tm')?' gs':'');}}
 function checkQC(uid,rid,ri){

@@ -3517,12 +3517,13 @@ def analysis_autosave_calc():
         aad    = data.get('aad')
         vad    = data.get('vad')
         fc     = data.get('fc')
+        g_val  = data.get('g_val')
 
         conn = get_db()
         conn.execute("""
-            UPDATE sample_entries SET mad=?, aad=?, vad=?, fc=?, updated_at=?
+            UPDATE sample_entries SET mad=?, aad=?, vad=?, fc=?, g_val=?, updated_at=?
             WHERE receipt_id=? AND row_num=? AND is_duplicate=?
-        """, (mad, aad, vad, fc, datetime.now().isoformat(), rid, row, is_dup))
+        """, (mad, aad, vad, fc, g_val, datetime.now().isoformat(), rid, row, is_dup))
         conn.commit()
         conn.close()
         return jsonify({'ok': True})
