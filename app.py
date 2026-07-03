@@ -3796,6 +3796,18 @@ def analysis_result(receipt_id):
         else:
             ed['display_name'] = _sname
         entries_list.append(ed)
+    # Мөр бүрийн нэр (entry байхгүй мөрөнд fallback болгон ашиглана)
+    _qty = (receipt['quantity'] or 1) if receipt else 1
+    row_names = []
+    for _rn in range(1, _qty + 1):
+        if _sparts and len(_sparts) >= _rn:
+            row_names.append(_sparts[_rn - 1])
+        elif _m1:
+            row_names.append(_m1.group(1) + str(int(_m1.group(2)) + _rn - 1))
+        elif _m2:
+            row_names.append(_m2.group(1) + str(int(_m2.group(2)) + _rn - 1))
+        else:
+            row_names.append(_sname)
 
     qc_row = request.args.get('qc_row', type=int)
     qc_id = request.args.get('qc_id', type=int)
@@ -3804,7 +3816,7 @@ def analysis_result(receipt_id):
     pending_approve = [e for e in entries_list if e['row_status'] == 'done' and e['is_duplicate'] == 0]
     return render_template('analysis/result.html',
         receipt=receipt, entries=entries_list, lang=lang, role=role, crm_cert=crm_cert,
-        pending_approve=pending_approve, qc_row=qc_row, qc_id=qc_id)
+        pending_approve=pending_approve, qc_row=qc_row, qc_id=qc_id, row_names=row_names)
 
 
 @app.route('/analysis/export/<int:receipt_id>')
