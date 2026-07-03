@@ -409,6 +409,8 @@ function autoSave(inp){
     pendingChanges[key] = {receipt_id:RID,row_num:parseInt(inp.dataset.row),is_duplicate:parseInt(inp.dataset.dup),field:inp.dataset.field,value:inp.value===''?null:inp.value};
     return;
   }
+  // Гр-ийн нүд (step 0.0001) 4 орноор форматлана (1.000 → 1.0000)
+  if(inp.step==='0.0001'&&inp.value!==''&&!isNaN(parseFloat(inp.value))) inp.value=parseFloat(inp.value).toFixed(4);
   setSave('pending');
   // Утга орсон нүд түгжигдэнэ (санамсаргүй өөрчлөхөөс сэргийлнэ)
   if(inp.value!=='') inp.readOnly = true;
@@ -597,7 +599,7 @@ function loadData(){
       Object.keys(e).forEach(function(f){
         if(['id','receipt_id','row_num','is_duplicate','created_at','updated_at','updated_by'].includes(f)) return;
         var inp=document.querySelector('[data-row="'+row+'"][data-dup="'+dup+'"][data-field="'+f+'"]');
-        if(inp&&e[f]!=null) inp.value=e[f];
+        if(inp&&e[f]!=null) inp.value=(inp.step==='0.0001'&&!isNaN(parseFloat(e[f])))?parseFloat(e[f]).toFixed(4):e[f];
       });
       calc(parseInt(row),parseInt(dup));
       if(e.row_status==='done'){var btn=document.getElementById('dnbtn'+row+'_'+dup);if(btn){btn.classList.add('done');btn.textContent='✓';}}
