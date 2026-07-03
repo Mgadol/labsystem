@@ -352,15 +352,20 @@ function autoNames(){
 // Edit/Save горим
 var editMode = false;
 var pendingChanges = {};
+function setSheetReadonly(state){
+  document.querySelectorAll('.tbl input').forEach(function(i){ i.readOnly = state; });
+}
 function toggleEditMode(){
   editMode = !editMode;
   var btn = document.getElementById('editModeBtn');
   if(editMode){
+    setSheetReadonly(false);
     btn.textContent = '💾 Хадгалах';
-    btn.style.background = 'rgba(255,255,255,.1)';
-    btn.style.borderColor = 'rgba(255,255,255,.2)';
+    btn.style.background = 'rgba(74,222,128,.25)';
+    btn.style.borderColor = 'rgba(74,222,128,.5)';
     document.getElementById('saveStatus').textContent = 'Засах горим';
   } else {
+    setSheetReadonly(true);
     // Save хийх
     var keys = Object.keys(pendingChanges);
     if(!keys.length){
@@ -685,6 +690,8 @@ document.addEventListener('DOMContentLoaded',function(){
     document.querySelectorAll('.cg-'+g).forEach(function(el){el.classList.add('hide');});
   });
   loadData();
+  // Анхдагчаар түгжээтэй — "Засах" дарж л засна
+  setSheetReadonly(true);
   document.getElementById('sheetWrap').addEventListener('mousemove', function(e){
     if(e.buttons !== 1) return;
     var td = e.target.closest('td');
