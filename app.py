@@ -1701,7 +1701,7 @@ def archive_result(receipt_id):
         conn.close()
         flash('Бүртгэл олдсонгүй', 'error')
         return redirect(url_for('archive'))
-    entries = conn.execute("""
+    entries_raw = conn.execute("""
         SELECT se.*, u1.name as done_name, u2.name as approved_name
         FROM sample_entries se
         LEFT JOIN users u1 ON u1.id=se.done_by
@@ -1709,6 +1709,18 @@ def archive_result(receipt_id):
         WHERE se.receipt_id=?
         ORDER BY se.row_num, se.is_duplicate
     """, (receipt_id,)).fetchall()
+    # mt_result (Нийт чийг) тооцоолол — template энэ талбарыг ашигладаг
+    entries = []
+    for e in entries_raw:
+        ed = dict(e)
+        try:
+            mt_s = ed.get('mt_sample') or 0
+            mt_t = ed.get('mt_tare') or 0
+            mt_d = ed.get('mt_dried') or 0
+            ed['mt_result'] = (mt_s - (mt_d - mt_t)) / mt_s * 100 if mt_s and mt_s > 0 else None
+        except Exception:
+            ed['mt_result'] = None
+        entries.append(ed)
     qc = {r['parameter']: r for r in conn.execute("SELECT * FROM qc_settings").fetchall()}
     conn.close()
     return render_template('analysis/archive_result.html',
