@@ -554,11 +554,12 @@ document.addEventListener('keydown',function(e){
     var nx=e.shiftKey?vis[idx-1]:vis[idx+1];
     if(nx){nx.focus();nx.select();}
   } else if(e.key==='ArrowRight'){
-    e.preventDefault();
-    if(inp.selectionEnd>=inp.value.length&&vis[idx+1]){vis[idx+1].focus();vis[idx+1].select();}
+    // Тоон нүдэнд selectionEnd null байдаг тул шууд шилжинэ (Excel шиг)
+    var atEnd = (inp.type==='number') || (inp.selectionEnd!=null && inp.selectionEnd>=inp.value.length);
+    if(atEnd&&vis[idx+1]){e.preventDefault();vis[idx+1].focus();vis[idx+1].select();}
   } else if(e.key==='ArrowLeft'){
-    e.preventDefault();
-    if(inp.selectionStart<=0&&vis[idx-1]){vis[idx-1].focus();vis[idx-1].select();}
+    var atStart = (inp.type==='number') || (inp.selectionStart!=null && inp.selectionStart<=0);
+    if(atStart&&vis[idx-1]){e.preventDefault();vis[idx-1].focus();vis[idx-1].select();}
   } else if(e.key==='ArrowDown'||e.key==='ArrowUp'){
     e.preventDefault();
     var row=inp.closest('tr');
