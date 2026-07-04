@@ -3956,16 +3956,26 @@ def analysis_export(receipt_id):
     receipt = conn.execute("""
         SELECT sr.*, g.sample_name, g.sample_type, g.location,
                g.collected_date, g.quantity,
-               ug.name as geo_name, up.name as prep_name
+               ug.name as geo_name, up.name as prep_name,
+               uf.name as fm_op_name, um.name as mt_op_name
         FROM sample_receipt sr
         JOIN geo_samples g ON g.id=sr.geo_sample_id
         LEFT JOIN users ug ON ug.id=g.registered_by
         LEFT JOIN users up ON up.id=sr.received_by
+        LEFT JOIN users uf ON uf.id=sr.fm_operator
+        LEFT JOIN users um ON um.id=sr.mt_operator
         WHERE sr.id=?
     """, (receipt_id,)).fetchone()
     entries = conn.execute("""
         SELECT * FROM sample_entries WHERE receipt_id=? ORDER BY row_num, is_duplicate
     """, (receipt_id,)).fetchall()
+    # Гарын үсгийн блокт зориулж: шинжилсэн химич, баталсан хүмүүсийн нэр
+    chemist_names = [r['name'] for r in conn.execute("""
+        SELECT DISTINCT u.name FROM sample_entries se JOIN users u ON u.id=se.done_by
+        WHERE se.receipt_id=? AND se.done_by IS NOT NULL ORDER BY u.name""", (receipt_id,)).fetchall()]
+    approver_names = [r['name'] for r in conn.execute("""
+        SELECT DISTINCT u.name FROM sample_entries se JOIN users u ON u.id=se.approved_by
+        WHERE se.receipt_id=? AND se.approved_by IS NOT NULL ORDER BY u.name""", (receipt_id,)).fetchall()]
     conn.close()
 
     # Template ачаалах
@@ -3991,8 +4001,7 @@ def analysis_export(receipt_id):
         'CONTROL':'Гааль\nControl','EQ_CONTROL':'Гадаад хяналт\nEQ control','DP':'Баяжуулах\nDP',
     }
 
-    # A9: гарчигт лаб дугаар нэмэх
-    ws['A9'] = f" СОРИЛТЫН ҮР ДҮНГИЙН ТАЙЛАН №   {receipt['lab_number']}"
+    # A9: гарчиг template-ийн дагуу (дугаар нь C12-т бичигдэнэ)
 
     # C12: лаб дугаар
     ws['C12'] = receipt['lab_number']
@@ -4026,27 +4035,34 @@ def analysis_export(receipt_id):
 
     def calc_mt(e):
         # Нийт чийг = чөлөөт чийг + үлдэгдэл чийг (measure хуудастай ижил)
+        # Бүрэн нарийвчлалтай буцаана — харагдац нь нүдний тоон форматаар (0.0)
         fs = safe(e, 'ff_sample'); fd = safe(e, 'ff_dried')
         chch = ((fs - fd) / fs * 100) if (fs and fs > 0 and fd is not None) else 0
         mtt = safe(e, 'mt_tare'); mts = safe(e, 'mt_sample'); mtd = safe(e, 'mt_dried')
         if mtt is not None and mts and mts > 0 and mtd is not None:
             tm_raw = (mtt + mts - mtd) / mts * 100
-            return round((chch + tm_raw * (1 - chch / 100)) if chch else tm_raw, 1)
+            return (chch + tm_raw * (1 - chch / 100)) if chch else tm_raw
         return None
 
     def calc_g(e):
         try:
             if e['g_val'] is not None:
-                return round(float(e['g_val']))
+                return float(e['g_val'])
             gc = safe(e,'g_coke'); gt = safe(e,'g_tare')
             gs1 = safe(e,'g_sieve1'); gs2 = safe(e,'g_sieve2')
             if gc is not None and gt is not None and gs1 is not None and gs2 is not None:
                 d = gc - gt
                 if d > 0:
-                    return round(10 + (30 * (gs1 - gt) + 70 * (gs2 - gt)) / d)
+                    return 10 + (30 * (gs1 - gt) + 70 * (gs2 - gt)) / d
         except Exception:
             pass
         return None
+
+    # Тоон формат — албан тайлангийн жишиг файлтай ижил (утга бүрэн нарийвчлалтай
+    # хадгалагдаж, харагдац нь форматаар зохицуулагдана)
+    COL_FMT = {3: '0.0', 4: '0.0', 5: '0.00', 6: '0.00', 7: '0.00', 8: '0.00',
+               9: '0.00', 10: '0.00', 11: '0.00', 12: '0.00', 13: '0.00',
+               14: '0', 15: '0', 16: '0', 17: '0.0'}
 
     data_row = 20
     for ri in range(1, (receipt['quantity'] or 1) + 1):
@@ -4059,13 +4075,13 @@ def analysis_export(receipt_id):
         sulfur = safe(e,'sulfur'); cal = safe(e,'cal_value')
         adb = vdb = vdaf = sdb = qb_ad = qnet_ar = None
         if mad is not None and (100 - mad) > 0:
-            if aad:    adb = round(aad * 100 / (100 - mad), 2)
-            if vad:    vdb = round(vad * 100 / (100 - mad), 2)
-            if sulfur: sdb = round(sulfur * 100 / (100 - mad), 2)
+            if aad:    adb = aad * 100 / (100 - mad)
+            if vad:    vdb = vad * 100 / (100 - mad)
+            if sulfur: sdb = sulfur * 100 / (100 - mad)
             if vad and aad is not None and (100 - mad - aad) > 0:
-                vdaf = round(vad * 100 / (100 - mad - aad), 2)
+                vdaf = vad * 100 / (100 - mad - aad)
         if cal:
-            qb_ad = round(cal / 4.1868, 2)
+            qb_ad = cal / 4.1868
             if (sulfur is not None and mad is not None and aad is not None
                     and vad is not None and mt is not None and (100 - mad) > 0):
                 qgr_ad_jg = cal - (sulfur * 94.1 + cal * 0.0016)
@@ -4073,27 +4089,60 @@ def analysis_export(receipt_id):
                 _adb = aad * 100 / (100 - mad)
                 hdaf = 2.888 + 0.393 * (_vdaf ** 0.5) - 0.0023 * _adb
                 had = hdaf * (100 - mad - aad) / 100
-                qnet_ar = round(((qgr_ad_jg - 206 * had) * ((100 - mt) / (100 - mad))
-                                 - 23 * mt) / 4.1868, 2)
+                qnet_ar = ((qgr_ad_jg - 206 * had) * ((100 - mt) / (100 - mad))
+                           - 23 * mt) / 4.1868
 
-        ws.cell(data_row, 1,  ri)
-        ws.cell(data_row, 2,  safe(e,'sample_name') or f'Дээж {ri}')
-        ws.cell(data_row, 3,  safe(e,'mass_kg', 3))
-        ws.cell(data_row, 4,  mt)
-        ws.cell(data_row, 5,  safe(e,'mad', 2))
-        ws.cell(data_row, 6,  safe(e,'aad', 2))
-        ws.cell(data_row, 7,  adb)
-        ws.cell(data_row, 8,  safe(e,'vad', 2))
-        ws.cell(data_row, 9,  vdb)
-        ws.cell(data_row, 10, vdaf)
-        ws.cell(data_row, 11, safe(e,'fc', 2))
-        ws.cell(data_row, 12, safe(e,'sulfur', 2))
-        ws.cell(data_row, 13, sdb)
-        ws.cell(data_row, 14, qb_ad)
-        ws.cell(data_row, 15, qnet_ar)
-        ws.cell(data_row, 16, calc_g(e))
-        ws.cell(data_row, 17, safe(e,'fsi', 1))
+        vals = {1: ri, 2: safe(e,'sample_name') or f'Дээж {ri}', 3: safe(e,'mass_kg'),
+                4: mt, 5: safe(e,'mad'), 6: safe(e,'aad'), 7: adb, 8: safe(e,'vad'),
+                9: vdb, 10: vdaf, 11: safe(e,'fc'), 12: safe(e,'sulfur'), 13: sdb,
+                14: qb_ad, 15: qnet_ar, 16: calc_g(e), 17: safe(e,'fsi')}
+        for col, v in vals.items():
+            cell = ws.cell(data_row, col, v)
+            if col in COL_FMT:
+                cell.number_format = COL_FMT[col]
         data_row += 1
+
+    # ── Гарын үсгийн блок (template мөр 196-199, дараа нь дээш шилжинэ) ────
+    ws['B196'] = 'Шинжилгээ хийсэн: Химич\n/Analysed: Chemist/'
+    for i, name in enumerate(chemist_names[:3]):
+        ws.cell(196 + i, 7, f'/{name}/')
+    ws['K196'] = 'Дээж бэлтгэсэн: Дээж бэлтгэгч\n/Sample prepared: Sample preparer/'
+    preparers = [p for p in dict.fromkeys(
+        [receipt['prep_operator'], receipt['fm_op_name'], receipt['mt_op_name']]) if p]
+    for i, name in enumerate(preparers[:2]):
+        ws.cell(196 + i, 16, f'/{name}/')
+    ws['B199'] = 'Шинжилгээ хийсэн: Ахлах химич\n/Analysed: Senior Chemist/'
+    ws['J199'] = 'Хянсан: Лаборатори хариуцсан ахлах мэргэжилтэн\n/Checked: Senior Laboratory Specialist/ '
+    if approver_names:
+        ws['P199'] = f'/{approver_names[0]}/'
+
+    # ── Ашиглагдаагүй мөрүүдийг устгах (template-д 20..189 = 170 мөр байдаг) ──
+    n_rows = receipt['quantity'] or 1
+    TMPL_ROWS = 170
+    if n_rows < TMPL_ROWS:
+        start = 20 + n_rows          # эхний устгах мөр
+        count = TMPL_ROWS - n_rows
+        cut_end = start + count      # footer-ийн хуучин эхлэл (мөр 190)
+        # openpyxl delete_rows нь merged муж, мөрийн өндрийг шилжүүлдэггүй —
+        # гараар зөөнө
+        below = []
+        for rng in list(ws.merged_cells.ranges):
+            if rng.min_row >= cut_end:
+                below.append((rng.min_col, rng.min_row, rng.max_col, rng.max_row))
+                ws.unmerge_cells(str(rng))
+            elif rng.min_row >= start:
+                ws.unmerge_cells(str(rng))
+        heights = {r: d.height for r, d in list(ws.row_dimensions.items())
+                   if r >= cut_end and d.height is not None}
+        for r in [r for r in list(ws.row_dimensions) if r >= start]:
+            del ws.row_dimensions[r]
+        ws.delete_rows(start, count)
+        for c1, r1, c2, r2 in below:
+            ws.merge_cells(start_row=r1 - count, start_column=c1,
+                           end_row=r2 - count, end_column=c2)
+        for r, h in heights.items():
+            ws.row_dimensions[r - count].height = h
+        ws.print_area = f'A1:Q{200 - count}'
 
 
     output = io.BytesIO()
