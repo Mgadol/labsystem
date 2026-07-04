@@ -3832,6 +3832,110 @@ def analysis_result(receipt_id):
         pending_approve=pending_approve, qc_row=qc_row, qc_id=qc_id, row_names=row_names)
 
 
+def _restore_template_images(tmpl_path, buf):
+    """openpyxl нь Pillow суугаагүй (эсвэл хуучин хувилбартай) орчинд template-ийн
+    зургуудыг (logo) алдуулдаг. Гаралтын sheet1-д drawing холбоос байхгүй бол
+    эх template-ийн drawing + media хэсгүүдийг zip түвшинд буцааж хуулна."""
+    import zipfile, io, re
+    import xml.etree.ElementTree as ET
+
+    buf.seek(0)
+    zout = zipfile.ZipFile(buf, 'r')
+    try:
+        s1 = zout.read('xl/worksheets/sheet1.xml').decode('utf-8')
+    except KeyError:
+        zout.close(); buf.seek(0); return buf
+    if '<drawing ' in s1 or '<drawing/' in s1:
+        zout.close(); buf.seek(0); return buf  # зургууд хадгалагдсан байна
+
+    REL_NS = 'http://schemas.openxmlformats.org/package/2006/relationships'
+    CT_NS = 'http://schemas.openxmlformats.org/package/2006/content-types'
+    ztmpl = zipfile.ZipFile(tmpl_path, 'r')
+
+    # Template sheet1 → drawing хэсгийг олох
+    try:
+        trels = ET.fromstring(ztmpl.read('xl/worksheets/_rels/sheet1.xml.rels'))
+    except KeyError:
+        ztmpl.close(); zout.close(); buf.seek(0); return buf
+    drawing_part = None
+    for rel in trels.findall(f'{{{REL_NS}}}Relationship'):
+        if rel.get('Type', '').endswith('/drawing'):
+            drawing_part = 'xl/' + rel.get('Target', '').replace('../', '')
+            break
+    if not drawing_part:
+        ztmpl.close(); zout.close(); buf.seek(0); return buf
+
+    drawing_xml = ztmpl.read(drawing_part)
+    drawing_rels_part = 'xl/drawings/_rels/' + drawing_part.rsplit('/', 1)[-1] + '.rels'
+    drawing_rels = ztmpl.read(drawing_rels_part).decode('utf-8')
+
+    # Drawing-д хэрэглэгддэг media файлууд (нэрийг нь tmpl_ prefix-тэй болгож мөргөлдөөнөөс сэргийлнэ)
+    media_map = {}  # эх нэр → шинэ нэр
+    for tgt in re.findall(r'Target="(\.\./media/[^"]+)"', drawing_rels):
+        old = 'xl/' + tgt.replace('../', '')
+        new = 'xl/media/tmpl_' + old.rsplit('/', 1)[-1]
+        media_map[old] = new
+        drawing_rels = drawing_rels.replace(tgt, '../media/tmpl_' + old.rsplit('/', 1)[-1])
+
+    new_drawing_part = 'xl/drawings/drawingTmplLogo.xml'
+    new_drawing_rels_part = 'xl/drawings/_rels/drawingTmplLogo.xml.rels'
+    rel_id = 'rIdTmplLogo'
+
+    # sheet1.xml-д <drawing/> элемент нэмэх (schema дараалал: tableParts/extLst-ээс өмнө)
+    ins = len(s1)
+    for anchor in ('<tableParts', '<extLst', '</worksheet>'):
+        i = s1.find(anchor)
+        if i != -1:
+            ins = min(ins, i)
+    s1 = (s1[:ins]
+          + f'<drawing xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="{rel_id}"/>'
+          + s1[ins:])
+
+    # sheet1-ийн rels-д drawing relationship нэмэх (байхгүй бол шинээр үүсгэнэ)
+    sheet_rels_part = 'xl/worksheets/_rels/sheet1.xml.rels'
+    rel_elem = (f'<Relationship Id="{rel_id}" '
+                f'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" '
+                f'Target="../drawings/drawingTmplLogo.xml"/>')
+    try:
+        srels = zout.read(sheet_rels_part).decode('utf-8')
+        srels = srels.replace('</Relationships>', rel_elem + '</Relationships>')
+    except KeyError:
+        srels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                 f'<Relationships xmlns="{REL_NS}">' + rel_elem + '</Relationships>')
+
+    # [Content_Types].xml — зургийн өргөтгөлүүд ба drawing override нэмэх
+    ct = zout.read('[Content_Types].xml').decode('utf-8')
+    ct_add = ''
+    ext_types = {'jpeg': 'image/jpeg', 'jpg': 'image/jpeg', 'png': 'image/png',
+                 'emf': 'image/x-emf', 'wdp': 'image/vnd.ms-photo'}
+    for new in media_map.values():
+        ext = new.rsplit('.', 1)[-1].lower()
+        if ext in ext_types and f'Extension="{ext}"' not in ct + ct_add:
+            ct_add += f'<Default Extension="{ext}" ContentType="{ext_types[ext]}"/>'
+    ct_add += (f'<Override PartName="/{new_drawing_part}" '
+               f'ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>')
+    ct = ct.replace('</Types>', ct_add + '</Types>')
+
+    # Шинэ zip угсрах
+    out = io.BytesIO()
+    replaced = {'xl/worksheets/sheet1.xml': s1.encode('utf-8'),
+                sheet_rels_part: srels.encode('utf-8'),
+                '[Content_Types].xml': ct.encode('utf-8')}
+    with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as znew:
+        for item in zout.infolist():
+            data = replaced.pop(item.filename, None) or zout.read(item.filename)
+            znew.writestr(item, data)
+        for name, data in replaced.items():
+            znew.writestr(name, data)
+        znew.writestr(new_drawing_part, drawing_xml)
+        znew.writestr(new_drawing_rels_part, drawing_rels.encode('utf-8'))
+        for old, new in media_map.items():
+            znew.writestr(new, ztmpl.read(old))
+    ztmpl.close(); zout.close()
+    out.seek(0)
+    return out
+
+
 @app.route('/analysis/export/<int:receipt_id>')
 @login_required
 def analysis_export(receipt_id):
@@ -3909,6 +4013,13 @@ def analysis_export(receipt_id):
             return None
 
     def calc_mt(e):
+        # Үр дүнгийн хуудастай ижил: mt_* талбаруудаас нийт чийг
+        mt_s = safe(e, 'mt_sample')
+        mt_t = safe(e, 'mt_tare') or 0
+        mt_d = safe(e, 'mt_dried')
+        if mt_s and mt_s > 0 and mt_d is not None:
+            return round((mt_s - (mt_d - mt_t)) / mt_s * 100, 2)
+        # Хуучин арга (fallback): чөлөөт чийгийн талбарууд
         fs = safe(e, 'ff_sample')
         fd = safe(e, 'ff_dried')
         if fs and fs > 0 and fd is not None:
@@ -3934,20 +4045,44 @@ def analysis_export(receipt_id):
         e  = row_map.get((ri, 0))
         de = row_map.get((ri, 1))
 
+        # Тооцоолсон үзүүлэлтүүд — үр дүнгийн хуудасны (result.html) томьёотой ижил
+        mt  = calc_mt(e)
+        mad = safe(e,'mad'); aad = safe(e,'aad'); vad = safe(e,'vad')
+        sulfur = safe(e,'sulfur'); cal = safe(e,'cal_value')
+        adb = vdb = vdaf = sdb = qb_ad = qnet_ar = None
+        if mad is not None and (100 - mad) > 0:
+            if aad:    adb = round(aad * 100 / (100 - mad), 2)
+            if vad:    vdb = round(vad * 100 / (100 - mad), 2)
+            if sulfur: sdb = round(sulfur * 100 / (100 - mad), 2)
+            if vad and aad is not None and (100 - mad - aad) > 0:
+                vdaf = round(vad * 100 / (100 - mad - aad), 2)
+        if cal:
+            qb_ad = round(cal / 4.1868, 2)
+            if (sulfur is not None and mad is not None and aad is not None
+                    and vad is not None and mt is not None and (100 - mad) > 0):
+                qgr_ad_jg = cal - (sulfur * 94.1 + cal * 0.0016)
+                _vdaf = vad * 100 / (100 - mad - aad) if (100 - mad - aad) > 0 else 0
+                _adb = aad * 100 / (100 - mad)
+                hdaf = 2.888 + 0.393 * (_vdaf ** 0.5) - 0.0023 * _adb
+                had = hdaf * (100 - mad - aad) / 100
+                qnet_ar = round(((qgr_ad_jg - 206 * had) * ((100 - mt) / (100 - mad))
+                                 - 23 * mt) / 4.1868, 2)
+
         ws.cell(data_row, 1,  ri)
         ws.cell(data_row, 2,  safe(e,'sample_name') or f'Дээж {ri}')
         ws.cell(data_row, 3,  safe(e,'mass_kg', 3))
-        ws.cell(data_row, 4,  calc_mt(e))
+        ws.cell(data_row, 4,  mt)
         ws.cell(data_row, 5,  safe(e,'mad', 2))
         ws.cell(data_row, 6,  safe(e,'aad', 2))
-        # col 7 (Adb) - хоосон
+        ws.cell(data_row, 7,  adb)
         ws.cell(data_row, 8,  safe(e,'vad', 2))
-        # col 9 (Vdb), 10 (Vdaf) - хоосон
+        ws.cell(data_row, 9,  vdb)
+        ws.cell(data_row, 10, vdaf)
         ws.cell(data_row, 11, safe(e,'fc', 2))
-        ws.cell(data_row, 12, safe(e,'sulfur', 3))
-        # col 13 (Sdb) - хоосон
-        ws.cell(data_row, 14, safe(e,'cal_value', 0))
-        # col 15 (Qnet,ar) - хоосон
+        ws.cell(data_row, 12, safe(e,'sulfur', 2))
+        ws.cell(data_row, 13, sdb)
+        ws.cell(data_row, 14, qb_ad)
+        ws.cell(data_row, 15, qnet_ar)
         ws.cell(data_row, 16, calc_g(e))
         ws.cell(data_row, 17, safe(e,'fsi', 1))
         data_row += 1
@@ -3955,6 +4090,7 @@ def analysis_export(receipt_id):
 
     output = io.BytesIO()
     wb.save(output)
+    output = _restore_template_images(tmpl, output)
     output.seek(0)
 
     fname = f"result_{receipt['lab_number']}_{datetime.now().strftime('%Y%m%d')}.xlsx"
