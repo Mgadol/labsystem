@@ -3973,6 +3973,18 @@ def analysis_export(receipt_id):
     wb = openpyxl.load_workbook(tmpl)
     ws = wb.worksheets[0]
 
+    # Лого дахин нэмэх (template доторх wmf лого openpyxl-д хасагддаг тул)
+    try:
+        from openpyxl.drawing.image import Image as _XLImage
+        _logo_path = os.path.join(os.path.dirname(__file__), 'static', 'logo.png')
+        if os.path.exists(_logo_path):
+            _img = _XLImage(_logo_path)
+            _img.width = 80
+            _img.height = 115
+            ws.add_image(_img, 'A1')
+    except Exception:
+        pass
+
     # ── Мэдээлэл нөхөх ──────────────────────────────────────
     TYPE_DISPLAY = {
         'PIT':'Уурхай\nPIT','STOCKPILE':'Овоолго\nStockpile','EXPORT':'Экспорт\nExport',
@@ -4013,29 +4025,25 @@ def analysis_export(receipt_id):
             return None
 
     def calc_mt(e):
-        # Үр дүнгийн хуудастай ижил: mt_* талбаруудаас нийт чийг
-        mt_s = safe(e, 'mt_sample')
-        mt_t = safe(e, 'mt_tare') or 0
-        mt_d = safe(e, 'mt_dried')
-        if mt_s and mt_s > 0 and mt_d is not None:
-            return round((mt_s - (mt_d - mt_t)) / mt_s * 100, 2)
-        # Хуучин арга (fallback): чөлөөт чийгийн талбарууд
-        fs = safe(e, 'ff_sample')
-        fd = safe(e, 'ff_dried')
-        if fs and fs > 0 and fd is not None:
-            return round((fs - fd) / fs * 100, 2)
+        # Нийт чийг = чөлөөт чийг + үлдэгдэл чийг (measure хуудастай ижил)
+        fs = safe(e, 'ff_sample'); fd = safe(e, 'ff_dried')
+        chch = ((fs - fd) / fs * 100) if (fs and fs > 0 and fd is not None) else 0
+        mtt = safe(e, 'mt_tare'); mts = safe(e, 'mt_sample'); mtd = safe(e, 'mt_dried')
+        if mtt is not None and mts and mts > 0 and mtd is not None:
+            tm_raw = (mtt + mts - mtd) / mts * 100
+            return round((chch + tm_raw * (1 - chch / 100)) if chch else tm_raw, 1)
         return None
 
     def calc_g(e):
         try:
             if e['g_val'] is not None:
-                return round(float(e['g_val']), 1)
+                return round(float(e['g_val']))
             gc = safe(e,'g_coke'); gt = safe(e,'g_tare')
             gs1 = safe(e,'g_sieve1'); gs2 = safe(e,'g_sieve2')
             if gc is not None and gt is not None and gs1 is not None and gs2 is not None:
                 d = gc - gt
                 if d > 0:
-                    return round((gs1 + gs2) / d * 100, 1)
+                    return round(10 + (30 * (gs1 - gt) + 70 * (gs2 - gt)) / d)
         except Exception:
             pass
         return None
