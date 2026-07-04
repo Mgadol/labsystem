@@ -8,6 +8,7 @@
   <div class="tab-nav" style="margin-top:16px">
     <button class="tab-btn active" id="tab-device" onclick="switchTab('device')">🔧 Төхөөрөмжийн тайлан</button>
     <button class="tab-btn" id="tab-lab" onclick="switchTab('lab')">🧪 Лабораторийн тайлан</button>
+    <button class="tab-btn" id="tab-iqc" onclick="switchTab('iqc')">🔁 Дотоод QC тайлан</button>
   </div>
 
   <!-- ══════════════════════════════════════════
@@ -125,6 +126,7 @@
             <option value="2">Хоёрдугаар хагас (7–12-р сар)</option>
           </select>
         </div>
+        {% if current_user['role'] != 'guest' %}
         <button onclick="exportLab()" class="btn btn-teal" style="width:100%;margin-top:4px;padding:10px">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
@@ -133,6 +135,7 @@
           </svg>
           Excel татаж авах
         </button>
+        {% endif %}
         <p style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.6">Татсан тайлан доорх жагсаалтад нэмэгдэнэ.</p>
       </div>
 
@@ -155,7 +158,7 @@
           <div id="cpane-analysis" style="position:relative;height:240px;display:none">
             <canvas id="chartAnalysis"></canvas>
           </div>
-          <p id="chart-period-label" style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:right">{{ cur_year }} оны сараар</p>
+          <p id="chart-period-label" style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:right"></p>
         </div>
 
         <div class="card">
@@ -185,14 +188,8 @@
                 <td style="color:var(--text-muted);font-size:12px">{{ rec.generated_at[:16] }}</td>
                 <td style="font-size:12px">{{ rec.gen_name or '—' }}</td>
                 <td style="text-align:right">
-                  <a href="{{ url_for('lab_report_download', rid=rec.id) }}"
+                  <a href="{{ url_for('report_export') }}"
                     style="font-size:12px;color:var(--teal);margin-right:10px;text-decoration:none;font-weight:500">⬇ Татах</a>
-                  <form method="post" action="{{ url_for('lab_report_archive', rid=rec.id) }}"
-                    style="display:inline" onsubmit="return confirm('Тайланг архивлах уу?')">
-                    <button type="submit" style="background:none;border:none;font-size:12px;color:var(--text-muted);cursor:pointer;padding:0;font-weight:500">
-                      📁 Архивлах
-                    </button>
-                  </form>
                 </td>
               </tr>
               {% endfor %}
@@ -210,6 +207,52 @@
       </div>
     </div>
   </div>
+
+  <!-- ══════════════════════════════════════════
+       ТАБ 3: ДОТООД QC ТАЙЛАН
+  ══════════════════════════════════════════ -->
+  <div id="pane-iqc" style="display:none">
+    {% if iqc_rows %}
+    <div class="card" style="overflow-x:auto">
+      <table class="table" style="font-size:13px">
+        <thead><tr>
+          <th>Огноо</th>
+          <th>Дээж</th>
+          <th style="text-align:center">Нийт үзүүлэлт</th>
+          <th style="text-align:center">QC тэнцсэн</th>
+          <th style="text-align:center">Тэнцээгүй</th>
+          <th style="text-align:center">Статус</th>
+          <th></th>
+        </tr></thead>
+        <tbody>
+        {% for r in iqc_rows %}
+        {% set total = r['total'] or 0 %}
+        {% set passed = r['passed'] or 0 %}
+        {% set failed = total - passed %}
+        <tr>
+          <td style="font-family:monospace;font-size:12px">{{ r['triggered_date'] }}</td>
+          <td><span style="font-family:monospace;color:var(--navy);font-weight:600">{{ r['lab1'] or '—' }}</span><br><span style="font-size:11px;color:#666">{{ r['sname1'] or '' }}</span></td>
+          <td style="text-align:center">{{ total }}</td>
+          <td style="text-align:center;color:#16a34a;font-weight:600">{{ passed }}</td>
+          <td style="text-align:center;color:{% if failed > 0 %}#dc2626{% else %}#999{% endif %};font-weight:600">{{ failed }}</td>
+          <td style="text-align:center">
+            <span class="badge" style="background:{% if r['status']=='done' %}#dcfce7{% else %}#fef9c3{% endif %};color:{% if r['status']=='done' %}#166534{% else %}#854d0e{% endif %}">
+              {{ 'Дууссан' if r['status']=='done' else 'Хүлээгдэж байна' }}
+            </span>
+          </td>
+          <td><a href="{{ url_for('internal_qc_measure', qc_id=r['id']) }}" class="btn btn-ghost btn-sm">Харах</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="card" style="text-align:center;padding:40px;color:var(--text-muted)">
+      🔁 Дотоод QC бүртгэл байхгүй байна.
+    </div>
+    {% endif %}
+  </div>
+
 </div>
 {% endblock %}
 {% block scripts %}
@@ -221,8 +264,11 @@ var NAVY = '#1a2744';
 function switchTab(t) {
   document.getElementById('pane-device').style.display = t==='device' ? 'block' : 'none';
   document.getElementById('pane-lab').style.display    = t==='lab'    ? 'block' : 'none';
+  document.getElementById('pane-iqc').style.display    = t==='iqc'    ? 'block' : 'none';
   document.getElementById('tab-device').classList.toggle('active', t==='device');
   document.getElementById('tab-lab').classList.toggle('active', t==='lab');
+  document.getElementById('tab-iqc').classList.toggle('active', t==='iqc');
+  if (t === 'lab') { sampleChart.resize(); analysisChart.resize(); fetchChartData(); }
 }
 
 // ── Төхөөрөмжийн тайлан ──────────────────────────────
@@ -278,6 +324,7 @@ function setLabType(t) {
   document.getElementById('lrow-half').style.display  = (t==='half')  ? 'block' : 'none';
   updateChartLabel();
   filterRecords(t);
+  fetchChartData();
 }
 function filterRecords(t) {
   var y = document.getElementById('l-year').value;
@@ -294,7 +341,7 @@ function filterRecords(t) {
 }
 function exportLab() {
   var y = document.getElementById('l-year').value;
-  var url = '/lab-reports/export?type='+labType+'&year='+y;
+  var url = '/reports/export?type='+labType+'&year='+y;
   if (labType==='week')  url += '&week='+document.getElementById('l-week').value;
   if (labType==='month') url += '&month='+document.getElementById('l-month').value;
   if (labType==='half')  url += '&half='+document.getElementById('l-half').value;
@@ -313,51 +360,39 @@ function switchChart(t) {
 }
 
 // ── Chart.js ──────────────────────────────────────────
-var months = ['1-р','2-р','3-р','4-р','5-р','6-р','7-р','8-р','9-р','10-р','11-р','12-р'];
 var COLORS  = ['#1A2744','#0F6E56','#993C1D','#3C3489','#D4860B','#185FA5'];
-
-var sampleData  = {{ sample_chart  | tojson }};
 var sampleTypes = {{ sample_types  | tojson }};
-var analysisData  = {{ analysis_chart | tojson }};
 var analysisTypes = {{ analysis_types | tojson }};
+var LABEL_SPLIT = {'Чөлөөт хөөлтийн зэрэг': ['Чөлөөт хөөлтийн', 'зэрэг']};
+var analysisLabels = analysisTypes.map(function(k){ return LABEL_SPLIT[k] || k; });
 
-var sampleTotals = sampleTypes.map(function(k){
-  return (sampleData[k]||[]).reduce(function(a,b){ return a+(b||0); }, 0);
-});
-var sampleTotal = sampleTotals.reduce(function(a,b){ return a+b; }, 0);
-if(sampleTotal === 0){
-  var el = document.getElementById('cpane-sample');
-  if(el) el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:13px">Энэ жил дээж байхгүй байна</div>';
-}
-new Chart(document.getElementById('chartSample'), {
+var sampleChart = new Chart(document.getElementById('chartSample'), {
   type: 'pie',
   data: {
     labels: sampleTypes,
-    datasets: [{ data: sampleTotals, backgroundColor: COLORS, borderWidth: 1 }]
+    datasets: [{ data: sampleTypes.map(function(){ return 0; }), backgroundColor: COLORS, borderWidth: 1 }]
   },
   options: { responsive:true, maintainAspectRatio:false,
     plugins:{
       legend:{ position:'bottom', labels:{ font:{size:11}, boxWidth:12 }},
       tooltip:{ callbacks:{ label:function(c){
         var total = c.dataset.data.reduce(function(a,b){ return a+b; },0);
+        if(!total) return c.label+': 0';
         return c.label+': '+c.raw+' ('+Math.round(c.raw/total*100)+'%)';
       }}}
     }
   }
 });
 
-var analysisTotals = analysisTypes.map(function(k){
-  return (analysisData[k]||[]).reduce(function(a,b){ return a+(b||0); }, 0);
-});
-new Chart(document.getElementById('chartAnalysis'), {
+var analysisChart = new Chart(document.getElementById('chartAnalysis'), {
   type: 'bar',
   data: {
-    labels: analysisTypes,
+    labels: analysisLabels,
     datasets: [
       {
         type: 'bar',
         label: 'Үзүүлэлт',
-        data: analysisTotals,
+        data: analysisTypes.map(function(){ return 0; }),
         backgroundColor: '#4472C4CC',
         borderColor: '#4472C4',
         borderWidth: 1,
@@ -366,7 +401,7 @@ new Chart(document.getElementById('chartAnalysis'), {
       {
         type: 'line',
         label: 'Дээж бэлтгэл',
-        data: analysisTypes.map(function(){ return sampleTotal; }),
+        data: analysisTypes.map(function(){ return 0; }),
         borderColor: '#ED7D31',
         backgroundColor: 'transparent',
         fill: false,
@@ -385,11 +420,60 @@ new Chart(document.getElementById('chartAnalysis'), {
     scales:{ x:{ grid:{display:false}, ticks:{font:{size:10}} }, y:{ beginAtZero:true }}}
 });
 
+function fetchChartData() {
+  var y = document.getElementById('l-year').value;
+  var url = '/reports/chart-data?type='+labType+'&year='+y;
+  if (labType==='week')  url += '&week='+(document.getElementById('l-week')||{value:1}).value;
+  if (labType==='month') url += '&month='+(document.getElementById('l-month')||{value:1}).value;
+  if (labType==='half')  url += '&half='+(document.getElementById('l-half')||{value:1}).value;
+  fetch(url).then(function(r){ return r.json(); }).then(function(d){
+    var sTotal = d.sample_data.reduce(function(a,b){ return a+b; },0);
+    var noSampleEl = document.getElementById('no-sample-msg');
+    var sCanvas = document.getElementById('chartSample');
+    if(sTotal === 0){
+      sCanvas.style.display = 'none';
+      if(!noSampleEl){
+        var msg = document.createElement('div');
+        msg.id = 'no-sample-msg';
+        msg.style.cssText = 'display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:13px;height:200px';
+        msg.textContent = 'Энэ хугацаанд дээж байхгүй байна';
+        document.getElementById('cpane-sample').appendChild(msg);
+      }
+    } else {
+      sCanvas.style.display = '';
+      if(noSampleEl) noSampleEl.remove();
+    }
+    sampleChart.data.labels = d.sample_labels;
+    sampleChart.data.datasets[0].data = d.sample_data;
+    sampleChart.update();
+    var aTotal = d.analysis_data.reduce(function(a,b){ return a+b; },0);
+    var noAnalysisEl = document.getElementById('no-analysis-msg');
+    var aCanvas = document.getElementById('chartAnalysis');
+    if(aTotal === 0){
+      aCanvas.style.display = 'none';
+      if(!noAnalysisEl){
+        var msg2 = document.createElement('div');
+        msg2.id = 'no-analysis-msg';
+        msg2.style.cssText = 'display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:13px;height:200px';
+        msg2.textContent = 'Энэ хугацаанд шинжилгээ байхгүй байна';
+        document.getElementById('cpane-analysis').appendChild(msg2);
+      }
+    } else {
+      aCanvas.style.display = '';
+      if(noAnalysisEl) noAnalysisEl.remove();
+    }
+    analysisChart.data.datasets[0].data = d.analysis_data;
+    analysisChart.data.datasets[1].data = d.analysis_labels.map(function(){ return sTotal; });
+    analysisChart.update();
+  });
+}
+
 ['l-year','l-week','l-month','l-half'].forEach(function(id) {
   var el = document.getElementById(id);
-  if (el) el.addEventListener('change', function(){ updateChartLabel(); filterRecords(labType); });
+  if (el) el.addEventListener('change', function(){ updateChartLabel(); filterRecords(labType); fetchChartData(); });
 });
 updateChartLabel();
 filterRecords('week');
+fetchChartData();
 </script>
 {% endblock %}

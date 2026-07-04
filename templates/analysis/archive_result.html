@@ -177,7 +177,7 @@
       {% else %}—{% endif %}
     </td>
     <td class="val">
-      {{ '%.2f'|format(e['g_val']) if e['g_val'] else '—' }}
+      {{ '%.0f'|format(e['g_val']) if e['g_val'] else '—' }}
     </td>
     <td class="val">
       {{ '%.2f'|format(e['fsi']) if e['fsi'] else '—' }}

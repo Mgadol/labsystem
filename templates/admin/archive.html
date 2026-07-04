@@ -6,7 +6,9 @@
   <p class="page-sub">{{ 'Бүх архивласан мэдээлэл нэг дор' if lang=='mn' else 'All archived records in one place' }}</p>
 
   <!-- Tab цэс -->
+  {% set is_client = current_user and current_user['role'] in ('geologist','bayjuulach') %}
   <div class="tab-nav" style="margin-bottom:20px">
+    {% if not is_client %}
     <button class="tab-btn active" data-tab="tab-devices" onclick="switchTab(this,'tab-devices')">
       ⚙️ {{ 'Тоног төхөөрөмж' if lang=='mn' else 'Devices' }}
       <span style="background:#eee;color:#888;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px">{{ archived_devices|length }}</span>
@@ -15,20 +17,23 @@
       👥 {{ 'Ажилтан' if lang=='mn' else 'Staff' }}
       <span style="background:#eee;color:#888;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px">{{ archived_staff|length }}</span>
     </button>
-    <button class="tab-btn" data-tab="tab-analysis" onclick="switchTab(this,'tab-analysis')">
+    {% endif %}
+    <button class="tab-btn {% if is_client %}active{% endif %}" data-tab="tab-analysis" onclick="switchTab(this,'tab-analysis')">
       🧪 {{ 'Шинжилгээ' if lang=='mn' else 'Analysis' }}
-      <span style="background:#eee;color:#888;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px">{{ done_samples|length }}</span>
+      <span style="background:#eee;color:#888;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px">{{ (done_samples|length) + (done_qc|length) }}</span>
     </button>
+    {% if not is_client %}
     <button class="tab-btn" data-tab="tab-repair" onclick="switchTab(this,'tab-repair')">
       🔧 {{ 'Засвар' if lang=='mn' else 'Repairs' }}
     </button>
     <button class="tab-btn" data-tab="tab-report" onclick="switchTab(this,'tab-report')">
       📋 {{ 'Тайлан' if lang=='mn' else 'Reports' }}
     </button>
+    {% endif %}
   </div>
 
   <!-- Тоног төхөөрөмж -->
-  <div id="tab-devices" class="tab-pane active">
+  <div id="tab-devices" class="tab-pane{% if not is_client %} active{% endif %}">
     <div class="card">
       {% if archived_devices %}
       <table class="table">
@@ -67,6 +72,13 @@
               <form method="POST" action="{{ url_for('device_restore', did=d['id']) }}">
                 <button type="submit" class="btn btn-sm" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">
                   🔄 {{ 'Сэргээх' if lang=='mn' else 'Restore' }}
+                </button>
+              </form>
+              {% endif %}
+              {% if current_user['role'] == 'admin' %}
+              <form method="POST" action="{{ url_for('device_delete', did=d['id']) }}" onsubmit="return confirm('{{ d['name'] }} төхөөрөмжийг БҮРМӨСӨН устгах уу? Энэ үйлдлийг буцаах боломжгүй!')">
+                <button type="submit" class="btn btn-sm" style="background:#faece7;color:#b91c1c;border:1px solid #f5c4b3">
+                  🗑 {{ 'Бүрмөсөн устгах' if lang=='mn' else 'Delete' }}
                 </button>
               </form>
               {% endif %}
@@ -130,6 +142,13 @@
                 </button>
               </form>
               {% endif %}
+              {% if current_user['role'] == 'admin' %}
+              <form method="POST" action="{{ url_for('staff_delete', uid=u['id']) }}" onsubmit="return confirm('{{ u['name'] }} ажилтныг бүрмөсөн устгах уу? Энэ үйлдлийг буцаах боломжгүй!')">
+                <button type="submit" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">
+                  🗑 Устгах
+                </button>
+              </form>
+              {% endif %}
             </div>
           </td>
         </tr>
@@ -145,10 +164,13 @@
   </div>
 
   <!-- Шинжилгээ -->
-  <div id="tab-analysis" class="tab-pane">
+  <div id="tab-analysis" class="tab-pane{% if is_client %} active{% endif %}">
     <div class="card">
+      <div style="margin-bottom:12px">
+        <input type="text" id="archiveSearch" placeholder="Ажлын дугаараар хайх..." oninput="filterArchive(this.value)" class="form-input" style="max-width:260px">
+      </div>
       {% if done_samples %}
-      <table class="table">
+      <table class="table" id="archiveTable">
         <thead><tr>
           <th>{{ 'Ажлын дугаар' if lang=='mn' else 'Lab Number' }}</th>
           <th>{{ 'Дээжийн нэр' if lang=='mn' else 'Sample Name' }}</th>
@@ -170,7 +192,30 @@
             <a href="{{ url_for('archive_result', receipt_id=s['receipt_id']) }}" class="btn btn-ghost btn-sm">📊 Үр дүн</a>
             <a href="{{ url_for('archive_measure', receipt_id=s['receipt_id']) }}" class="btn btn-ghost btn-sm">📋 Хэмжилт</a>
             <a href="{{ url_for('analysis_export', receipt_id=s['receipt_id']) }}" class="btn btn-ghost btn-sm">📥 Excel</a>
-            <a href="{{ url_for('analysis_export_report', receipt_id=s['receipt_id']) }}" class="btn btn-ghost btn-sm">📄 Тайлан</a>
+            {% if current_user['role'] == 'admin' %}
+            <form method="POST" action="{{ url_for('archive_delete', receipt_id=s['receipt_id']) }}" onsubmit="return confirm('{{ s['lab_number'] }} — бүртгэлийг бүрмөсөн устгах уу?\nЭнэ үйлдлийг буцаах боломжгүй!')" style="display:inline">
+              <button type="submit" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">🗑 Устгах</button>
+            </form>
+            {% endif %}
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        {% for q in done_qc %}
+        <tr style="background:#f0fdf9!important">
+          <td style="font-weight:600;font-family:monospace;color:#0d9488">QC {{ q['lab1'] or '—' }}</td>
+          <td style="font-weight:500">{{ q['sname1'] or '—' }}</td>
+          <td>—</td>
+          <td>{{ q['assigned_name'] or '—' }}</td>
+          <td>{{ q['triggered_date'] or '—' }}</td>
+          <td style="white-space:nowrap">
+            {% if q['receipt_id_1'] %}
+            <a href="{{ url_for('analysis_result', receipt_id=q['receipt_id_1']) }}?qc_row={{ q['row_num_1'] or 1 }}" class="btn btn-ghost btn-sm">📊 Үр дүн</a>
+            {% endif %}
+            {% if current_user['role'] == 'admin' %}
+            <form method="POST" action="{{ url_for('archive_qc_delete', qc_id=q['id']) }}" onsubmit="return confirm('QC {{ q.lab1 }} — бүрмөсөн устгах уу?')" style="display:inline">
+              <button type="submit" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">🗑 Устгах</button>
+            </form>
             {% endif %}
           </td>
         </tr>
@@ -246,6 +291,13 @@ function switchTab(btn, tabId){
   btn.classList.add('active');
   var pane=document.getElementById(tabId);
   if(pane){ pane.classList.add('active'); pane.style.display='block'; }
+}
+function filterArchive(val){
+  var q = val.trim().toLowerCase();
+  document.querySelectorAll('#archiveTable tbody tr').forEach(function(tr){
+    var num = tr.cells[0].textContent.toLowerCase();
+    tr.style.display = (!q || num.includes(q)) ? '' : 'none';
+  });
 }
 // URL-ийн hash-аас tab нээх
 (function(){

@@ -5,7 +5,7 @@
 *{box-sizing:border-box}
 .sheet-wrap{width:100%;overflow:auto;max-height:calc(100vh - 140px);position:relative}
 .tbl{border-collapse:separate;border-spacing:0;white-space:nowrap;font-size:11.5px;font-family:'Segoe UI',sans-serif;width:max-content}
-.tbl th,.tbl td{border-right:1px solid #d8d8d0;border-bottom:1px solid #d8d8d0;height:22px;text-align:center;vertical-align:middle;padding:0 5px}
+.tbl th,.tbl td{border-right:1px solid #d8d8d0;border-bottom:1px solid #d8d8d0;height:22px;text-align:center;vertical-align:middle;padding:0;overflow:visible}
 .tbl tr th:first-child,.tbl tr td:first-child{border-left:1px solid #d8d8d0}
 .tbl thead tr:first-child th{border-top:1px solid #d8d8d0}
 .tbl thead tr.h1 th{position:sticky;top:0;z-index:4;background:#1e3a5f;color:#fff;font-size:11px;font-weight:600;height:32px}
@@ -47,11 +47,28 @@
 <!-- Мэдээллийн баар -->
 <div style="padding:6px 14px;background:#1a2744;color:#fff;display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:12px;border-bottom:2px solid #4ade80">
   <div style="font-size:9px;color:#93a8d4">Ажлын дугаарууд:</div>
+  {% if qc_row_map %}
+  {% for r in receipts %}{% if r['id'] in qc_row_map %}<span style="font-family:monospace;font-weight:600;color:#4ade80;font-size:13px">🔁 QC {{ r['lab_number'] }}</span>{% endif %}{% endfor %}
+  {% for r in receipts %}{% if not r['id'] in qc_row_map %}
+  <span style="color:#555">|</span>
+  <span style="font-family:monospace;font-weight:600;color:#4ade80;font-size:13px">{{ r['lab_number'] }}</span>
+  {% endif %}{% endfor %}
+  {% else %}
   {% for r in receipts %}
   <span style="font-family:monospace;font-weight:600;color:#4ade80;font-size:13px">{{ r['lab_number'] }}</span>
   {% if not loop.last %}<span style="color:#555">|</span>{% endif %}
   {% endfor %}
+  {% endif %}
   <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+    <button id="editModeBtn" onclick="toggleEditMode()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">✏️ Засах</button>
+    <button onclick="openDevicePopup()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">🔧 <span id="deviceSummary">Тоног</span></button>
+    {% for r in receipts %}
+    <a href="{{ url_for('analysis_result', receipt_id=r['id']) }}{% if r['id'] in qc_row_map %}?qc_row={{ qc_row_map[r['id']] }}&qc_id={{ qc_id }}{% endif %}" style="background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.4);border-radius:6px;color:#4ade80;font-size:11px;padding:4px 10px;cursor:pointer;text-decoration:none">📊 {% if r['id'] in qc_row_map %}QC {{ r['lab_number'] }}{% else %}{{ r['lab_number'] }}{% endif %}</a>
+    {% endfor %}
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <button onmousedown="event.preventDefault();increaseDecimal()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:3px;color:#fff;font-size:9px;padding:1px 4px;cursor:pointer;line-height:1.2">0.00</button>
+      <button onmousedown="event.preventDefault();decreaseDecimal()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:3px;color:#fff;font-size:9px;padding:1px 4px;cursor:pointer;line-height:1.2">00.0</button>
+    </div>
     <span class="save-dot" id="saveDot"></span>
     <span id="saveStatus" style="font-size:11px;color:#93a8d4">Хадгалагдсан</span>
   </div>
@@ -85,12 +102,12 @@
     <col class="cg-st" style="width:50px">
     <col class="cg-il" style="width:65px"><col class="cg-il" style="width:40px">
     <col class="cg-fsi" style="width:40px">
-    <col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px">
+    <col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px">
   </colgroup>
   <thead>
     <tr class="h1">
       <th rowspan="2">No.</th><th rowspan="2">Төрөл</th><th rowspan="2">Лаб.Дугаар</th>
-      <th rowspan="2">Дээжний<br>дугаар</th><th rowspan="2">Дээжний<br>масс [кг]</th><th rowspan="2">Ст.</th>
+      <th rowspan="2">Дээжний<br>дугаар</th><th rowspan="2">Дээжний<br>масс [кг]</th><th rowspan="2">Ст.<br><button id="markAllBtn" onclick="markAllDone()" title="Бүгдийг дуусгах" style="margin-top:2px;background:#0f6e56;border:none;border-radius:4px;color:#fff;font-size:12px;padding:1px 5px;cursor:pointer;white-space:nowrap">☐</button></th>
       <th colspan="2" class="cg-ff">Чөлөөт чийг</th>
       <th colspan="4" class="cg-mt">Нийт чийг</th>
       <th colspan="4" class="cg-dc">Дотоод Чийг</th>
@@ -100,7 +117,7 @@
       <th class="cg-st">Нийт хүхэр</th>
       <th colspan="2" class="cg-il">Илчлэгийн утга</th>
       <th class="cg-fsi">Чөлөөт<br>хөөлт</th>
-      <th colspan="4">Тооцоо</th>
+      <th colspan="8">Тооцоо</th>
     </tr>
     <tr class="h2">
       <th class="cg-ff gs">Дээжний масс<br>[гр]</th><th class="cg-ff ge">Хатаасан масс<br>[гр]</th>
@@ -112,34 +129,47 @@
       <th class="cg-st gs ge">Sad [%]</th>
       <th class="cg-il gs">Qb,ad [J/g]</th><th class="cg-il ge">Өрөө ⁰C</th>
       <th class="cg-fsi gs ge">CSN</th>
-      <th class="gs">Mad%</th><th>Aad%</th><th>Vad%</th><th>FCad%</th>
+      <th class="gs">TM%</th><th>Mad%</th><th>Aad%</th><th>Vad%</th><th>FCad%</th><th>G</th><th>Sad%</th><th>Qb,ad</th>
     </tr>
   </thead>
   <tbody id="tbody">
   {% set row_num = namespace(val=0) %}
-  {% for receipt in receipts %}
-  <!-- Lot ялгах label -->
+  {% set ns_qc = namespace(idx=0) %}
+  {% if qc_row_map %}
   <tr class="lot-label">
-    <td colspan="40" style="text-align:left;padding-left:10px;background:#1e3a5f;color:#4ade80;font-family:monospace;font-size:11px;height:20px;padding-top:2px;padding-bottom:2px">
-      📋 {{ receipt['lab_number'] }} — {{ receipt['sample_name'] }} &nbsp;·&nbsp; <span style="color:#fbbf24">{{ receipt['sample_type'] }}</span> &nbsp;·&nbsp; {{ receipt['quantity'] }} дээж
+    <td colspan="41" style="text-align:left;padding-left:10px;background:#0d4f47;color:#4ade80;font-family:monospace;font-size:11px;height:20px;padding-top:2px;padding-bottom:2px">
+      🔁 Дотоод QC &nbsp;·&nbsp; <span style="color:#fbbf24">QC</span> &nbsp;·&nbsp; {{ qc_row_map|length }} дээж
     </td>
   </tr>
+  {% endif %}
+  {% for receipt in receipts %}
   {% set rid = receipt['id'] %}
   {% set stype = receipt['sample_type'] %}
   {% set sname = receipt['sample_name'] %}
+  {% if rid in qc_row_map %}{% set ns_qc.idx = ns_qc.idx + 1 %}{% endif %}
+  <!-- Lot ялгах label -->
+  {% if not qc_row_map or rid not in qc_row_map %}
+  <tr class="lot-label">
+    <td colspan="41" style="text-align:left;padding-left:10px;background:#1e3a5f;color:#4ade80;font-family:monospace;font-size:11px;height:20px;padding-top:2px;padding-bottom:2px">
+      📋 {{ receipt['lab_number'] }} — {{ receipt['sample_name'] }} &nbsp;·&nbsp; <span style="color:#fbbf24">{{ receipt['sample_type'] }}</span> &nbsp;·&nbsp; {{ receipt['quantity'] }} дээж
+    </td>
+  </tr>
+  {% endif %}
   {% for i in range(receipt['quantity'] or 1) %}
   {% set row_num.val = row_num.val + 1 %}
   {% set ri = i+1 %}
+  {% if qc_row_map and rid in qc_row_map and qc_row_map[rid] != ri %}{% else %}
   {% set uid = rid|string + '_' + ri|string %}
   <tr class="main-row" id="mr{{ uid }}">
     <td style="font-size:10px;color:#666;padding:0 2px">
       <button class="dup-btn" id="db{{ uid }}" onclick="toggleDup('{{ uid }}')">+</button>
     </td>
     <td style="font-size:10px;font-weight:600;color:
-      {% if stype=='PIT' %}#0f6e56{% elif stype=='STOCKPILE' %}#185fa5
+      {% if qc_row_map and rid in qc_row_map %}#0d9488
+      {% elif stype=='PIT' %}#0f6e56{% elif stype=='STOCKPILE' %}#185fa5
       {% elif stype=='EXPORT' %}#3c3489{% elif stype=='CONTROL' %}#854f0b
-      {% elif stype=='EQ_CONTROL' %}#993c1d{% else %}#555{% endif %}">{{ stype }}</td>
-    <td style="font-family:monospace;font-size:10px;color:#555">{{ receipt['lab_number'] }}</td>
+      {% elif stype=='EQ_CONTROL' %}#993c1d{% else %}#555{% endif %}">{{ 'QC' if (qc_row_map and rid in qc_row_map) else stype }}</td>
+    <td style="font-family:monospace;font-size:10px;color:#555">{% if rid in qc_row_map %}QC{{ ns_qc.idx }}-{% endif %}{{ receipt['lab_number'] }}</td>
     <td><div class="name-cell"><input class="name-inp" type="text" id="n{{ uid }}" data-field="sample_name" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></div></td>
     <td><input type="number" step="0.01" data-field="mass_kg" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
     <td style="padding:2px"><button class="done-btn" id="dnbtn{{ uid }}_0" onclick="markDone('{{ rid }}','{{ ri }}',0)" title="Дууслаа">○</button></td>
@@ -166,14 +196,18 @@
     <td class="cg-gi"><input type="number" step="0.0001" data-field="g_coke" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
     <td class="cg-gi"><input type="number" step="0.0001" data-field="g_sieve1" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
     <td class="cg-gi ge"><input type="number" step="0.0001" data-field="g_sieve2" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-st gs ge"><input type="number" step="0.001" data-field="sulfur" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
-    <td class="cg-il gs"><input type="number" step="0.01" data-field="cal_value" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-st gs ge"><input type="number" step="0.001" data-field="sulfur" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-il gs"><input type="number" step="0.01" data-field="cal_value" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
     <td class="cg-il ge"><input type="number" step="0.1" data-field="cal_temp" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
     <td class="cg-fsi gs ge"><input type="number" step="0.5" data-field="fsi" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
-    <td class="calc-cell gs" id="r{{ uid }}_mad">—</td>
+    <td class="calc-cell gs" id="r{{ uid }}_tm">—</td>
+    <td class="calc-cell" id="r{{ uid }}_mad">—</td>
     <td class="calc-cell" id="r{{ uid }}_aad">—</td>
     <td class="calc-cell" id="r{{ uid }}_vad">—</td>
     <td class="calc-cell" id="r{{ uid }}_fc">—</td>
+    <td class="calc-cell" id="r{{ uid }}_g">—</td>
+    <td class="calc-cell" id="r{{ uid }}_sad">—</td>
+    <td class="calc-cell" id="r{{ uid }}_qb">—</td>
   </tr>
   <!-- Зэрэгцээ мөр -->
   <tr class="dup-row" id="dr{{ uid }}">
@@ -202,15 +236,20 @@
     <td class="cg-gi"><input type="number" step="0.0001" data-field="g_coke" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
     <td class="cg-gi"><input type="number" step="0.0001" data-field="g_sieve1" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
     <td class="cg-gi ge"><input type="number" step="0.0001" data-field="g_sieve2" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-st gs ge"><input type="number" step="0.001" data-field="sulfur" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
-    <td class="cg-il gs"><input type="number" step="0.01" data-field="cal_value" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-st gs ge"><input type="number" step="0.001" data-field="sulfur" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-il gs"><input type="number" step="0.01" data-field="cal_value" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
     <td class="cg-il ge"></td>
     <td class="cg-fsi gs ge"><input type="number" step="0.5" data-field="fsi" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
-    <td class="calc-cell gs" id="r{{ uid }}d_mad">—</td>
+    <td class="calc-cell gs" id="r{{ uid }}d_tm">—</td>
+    <td class="calc-cell" id="r{{ uid }}d_mad">—</td>
     <td class="calc-cell" id="r{{ uid }}d_aad">—</td>
     <td class="calc-cell" id="r{{ uid }}d_vad">—</td>
     <td class="calc-cell" id="r{{ uid }}d_fc">—</td>
+    <td class="calc-cell" id="r{{ uid }}d_g">—</td>
+    <td class="calc-cell" id="r{{ uid }}d_sad">—</td>
+    <td class="calc-cell" id="r{{ uid }}d_qb">—</td>
   </tr>
+  {% endif %}
   {% endfor %}
   {% endfor %}
   </tbody>
@@ -223,24 +262,106 @@
   <a href="{{ url_for('analysis') }}" class="btn btn-ghost btn-sm">← Буцах</a>
 </div>
 
+<!-- Тоногийн popup -->
+<div id="devicePopup" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;padding:24px;width:420px;max-width:95%">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="font-size:15px;font-weight:700">🔧 Өдрийн тоног тохируулах</h3>
+      <button onclick="closeDevicePopup()" style="background:none;border:none;font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div id="deviceMapForm"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button onclick="closeDevicePopup()" class="btn btn-ghost">Хаах</button>
+      <button onclick="saveDeviceSelection()" class="btn btn-primary">✅ Хадгалах</button>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 {% block scripts %}
 <script>
 var QC = {mad:0.20, aad:0.30, vad:0.30};
+var rawVals = {};
+var deviceMap = {};
+var editMode = false;
+var pendingChanges = {};
+
+// Toolbar дээр давтагдсан "Дотоод QC" товчийг нэг болгох
+(function(){
+  var toolbar = document.querySelector('[style*="margin-left:auto"]');
+  if(!toolbar) return;
+  var spans = toolbar.querySelectorAll('span,a');
+  var qcSeen = false;
+  spans.forEach(function(el){
+    if(el.textContent.trim().indexOf('Дотоод QC') !== -1){
+      if(qcSeen){ el.remove(); } else { qcSeen = true; }
+    }
+  });
+})();
+
+function setSheetReadonly(state){
+  document.querySelectorAll('.tbl input').forEach(function(i){
+    i.readOnly = state ? (i.value!==''&&i.value!=null) : false;
+  });
+}
+function toggleEditMode(){
+  editMode = !editMode;
+  var btn = document.getElementById('editModeBtn');
+  if(editMode){
+    setSheetReadonly(false);
+    btn.textContent = '💾 Хадгалах';
+    document.getElementById('saveStatus').textContent = 'Засах горим';
+  } else {
+    setSheetReadonly(true);
+    var keys = Object.keys(pendingChanges);
+    if(!keys.length){ btn.textContent='✏️ Засах'; document.getElementById('saveStatus').textContent='Хадгалагдсан'; return; }
+    setSave('pending');
+    Promise.all(keys.map(function(k){
+      return fetch('/analysis/autosave',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(pendingChanges[k])}).then(r=>r.json());
+    })).then(function(){ pendingChanges={}; setSave('ok'); }).catch(function(){ setSave('err'); });
+    btn.textContent = '✏️ Засах';
+  }
+}
+function decreaseDecimal(){
+  var inp=document.activeElement;
+  if(!inp||!inp.matches('.tbl input')) return;
+  if(!inp.value) return;
+  var d=(inp.value.split('.')[1]||'').length;
+  if(d>0) inp.value=parseFloat(inp.value).toFixed(d-1);
+}
+function increaseDecimal(){
+  var inp=document.activeElement;
+  if(!inp||!inp.matches('.tbl input')) return;
+  if(!inp.value) return;
+  var d=(inp.value.split('.')[1]||'').length;
+  inp.value=parseFloat(inp.value).toFixed(d+1);
+}
+function setSave(st){
+  var dot=document.getElementById('saveDot');
+  var txt=document.getElementById('saveStatus');
+  dot.className='save-dot'+(st==='pending'?' pending':'');
+  txt.textContent=st==='pending'?'Хадгалж байна...':st==='err'?'Алдаа':'Хадгалагдсан';
+}
 
 // Дээжний нэр автомат
+var QC_ROW_MAP = {{ qc_row_map|tojson }};
 function autoNames(){
   {% for receipt in receipts %}
   {% set rid = receipt['id'] %}
   {% set sname = receipt['sample_name'] %}
   var nm{{ rid }} = "{{ sname }}";
+  var isQC{{ rid }} = QC_ROW_MAP && ({{ receipt['id'] }} in QC_ROW_MAP);
+  // Цэг таслалаар тусгаарласан нэрс: "a1; a2; b3"
+  var parts_{{ rid }} = nm{{ rid }}.indexOf(';') !== -1 ? nm{{ rid }}.split(';').map(function(s){return s.trim();}) : null;
   var m1_{{ rid }} = nm{{ rid }}.match(/^(.*?)(\d+)\s*[-–]\s*(\d+)\s*$/);
   var m2_{{ rid }} = nm{{ rid }}.match(/^(.*?)(\d+)$/);
   for(var i=1;i<={{ receipt['quantity'] or 1 }};i++){
     var uid = '{{ rid }}_' + i;
     var inp = document.getElementById('n'+uid);
     if(!inp||inp.value) continue;
-    if(m1_{{ rid }}) inp.value = m1_{{ rid }}[1]+(parseInt(m1_{{ rid }}[2])+i-1);
+
+    if(parts_{{ rid }} && parts_{{ rid }}[i-1]) inp.value = parts_{{ rid }}[i-1];
+    else if(m1_{{ rid }}) inp.value = m1_{{ rid }}[1]+(parseInt(m1_{{ rid }}[2])+i-1);
     else if(m2_{{ rid }}) inp.value = m2_{{ rid }}[1]+(parseInt(m2_{{ rid }}[2])+i-1);
     else inp.value = nm{{ rid }}+'-'+i;
   }
@@ -255,14 +376,17 @@ function setSave(st){
   txt.textContent=st==='pending'?'Хадгалж байна...':st==='err'?'Алдаа':'Хадгалагдсан';
 }
 function autoSave(inp){
-  if(!inp.value) return;
   var rid = inp.dataset.rid;
   var row = inp.dataset.row;
   var dup = inp.dataset.dup;
+  // Гр-ийн нүд (step 0.0001) 4 орноор форматлана
+  if(inp.step==='0.0001'&&inp.value!==''&&!isNaN(parseFloat(inp.value))) inp.value=parseFloat(inp.value).toFixed(4);
   setSave('pending');
+  // Утга орсон нүд түгжигдэнэ (Засах горимд түгжихгүй)
+  if(!editMode && inp.value!=='') inp.readOnly = true;
   fetch('/analysis/autosave',{
     method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({receipt_id:parseInt(rid),row_num:parseInt(row),is_duplicate:parseInt(dup),field:inp.dataset.field,value:inp.value})
+    body:JSON.stringify({receipt_id:parseInt(rid),row_num:parseInt(row),is_duplicate:parseInt(dup),field:inp.dataset.field,value:inp.value===''?null:inp.value})
   }).then(r=>r.json()).then(d=>setSave(d.ok?'ok':'err')).catch(()=>setSave('err'));
 }
 
@@ -273,25 +397,58 @@ function gvr(rid,row,dup,field){
 }
 function calc(uid,dup,rid,ri){
   var id=dup?uid+'d':uid+'';
+  // TM (Нийт чийг) = чөлөөт чийг + үлдэгдэл чийг
+  var ffs=gvr(rid,ri,dup,'ff_sample'),ffd=gvr(rid,ri,dup,'ff_dried');
+  var chch=(ffs&&ffs>0&&ffd!=null)?(ffs-ffd)/ffs*100:0;
+  var mtt=gvr(rid,ri,dup,'mt_tare'),mts=gvr(rid,ri,dup,'mt_sample'),mtd=gvr(rid,ri,dup,'mt_dried');
+  var tm_raw=(mtt!=null&&mts&&mts>0&&mtd!=null)?(mtt+mts-mtd)/mts*100:null;
+  var tm=null;
+  if(tm_raw!=null){tm=chch?(chch+tm_raw*(1-chch/100)):tm_raw;}
+  // Mad
   var t=gvr(rid,ri,dup,'dc_tare'),s=gvr(rid,ri,dup,'dc_sample'),d=gvr(rid,ri,dup,'dc_dried');
   var mad=(t!=null&&s&&s>0&&d!=null)?(t+s-d)/s*100:null;
+  // Aad
   var pt=gvr(rid,ri,dup,'ash_tare'),ps=gvr(rid,ri,dup,'ash_sample'),pb=gvr(rid,ri,dup,'ash_burned');
   var aad=(pt!=null&&ps&&ps>0&&pb!=null)?(pb-pt)/ps*100:null;
+  // Vad
   var vt=gvr(rid,ri,dup,'vol_tare'),vs=gvr(rid,ri,dup,'vol_sample'),vb=gvr(rid,ri,dup,'vol_burned');
   var vad=(vt!=null&&vs&&vs>0&&vb!=null&&mad!=null)?(vt+vs-vb)/vs*100-mad:null;
   var fc=(mad!=null&&aad!=null&&vad!=null)?100-mad-aad-vad:null;
-  setC('r'+id+'_mad',mad,4);setC('r'+id+'_aad',aad,4);
-  setC('r'+id+'_vad',vad,4);setC('r'+id+'_fc',fc,4);
-  if(dup) checkQC(uid,rid,ri);
-  if(mad!=null||aad!=null)
+  // G-index
+  var gt=gvr(rid,ri,dup,'g_tare'),gc=gvr(rid,ri,dup,'g_coke'),gs1=gvr(rid,ri,dup,'g_sieve1'),gs2=gvr(rid,ri,dup,'g_sieve2');
+  var g=(gt!=null&&gc!=null&&gs1!=null&&gs2!=null&&(gc-gt)>0)?10+(30*(gs1-gt)+70*(gs2-gt))/(gc-gt):null;
+  // Sad, Qb (direct inputs → reflect to calc cells)
+  var sad=gvr(rid,ri,dup,'sulfur');
+  var qb=gvr(rid,ri,dup,'cal_value');
+  setC('r'+id+'_tm',tm,1);
+  setC('r'+id+'_mad',mad,2);setC('r'+id+'_aad',aad,2);
+  setC('r'+id+'_vad',vad,2);setC('r'+id+'_fc',fc,2);
+  setC('r'+id+'_g',g,0);setC('r'+id+'_sad',sad,2);setC('r'+id+'_qb',qb,1);
+  rawVals[uid+'_'+dup]={tm:tm,mad:mad,aad:aad,vad:vad,fc:fc,g:g,sad:sad,qb:qb};
+  checkQC(uid,rid,ri);
+  if(mad!=null||aad!=null||g!=null)
     fetch('/analysis/autosave/calc',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({receipt_id:parseInt(rid),row_num:parseInt(ri),is_duplicate:dup,mad:mad,aad:aad,vad:vad,fc:fc})});
+      body:JSON.stringify({receipt_id:parseInt(rid),row_num:parseInt(ri),is_duplicate:dup,mad:mad,aad:aad,vad:vad,fc:fc,g_val:g})});
 }
-function setC(id,v,d){var e=document.getElementById(id);if(e){e.textContent=v!=null?v.toFixed(d):'—';e.className='calc-cell'+(id.includes('_mad')?' gs':'');}}
+function setC(id,v,d){var e=document.getElementById(id);if(e){e.textContent=v!=null?v.toFixed(d):'—';e.className='calc-cell'+(id.includes('_tm')?' gs':'');}}
 function checkQC(uid,rid,ri){
-  [['mad',QC.mad],['aad',QC.aad],['vad',QC.vad]].forEach(function(p){
-    var v1=getN('r'+uid+'_'+p[0]),v2=getN('r'+uid+'d_'+p[0]);
-    if(v1!=null&&v2!=null){var ok=Math.abs(v1-v2)<=p[1];cqc('r'+uid+'_'+p[0],ok);cqc('r'+uid+'d_'+p[0],ok);}
+  // Үндсэн мөрөнд дундаж, зэрэгцээ мөрөнд зөрүү харуулна
+  var qcMap={mad:QC.mad,aad:QC.aad,vad:QC.vad};
+  var decMap={tm:1,mad:2,aad:2,vad:2,fc:2,g:0,sad:2,qb:1};
+  var d0=rawVals[uid+'_0']||{};
+  var d1=rawVals[uid+'_1']||{};
+  ['tm','mad','aad','vad','fc','g','sad','qb'].forEach(function(p){
+    var v1=d0[p],v2=d1[p];
+    var el=document.getElementById('r'+uid+'_'+p);
+    var el2=document.getElementById('r'+uid+'d_'+p);
+    var dec=decMap[p]!=null?decMap[p]:2;
+    if(v1!=null&&v2!=null){
+      var diff=Math.round(Math.abs(v1-v2)*100000)/100000;
+      var avg=(v1+v2)/2;
+      var ok=qcMap[p]==null||diff<=qcMap[p];
+      if(el){el.textContent=avg.toFixed(dec);el.className='calc-cell'+(p==='tm'?' gs':'');el.style.color=(qcMap[p]!=null&&ok)?'#0a6e3f':'';}
+      if(el2){el2.textContent=diff.toFixed(dec);el2.className='calc-cell'+((qcMap[p]!=null&&!ok)?' qc-warn':'');el2.style.color='';}
+    }
   });
 }
 function getN(id){var e=document.getElementById(id);return e&&e.textContent!='—'?parseFloat(e.textContent):null;}
@@ -319,6 +476,41 @@ function markDone(rid,ri,dup){
   });
 }
 
+function markAllDone(){
+  var btns = document.querySelectorAll('.done-btn');
+  var allDone = Array.from(btns).every(function(b){ return b.classList.contains('done'); });
+  var action = allDone ? 'undo' : 'done';
+  var rows = [];
+  btns.forEach(function(btn){
+    var isDone = btn.classList.contains('done');
+    if((allDone && isDone) || (!allDone && !isDone)){
+      var parts = btn.id.replace('dnbtn','').split('_');
+      rows.push({receipt_id:parseInt(parts[0]), row_num:parseInt(parts[1]), is_duplicate:parseInt(parts[2]), action:action});
+    }
+  });
+  if(!rows.length) return;
+  // Бүх receipt_id-г group болгоно
+  var byReceipt = {};
+  rows.forEach(function(r){ (byReceipt[r.receipt_id]=byReceipt[r.receipt_id]||[]).push(r); });
+  Object.keys(byReceipt).forEach(function(rid){
+    fetch('/analysis/row/done-all',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({receipt_id:parseInt(rid), rows:byReceipt[rid]})
+    }).then(r=>r.json()).then(function(d){
+      if(d.ok){
+        byReceipt[rid].forEach(function(r){
+          var btn=document.getElementById('dnbtn'+r.receipt_id+'_'+r.row_num+'_'+r.is_duplicate);
+          if(btn){
+            if(action==='done'){btn.classList.add('done');btn.textContent='✓';}
+            else{btn.classList.remove('done');btn.textContent='○';}
+          }
+        });
+      }
+    });
+  });
+  var markBtn=document.getElementById('markAllBtn');
+  if(markBtn) markBtn.textContent = allDone ? '☐' : '☑';
+}
+
 // Багана нуух
 function toggleG(cb,g){
   var show=cb.checked;
@@ -338,12 +530,19 @@ function loadAllData(){
       Object.keys(e).forEach(function(f){
         if(['id','receipt_id','row_num','is_duplicate','created_at','updated_at','updated_by'].includes(f)) return;
         var inp=document.querySelector('[data-rid="{{ receipt["id"] }}"][data-row="'+row+'"][data-dup="'+dup+'"][data-field="'+f+'"]');
-        if(inp&&e[f]!=null) inp.value=e[f];
+        if(inp&&e[f]!=null) inp.value=(inp.step==='0.0001'&&!isNaN(parseFloat(e[f])))?parseFloat(e[f]).toFixed(4):e[f];
       });
       calc(uid,parseInt(dup),'{{ receipt["id"] }}',row);
       if(e.row_status==='done'){var btn=document.getElementById('dnbtn'+uid+'_'+dup);if(btn){btn.classList.add('done');btn.textContent='✓';}}
-      if(dup==='1'&&!document.getElementById('dr'+uid).classList.contains('show')) toggleDup(uid);
+      // Зэрэгцээ мөрийг бодит хэмжилтийн утгатай үед задлана
+      if(dup==='1'){
+        var meta=['id','receipt_id','row_num','is_duplicate','created_at','updated_at','updated_by','row_status','done_by','done_at','approved_by','approved_at','sample_name','mass_kg','mad','aad','vad','fc'];
+        var hasData=Object.keys(e).some(function(f){return meta.indexOf(f)===-1&&e[f]!=null&&e[f]!=='';});
+        var drow=document.getElementById('dr'+uid);
+        if(hasData&&drow&&!drow.classList.contains('show')) toggleDup(uid);
+      }
     });
+    if(!editMode) setSheetReadonly(true);
   });
   {% endfor %}
   setSave('ok');
@@ -367,11 +566,12 @@ document.addEventListener('keydown',function(e){
     var nx=e.shiftKey?vis[idx-1]:vis[idx+1];
     if(nx){nx.focus();nx.select();}
   } else if(e.key==='ArrowRight'){
-    e.preventDefault();
-    if(inp.selectionEnd>=inp.value.length&&vis[idx+1]){vis[idx+1].focus();vis[idx+1].select();}
+    // Тоон нүдэнд selectionEnd null байдаг тул шууд шилжинэ (Excel шиг)
+    var atEnd = (inp.type==='number') || (inp.selectionEnd!=null && inp.selectionEnd>=inp.value.length);
+    if(atEnd&&vis[idx+1]){e.preventDefault();vis[idx+1].focus();vis[idx+1].select();}
   } else if(e.key==='ArrowLeft'){
-    e.preventDefault();
-    if(inp.selectionStart<=0&&vis[idx-1]){vis[idx-1].focus();vis[idx-1].select();}
+    var atStart = (inp.type==='number') || (inp.selectionStart!=null && inp.selectionStart<=0);
+    if(atStart&&vis[idx-1]){e.preventDefault();vis[idx-1].focus();vis[idx-1].select();}
   } else if(e.key==='ArrowDown'||e.key==='ArrowUp'){
     e.preventDefault();
     var row=inp.closest('tr');
@@ -395,12 +595,47 @@ document.addEventListener('keydown',function(e){
 
 document.querySelectorAll('.tbl input').forEach(function(i){i.addEventListener('focus',function(){this.select();});});
 
+// Тоног popup
+var ANALYSIS_LABELS={mad:'💧 Mad',aad:'🔥 Aad',vad:'💨 Vad',st:'⚗️ Sad',q:'🔆 Q',g:'📊 G',fsi:'🔵 FSI'};
+function openDevicePopup(){
+  document.getElementById('devicePopup').style.display='flex';
+  fetch('/analysis/device-map').then(r=>r.json()).then(function(data){
+    var html='';
+    Object.keys(ANALYSIS_LABELS).forEach(function(key){
+      var sel='<select id="dsel_'+key+'" style="width:100%;padding:4px 8px;border:1px solid #ddd;border-radius:6px;font-size:12px">';
+      sel+='<option value="">— сонгоогүй —</option>';
+      data.devices.forEach(function(d){
+        var sel2=(deviceMap[key]&&deviceMap[key].id==d.id)||(data.mapping[key]==d.id&&!deviceMap[key])?'selected':'';
+        sel+='<option value="'+d.id+'" data-name="'+d.name+'" '+sel2+'>'+d.name+'</option>';
+      });
+      sel+='</select>';
+      html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="width:120px;font-size:12px">'+ANALYSIS_LABELS[key]+'</div><div style="flex:1">'+sel+'</div></div>';
+    });
+    document.getElementById('deviceMapForm').innerHTML=html;
+  });
+}
+function closeDevicePopup(){document.getElementById('devicePopup').style.display='none';}
+function saveDeviceSelection(){
+  Object.keys(ANALYSIS_LABELS).forEach(function(key){
+    var sel=document.getElementById('dsel_'+key);
+    if(!sel) return;
+    var opt=sel.options[sel.selectedIndex];
+    if(opt&&opt.value) deviceMap[key]={id:parseInt(opt.value),name:opt.dataset.name};
+    else delete deviceMap[key];
+  });
+  var names=[...new Set(Object.values(deviceMap).map(function(d){return d.name;}))];
+  document.getElementById('deviceSummary').textContent=names.length?names.slice(0,2).join(' | '):'Тоног';
+  closeDevicePopup();
+}
+
 document.addEventListener('DOMContentLoaded',function(){
   autoNames();
   ['gi','st','il','fsi'].forEach(function(g){
     document.querySelectorAll('.cg-'+g).forEach(function(el){el.classList.add('hide');});
   });
   loadAllData();
+  // Анхдагчаар түгжээтэй — "Засах" дарж л засна
+  setSheetReadonly(true);
 });
 </script>
 {% endblock %}

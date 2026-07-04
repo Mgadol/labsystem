@@ -17,6 +17,7 @@
     <button class="tab-btn" onclick="switchTab(this,'tab-crm')">🔬 CRM материал</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-device-map')">🔧 Тоног холбоос</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-profile')">👤 Профайл</button>
+    <button class="tab-btn" onclick="switchTab(this,'tab-chktpl')">📋 Шалгалтын загвар</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-backup')">💾 Нөөцлөлт</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-guest')">👁 Зочны код</button>
   </div>
@@ -430,7 +431,66 @@
     </div>
   </div>
 
+  <!-- Шалгалтын загвар -->
+  <div id="tab-chktpl" class="tab-pane">
+    <div class="card">
+      <div class="section-title">📋 Дотоод шалгалтын загварууд</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+        Тоног төхөөрөмж нэмэхдээ ашиглах өдөр тутмын шалгалтын загваруудыг урьдчилан тодорхойлно.
+      </div>
+      <!-- Шинэ загвар нэмэх -->
+      <div style="border:1px solid #99f6e4;border-radius:8px;padding:14px;background:#f0fdf9;margin-bottom:16px">
+        <div style="font-size:12px;font-weight:600;color:#0d9488;margin-bottom:10px">+ Шинэ загвар нэмэх</div>
+        <div class="form-group" style="margin-bottom:10px">
+          <label class="form-label">Загварын нэр *</label>
+          <input type="text" id="tpl_name" class="form-input" placeholder="Ж: Аналитик жин" style="max-width:300px">
+        </div>
+        <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr>
+            <th style="text-align:left;padding:4px 8px;color:var(--navy)">#</th>
+            <th style="text-align:left;padding:4px 8px;color:var(--navy)">Үзүүлэлт</th>
+            <th style="text-align:left;padding:4px 8px;color:var(--navy)">Стандарт утга</th>
+            <th style="text-align:left;padding:4px 8px;color:var(--navy)">Зөвшөөрөх зөрүү</th>
+          </tr></thead>
+          <tbody>
+          {% for i in range(1,5) %}
+          <tr>
+            <td style="padding:4px 8px;color:var(--text-muted)">{{ i }}</td>
+            <td style="padding:4px 6px"><input type="text" id="tp{{ i }}" class="form-input" style="font-size:12px" placeholder="Параметр {{ i }}"></td>
+            <td style="padding:4px 6px"><input type="text" id="ts{{ i }}" class="form-input" style="font-size:12px" placeholder="Стандарт"></td>
+            <td style="padding:4px 6px"><input type="text" id="tt{{ i }}" class="form-input" style="font-size:12px" placeholder="±..."></td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        <div style="margin-top:10px">
+          <button onclick="saveTpl()" class="btn btn-teal btn-sm">💾 Хадгалах</button>
+        </div>
+      </div>
+      <!-- Хадгалагдсан загварууд -->
+      <div id="tplList"><div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Уншиж байна...</div></div>
+    </div>
+  </div>
+
   <div id="tab-backup" class="tab-pane">
+    <div class="card" style="margin-bottom:16px">
+      <div class="section-title">🖥️ Системийн Backup</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+        Өгөгдлийн сангийн нөөц файлуудыг удирдана. Серверт хадгалагдсан бүх backup-ийг харах, татах, устгах боломжтой.
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button onclick="createBackup()" class="btn btn-teal" id="createBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v14a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Одоо Backup хийх
+        </button>
+        <button onclick="loadBackups()" class="btn btn-ghost">🔄 Шинэчлэх</button>
+      </div>
+      <div id="backupList">
+        <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Уншиж байна...</div>
+      </div>
+    </div>
     <div class="card">
       <div class="section-title">💾 Мэдээллийн сангийн нөөцлөлт</div>
       <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
@@ -443,6 +503,17 @@
       <div style="margin-top:12px;padding:10px 12px;background:var(--gray);border-radius:7px;font-size:12px;color:var(--text-muted)">
         ⚠️ Backup файлыг аюулгүй газарт хадгална уу. Системийн бүх өгөгдөл агуулагдана.
       </div>
+    </div>
+    <div class="card" style="margin-top:16px;border:1px solid rgba(239,68,68,.3)">
+      <div class="section-title" style="color:#dc2626">🗑 Шинжилгээний бүртгэл устгах</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+        Буруу оруулсан шинжилгээний бүртгэлийг устгана. Дээжний мэдээлэл хэвээр үлдэж, дахин хүлээн авах боломжтой болно.
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+        <input type="text" id="deleteLabNum" placeholder="Ажлын дугаар (жшэ: 1046-20260605)" class="form-input" style="max-width:280px">
+        <button onclick="searchReceipt()" class="btn btn-ghost">🔍 Хайх</button>
+      </div>
+      <div id="deleteResult"></div>
     </div>
   </div>
 
@@ -543,11 +614,31 @@ function deleteQC(param){
 }
 function copyGuestUrl(token){
   var url = window.location.origin + '/guest/' + token;
-  navigator.clipboard.writeText(url).then(function(){
-    alert('Хаяг хуулагдлаа:\n' + url);
-  }).catch(function(){
-    prompt('Хаягийг хуулна уу:', url);
-  });
+  if(navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(url).then(function(){
+      alert('Хаяг хуулагдлаа:\n' + url);
+    }).catch(function(){
+      fallbackCopy(url);
+    });
+  } else {
+    fallbackCopy(url);
+  }
+}
+function fallbackCopy(text){
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try {
+    document.execCommand('copy');
+    alert('Хаяг хуулагдлаа:\n' + text);
+  } catch(e){
+    prompt('Хаягийг гараар хуулна уу:', text);
+  }
+  document.body.removeChild(ta);
 }
 // URL-н ?tab= параметрээр идэвхтэй табыг тохируулна
 document.addEventListener('DOMContentLoaded', function(){
@@ -577,6 +668,7 @@ function switchTab(btn, tabId){
 }
 
 var ANALYSIS_TYPES = [
+  {key:'mt',  name:'🌊 Нийт чийг (Mt)'},
   {key:'mad', name:'💧 Дотоод чийг (Mad)'},
   {key:'aad', name:'🔥 Үнс (Aad)'},
   {key:'vad', name:'💨 Дэгдэмхий (Vad)'},
@@ -592,27 +684,38 @@ function loadDeviceMap(){
     var mapping = data.mapping;
     var html = '';
     ANALYSIS_TYPES.forEach(function(at){
-      var sel = '<select class="form-input" style="font-size:12px;padding:4px 8px" onchange="saveDeviceMap(&quot;'+at.key+'&quot;,this.value)">';
-      sel += '<option value="">— тоног сонгоогүй —</option>';
-      devices.forEach(function(d){
-        var selected = mapping[at.key] == d.id ? 'selected' : '';
-        sel += '<option value="'+d.id+'" '+selected+'>'+d.name+'</option>';
-      });
-      sel += '</select>';
-      html += '<tr><td style="font-weight:500">'+at.name+'</td><td>'+sel+'</td><td style="color:var(--teal);font-size:12px" id="dmap_'+at.key+'"></td></tr>';
+      var mapped = mapping[at.key] || [];
+      var boxes = '';
+      if(devices.length === 0){
+        boxes = '<span style="color:var(--text-muted);font-size:12px">Идэвхтэй тоног байхгүй</span>';
+      } else {
+        devices.forEach(function(d){
+          var chk = mapped.indexOf(d.id) >= 0 ? 'checked' : '';
+          boxes += '<label style="display:flex;align-items:center;gap:6px;margin-bottom:4px;cursor:pointer;font-size:13px">';
+          boxes += '<input type="checkbox" value="'+d.id+'" '+chk+' onchange="saveDeviceMap(&quot;'+at.key+'&quot;)">';
+          boxes += d.name+'</label>';
+        });
+      }
+      html += '<tr>';
+      html += '<td style="font-weight:500;vertical-align:top;padding-top:8px">'+at.name+'</td>';
+      html += '<td>'+boxes+'</td>';
+      html += '<td style="color:var(--teal);font-size:12px;vertical-align:top;padding-top:8px" id="dmap_'+at.key+'"></td>';
+      html += '</tr>';
     });
     document.getElementById('deviceMapBody').innerHTML = html;
   });
 }
 
-function saveDeviceMap(analysisType, deviceId){
+function saveDeviceMap(analysisType){
+  var row = document.getElementById('dmap_'+analysisType).closest('tr');
+  var checked = row.querySelectorAll('input[type=checkbox]:checked');
   var fd = new FormData();
   fd.append('analysis_type', analysisType);
-  fd.append('device_id', deviceId);
+  checked.forEach(function(cb){ fd.append('device_ids[]', cb.value); });
   fetch('/analysis/device-map', {method:'POST', body:fd})
     .then(r=>r.json()).then(function(d){
       var el = document.getElementById('dmap_'+analysisType);
-      if(el) { el.textContent = '✅ Хадгалагдлаа'; setTimeout(function(){ el.textContent=''; }, 2000); }
+      if(el){ el.textContent = '✅ Хадгалагдлаа'; setTimeout(function(){ el.textContent=''; }, 2000); }
     });
 }
 
@@ -653,5 +756,110 @@ function togglePw(inputId, btnId){
   inp.type = inp.type==='password' ? 'text' : 'password';
   document.getElementById(btnId).textContent = inp.type==='password' ? '👁' : '🙈';
 }
+
+function searchReceipt(){
+  var num = document.getElementById('deleteLabNum').value.trim();
+  if(!num){ alert('Ажлын дугаар оруулна уу'); return; }
+  fetch('/analysis/find-receipt?lab_number='+encodeURIComponent(num))
+    .then(r=>r.json())
+    .then(function(data){
+      var el = document.getElementById('deleteResult');
+      if(!data.id){
+        el.innerHTML='<div style="color:#888;font-size:13px">Бүртгэл олдсонгүй</div>';
+        return;
+      }
+      el.innerHTML='<div style="background:#fff8f8;border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:12px;font-size:13px">'
+        +'<div style="font-weight:600;margin-bottom:6px">'+data.lab_number+' — '+data.sample_name+'</div>'
+        +'<div style="color:#666;margin-bottom:10px">Огноо: '+data.received_date+' | Тоо: '+data.quantity+'</div>'
+        +'<form method="POST" action="/analysis/delete/'+data.id+'" onsubmit="return confirm(\''+data.lab_number+' ажлыг устгах уу? Буцаах боломжгүй!\')">'
+        +'<button type="submit" class="btn btn-danger">🗑 Устгах</button>'
+        +'</form></div>';
+    });
+}
+
+function loadTpls(){
+  fetch('/check-templates').then(r=>r.json()).then(function(rows){
+    var el = document.getElementById('tplList');
+    if(!rows.length){el.innerHTML='<div style="text-align:center;padding:16px;color:var(--text-muted);font-size:13px">Загвар байхгүй байна</div>';return;}
+    var h='<table class="table" style="font-size:12px"><thead><tr><th>Нэр</th><th>П1</th><th>П2</th><th>П3</th><th>П4</th><th></th></tr></thead><tbody>';
+    rows.forEach(function(r){
+      h+='<tr><td style="font-weight:600">'+r.name+'</td>'
+        +'<td>'+(r.param1||'—')+'</td><td>'+(r.param2||'—')+'</td>'
+        +'<td>'+(r.param3||'—')+'</td><td>'+(r.param4||'—')+'</td>'
+        +'<td><button onclick="delTpl('+r.id+')" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">🗑</button></td></tr>';
+    });
+    h+='</tbody></table>';
+    el.innerHTML=h;
+  });
+}
+function saveTpl(){
+  var name=document.getElementById('tpl_name').value.trim();
+  if(!name){alert('Загварын нэр оруулна уу');return;}
+  var data={name:name};
+  for(var i=1;i<=4;i++){
+    data['param'+i]=document.getElementById('tp'+i).value.trim();
+    data['standard'+i]=document.getElementById('ts'+i).value.trim();
+    data['tolerance'+i]=document.getElementById('tt'+i).value.trim();
+  }
+  fetch('/check-templates/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
+    .then(r=>r.json()).then(function(d){
+      if(d.ok){
+        document.getElementById('tpl_name').value='';
+        for(var i=1;i<=4;i++){document.getElementById('tp'+i).value='';document.getElementById('ts'+i).value='';document.getElementById('tt'+i).value='';}
+        loadTpls();
+      }
+    });
+}
+function delTpl(id){
+  if(!confirm('Энэ загварыг устгах уу?'))return;
+  fetch('/check-templates/'+id+'/delete',{method:'POST'}).then(r=>r.json()).then(function(d){if(d.ok)loadTpls();});
+}
+document.addEventListener('DOMContentLoaded',function(){
+  var btn=document.querySelector('[onclick*="tab-chktpl"]');
+  if(btn)btn.addEventListener('click',function(){setTimeout(loadTpls,100);});
+});
+
+function fmtSize(b){
+  if(b>1024*1024) return (b/1024/1024).toFixed(1)+' MB';
+  return (b/1024).toFixed(0)+' KB';
+}
+function loadBackups(){
+  fetch('/backup/list').then(r=>r.json()).then(function(files){
+    var el = document.getElementById('backupList');
+    if(!files.length){ el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Backup файл байхгүй байна</div>'; return; }
+    var html = '<table class="table" style="font-size:13px"><thead><tr><th>Файлын нэр</th><th>Хэмжээ</th><th>Огноо</th><th></th></tr></thead><tbody>';
+    files.forEach(function(f){
+      html += '<tr>'
+        +'<td style="font-family:monospace;font-size:12px">'+f.name+'</td>'
+        +'<td>'+fmtSize(f.size)+'</td>'
+        +'<td style="color:var(--text-muted)">'+f.mtime+'</td>'
+        +'<td><div style="display:flex;gap:6px">'
+        +'<a href="/backup/download/'+encodeURIComponent(f.name)+'" class="btn btn-ghost btn-sm">⬇️ Татах</a>'
+        +'<button onclick="deleteBackup(\''+f.name+'\')" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">🗑 Устгах</button>'
+        +'</div></td></tr>';
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  });
+}
+function createBackup(){
+  var btn = document.getElementById('createBtn');
+  btn.disabled = true; btn.textContent = 'Хийж байна...';
+  fetch('/backup/create', {method:'POST'}).then(r=>r.json()).then(function(d){
+    btn.disabled = false; btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v14a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Одоо Backup хийх';
+    if(d.ok){ loadBackups(); }
+  });
+}
+function deleteBackup(name){
+  if(!confirm(name+'\nЭнэ backup-ийг устгах уу?')) return;
+  fetch('/backup/delete/'+encodeURIComponent(name), {method:'POST'}).then(r=>r.json()).then(function(d){
+    if(d.ok) loadBackups();
+  });
+}
+// backup tab нээгдэхэд автоматаар ачаалах
+document.addEventListener('DOMContentLoaded', function(){
+  var btn = document.querySelector('[onclick*="tab-backup"]');
+  if(btn) btn.addEventListener('click', function(){ setTimeout(loadBackups, 100); });
+});
 </script>
 {% endblock %}

@@ -49,16 +49,73 @@
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Эрх</label>
+          <label class="form-label">Эрх (Role)</label>
           <select name="role" class="form-input" id="roleSelect" onchange="toggleDevicePerm()">
             <option value="staff" {{ 'selected' if target['role']=='staff' }}>Ажилтан (Химич)</option>
             <option value="preparer" {{ 'selected' if target['role']=='preparer' }}>Бэлтгэгч</option>
             <option value="geologist" {{ 'selected' if target['role']=='geologist' }}>Харилцагч (Геологи)</option>
+            <option value="bayjuulach" {{ 'selected' if target['role']=='bayjuulach' }}>Харилцагч (Баяжуулах)</option>
             <option value="senior" {{ 'selected' if target['role']=='senior' }} {% if current_user['role']=='senior' %}disabled{% endif %}>Дэд Админ</option>
             {% if current_user['role']=='admin' %}
             <option value="admin" {{ 'selected' if target['role']=='admin' }}>Админ</option>
             {% endif %}
           </select>
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Хандах эрх</label>
+          <div style="padding:14px;background:#f7f7f5;border-radius:8px;border:1px solid #e5e5e3;display:flex;flex-wrap:wrap;gap:16px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+              <input type="checkbox" name="is_active" value="1" {{ 'checked' if target['is_active'] }}>
+              <span style="font-weight:600">Идэвхтэй</span> <span style="color:var(--text-muted);font-size:11px">(идэвхгүй бол нэвтрэх боломжгүй)</span>
+            </label>
+            <!-- Харилцагчийн эрхүүд -->
+            <div id="clientPerms" style="display:{% if target['role'] in ('geologist','bayjuulach') %}flex{% else %}none{% endif %};gap:16px;flex-wrap:wrap;width:100%;padding-top:10px;border-top:1px solid #e5e5e3;margin-top:4px">
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+                <input type="checkbox" name="can_view_result" value="1" {{ 'checked' if target['can_view_result'] }}>
+                Үр дүн харах
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+                <input type="checkbox" name="can_register" value="1" {{ 'checked' if target['can_register'] }}>
+                Дээж бүртгэх
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+                <input type="checkbox" name="can_export" value="1" {{ 'checked' if target['can_export'] }}>
+                Excel татах <span style="color:var(--text-muted);font-size:11px">(зөвхөн баталгаажсан үед)</span>
+              </label>
+            </div>
+            <!-- Геологчийн харах ажлын дугаарын муж -->
+            {% set vr = target['view_ranges'] %}
+            {% set vr_list = vr.split(',') if vr is not none and vr != '' else [] %}
+            {% set vr_all = (vr is none) %}
+            <div id="geoRanges" style="display:{% if target['role']=='geologist' %}block{% else %}none{% endif %};width:100%;padding-top:10px;border-top:1px solid #e5e5e3;margin-top:4px">
+              <div style="font-size:12px;font-weight:600;margin-bottom:8px">Харах ажлын дугаарын муж <span style="color:var(--text-muted);font-weight:400;font-size:11px">(сонгоогүй бол тухайн мужийг харахгүй)</span></div>
+              <div style="display:flex;flex-wrap:wrap;gap:12px">
+                {% set ranges = [(1,'1000 — Уурхай'),(2,'2000 — Овоолго'),(3,'3000 — Ачилт'),(4,'4000 — Хяналт'),(5,'5000 — Гадаад хяналт'),(6,'6000 — Баяжуулах'),(7,'7000'),(8,'8000')] %}
+                {% for num, lbl in ranges %}
+                <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+                  <input type="checkbox" name="view_ranges" value="{{ num }}" {{ 'checked' if vr_all or (num|string in vr_list) }}>
+                  {{ lbl }}
+                </label>
+                {% endfor %}
+              </div>
+            </div>
+            <!-- Лабын ажилтны нэмэлт эрхүүд -->
+            <div id="labPerms" style="display:{% if target['role'] in ('staff','preparer') %}flex{% else %}none{% endif %};gap:16px;flex-wrap:wrap;width:100%;padding-top:10px;border-top:1px solid #e5e5e3;margin-top:4px">
+              <div style="width:100%;font-size:11px;color:var(--text-muted)">Ахлах химичийн эрхээс нэмэх:</div>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+                <input type="checkbox" name="can_approve" value="1" {{ 'checked' if target['can_approve'] }}>
+                Мөр баталгаажуулах
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+                <input type="checkbox" name="can_report" value="1" {{ 'checked' if target['can_report'] }}>
+                Тайлан харах/татах
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+                <input type="checkbox" name="can_reopen" value="1" {{ 'checked' if target['can_reopen'] }}>
+                Архив дахин нээх
+              </label>
+            </div>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Профайл зураг</label>
@@ -66,7 +123,7 @@
         </div>
       </div>
 
-      <div id="devicePermSection" style="{% if target['role']=='geologist' %}display:none{% endif %}">
+      <div id="devicePermSection" style="{% if target['role'] in ('geologist','bayjuulach') %}display:none{% endif %}">
         <div class="section-title" style="margin-top:8px">Ашиглах эрхтэй төхөөрөмж</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">
           {% for d in devices %}
@@ -118,14 +175,20 @@ function togglePw(inputId, btnId){
 }
 function toggleDevicePerm(){
   var role = document.getElementById('roleSelect').value;
-  var sec = document.getElementById('devicePermSection');
-  if(role==='geologist'){
-    sec.style.display='none';
-    // эрх олгохгүй — checkbox-уудыг цэвэрлэх
-    sec.querySelectorAll('input[type=checkbox]').forEach(function(c){ c.checked=false; });
-  } else {
-    sec.style.display='';
-  }
+  var sec  = document.getElementById('devicePermSection');
+  var cp   = document.getElementById('clientPerms');
+  var lp   = document.getElementById('labPerms');
+  var isClient = role==='geologist'||role==='bayjuulach';
+  var isLab    = role==='staff'||role==='preparer';
+  if(sec) sec.style.display = isClient ? 'none' : '';
+  if(sec && isClient) sec.querySelectorAll('input[type=checkbox]').forEach(function(c){ c.checked=false; });
+  if(cp) cp.style.display = isClient ? 'flex' : 'none';
+  if(cp && !isClient) cp.querySelectorAll('input[type=checkbox]').forEach(function(c){ c.checked=false; });
+  if(lp) lp.style.display = isLab ? 'flex' : 'none';
+  if(lp && !isLab) lp.querySelectorAll('input[type=checkbox]').forEach(function(c){ c.checked=false; });
+  // Геологчийн харах муж — зөвхөн геологчид
+  var gr = document.getElementById('geoRanges');
+  if(gr) gr.style.display = (role==='geologist') ? 'block' : 'none';
 }
 </script>
 {% endblock %}
