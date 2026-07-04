@@ -22,7 +22,7 @@ else:
 # ── SESSION COOKIE АЮУЛГҮЙ ТОХИРГОО ───────────────────────────
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['SESSION_COOKIE_SECURE']   = False  # HTTPS ашиглах үед True болгоно
+app.config['SESSION_COOKIE_SECURE']   = os.environ.get('HTTPS_ENABLED', 'false').lower() == 'true'
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
@@ -103,14 +103,34 @@ def save_file(file, subfolder):
         return f"{subfolder}/{name}"
     return None
 
+def _validate_guest():
+    """Зочны token DB-д байгаа эсэх, хугацаа дууссан эсэхийг шалгана"""
+    token = session.get('guest_token')
+    if not token:
+        session.clear()
+        return False
+    conn = get_db()
+    now = datetime.now().isoformat()
+    row = conn.execute(
+        "SELECT id FROM guest_tokens WHERE token=? AND expires_at >= ?", (token, now)
+    ).fetchone()
+    conn.close()
+    if not row:
+        session.clear()
+        return False
+    return True
+
 def login_required(f):
     @wraps(f)
     def dec(*a, **kw):
         if 'user_id' not in session and session.get('role') != 'guest':
             return redirect(url_for('login'))
-        if session.get('role') == 'guest' and request.method == 'POST':
-            flash('Зочин горимд өөрчлөлт хийх боломжгүй.', 'error')
-            return redirect(request.referrer or url_for('dashboard'))
+        if session.get('role') == 'guest':
+            if not _validate_guest():
+                return redirect(url_for('login'))
+            if request.method == 'POST':
+                flash('Зочин горимд өөрчлөлт хийх боломжгүй.', 'error')
+                return redirect(request.referrer or url_for('dashboard'))
         return f(*a, **kw)
     return dec
 
@@ -133,6 +153,35 @@ def admin_required(f):
             return redirect(url_for('dashboard'))
         return f(*a, **kw)
     return dec
+
+def _has_perm(perm):
+    """Тухайн хэрэглэгч тусгай эрхтэй эсэхийг шалгана (senior/admin автоматаар эрхтэй)"""
+    role = session.get('role')
+    if role in ('admin', 'senior'): return True
+    uid = session.get('user_id')
+    if not uid: return False
+    conn = get_db()
+    u = conn.execute(f"SELECT {perm} FROM users WHERE id=?", (uid,)).fetchone()
+    conn.close()
+    return bool(u and u[perm])
+
+def perm_required(perm):
+    """Тусгай эрх шаардлагатай decorator"""
+    def decorator(f):
+        @wraps(f)
+        def dec(*a, **kw):
+            if session.get('role') == 'guest':
+                if request.method == 'POST':
+                    flash('Зочин горимд өөрчлөлт хийх боломжгүй.', 'error')
+                    return redirect(request.referrer or url_for('dashboard'))
+                return f(*a, **kw)
+            if 'user_id' not in session: return redirect(url_for('login'))
+            if not _has_perm(perm):
+                flash('Энэ үйлдэл хийх эрх байхгүй байна.', 'error')
+                return redirect(url_for('dashboard'))
+            return f(*a, **kw)
+        return dec
+    return decorator
 
 def senior_required(f):
     """Админ + Ахлах химич хоёулан нэвтэрч болно"""
@@ -189,7 +238,9 @@ def inject_user():
     if session.get('role') == 'guest':
         user = {'id': 0, 'name': 'Зочин', 'role': 'guest', 'photo': None,
                 'employee_id': 'GUEST', 'position': 'Зочин', 'phone': None,
-                'email': None, 'joined_date': None, 'is_active': 1}
+                'email': None, 'joined_date': None, 'is_active': 1,
+                'can_report': 0, 'can_approve': 0, 'can_reopen': 0,
+                'can_export': 0, 'can_view_result': 0, 'can_register': 0}
     elif 'user_id' in session:
         user = get_user(session.get('user_id', 0))
     return dict(current_user=user, now=datetime.now())
@@ -238,6 +289,7 @@ def guest_login(token):
     session['role'] = 'guest'
     session['lang'] = 'mn'
     session['guest_label'] = row['label'] or ''
+    session['guest_token'] = token.upper()
     return redirect(url_for('dashboard'))
 
 @app.route('/guest/token/delete/<int:tid>', methods=['POST'])
@@ -308,8 +360,8 @@ def dashboard():
     conn = get_db()
     if session.get('role') in ('admin', 'senior', 'guest'):
         devices  = conn.execute("SELECT d.*, dm.manufacturer, dm.model FROM devices d LEFT JOIN device_marks dm ON d.mark_id=dm.id ORDER BY d.name").fetchall()
-        users    = conn.execute("SELECT * FROM users WHERE is_active=1 AND role != 'geologist'").fetchall()
-        clients  = conn.execute("SELECT * FROM users WHERE is_active=1 AND role = 'geologist'").fetchall()
+        users    = conn.execute("SELECT * FROM users WHERE is_active=1 AND role NOT IN ('geologist','bayjuulach')").fetchall()
+        clients  = conn.execute("SELECT * FROM users WHERE is_active=1 AND role IN ('geologist','bayjuulach')").fetchall()
         open_rep = conn.execute("SELECT COUNT(*) as c FROM repairs WHERE status='new'").fetchone()['c']
         today    = date.today().isoformat()
         expiring = conn.execute("""
@@ -337,6 +389,19 @@ def dashboard():
             my_devices=my_devices, active_map=active_map, lang=lang)
     else:
         uid = session.get('user_id', 0)
+        if session.get('role') == 'bayjuulach':
+            user = conn.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
+            samples = conn.execute("""
+                SELECT sr.id as receipt_id, sr.lab_number, sr.lab_serial, sr.received_date,
+                       g.sample_name, g.sample_type, g.status
+                FROM sample_receipt sr
+                JOIN geo_samples g ON g.id=sr.geo_sample_id
+                WHERE g.status='done' AND sr.lab_serial BETWEEN 6000 AND 6999
+                ORDER BY sr.lab_serial DESC LIMIT 100
+            """).fetchall() if (user and user['can_view_result']) else []
+            conn.close()
+            return render_template('staff/dashboard_bayjuulach.html',
+                user=user, samples=samples, lang=lang)
         my_devices = conn.execute("""
             SELECT d.*, dm.manufacturer, dm.model FROM devices d
             LEFT JOIN device_marks dm ON d.mark_id=dm.id
@@ -355,7 +420,8 @@ def dashboard():
 def devices():
     lang = session.get('lang','mn')
     conn = get_db()
-    if session.get('role') == 'admin':
+    role = session.get('role')
+    if role in ('admin', 'guest'):
         devs = conn.execute("""
             SELECT d.*, dm.manufacturer, dm.model, dm.category FROM devices d
             LEFT JOIN device_marks dm ON d.mark_id=dm.id
@@ -372,11 +438,22 @@ def devices():
     # Хэрэглэгчийн бүх идэвхтэй ашиглалт (олон төхөөрөмж зэрэг ашиглаж болно)
     active_rows = conn.execute("SELECT id, device_id FROM usage_logs WHERE user_id=? AND end_time IS NULL",
                           (session.get('user_id', 0),)).fetchall()
+    # Бүх хэрэглэгчийн идэвхтэй ашиглалт (хэн ямар төхөөрөмж дээр ажиллаж байгааг бусдад харуулах)
+    busy_rows = conn.execute("""
+        SELECT ul.device_id, ul.user_id, u.name as uname, ul.start_time
+        FROM usage_logs ul LEFT JOIN users u ON u.id=ul.user_id
+        WHERE ul.end_time IS NULL
+    """).fetchall()
     conn.close()
-    # device_id → log_id харгалзаа
+    # device_id → log_id харгалзаа (өөрийн)
     active_map = {r['device_id']: r['id'] for r in active_rows}
+    # device_id → {хэрэглэгчийн нэр, эхэлсэн цаг} (бусдын ашиглалт)
+    busy_map = {}
+    for r in busy_rows:
+        busy_map.setdefault(r['device_id'], []).append(
+            {'user_id': r['user_id'], 'name': r['uname'], 'start': (r['start_time'] or '')[11:16]})
     return render_template('device/list.html', devices=devs, lang=lang,
-        active_map=active_map)
+        active_map=active_map, busy_map=busy_map)
 
 @app.route('/devices/<int:did>')
 @login_required
@@ -417,10 +494,27 @@ def device_detail(did):
         LEFT JOIN users u ON u.id=ch.checked_by
         WHERE ch.device_id=? ORDER BY ch.check_date DESC, ch.id DESC LIMIT 60
     """, (did,)).fetchall()]
+    calib_checks = []
+    try:
+        calib_checks = [dict(r) for r in conn.execute("""
+            SELECT cc.*, u.name as uname FROM device_calib_checks cc
+            LEFT JOIN users u ON u.id=cc.checked_by
+            WHERE cc.device_id=? ORDER BY cc.check_date DESC LIMIT 24
+        """, (did,)).fetchall()]
+    except Exception: pass
+    cal_checks = []
+    try:
+        cal_checks = [dict(r) for r in conn.execute("""
+            SELECT cc.*, u.name as uname FROM device_calorimeter_checks cc
+            LEFT JOIN users u ON u.id=cc.checked_by
+            WHERE cc.device_id=? ORDER BY cc.check_date DESC LIMIT 24
+        """, (did,)).fetchall()]
+    except Exception: pass
     conn.close()
     return render_template('device/detail.html',
         device=device, calibrations=cals, repairs=reps,
         usage_logs=logs, active_log=active, checks=checks,
+        calib_checks=calib_checks, cal_checks=cal_checks,
         monthly_hours=round(mhours,2),
         analysis_usage=analysis_usage,
         lang=lang, today=date.today().isoformat())
@@ -462,8 +556,13 @@ def device_add():
             lab_id,web_link,method,max_temp,particular,measuring_time,measuring_limit,
             dimension,capacity,weight_kg,other_spec,power,frequency,voltage,
             specification,operating_state,received_date,
-            check_standard,check_tolerance,check_enabled,stage,check_freq)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            check_param1,check_standard,check_tolerance,
+            check_param2,check_standard2,check_tolerance2,
+            check_param3,check_standard3,check_tolerance3,
+            check_param4,check_standard4,check_tolerance4,
+            check_param5,check_standard5,check_tolerance5,
+            check_enabled,stage,check_freq)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             request.form['name'],
             request.form.get('serial_number') or None,
@@ -491,13 +590,30 @@ def device_add():
             request.form.get('specification') or None,
             request.form.get('operating_state') or None,
             request.form.get('received_date') or None,
+            request.form.get('check_param1') or None,
             request.form.get('check_standard') or None,
             request.form.get('check_tolerance') or None,
+            request.form.get('check_param2') or None,
+            request.form.get('check_standard2') or None,
+            request.form.get('check_tolerance2') or None,
+            request.form.get('check_param3') or None,
+            request.form.get('check_standard3') or None,
+            request.form.get('check_tolerance3') or None,
+            request.form.get('check_param4') or None,
+            request.form.get('check_standard4') or None,
+            request.form.get('check_tolerance4') or None,
+            request.form.get('check_param5') or None,
+            request.form.get('check_standard5') or None,
+            request.form.get('check_tolerance5') or None,
             1 if request.form.get('check_enabled') else 0,
             request.form.get('stage') or 'both',
             request.form.get('check_freq') or 'daily',
         ))
         did = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        # Аналитик жин — босоо жингийн загвар (check_group1_cols=0) автоматаар тохируулна
+        _nm = (request.form['name'] or '').lower()
+        if 'жин' in _nm or 'налитик' in _nm:
+            conn.execute("UPDATE devices SET check_group1=COALESCE(NULLIF(check_group1,''),'Туухай'), check_group1_cols=0 WHERE id=?", (did,))
         conn.commit(); conn.close()
         flash('Төхөөрөмж нэмэгдлээ!' if lang=='mn' else 'Device added!', 'success')
         return redirect(url_for('device_detail', did=did))
@@ -514,28 +630,78 @@ def device_edit(did):
     if request.method == 'POST':
         # Зөвхөн шалгалтын тохиргоо хадгалах (check tab-аас дуудагдана)
         if request.form.get('_check_config_only'):
-            conn.execute("""UPDATE devices SET
-                check_standard=?, check_tolerance=?,
-                check_standard2=?, check_tolerance2=?,
-                check_standard3=?, check_tolerance3=?,
-                check_standard4=?, check_tolerance4=?
-                WHERE id=?""", (
-                request.form.get('check_standard') or None,
-                request.form.get('check_tolerance') or None,
-                request.form.get('check_standard2') or None,
-                request.form.get('check_tolerance2') or None,
-                request.form.get('check_standard3') or None,
-                request.form.get('check_tolerance3') or None,
-                request.form.get('check_standard4') or None,
-                request.form.get('check_tolerance4') or None,
-                did))
-            for i in ['1','2','3','4']:
+            try:
+                conn.execute("""UPDATE devices SET
+                    check_group1=?, check_group2=?, check_group3=?,
+                    check_param1=?, check_standard=?, check_tolerance=?,
+                    check_param2=?, check_standard2=?, check_tolerance2=?,
+                    check_param3=?, check_standard3=?, check_tolerance3=?,
+                    check_param4=?, check_standard4=?, check_tolerance4=?,
+                    check_param5=?, check_standard5=?, check_tolerance5=?,
+                    check_group1_cols=?, check_group2_cols=?, check_group3_cols=?
+                    WHERE id=?""", (
+                    request.form.get('check_group1') or None,
+                    request.form.get('check_group2') or None,
+                    request.form.get('check_group3') or None,
+                    request.form.get('check_param1') or None,
+                    request.form.get('check_standard') or None,
+                    request.form.get('check_tolerance') or None,
+                    request.form.get('check_param2') or None,
+                    request.form.get('check_standard2') or None,
+                    request.form.get('check_tolerance2') or None,
+                    request.form.get('check_param3') or None,
+                    request.form.get('check_standard3') or None,
+                    request.form.get('check_tolerance3') or None,
+                    request.form.get('check_param4') or None,
+                    request.form.get('check_standard4') or None,
+                    request.form.get('check_tolerance4') or None,
+                    request.form.get('check_param5') or None,
+                    request.form.get('check_standard5') or None,
+                    request.form.get('check_tolerance5') or None,
+                    int(request.form.get('check_group1_cols') or 2),
+                    int(request.form.get('check_group2_cols') or 1),
+                    int(request.form.get('check_group3_cols') or 1),
+                    did))
+                conn.commit()
+            except Exception:
+                try: conn.rollback()
+                except Exception: pass
+                conn.execute("""UPDATE devices SET
+                    check_group1=?, check_standard=?, check_tolerance=?,
+                    check_param1=?, check_param2=?, check_standard2=?, check_tolerance2=?,
+                    check_param3=?, check_standard3=?, check_tolerance3=?,
+                    check_param4=?, check_standard4=?, check_tolerance4=?,
+                    check_param5=?, check_standard5=?, check_tolerance5=?
+                    WHERE id=?""", (
+                    request.form.get('check_group1') or None,
+                    request.form.get('check_standard') or None,
+                    request.form.get('check_tolerance') or None,
+                    request.form.get('check_param1') or None,
+                    request.form.get('check_param2') or None,
+                    request.form.get('check_standard2') or None,
+                    request.form.get('check_tolerance2') or None,
+                    request.form.get('check_param3') or None,
+                    request.form.get('check_standard3') or None,
+                    request.form.get('check_tolerance3') or None,
+                    request.form.get('check_param4') or None,
+                    request.form.get('check_standard4') or None,
+                    request.form.get('check_tolerance4') or None,
+                    request.form.get('check_param5') or None,
+                    request.form.get('check_standard5') or None,
+                    request.form.get('check_tolerance5') or None,
+                    did))
+                conn.commit()
+            # Зураг тусад нь хадгалах
+            for i in ['1','2','3','4','5']:
+                try: conn.execute(f"ALTER TABLE devices ADD COLUMN check_photo{i} TEXT")
+                except Exception: pass
                 f = request.files.get(f'check_photo{i}')
                 if f and f.filename:
                     fn = save_file(f, 'devices')
                     if fn:
                         conn.execute(f"UPDATE devices SET check_photo{i}=? WHERE id=?", (fn, did))
-            conn.commit(); conn.close()
+                        conn.commit()
+            conn.close()
             flash('Шалгалтын тохиргоо хадгалагдлаа!', 'success')
             return redirect(url_for('device_detail', did=did) + '#tab-check')
         photo = save_file(request.files.get('photo'), 'devices')
@@ -609,6 +775,12 @@ def usage_start(did):
     already = conn.execute("SELECT id FROM usage_logs WHERE user_id=? AND device_id=? AND end_time IS NULL", (uid, did)).fetchone()
     if already:
         conn.close(); return jsonify({'error': 'Та энэ төхөөрөмж дээр аль хэдийн ажиллаж байна!'}), 400
+    # Өөр хүн ашиглаж байвал түгжигдэнэ (нэг зэрэг нэг л хүн)
+    busy = conn.execute("""SELECT u.name FROM usage_logs ul LEFT JOIN users u ON u.id=ul.user_id
+                           WHERE ul.device_id=? AND ul.end_time IS NULL AND ul.user_id!=?""",
+                        (did, uid)).fetchone()
+    if busy:
+        conn.close(); return jsonify({'error': f'Энэ төхөөрөмжийг {busy["name"]} ашиглаж байна. Дуустал хүлээнэ үү.'}), 400
     now = datetime.now().isoformat()
     conn.execute("INSERT INTO usage_logs(device_id,user_id,start_time) VALUES(?,?,?)", (did, uid, now))
     lid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -621,11 +793,18 @@ def usage_stop(lid):
     uid  = session.get('user_id', 0)
     conn = get_db()
     log  = conn.execute("SELECT * FROM usage_logs WHERE id=?", (lid,)).fetchone()
-    if not log or (log['user_id'] != uid and session.get('role') != 'admin'):
+    if not log:
+        conn.close(); return jsonify({'success': True})  # аль хэдийн устсан/байхгүй
+    if log['user_id'] != uid and session.get('role') != 'admin':
         conn.close(); return jsonify({'error': 'Эрх байхгүй'}), 403
+    if log['end_time']:
+        conn.close(); return jsonify({'success': True})  # аль хэдийн хаагдсан
     now  = datetime.now()
-    start= datetime.fromisoformat(log['start_time'])
-    dur  = round((now - start).total_seconds() / 3600, 2)
+    try:
+        start = datetime.fromisoformat(log['start_time'])
+        dur   = round((now - start).total_seconds() / 3600, 2)
+    except Exception:
+        dur = 0
     notes= request.json.get('notes','') if request.is_json else ''
     conn.execute("UPDATE usage_logs SET end_time=?,duration_hours=?,notes=? WHERE id=?",
                  (now.isoformat(), dur, notes, lid))
@@ -686,8 +865,9 @@ def device_check_add(did):
         INSERT INTO device_checks(device_id,checked_by,check_date,standard_value,
         measured_value,tolerance,result,standard_value2,measured_value2,tolerance2,
         standard_value3,measured_value3,tolerance3,
-        standard_value4,measured_value4,tolerance4,notes,photo)
-        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        standard_value4,measured_value4,tolerance4,
+        standard_value5,measured_value5,tolerance5,notes,photo)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, (did, session.get('user_id', 0),
           request.form.get('check_date') or date.today().isoformat(),
           request.form.get('standard_value') or None,
@@ -703,6 +883,9 @@ def device_check_add(did):
           request.form.get('standard_value4') or None,
           request.form.get('measured_value4') or None,
           request.form.get('tolerance4') or None,
+          request.form.get('standard_value5') or None,
+          request.form.get('measured_value5') or None,
+          request.form.get('tolerance5') or None,
           request.form.get('notes') or None,
           photo))
     conn.commit(); conn.close()
@@ -716,6 +899,163 @@ def device_check_delete(cid):
     row = conn.execute("SELECT device_id FROM device_checks WHERE id=?", (cid,)).fetchone()
     did = row['device_id'] if row else None
     conn.execute("DELETE FROM device_checks WHERE id=?", (cid,))
+    conn.commit(); conn.close()
+    if did:
+        return redirect(url_for('device_detail', did=did) + '#tab-check')
+    return redirect(url_for('devices'))
+
+@app.route('/devices/<int:did>/calib-check', methods=['POST'])
+@lab_required
+def device_calib_check_add(did):
+    lang = session.get('lang','mn')
+    conn = get_db()
+    check_date = request.form.get('check_date') or date.today().isoformat()
+    notes = request.form.get('notes') or None
+    pairs = []
+    for i in range(1, 6):
+        xs = request.form.get(f'x{i}','').strip()
+        ys = request.form.get(f'y{i}','').strip()
+        if xs and ys:
+            try: pairs.append((float(xs), float(ys)))
+            except ValueError: pass
+    result = 'fail'
+    slope_b = intercept_a = r_squared = None
+    if len(pairs) >= 2:
+        n = len(pairs)
+        sx  = sum(p[0] for p in pairs)
+        sy  = sum(p[1] for p in pairs)
+        sxy = sum(p[0]*p[1] for p in pairs)
+        sx2 = sum(p[0]**2 for p in pairs)
+        sy2 = sum(p[1]**2 for p in pairs)
+        denom = n*sx2 - sx**2
+        if denom != 0:
+            slope_b = (n*sxy - sx*sy) / denom
+            intercept_a = (sy - slope_b*sx) / n
+            r_num = (n*sxy - sx*sy)**2
+            r_den = denom * (n*sy2 - sy**2)
+            r_squared = r_num/r_den if r_den != 0 else None
+            if r_squared is not None and r_squared >= 0.999:
+                result = 'pass'
+    xs = [p[0] for p in pairs] + [None]*(5-len(pairs))
+    ys = [p[1] for p in pairs] + [None]*(5-len(pairs))
+    try: conn.execute("""
+        CREATE TABLE IF NOT EXISTS device_calorimeter_checks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id INTEGER NOT NULL REFERENCES devices(id),
+            checked_by INTEGER REFERENCES users(id),
+            check_date TEXT NOT NULL,
+            bomb_no TEXT,
+            old_ee REAL,
+            new_ee REAL,
+            ee_change_pct REAL,
+            mass1 REAL, cv1 REAL,
+            mass2 REAL, cv2 REAL,
+            mass3 REAL, cv3 REAL,
+            mass4 REAL, cv4 REAL,
+            mass5 REAL, cv5 REAL,
+            mass6 REAL, cv6 REAL,
+            mass7 REAL, cv7 REAL,
+            cv_avg REAL,
+            cv_range REAL,
+            cv_range_pct REAL,
+            cv_rsd REAL,
+            n_samples INTEGER,
+            result TEXT DEFAULT 'pass',
+            ee_warning INTEGER DEFAULT 0,
+            notes TEXT,
+            created_at TEXT DEFAULT (datetime('now','localtime'))
+        )
+    """)
+    except Exception: pass
+    try: conn.execute("ALTER TABLE device_calib_checks ADD COLUMN x1 REAL")
+    except Exception: pass
+    conn.execute("""
+        INSERT INTO device_calib_checks
+        (device_id,checked_by,check_date,x1,y1,x2,y2,x3,y3,x4,y4,x5,y5,
+         slope_b,intercept_a,r_squared,result,notes)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    """, (did, session.get('user_id',0), check_date,
+          xs[0],ys[0], xs[1],ys[1], xs[2],ys[2], xs[3],ys[3], xs[4],ys[4],
+          slope_b, intercept_a, r_squared, result, notes))
+    conn.commit(); conn.close()
+    flash('Калибровкийн шалгалт бүртгэгдлээ!', 'success')
+    return redirect(url_for('device_detail', did=did) + '#tab-check')
+
+@app.route('/devices/calib-check/<int:cid>/delete', methods=['POST'])
+@senior_required
+def device_calib_check_delete(cid):
+    conn = get_db()
+    row = conn.execute("SELECT device_id FROM device_calib_checks WHERE id=?", (cid,)).fetchone()
+    did = row['device_id'] if row else None
+    conn.execute("DELETE FROM device_calib_checks WHERE id=?", (cid,))
+    conn.commit(); conn.close()
+    if did:
+        return redirect(url_for('device_detail', did=did) + '#tab-check')
+    return redirect(url_for('devices'))
+
+@app.route('/devices/<int:did>/calorimeter-check', methods=['POST'])
+@lab_required
+def device_calorimeter_check_add(did):
+    import math
+    conn = get_db()
+    check_date = request.form.get('check_date') or date.today().isoformat()
+    bomb_no    = request.form.get('bomb_no') or None
+    notes      = request.form.get('notes') or None
+    old_ee = request.form.get('old_ee') or None
+    new_ee = request.form.get('new_ee') or None
+    try: old_ee = float(old_ee)
+    except: old_ee = None
+    try: new_ee = float(new_ee)
+    except: new_ee = None
+    ee_change_pct = None
+    ee_warning = 0
+    if old_ee and new_ee and old_ee != 0:
+        ee_change_pct = abs(new_ee - old_ee) / old_ee * 100
+        if ee_change_pct >= 0.2:
+            ee_warning = 1
+    masses, cvs = [], []
+    for i in range(1, 8):
+        ms = request.form.get(f'mass{i}','').strip()
+        cs = request.form.get(f'cv{i}','').strip()
+        if ms and cs:
+            try:
+                masses.append(float(ms))
+                cvs.append(float(cs))
+            except ValueError: pass
+    cv_avg = cv_range = cv_range_pct = cv_rsd = None
+    result = 'fail'
+    n = len(cvs)
+    if n >= 2:
+        cv_avg = sum(cvs) / n
+        cv_range = max(cvs) - min(cvs)
+        cv_range_pct = cv_range / cv_avg * 100 if cv_avg else None
+        variance = sum((v - cv_avg)**2 for v in cvs) / (n - 1)
+        cv_rsd = math.sqrt(variance) / cv_avg * 100 if cv_avg else None
+        if cv_range_pct is not None and cv_range_pct <= 0.5:
+            result = 'pass'
+    def _f(lst, i): return lst[i] if i < len(lst) else None
+    conn.execute("""
+        INSERT INTO device_calorimeter_checks
+        (device_id,checked_by,check_date,bomb_no,old_ee,new_ee,ee_change_pct,
+         mass1,cv1,mass2,cv2,mass3,cv3,mass4,cv4,mass5,cv5,mass6,cv6,mass7,cv7,
+         cv_avg,cv_range,cv_range_pct,cv_rsd,n_samples,result,ee_warning,notes)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    """, (did, session.get('user_id',0), check_date, bomb_no, old_ee, new_ee, ee_change_pct,
+          _f(masses,0),_f(cvs,0), _f(masses,1),_f(cvs,1), _f(masses,2),_f(cvs,2),
+          _f(masses,3),_f(cvs,3), _f(masses,4),_f(cvs,4), _f(masses,5),_f(cvs,5),
+          _f(masses,6),_f(cvs,6),
+          cv_avg, cv_range, cv_range_pct, cv_rsd, n, result, ee_warning, notes))
+    conn.commit(); conn.close()
+    flash('Калориметрийн шалгалт бүртгэгдлээ!', 'success')
+    return redirect(url_for('device_detail', did=did) + '#tab-check')
+
+@app.route('/devices/calorimeter-check/<int:cid>/delete', methods=['POST'])
+@senior_required
+def device_calorimeter_check_delete(cid):
+    conn = get_db()
+    row = conn.execute("SELECT device_id FROM device_calorimeter_checks WHERE id=?", (cid,)).fetchone()
+    did = row['device_id'] if row else None
+    conn.execute("DELETE FROM device_calorimeter_checks WHERE id=?", (cid,))
     conn.commit(); conn.close()
     if did:
         return redirect(url_for('device_detail', did=did) + '#tab-check')
@@ -786,8 +1126,9 @@ def checks_save():
             measured_value,tolerance,result,calibration_adjusted,
             standard_value2,measured_value2,tolerance2,
             standard_value3,measured_value3,tolerance3,
-            standard_value4,measured_value4,tolerance4,notes)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            standard_value4,measured_value4,tolerance4,
+            standard_value5,measured_value5,tolerance5,notes)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (did, uid, sel_date,
               request.form.get(f'standard_{did}') or None,
               measured,
@@ -803,6 +1144,9 @@ def checks_save():
               request.form.get(f'standard4_{did}') or None,
               request.form.get(f'measured4_{did}') or None,
               request.form.get(f'tolerance4_{did}') or None,
+              request.form.get(f'standard5_{did}') or None,
+              request.form.get(f'measured5_{did}') or None,
+              request.form.get(f'tolerance5_{did}') or None,
               request.form.get(f'notes_{did}') or None))
         saved += 1
     conn.commit(); conn.close()
@@ -910,15 +1254,17 @@ def staff_list():
     conn = get_db()
     is_admin = session.get('role') == 'admin'
     role_filter = '' if is_admin else "AND role != 'admin'"
+    # Идэвхтэй болон ээлжид идэвхгүй болсон (амарсан) хүмүүсийг хоёуланг харуулна.
+    # Ээлжгүй идэвхгүй хүмүүс (бүрмөсөн гарсан) зөвхөн архивт харагдана.
     users_a = conn.execute(f"""
-        SELECT * FROM users WHERE is_active=1 AND shift='A' {role_filter}
-        ORDER BY CASE role
+        SELECT * FROM users WHERE shift='A' {role_filter}
+        ORDER BY is_active DESC, CASE role
             WHEN 'admin' THEN 1 WHEN 'senior' THEN 2 WHEN 'staff' THEN 3
             WHEN 'preparer' THEN 4 WHEN 'geologist' THEN 5 ELSE 6 END, name
     """).fetchall()
     users_b = conn.execute(f"""
-        SELECT * FROM users WHERE is_active=1 AND shift='B' {role_filter}
-        ORDER BY CASE role
+        SELECT * FROM users WHERE shift='B' {role_filter}
+        ORDER BY is_active DESC, CASE role
             WHEN 'admin' THEN 1 WHEN 'senior' THEN 2 WHEN 'staff' THEN 3
             WHEN 'preparer' THEN 4 WHEN 'geologist' THEN 5 ELSE 6 END, name
     """).fetchall()
@@ -928,8 +1274,16 @@ def staff_list():
             WHEN 'admin' THEN 1 WHEN 'senior' THEN 2 WHEN 'staff' THEN 3
             WHEN 'preparer' THEN 4 WHEN 'geologist' THEN 5 ELSE 6 END, name
     """).fetchall()
+    _bayj_raw = conn.execute("SELECT * FROM users WHERE role='bayjuulach' AND (is_active=1 OR shift IN ('A','B'))").fetchall()
+    _pos_rank = ['Үйлдвэрийн дарга','Ашиглалтын ахлах инженер','Ашиглалтын инженер',
+                 'Цахилгаан автоматжуулалтын инженер','Удирдлагын оператор',
+                 'Орчуулагч, бичиг хэргийн мэргэжилтэн']
+    bayj_users = sorted(_bayj_raw, key=lambda u: (
+        _pos_rank.index(u['position'].strip()) if u['position'] and u['position'].strip() in _pos_rank else 99,
+        u['name']
+    ))
     conn.close()
-    return render_template('admin/staff_list.html', users_a=users_a, users_b=users_b, users_none=users_none, lang=lang)
+    return render_template('admin/staff_list.html', users_a=users_a, users_b=users_b, users_none=users_none, bayj_users=bayj_users, lang=lang)
 
 @app.route('/staff/add', methods=['GET','POST'])
 @senior_required
@@ -951,16 +1305,20 @@ def staff_add():
             role_to_set = request.form.get('role','staff')
             if session.get('role') == 'senior' and role_to_set in ('admin','senior'):
                 role_to_set = 'staff'
+            is_bayj = role_to_set == 'bayjuulach'
+            can_reg = 1 if (is_bayj and request.form.get('can_register')) else 0
+            can_view = 1 if (is_bayj and request.form.get('can_view_result')) else 0
             conn.execute("""
-                INSERT INTO users(employee_id,name,position,phone,email,photo,role,password_hash,joined_date,shift)
-                VALUES(?,?,?,?,?,?,?,?,?,?)
+                INSERT INTO users(employee_id,name,position,phone,email,photo,role,password_hash,joined_date,shift,can_register,can_view_result)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
             """, (
                 request.form['employee_id'], request.form['name'],
                 request.form.get('position'), request.form.get('phone'),
                 request.form.get('email'), photo,
                 role_to_set, pw,
                 request.form.get('joined_date') or None,
-                request.form.get('shift') or None
+                request.form.get('shift') or None,
+                can_reg, can_view
             ))
             uid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
             # Геологичид (харилцагч) тоног ашиглах эрх олгохгүй
@@ -991,8 +1349,8 @@ def staff_detail(uid):
         conn.close()
         return redirect(url_for('staff_list'))
 
-    # ── ГЕОЛОГИЧ (харилцагч): зөвхөн дээж бүртгэлийн мэдээлэл ──
-    if target['role'] == 'geologist':
+    # ── ХАРИЛЦАГЧ (геологи + баяжуулах): зөвхөн дээж бүртгэлийн мэдээлэл ──
+    if target['role'] in ('geologist', 'bayjuulach'):
         geo_total = conn.execute("SELECT COUNT(*) FROM geo_samples WHERE registered_by=?", (uid,)).fetchone()[0]
         geo_done  = conn.execute("SELECT COUNT(*) FROM geo_samples WHERE registered_by=? AND status='done'", (uid,)).fetchone()[0]
         geo_active = geo_total - geo_done
@@ -1010,10 +1368,20 @@ def staff_detail(uid):
             FROM geo_samples WHERE registered_by=?
             GROUP BY month ORDER BY month
         """, (uid,)).fetchall()
+        # Үр дүн харсан лог (геологи + баяжуулах)
+        view_total = conn.execute("SELECT COUNT(*) FROM result_view_log WHERE user_id=?", (uid,)).fetchone()[0]
+        view_log = conn.execute("""
+            SELECT vl.viewed_at, sr.lab_number, g.sample_name
+            FROM result_view_log vl
+            JOIN sample_receipt sr ON sr.id=vl.receipt_id
+            JOIN geo_samples g ON g.id=sr.geo_sample_id
+            WHERE vl.user_id=? ORDER BY vl.viewed_at DESC LIMIT 20
+        """, (uid,)).fetchall()
         conn.close()
         return render_template('staff/detail_geologist.html', target=target, lang=lang,
                                geo_total=geo_total, geo_done=geo_done, geo_active=geo_active,
-                               geo_by_type=geo_by_type, geo_recent=geo_recent, geo_monthly=geo_monthly)
+                               geo_by_type=geo_by_type, geo_recent=geo_recent, geo_monthly=geo_monthly,
+                               view_total=view_total, view_log=view_log)
 
     logs    = conn.execute("""
         SELECT ul.*, d.name as dname FROM usage_logs ul
@@ -1074,9 +1442,180 @@ def staff_detail(uid):
                            total_done=total_done, total_approved=total_approved, total_hours=total_hours,
                            qc_radar=qc_radar, monthly_6=monthly_6, monthly_12=monthly_12, monthly_all=monthly_all)
 
+# ── INTERNAL QC ─────────────────────────────────────────
+@app.route('/internal-qc')
+@lab_required
+def internal_qc_list():
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT iq.*,
+            u.name as assigned_name,
+            sr1.lab_number as lab1, g1.sample_name as sname1,
+            sr2.lab_number as lab2, g2.sample_name as sname2
+        FROM internal_qc iq
+        LEFT JOIN users u ON u.id=iq.assigned_to
+        LEFT JOIN sample_receipt sr1 ON sr1.id=iq.receipt_id_1
+        LEFT JOIN geo_samples g1 ON g1.id=sr1.geo_sample_id
+        LEFT JOIN sample_receipt sr2 ON sr2.id=iq.receipt_id_2
+        LEFT JOIN geo_samples g2 ON g2.id=sr2.geo_sample_id
+        ORDER BY iq.created_at DESC
+    """).fetchall()
+    conn.close()
+    return render_template('analysis/internal_qc.html', rows=rows, lang=session.get('lang','mn'), role=session.get('role'))
+
+@app.route('/internal-qc/create', methods=['POST'])
+@senior_required
+def internal_qc_create():
+    import random
+    conn = get_db()
+    from datetime import datetime, timedelta
+    d_to = datetime.now().strftime('%Y-%m-%d')
+    d_from = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+    candidates = conn.execute("""
+        SELECT DISTINCT sr.id FROM sample_receipt sr
+        JOIN geo_samples g ON g.id=sr.geo_sample_id
+        JOIN sample_entries se ON se.receipt_id=sr.id
+        WHERE g.sample_type IN ('PIT','STOCKPILE','EXPORT','CONTROL')
+        AND se.is_duplicate=0
+        AND se.row_status IN ('done','approved')
+        AND sr.received_date BETWEEN ? AND ?
+    """, (d_from, d_to)).fetchall()
+    if len(candidates) < 1:
+        conn.close()
+        flash('Өмнөх 7 хоногт давтан шинжлэх хангалттай дээж байхгүй байна', 'error')
+        return redirect(url_for('analysis'))
+    picked = random.sample([r['id'] for r in candidates], 1)
+    def pick_row(rid):
+        rows = conn.execute(
+            "SELECT row_num FROM sample_entries WHERE receipt_id=? AND is_duplicate=0 AND row_status IN ('done','approved')",
+            (rid,)).fetchall()
+        if not rows: return 1
+        return random.choice([r['row_num'] for r in rows])
+    rn1 = pick_row(picked[0])
+    assigned = request.form.get('assigned_to') or session['user_id']
+    last = conn.execute("SELECT qc_number FROM internal_qc WHERE qc_number LIKE 'QC%' ORDER BY id DESC LIMIT 1").fetchone()
+    if last and last['qc_number'] and last['qc_number'][2:].isdigit():
+        seq = int(last['qc_number'][2:]) + 1
+    else:
+        seq = 1
+    qc_number = f'QC{seq:03d}'
+    cur = conn.execute("""INSERT INTO internal_qc (qc_number, triggered_date, receipt_id_1, receipt_id_2, row_num_1, row_num_2, assigned_to, created_by)
+        VALUES (?,?,?,NULL,?,NULL,?,?)""", (qc_number, d_to, picked[0], rn1, assigned, session['user_id']))
+    qc_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+    flash('Дотоод QC үүслээ — доорх жагсаалтаас сонгож шинжилгээ хийнэ үү', 'success')
+    return redirect(url_for('analysis'))
+
+@app.route('/internal-qc/<int:qc_id>/measure')
+@lab_required
+def internal_qc_measure(qc_id):
+    conn = get_db()
+    qc = conn.execute("""
+        SELECT iq.*,
+            sr1.lab_number as lab1, g1.sample_name as sname1,
+            sr2.lab_number as lab2, g2.sample_name as sname2
+        FROM internal_qc iq
+        LEFT JOIN sample_receipt sr1 ON sr1.id=iq.receipt_id_1
+        LEFT JOIN geo_samples g1 ON g1.id=sr1.geo_sample_id
+        LEFT JOIN sample_receipt sr2 ON sr2.id=iq.receipt_id_2
+        LEFT JOIN geo_samples g2 ON g2.id=sr2.geo_sample_id
+        WHERE iq.id=?
+    """, (qc_id,)).fetchone()
+    if not qc:
+        conn.close()
+        flash('Бүртгэл олдсонгүй', 'error')
+        return redirect(url_for('internal_qc_list'))
+    PARAMS = ['adb','vdb','fcdb','sdb','qdb','fsi','g_index']
+    DB_LABELS = {'adb':'Adb','vdb':'Vdb','fcdb':'FCdb','sdb':'Sdb','qdb':'Qgr,db','fsi':'CSN','g_index':'G-index'}
+    DB_UNITS  = {'adb':'%','vdb':'%','fcdb':'%','sdb':'%','qdb':'ккал/кг','fsi':'','g_index':''}
+    def ad_to_db(ed):
+        mad = ed.get('mad') or 0
+        f = 100 / (100 - mad) if mad < 100 else 1
+        result = {}
+        try:
+            if ed.get('aad') is not None: result['adb'] = round(ed['aad'] * f, 2)
+            if ed.get('vad') is not None: result['vdb'] = round(ed['vad'] * f, 2)
+            if ed.get('fc')  is not None: result['fcdb']= round(ed['fc']  * f, 2)
+            if ed.get('sulfur') is not None: result['sdb'] = round(ed['sulfur'] * f, 2)
+            if ed.get('cal_value') is not None: result['qdb'] = round(ed['cal_value'] / 4.1868 * f, 0)
+            if ed.get('fsi') is not None: result['fsi'] = ed['fsi']
+            if ed.get('g_val') is not None: result['g_index'] = ed['g_val']
+        except: pass
+        return result
+    def get_orig(rid, row_num=None):
+        if not rid: return {}
+        if row_num:
+            e = conn.execute("SELECT * FROM sample_entries WHERE receipt_id=? AND row_num=? AND is_duplicate=0", (rid, row_num)).fetchone()
+        else:
+            e = conn.execute("SELECT * FROM sample_entries WHERE receipt_id=? AND is_duplicate=0 AND row_status IN ('done','approved') ORDER BY row_num LIMIT 1", (rid,)).fetchone()
+        if not e: return {}
+        ed = dict(e)
+        try:
+            if ed.get('mad') is None and ed.get('dc_sample') and ed['dc_sample'] > 0:
+                ed['mad'] = (ed['dc_tare'] + ed['dc_sample'] - ed['dc_dried']) / ed['dc_sample'] * 100
+            if ed.get('aad') is None and ed.get('ash_sample') and ed['ash_sample'] > 0:
+                ed['aad'] = (ed['ash_burned'] - ed['ash_tare']) / ed['ash_sample'] * 100
+            if ed.get('vad') is None and ed.get('vol_sample') and ed['vol_sample'] > 0 and ed.get('mad') is not None:
+                ed['vad'] = (ed['vol_tare'] + ed['vol_sample'] - ed['vol_burned']) / ed['vol_sample'] * 100 - ed['mad']
+            if ed.get('fc') is None and all(ed.get(x) is not None for x in ['mad','aad','vad']):
+                ed['fc'] = 100 - ed['mad'] - ed['aad'] - ed['vad']
+        except: pass
+        return ad_to_db(ed)
+    orig1 = get_orig(qc['receipt_id_1'], qc['row_num_1'])
+    orig2 = get_orig(qc['receipt_id_2'], qc['row_num_2'])
+    results = conn.execute("SELECT * FROM internal_qc_results WHERE qc_id=?", (qc_id,)).fetchall()
+    qc_tol = {r['parameter']: r['tolerance'] for r in conn.execute("SELECT parameter, tolerance FROM qc_settings").fetchall()}
+    conn.close()
+    db_to_tol = {'adb':'Aad','vdb':'Vad','fcdb':'Fc','sdb':'Stad','qdb':'Qb_ad','fsi':'FSI','g_index':'G_index'}
+    return render_template('analysis/internal_qc_measure.html',
+        qc=qc, orig1=orig1, orig2=orig2, results=results,
+        qc_tol=qc_tol, params=PARAMS, db_labels=DB_LABELS, db_units=DB_UNITS,
+        db_to_tol=db_to_tol,
+        lang=session.get('lang','mn'), role=session.get('role'))
+
+@app.route('/internal-qc/<int:qc_id>/approve')
+@senior_required
+def internal_qc_approve(qc_id):
+    conn = get_db()
+    conn.execute("UPDATE internal_qc SET status='done' WHERE id=? AND status='pending'", (qc_id,))
+    conn.commit()
+    conn.close()
+    flash('QC баталгаажлаа!', 'success')
+    return redirect(url_for('archive'))
+
+@app.route('/internal-qc/<int:qc_id>/done', methods=['POST'])
+@lab_required
+def internal_qc_done(qc_id):
+    conn = get_db()
+    notes = request.form.get('notes','')
+    conn.execute("DELETE FROM internal_qc_results WHERE qc_id=?", (qc_id,))
+    params = ['adb','vdb','fcdb','sdb','qdb','fsi','g_index']
+    db_to_tol = {'adb':'Aad','vdb':'Vad','fcdb':'Fc','sdb':'Stad','qdb':'Qb_ad','fsi':'FSI','g_index':'G_index'}
+    for receipt_id in [request.form.get('rid1'), request.form.get('rid2')]:
+        if not receipt_id: continue
+        for p in params:
+            rep = request.form.get(f'rep_{receipt_id}_{p}')
+            orig = request.form.get(f'orig_{receipt_id}_{p}')
+            if rep and orig:
+                try:
+                    o,r = float(orig), float(rep)
+                    diff = abs(o-r)
+                    tol_key = db_to_tol.get(p, p.capitalize())
+                    tol = conn.execute("SELECT tolerance FROM qc_settings WHERE parameter=?", (tol_key,)).fetchone()
+                    within = 1 if (tol and diff <= float(tol['tolerance'])) else 0
+                    conn.execute("""INSERT INTO internal_qc_results (qc_id,receipt_id,parameter,original_value,repeat_value,difference,within_tolerance)
+                        VALUES (?,?,?,?,?,?,?)""", (qc_id, int(receipt_id), p, o, r, diff, within))
+                except: pass
+    conn.execute("UPDATE internal_qc SET status='done', notes=? WHERE id=?", (notes, qc_id))
+    conn.commit()
+    conn.close()
+    flash('Дотоод QC бүртгэгдлээ', 'success')
+    return redirect(url_for('internal_qc_list'))
+
 # ── ARCHIVE ─────────────────────────────────────────────
 @app.route('/archive')
-@senior_required
+@login_required
 def archive():
     lang = session.get('lang','mn')
     conn = get_db()
@@ -1104,12 +1643,42 @@ def archive():
         WHERE g.status='done'
         ORDER BY sr.lab_serial DESC LIMIT 200
     """).fetchall()
+    if session.get('role') == 'bayjuulach':
+        u = conn.execute("SELECT can_view_result FROM users WHERE id=?", (session.get('user_id'),)).fetchone()
+        if not u or not u['can_view_result']:
+            completed_samples = []
+        else:
+            completed_samples = [s for s in completed_samples if 6000 <= (s['lab_serial'] or 0) <= 6999]
+    elif session.get('role') == 'geologist':
+        # Геологч зөвхөн зөвшөөрсөн мужийн дууссан дээжийг архиваас харна (view_ranges)
+        u = conn.execute("SELECT view_ranges FROM users WHERE id=?", (session.get('user_id'),)).fetchone()
+        vr = u['view_ranges'] if u else None
+        if vr is not None:
+            thousands = [int(x) for x in vr.split(',') if x.strip().isdigit()]
+            completed_samples = [s for s in completed_samples if ((s['lab_serial'] or 0)//1000) in thousands]
+    done_qc = conn.execute("""
+        SELECT iq.*, sr1.lab_number as lab1, g1.sample_name as sname1,
+               u.name as assigned_name
+        FROM internal_qc iq
+        LEFT JOIN sample_receipt sr1 ON sr1.id=iq.receipt_id_1
+        LEFT JOIN geo_samples g1 ON g1.id=sr1.geo_sample_id
+        LEFT JOIN users u ON u.id=iq.assigned_to
+        WHERE iq.status='done'
+        ORDER BY iq.triggered_date DESC LIMIT 200
+    """).fetchall()
+    # Харилцагч (геологч, баяжуулагч) нар зөвхөн шинжилгээ харна — бусдыг хоослоно
+    if session.get('role') in ('geologist', 'bayjuulach'):
+        archived_devices = []
+        archived_staff = []
+        completed_repairs = []
+        done_qc = []
     conn.close()
     return render_template('admin/archive.html',
         archived_devices=archived_devices,
         archived_staff=archived_staff,
         completed_repairs=completed_repairs,
         done_samples=completed_samples,
+        done_qc=done_qc,
         lang=lang)
 
 @app.route('/archive/result/<int:receipt_id>')
@@ -1132,7 +1701,7 @@ def archive_result(receipt_id):
         conn.close()
         flash('Бүртгэл олдсонгүй', 'error')
         return redirect(url_for('archive'))
-    entries = conn.execute("""
+    entries_raw = conn.execute("""
         SELECT se.*, u1.name as done_name, u2.name as approved_name
         FROM sample_entries se
         LEFT JOIN users u1 ON u1.id=se.done_by
@@ -1140,6 +1709,18 @@ def archive_result(receipt_id):
         WHERE se.receipt_id=?
         ORDER BY se.row_num, se.is_duplicate
     """, (receipt_id,)).fetchall()
+    # mt_result (Нийт чийг) тооцоолол — template энэ талбарыг ашигладаг
+    entries = []
+    for e in entries_raw:
+        ed = dict(e)
+        try:
+            mt_s = ed.get('mt_sample') or 0
+            mt_t = ed.get('mt_tare') or 0
+            mt_d = ed.get('mt_dried') or 0
+            ed['mt_result'] = (mt_s - (mt_d - mt_t)) / mt_s * 100 if mt_s and mt_s > 0 else None
+        except Exception:
+            ed['mt_result'] = None
+        entries.append(ed)
     qc = {r['parameter']: r for r in conn.execute("SELECT * FROM qc_settings").fetchall()}
     conn.close()
     return render_template('analysis/archive_result.html',
@@ -1168,6 +1749,99 @@ def archive_measure(receipt_id):
     return render_template('analysis/archive_measure.html',
         receipt=receipt, entries=entries, lang=lang)
 
+@app.route('/analysis/find-receipt')
+@admin_required
+def analysis_find_receipt():
+    lab_number = request.args.get('lab_number','').strip()
+    conn = get_db()
+    row = conn.execute("""
+        SELECT sr.id, sr.lab_number, sr.received_date, g.quantity, g.sample_name
+        FROM sample_receipt sr
+        JOIN geo_samples g ON g.id=sr.geo_sample_id
+        WHERE sr.lab_number=?
+    """, (lab_number,)).fetchone()
+    conn.close()
+    if row:
+        return jsonify({
+            'id': row['id'],
+            'lab_number': row['lab_number'],
+            'received_date': row['received_date'] or '',
+            'quantity': row['quantity'] or 0,
+            'sample_name': row['sample_name'] or ''
+        })
+    return jsonify({})
+
+@app.route('/analysis/delete/<int:receipt_id>', methods=['POST'])
+@admin_required
+def analysis_delete(receipt_id):
+    conn = get_db()
+    receipt = conn.execute('SELECT geo_sample_id FROM sample_receipt WHERE id=?', (receipt_id,)).fetchone()
+    if receipt:
+        conn.execute('DELETE FROM sample_entries WHERE receipt_id=?', (receipt_id,))
+        conn.execute('DELETE FROM sample_receipt WHERE id=?', (receipt_id,))
+        conn.execute("UPDATE geo_samples SET status='pending' WHERE id=?", (receipt['geo_sample_id'],))
+        conn.commit()
+        flash('Шинжилгээний бүртгэл устгагдлаа', 'success')
+    conn.close()
+    return redirect(url_for('analysis'))
+
+@app.route('/archive/reopen/<int:receipt_id>', methods=['POST'])
+@perm_required('can_reopen')
+def archive_reopen(receipt_id):
+    conn = get_db()
+    receipt = conn.execute('SELECT geo_sample_id FROM sample_receipt WHERE id=?', (receipt_id,)).fetchone()
+    if receipt:
+        conn.execute("UPDATE geo_samples SET status='analysing' WHERE id=?", (receipt['geo_sample_id'],))
+        conn.execute("UPDATE sample_receipt SET prep_status='ready' WHERE id=?", (receipt_id,))
+        conn.execute("UPDATE sample_entries SET row_status='done', approved_by=NULL, approved_at=NULL WHERE receipt_id=? AND row_status='approved'", (receipt_id,))
+        conn.commit()
+        flash('Шинжилгээ дахин нээгдлээ', 'success')
+    conn.close()
+    return redirect(url_for('analysis_result', receipt_id=receipt_id))
+
+@app.route('/archive/delete/<int:receipt_id>', methods=['POST'])
+@admin_required
+def archive_delete(receipt_id):
+    conn = get_db()
+    try:
+        receipt = conn.execute('SELECT geo_sample_id FROM sample_receipt WHERE id=?', (receipt_id,)).fetchone()
+        if receipt:
+            geo_id = receipt['geo_sample_id']
+            # QC байгаа эсэх шалгах — байвал устгахгүй анхааруулна
+            qc_linked = conn.execute(
+                "SELECT COUNT(*) FROM internal_qc WHERE receipt_id_1=? OR receipt_id_2=?",
+                (receipt_id, receipt_id)
+            ).fetchone()[0]
+            if qc_linked:
+                conn.close()
+                flash(f'Энэ дээжтэй {qc_linked} QC бүртгэл холбоотой байна. Эхлээд QC-г устгана уу.', 'error')
+                return redirect(url_for('archive'))
+            # Хамааралтай бүх бичлэгийг эхлээд устгана (child → parent дараалал)
+            conn.execute("DELETE FROM result_view_log WHERE receipt_id=?", (receipt_id,))
+            conn.execute("DELETE FROM device_usage_log WHERE receipt_id=?", (receipt_id,))
+            conn.execute("DELETE FROM sample_entries WHERE receipt_id=?", (receipt_id,))
+            conn.execute("DELETE FROM sample_receipt WHERE id=?", (receipt_id,))
+            conn.execute("DELETE FROM geo_samples WHERE id=?", (geo_id,))
+        conn.commit()
+        flash('Бүртгэл бүрмөсөн устгагдлаа.', 'success')
+    except Exception as e:
+        conn.rollback()
+        flash(f'Устгахад алдаа гарлаа: {e}', 'error')
+    finally:
+        conn.close()
+    return redirect(url_for('archive'))
+
+@app.route('/archive/qc-delete/<int:qc_id>', methods=['POST'])
+@admin_required
+def archive_qc_delete(qc_id):
+    conn = get_db()
+    conn.execute("DELETE FROM internal_qc_results WHERE qc_id=?", (qc_id,))
+    conn.execute("DELETE FROM internal_qc WHERE id=?", (qc_id,))
+    conn.commit()
+    conn.close()
+    flash('QC бүртгэл бүрмөсөн устгагдлаа.', 'success')
+    return redirect(url_for('archive'))
+
 @app.route('/archive/export/<int:receipt_id>')
 @login_required
 def analysis_export_report(receipt_id):
@@ -1190,8 +1864,26 @@ def staff_edit(uid):
             role_to_set = request.form.get('role', target['role'])
             if session.get('role') == 'senior' and role_to_set in ('admin','senior'):
                 role_to_set = target['role']
+            is_client = role_to_set in ('bayjuulach', 'geologist')
+            is_lab    = role_to_set in ('staff', 'preparer')
+            can_reg    = 1 if (is_client and request.form.get('can_register'))    else 0
+            can_view   = 1 if (is_client and request.form.get('can_view_result')) else 0
+            can_export = 1 if (is_client and request.form.get('can_export'))      else 0
+            can_approve = 1 if (is_lab and request.form.get('can_approve')) else 0
+            can_report  = 1 if (is_lab and request.form.get('can_report'))  else 0
+            can_reopen  = 1 if (is_lab and request.form.get('can_reopen'))  else 0
+            is_active  = 1 if request.form.get('is_active') else 0
+            # Геологчийн харах мужууд (checkbox-оор). Зөвхөн геологчид хадгална.
+            if role_to_set == 'geologist':
+                _ranges = request.form.getlist('view_ranges')  # ['1','2',...]
+                _ranges = [r for r in _ranges if r.isdigit()]
+                view_ranges = ','.join(_ranges) if _ranges else ''
+            else:
+                view_ranges = None
             conn.execute("""
-                UPDATE users SET name=?,position=?,phone=?,email=?,role=?,joined_date=?,shift=?
+                UPDATE users SET name=?,position=?,phone=?,email=?,role=?,joined_date=?,shift=?,
+                                 can_register=?,can_view_result=?,can_export=?,is_active=?,
+                                 can_approve=?,can_report=?,can_reopen=?,view_ranges=?
                 WHERE id=?
             """, (
                 request.form.get('name', target['name']),
@@ -1201,13 +1893,15 @@ def staff_edit(uid):
                 role_to_set,
                 request.form.get('joined_date') or None,
                 request.form.get('shift') or None,
+                can_reg, can_view, can_export, is_active,
+                can_approve, can_report, can_reopen, view_ranges,
                 uid
             ))
             if photo:
                 conn.execute("UPDATE users SET photo=? WHERE id=?", (photo, uid))
-            # Эрх шинэчлэх — геологичид (харилцагч) тоног ашиглах эрх олгохгүй
+            # Эрх шинэчлэх — геологи/баяжуулах тоног ашиглах эрх олгохгүй
             conn.execute("DELETE FROM staff_device_permissions WHERE user_id=?", (uid,))
-            if role_to_set != 'geologist':
+            if role_to_set not in ('geologist', 'bayjuulach'):
                 for did in request.form.getlist('device_permissions'):
                     conn.execute("INSERT OR IGNORE INTO staff_device_permissions(user_id,device_id) VALUES(?,?)", (uid, did))
             conn.commit()
@@ -1291,6 +1985,29 @@ def staff_deactivate(uid):
     flash('Ажилтан идэвхгүй болголоо.' if lang=='mn' else 'Staff deactivated.', 'success')
     return redirect(url_for('staff_list'))
 
+@app.route('/staff/shift/<shift>/<action>', methods=['POST'])
+@senior_required
+def staff_shift_bulk(shift, action):
+    """Ээлжээр бөөнөөр идэвхгүй (амраах) / идэвхтэй (ажиллуулах) болгоно"""
+    lang = session.get('lang','mn')
+    if shift not in ('A','B') or action not in ('rest','work'):
+        flash('Буруу хүсэлт.', 'error')
+        return redirect(url_for('staff_list'))
+    new_active = 0 if action == 'rest' else 1
+    conn = get_db()
+    # Өөрийгөө болон админыг хөндөхгүй
+    me = session.get('user_id', 0)
+    conn.execute(
+        "UPDATE users SET is_active=? WHERE shift=? AND role != 'admin' AND id != ?",
+        (new_active, shift, me))
+    conn.commit()
+    conn.close()
+    if action == 'rest':
+        flash(f'{shift} ээлж амрав (идэвхгүй болголоо).', 'success')
+    else:
+        flash(f'{shift} ээлж ажилд орлоо (идэвхжүүлэв).', 'success')
+    return redirect(url_for('staff_list'))
+
 @app.route('/staff/<int:uid>/activate', methods=['POST'])
 @senior_required
 def staff_activate(uid):
@@ -1301,6 +2018,21 @@ def staff_activate(uid):
     conn.close()
     flash('Ажилтан идэвхжүүлэгдлээ.' if lang=='mn' else 'Staff activated.', 'success')
     return redirect(url_for('staff_list'))
+
+@app.route('/staff/<int:uid>/delete', methods=['POST'])
+@admin_required
+def staff_delete(uid):
+    lang = session.get('lang','mn')
+    if uid == session.get('user_id'):
+        flash('Өөрийгөө устгах боломжгүй!', 'error')
+        return redirect(url_for('archive'))
+    conn = get_db()
+    conn.execute("DELETE FROM staff_device_permissions WHERE user_id=?", (uid,))
+    conn.execute("DELETE FROM users WHERE id=? AND is_active=0", (uid,))
+    conn.commit()
+    conn.close()
+    flash('Ажилтан бүрмөсөн устгагдлаа.' if lang=='mn' else 'Staff permanently deleted.', 'success')
+    return redirect(url_for('archive'))
 
 # ── DEVICE ARCHIVE / RESTORE ────────────────────────────
 @app.route('/devices/<int:did>/archive', methods=['POST'])
@@ -1333,6 +2065,31 @@ def device_restore(did):
     conn.commit(); conn.close()
     flash('Төхөөрөмж сэргээгдлээ.' if lang=='mn' else 'Device restored.', 'success')
     return redirect(url_for('devices'))
+
+@app.route('/devices/<int:did>/delete', methods=['POST'])
+@admin_required
+def device_delete(did):
+    """Төхөөрөмжийг бүрмөсөн устгана (зөвхөн архивлагдсаныг, зөвхөн Админ)"""
+    lang = session.get('lang','mn')
+    conn = get_db()
+    dev = conn.execute("SELECT status FROM devices WHERE id=?", (did,)).fetchone()
+    if not dev:
+        conn.close()
+        flash('Төхөөрөмж олдсонгүй.', 'error')
+        return redirect(url_for('archive'))
+    if dev['status'] not in ('archived','replaced','decommissioned','standby'):
+        conn.close()
+        flash('Зөвхөн архивлагдсан төхөөрөмжийг бүрмөсөн устгана.', 'error')
+        return redirect(url_for('archive'))
+    # Холбоотой бичлэгүүдийг устгана
+    conn.execute("DELETE FROM staff_device_permissions WHERE device_id=?", (did,))
+    conn.execute("DELETE FROM calibrations WHERE device_id=?", (did,))
+    conn.execute("DELETE FROM repairs WHERE device_id=?", (did,))
+    conn.execute("DELETE FROM usage_logs WHERE device_id=?", (did,))
+    conn.execute("DELETE FROM devices WHERE id=?", (did,))
+    conn.commit(); conn.close()
+    flash('Төхөөрөмж бүрмөсөн устгагдлаа.' if lang=='mn' else 'Device permanently deleted.', 'success')
+    return redirect(url_for('archive'))
 
 # ── MARKS ───────────────────────────────────────────────
 @app.route('/marks/add', methods=['POST'])
@@ -1420,73 +2177,229 @@ def ensure_tables():
     for col in ['check_standard2 TEXT', 'check_tolerance2 TEXT',
                 'check_param1 TEXT', 'check_param2 TEXT',
                 'check_param3 TEXT', 'check_standard3 TEXT', 'check_tolerance3 TEXT',
-                'check_param4 TEXT', 'check_standard4 TEXT', 'check_tolerance4 TEXT']:
+                'check_param4 TEXT', 'check_standard4 TEXT', 'check_tolerance4 TEXT',
+                'check_param5 TEXT', 'check_standard5 TEXT', 'check_tolerance5 TEXT']:
         try: conn.execute(f"ALTER TABLE devices ADD COLUMN {col}")
         except Exception: pass
     for col in ['check_group1 TEXT', 'check_group2 TEXT', 'check_group3 TEXT',
-                'check_photo1 TEXT', 'check_photo2 TEXT', 'check_photo3 TEXT', 'check_photo4 TEXT']:
+                'check_group1_cols INTEGER', 'check_group2_cols INTEGER', 'check_group3_cols INTEGER',
+                'check_photo1 TEXT', 'check_photo2 TEXT', 'check_photo3 TEXT', 'check_photo4 TEXT', 'check_photo5 TEXT']:
         try: conn.execute(f"ALTER TABLE devices ADD COLUMN {col}")
         except Exception: pass
     for col in ['measured_value3 TEXT', 'standard_value3 TEXT', 'tolerance3 TEXT',
-                'measured_value4 TEXT', 'standard_value4 TEXT', 'tolerance4 TEXT']:
+                'measured_value4 TEXT', 'standard_value4 TEXT', 'tolerance4 TEXT',
+                'measured_value5 TEXT', 'standard_value5 TEXT', 'tolerance5 TEXT']:
         try: conn.execute(f"ALTER TABLE device_checks ADD COLUMN {col}")
         except Exception: pass
     try: conn.execute("ALTER TABLE device_checks ADD COLUMN photo TEXT")
     except Exception: pass
     try: conn.execute("ALTER TABLE users ADD COLUMN shift TEXT")
     except Exception: pass
-    # Цайны газрын меню
-    conn.execute("""CREATE TABLE IF NOT EXISTS canteen_dishes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        category TEXT DEFAULT 'main',
-        description TEXT,
-        price REAL,
-        kcal INTEGER,
-        photo TEXT,
-        is_active INTEGER DEFAULT 1,
-        created_by INTEGER REFERENCES users(id),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )""")
-    conn.execute("""CREATE TABLE IF NOT EXISTS canteen_menu (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        menu_date TEXT NOT NULL,
-        meal TEXT NOT NULL,
-        dish_id INTEGER NOT NULL REFERENCES canteen_dishes(id),
-        sort_order INTEGER DEFAULT 0,
-        created_by INTEGER REFERENCES users(id),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(menu_date, meal, dish_id)
-    )""")
-    # Барабан (Эргэдэг хүрд) тохиргоо — лаб дугаар 11-14 (4 параметр)
-    conn.execute("""
-        UPDATE devices SET
-            check_param1='Дотоод диаметр', check_standard='200', check_tolerance='',
-            check_param2='Гүн', check_standard2='70', check_tolerance2='',
-            check_param3='Эргэлтийн хурд', check_standard3='50', check_tolerance3='±1',
-            check_param4='Ачааны жин', check_standard4='112.5', check_tolerance4='±2.5',
-            check_group1='Эргэдэг хүрд', check_group2='Эргэлдэх барабан', check_group3='Ачаа',
-            check_freq='weekly', check_enabled=1
-        WHERE lab_id IN ('11','12','13','14')
+    try: conn.execute("ALTER TABLE users ADD COLUMN can_register INTEGER DEFAULT 0")
+    except Exception: pass
+    try: conn.execute("ALTER TABLE users ADD COLUMN can_view_result INTEGER DEFAULT 0")
+    except Exception: pass
+    try: conn.execute("ALTER TABLE users ADD COLUMN can_export INTEGER DEFAULT 0")
+    except Exception: pass
+    try: conn.execute("ALTER TABLE users ADD COLUMN can_approve INTEGER DEFAULT 0")
+    except Exception: pass
+    try: conn.execute("ALTER TABLE users ADD COLUMN can_report INTEGER DEFAULT 0")
+    except Exception: pass
+    try: conn.execute("ALTER TABLE users ADD COLUMN can_reopen INTEGER DEFAULT 0")
+    except Exception: pass
+    # Геологчийн харах эрхтэй ажлын дугаарын муж (мянгатаар: "1,2,6"). NULL = бүгдийг харах
+    try: conn.execute("ALTER TABLE users ADD COLUMN view_ranges TEXT")
+    except Exception: pass
+    try: conn.execute("""
+        CREATE TABLE IF NOT EXISTS result_view_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER REFERENCES users(id),
+            receipt_id INTEGER REFERENCES sample_receipt(id),
+            viewed_at TEXT DEFAULT (datetime('now','localtime'))
+        )
     """)
-    # Зуух — лаб дугаар 6,7,8 (2 параметр: температур)
-    conn.execute("""
+    except Exception: pass
+    try: conn.execute("""
+        CREATE TABLE IF NOT EXISTS check_templates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            param1 TEXT, standard1 TEXT, tolerance1 TEXT,
+            param2 TEXT, standard2 TEXT, tolerance2 TEXT,
+            param3 TEXT, standard3 TEXT, tolerance3 TEXT,
+            param4 TEXT, standard4 TEXT, tolerance4 TEXT,
+            created_by INTEGER REFERENCES users(id),
+            created_at TEXT DEFAULT (datetime('now','localtime'))
+        )
+    """)
+    except Exception: pass
+    try: conn.execute("""
+        CREATE TABLE IF NOT EXISTS device_calib_checks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id INTEGER NOT NULL REFERENCES devices(id),
+            checked_by INTEGER REFERENCES users(id),
+            check_date TEXT NOT NULL,
+            x1 REAL, y1 REAL,
+            x2 REAL, y2 REAL,
+            x3 REAL, y3 REAL,
+            x4 REAL, y4 REAL,
+            x5 REAL, y5 REAL,
+            slope_b REAL,
+            intercept_a REAL,
+            r_squared REAL,
+            result TEXT DEFAULT 'pass',
+            notes TEXT,
+            created_at TEXT DEFAULT (datetime('now','localtime'))
+        )
+    """)
+    except Exception: pass
+    # ── Төхөөрөмжийн автомат тохиргоо — ЗӨВХӨН НЭГ УДАА ажиллана ──
+    # (PRAGMA user_version=1 болсон бол дахин ажиллахгүй — user/гар тохиргоог хадгална)
+    if conn.execute("PRAGMA user_version").fetchone()[0] < 1:
+      # Лаб 01-05: жингийн босоо загвар тэмдэглэх (check_group1_cols=0)
+      conn.execute("""
+        UPDATE devices SET check_group1_cols=0
+        WHERE CAST(lab_id AS TEXT) IN ('01','02','03','04','05','001','002','003','004','005')
+      """)
+      # Лаб 02-05: лаб 01-ийн жингийн тохиргоог хуулна (photo-оос бусад)
+      conn.execute("""
         UPDATE devices SET
+            check_param1   = (SELECT check_param1   FROM devices WHERE lab_id='01' LIMIT 1),
+            check_standard = (SELECT check_standard FROM devices WHERE lab_id='01' LIMIT 1),
+            check_tolerance= (SELECT check_tolerance FROM devices WHERE lab_id='01' LIMIT 1),
+            check_group1   = (SELECT check_group1   FROM devices WHERE lab_id='01' LIMIT 1),
+            check_freq     = (SELECT check_freq     FROM devices WHERE lab_id='01' LIMIT 1),
+            check_enabled  = (SELECT check_enabled  FROM devices WHERE lab_id='01' LIMIT 1),
+            check_group1_cols = 0
+        WHERE CAST(lab_id AS TEXT) IN ('02','03','04','05','002','003','004','005')
+      """)
+      # Лаб 11-14: лаб 06-тай ижил (зуухны температур, daily)
+      conn.execute("""
+        UPDATE devices SET
+            check_group1='Зуухны температур', check_group2=NULL, check_group3=NULL,
             check_param1='Температур 1', check_standard='850±10 °C', check_tolerance='6 мин - 850 °C',
             check_param2='Температур 2', check_standard2='900±20 °C', check_tolerance2='3 мин - 900 °C',
             check_param3=NULL, check_standard3=NULL, check_tolerance3=NULL,
             check_param4=NULL, check_standard4=NULL, check_tolerance4=NULL,
-            check_freq='daily', check_enabled=1
-        WHERE lab_id IN ('06','07','08')
-    """)
+            check_freq=COALESCE(check_freq,'daily'), check_enabled=1, check_group1_cols=4
+        WHERE CAST(lab_id AS TEXT) IN ('11','12','13','14','011','012','013','014')
+           OR LOWER(name) LIKE '%барабан%'
+      """)
+      # Зуух (муфель зуух) — нэрээр тааруулна
+      conn.execute("""
+        UPDATE devices SET
+            check_group1='Зуухны температур', check_group2=NULL, check_group3=NULL,
+            check_param1='Температур 1', check_standard='850±10 °C', check_tolerance='6 мин - 850 °C',
+            check_param2='Температур 2', check_standard2='900±20 °C', check_tolerance2='3 мин - 900 °C',
+            check_param3=NULL, check_standard3=NULL, check_tolerance3=NULL,
+            check_param4=NULL, check_standard4=NULL, check_tolerance4=NULL,
+            check_param5=NULL, check_standard5=NULL, check_tolerance5=NULL,
+            check_freq=COALESCE(check_freq,'daily'), check_enabled=1, check_group1_cols=4
+        WHERE CAST(lab_id AS TEXT) IN ('06','07','08','006','007','008')
+           OR LOWER(name) LIKE '%муфель%' OR LOWER(name) LIKE '%muffle%'
+           OR LOWER(name) LIKE '%зуух%'
+      """)
+      # Хатаах шүүгээ — нэрээр тааруулна
+      conn.execute("""
+        UPDATE devices SET
+            check_group1='Зуухны температур', check_group2=NULL, check_group3=NULL,
+            check_param1='Температур 1', check_standard='105±2 °C', check_tolerance='±2 °C',
+            check_param2='Температур 2', check_standard2='105±2 °C', check_tolerance2='±2 °C',
+            check_param3=NULL, check_standard3=NULL, check_tolerance3=NULL,
+            check_param4=NULL, check_standard4=NULL, check_tolerance4=NULL,
+            check_param5=NULL, check_standard5=NULL, check_tolerance5=NULL,
+            check_freq=COALESCE(check_freq,'daily'), check_enabled=1, check_group1_cols=4
+        WHERE CAST(lab_id AS TEXT) IN ('19','20','21','019','020','021')
+           OR LOWER(name) LIKE '%хатаах%' OR LOWER(name) LIKE '%шүүгээ%'
+           OR LOWER(name) LIKE '%drying%'
+      """)
+      # Холигч — нэрээр тааруулна
+      conn.execute("""
+        UPDATE devices SET
+            check_group1='Зуухны температур', check_group2=NULL, check_group3=NULL,
+            check_param1='Температур 1', check_standard='850±10 °C', check_tolerance='6 мин - 850 °C',
+            check_param2='Температур 2', check_standard2='900±20 °C', check_tolerance2='3 мин - 900 °C',
+            check_param3=NULL, check_standard3=NULL, check_tolerance3=NULL,
+            check_param4=NULL, check_standard4=NULL, check_tolerance4=NULL,
+            check_param5=NULL, check_standard5=NULL, check_tolerance5=NULL,
+            check_freq=COALESCE(check_freq,'daily'), check_enabled=1, check_group1_cols=4
+        WHERE CAST(lab_id AS TEXT) IN ('15','16','015','016')
+           OR LOWER(name) LIKE '%холигч%' OR LOWER(name) LIKE '%mixer%'
+      """)
+      # Хөөлтийн зэрэг тодорхойлох багаж — зуухтай ижил
+      conn.execute("""
+        UPDATE devices SET
+            check_group1='Зуухны температур', check_group2=NULL, check_group3=NULL,
+            check_param1='Температур 1', check_standard='850±10 °C', check_tolerance='6 мин - 850 °C',
+            check_param2='Температур 2', check_standard2='900±20 °C', check_tolerance2='3 мин - 900 °C',
+            check_param3=NULL, check_standard3=NULL, check_tolerance3=NULL,
+            check_param4=NULL, check_standard4=NULL, check_tolerance4=NULL,
+            check_param5=NULL, check_standard5=NULL, check_tolerance5=NULL,
+            check_freq=COALESCE(check_freq,'daily'), check_enabled=1, check_group1_cols=4
+        WHERE name LIKE '%Хөөлт%' OR name LIKE '%хөөлт%'
+           OR name LIKE '%Алхан%' OR name LIKE '%алхан%'
+           OR name LIKE '%Аяган%' OR name LIKE '%аяган%'
+           OR name LIKE '%Роторт%' OR name LIKE '%роторт%'
+      """)
+      # Калориметр — сарын шалгалт
+      conn.execute("""
+        UPDATE devices SET
+            check_freq=COALESCE(NULLIF(check_freq,'daily'),'monthly'),
+            check_enabled=1,
+            check_param1=NULL, check_standard=NULL, check_tolerance=NULL,
+            check_param2=NULL, check_standard2=NULL, check_tolerance2=NULL,
+            check_group1='Калориметрийн шалгалт'
+        WHERE LOWER(name) LIKE '%калориметр%'
+      """)
+      # Хүхрийн багаж — сарын калибровкийн шалгалт
+      conn.execute("""
+        UPDATE devices SET
+            check_freq=COALESCE(NULLIF(check_freq,'daily'),'monthly'),
+            check_enabled=1,
+            check_param1=NULL, check_standard=NULL, check_tolerance=NULL,
+            check_param2=NULL, check_standard2=NULL, check_tolerance2=NULL,
+            check_group1='Шугман регрессийн калибровк'
+        WHERE LOWER(name) LIKE '%хүхэр%' OR LOWER(name) LIKE '%sulfur%'
+      """)
+      # Буруу орсон check_param5='5' утгыг цэвэрлэнэ
+      conn.execute("UPDATE devices SET check_param5=NULL, check_standard5=NULL, check_tolerance5=NULL WHERE check_param5='5'")
+      # Энэ блок дахин ажиллахгүй болгоно
+      conn.execute("PRAGMA user_version=1")
+    try: conn.execute("ALTER TABLE internal_qc ADD COLUMN qc_number TEXT")
+    except: pass
+    try: conn.execute("ALTER TABLE internal_qc ADD COLUMN row_num_1 INTEGER")
+    except: pass
+    try: conn.execute("ALTER TABLE internal_qc ADD COLUMN row_num_2 INTEGER")
+    except: pass
+    conn.execute("""CREATE TABLE IF NOT EXISTS internal_qc (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        qc_number TEXT,
+        triggered_date TEXT NOT NULL,
+        receipt_id_1 INTEGER REFERENCES sample_receipt(id),
+        receipt_id_2 INTEGER REFERENCES sample_receipt(id),
+        assigned_to INTEGER REFERENCES users(id),
+        status TEXT DEFAULT 'pending',
+        notes TEXT,
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS internal_qc_results (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        qc_id INTEGER REFERENCES internal_qc(id),
+        receipt_id INTEGER REFERENCES sample_receipt(id),
+        parameter TEXT,
+        original_value REAL,
+        repeat_value REAL,
+        difference REAL,
+        within_tolerance INTEGER DEFAULT 0,
+        notes TEXT
+    )""")
     conn.commit()
     conn.close()
 
 # ── REPORTS ─────────────────────────────────────────────
 @app.route('/reports')
-@senior_required
+@perm_required('can_report')
 def reports():
-    import calendar as cal_mod
     conn = get_db()
     try:
         lab_records = conn.execute(
@@ -1496,49 +2409,119 @@ def reports():
         ).fetchall()
     except Exception:
         lab_records = []
-    cur_year = datetime.now().year
     SAMPLE_TYPES_MAP = [
         ('PIT','Уурхай'),('STOCKPILE','Овоолго'),('EXPORT','Ачилт'),
         ('CONTROL','Хяналт'),('DP','Баяжуулах'),('EQ_CONTROL','Гадаад хяналт'),
     ]
     ANALYSIS_FIELDS = [
-        ('Mad','Дотоод чийг'),('Aad','Үнслэг'),('Vad','Дэгдэмхий'),
-        ('sulfur','Хүхэр'),('cal_value','Илчлэг'),
+        ('mt_dried','Нийт чийг'),('mad','Дотоод чийг'),('aad','Үнслэг'),('vad','Дэгдэмхий'),
+        ('sulfur','Хүхэр'),('cal_value','Илчлэг'),('g_coke','G индекс'),('fsi','Чөлөөт хөөлтийн зэрэг'),
     ]
-    sample_chart = {name: [] for _, name in SAMPLE_TYPES_MAP}
-    analysis_chart = {name: [] for _, name in ANALYSIS_FIELDS}
-    for m in range(1, 13):
-        d0 = f"{cur_year}-{m:02d}-01"
-        _, ld = cal_mod.monthrange(cur_year, m)
-        d1 = f"{cur_year}-{m:02d}-{ld:02d}"
-        for code, name in SAMPLE_TYPES_MAP:
-            v = conn.execute(
-                'SELECT COUNT(*) as c FROM geo_samples WHERE sample_type=? AND collected_date BETWEEN ? AND ?',
-                (code, d0, d1)).fetchone()['c']
-            sample_chart[name].append(v)
-        for field, name in ANALYSIS_FIELDS:
-            v = conn.execute(
-                f'SELECT COUNT(*) as c FROM sample_entries WHERE {field} IS NOT NULL AND done_at BETWEEN ? AND ?',
-                (d0 + ' 00:00:00', d1 + ' 23:59:59')).fetchone()['c']
-            analysis_chart[name].append(v)
+    iqc_rows = conn.execute("""
+        SELECT iq.id, iq.triggered_date, iq.status,
+            sr1.lab_number as lab1, g1.sample_name as sname1,
+            sr2.lab_number as lab2, g2.sample_name as sname2,
+            COUNT(r.id) as total,
+            SUM(r.within_tolerance) as passed
+        FROM internal_qc iq
+        LEFT JOIN sample_receipt sr1 ON sr1.id=iq.receipt_id_1
+        LEFT JOIN geo_samples g1 ON g1.id=sr1.geo_sample_id
+        LEFT JOIN sample_receipt sr2 ON sr2.id=iq.receipt_id_2
+        LEFT JOIN geo_samples g2 ON g2.id=sr2.geo_sample_id
+        LEFT JOIN internal_qc_results r ON r.qc_id=iq.id
+        GROUP BY iq.id ORDER BY iq.created_at DESC
+    """).fetchall()
     conn.close()
     return render_template('admin/reports.html', lang=session.get('lang','mn'),
-        lab_records=lab_records, sample_chart=sample_chart,
+        lab_records=lab_records,
         sample_types=[name for _, name in SAMPLE_TYPES_MAP],
-        analysis_chart=analysis_chart,
         analysis_types=[name for _, name in ANALYSIS_FIELDS],
-        cur_year=cur_year)
+        iqc_rows=iqc_rows)
+
+@app.route('/reports/chart-data')
+@perm_required('can_report')
+def reports_chart_data():
+    import calendar as cal_mod
+    rtype  = request.args.get('type', 'month')
+    year   = int(request.args.get('year', datetime.now().year))
+    month  = int(request.args.get('month', datetime.now().month))
+    week   = int(request.args.get('week', 1))
+    half   = int(request.args.get('half', 1))
+    SAMPLE_TYPES_MAP = [
+        ('PIT','Уурхай'),('STOCKPILE','Овоолго'),('EXPORT','Ачилт'),
+        ('CONTROL','Хяналт'),('DP','Баяжуулах'),('EQ_CONTROL','Гадаад хяналт'),
+    ]
+    ANALYSIS_FIELDS = [
+        ('mt_dried','Нийт чийг'),('mad','Дотоод чийг'),('aad','Үнслэг'),('vad','Дэгдэмхий'),
+        ('sulfur','Хүхэр'),('cal_value','Илчлэг'),('g_coke','G индекс'),('fsi','Чөлөөт хөөлтийн зэрэг'),
+    ]
+    conn = get_db()
+    if rtype == 'week':
+        import datetime as dt_mod
+        d0 = dt_mod.datetime.fromisocalendar(year, week, 1).date()
+        d1 = dt_mod.datetime.fromisocalendar(year, week, 7).date()
+        d0s, d1s = d0.isoformat(), d1.isoformat()
+    elif rtype == 'month':
+        _, ld = cal_mod.monthrange(year, month)
+        d0s = f"{year}-{month:02d}-01"
+        d1s = f"{year}-{month:02d}-{ld:02d}"
+    elif rtype == 'half':
+        if half == 1:
+            d0s, d1s = f"{year}-01-01", f"{year}-06-30"
+        else:
+            d0s, d1s = f"{year}-07-01", f"{year}-12-31"
+    else:
+        d0s, d1s = f"{year}-01-01", f"{year}-12-31"
+    sample_totals = []
+    for code, name in SAMPLE_TYPES_MAP:
+        v = conn.execute(
+            '''SELECT COUNT(*) FROM geo_samples g
+               JOIN sample_receipt sr ON sr.geo_sample_id=g.id
+               WHERE g.sample_type=? AND sr.received_date BETWEEN ? AND ?''',
+            (code, d0s, d1s)).fetchone()[0]
+        sample_totals.append(v)
+    analysis_totals = []
+    for field, name in ANALYSIS_FIELDS:
+        v = conn.execute(
+            f'''SELECT COUNT(*) FROM sample_entries se
+                JOIN sample_receipt sr ON sr.id=se.receipt_id
+                JOIN geo_samples g ON g.id=sr.geo_sample_id
+                WHERE se.{field} IS NOT NULL AND se.done_at BETWEEN ? AND ?''',
+            (d0s + ' 00:00:00', d1s + ' 23:59:59')).fetchone()[0]
+        analysis_totals.append(v)
+    conn.close()
+    return jsonify({
+        'sample_labels': [n for _, n in SAMPLE_TYPES_MAP],
+        'sample_data': sample_totals,
+        'analysis_labels': [n for _, n in ANALYSIS_FIELDS],
+        'analysis_data': analysis_totals,
+    })
 
 @app.route('/reports/export')
-@senior_required
+@perm_required('can_report')
 def report_export():
+    if session.get('role') == 'guest':
+        flash('Зочин горимд Excel татах боломжгүй.', 'error')
+        return redirect(url_for('reports'))
+    import datetime as dt_mod
     rtype   = request.args.get('type', 'month')
     year    = int(request.args.get('year', datetime.now().year))
     month   = int(request.args.get('month', datetime.now().month))
     quarter = int(request.args.get('quarter', 1))
     half    = int(request.args.get('half', 1))
+    week    = int(request.args.get('week', datetime.now().isocalendar()[1]))
 
-    if rtype == 'month':
+    date_filter_mode = 'ym'  # 'ym' or 'range'
+
+    if rtype == 'week':
+        # ISO week → эхлэх/дуусах огноо
+        week_start = dt_mod.datetime.fromisocalendar(year, week, 1).date()
+        week_end   = dt_mod.datetime.fromisocalendar(year, week, 7).date()
+        period_label = f"{year} оны {week}-р 7 хоног ({week_start} – {week_end})"
+        date_filter_mode = 'range'
+        date_start = str(week_start)
+        date_end   = str(week_end)
+    elif rtype == 'month':
         months = [month]
         period_label = f"{year} оны {month}-р сар"
     elif rtype == 'quarter':
@@ -1552,11 +2535,19 @@ def report_export():
         months = list(range(1,13))
         period_label = f"{year} он"
 
-    ym_list = ",".join([f"'{year}-{m:02d}'" for m in months])
-    wu  = f"strftime('%Y-%m',ul.start_time) IN ({ym_list})"
-    wc  = f"strftime('%Y-%m',c.calibration_date) IN ({ym_list})"
-    wr  = f"strftime('%Y-%m',r.reported_date) IN ({ym_list})"
-    wd  = f"strftime('%Y-%m',start_time) IN ({ym_list})"
+    if date_filter_mode == 'range':
+        wu  = f"date(ul.start_time) BETWEEN '{date_start}' AND '{date_end}'"
+        wc  = f"c.calibration_date BETWEEN '{date_start}' AND '{date_end}'"
+        wr  = f"r.reported_date BETWEEN '{date_start}' AND '{date_end}'"
+        wd  = f"date(start_time) BETWEEN '{date_start}' AND '{date_end}'"
+        ws_filter = f"sr.received_date BETWEEN '{date_start}' AND '{date_end}'"
+    else:
+        ym_list = ",".join([f"'{year}-{m:02d}'" for m in months])
+        wu  = f"strftime('%Y-%m',ul.start_time) IN ({ym_list})"
+        wc  = f"strftime('%Y-%m',c.calibration_date) IN ({ym_list})"
+        wr  = f"strftime('%Y-%m',r.reported_date) IN ({ym_list})"
+        wd  = f"strftime('%Y-%m',start_time) IN ({ym_list})"
+        ws_filter = f"strftime('%Y-%m', sr.received_date) IN ({ym_list})"
 
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -1676,7 +2667,10 @@ def report_export():
     title(ws5,'ДОТООД ШАЛГАЛТЫН БҮРТГЭЛ',8)
     for ci,h in enumerate(['№','Огноо','Төхөөрөмж','Стандарт','Хэмжсэн','Зөрүү зөвшөөрөл','Үр дүн','Тохируулга'],1):
         hdr(ws5,2,ci,h,bg='2D6A4F')
-    wch = f"strftime('%Y-%m',ch.check_date) IN ({ym_list})"
+    if date_filter_mode == 'range':
+        wch = f"ch.check_date BETWEEN '{date_start}' AND '{date_end}'"
+    else:
+        wch = f"strftime('%Y-%m',ch.check_date) IN ({ym_list})"
     chks=conn.execute(f'''SELECT ch.*,d.name as dname,u.name as uname
         FROM device_checks ch
         LEFT JOIN devices d ON d.id=ch.device_id
@@ -1714,7 +2708,137 @@ def report_export():
     for ci,w in enumerate([5,14,28,14,14,16,14,12],1):
         ws5.column_dimensions[get_column_letter(ci)].width=w
 
-    for ws in [ws1,ws2,ws3,ws4,ws5]:
+    SAMPLE_TYPE_MN = {
+        'PIT':'Уурхай (PIT)', 'STOCKPILE':'Овоолго (Stockpile)',
+        'EXPORT':'Экспорт (Export)', 'CONTROL':'Гааль (Control)',
+        'EQ_CONTROL':'Гадаад хяналт (EQ Control)', 'DP':'Баяжуулах (DP)',
+    }
+    STATUS_MN = {'pending':'Хүлээгдэж байна','received':'Хүлээн авсан',
+                 'prepared':'Бэлтгэсэн','analysing':'Шинжилж байна','done':'Дууссан'}
+
+    ws_samples=conn.execute(f'''
+        SELECT sr.lab_number, g.sample_name, g.sample_type, sr.received_date,
+               sr.mass_kg, g.quantity, g.status
+        FROM sample_receipt sr
+        JOIN geo_samples g ON g.id=sr.geo_sample_id
+        WHERE {ws_filter}
+        ORDER BY sr.received_date, sr.lab_number
+    ''').fetchall()
+
+    type_summary=conn.execute(f'''
+        SELECT g.sample_type,
+               COUNT(*) as cnt,
+               COALESCE(SUM(sr.mass_kg),0) as total_kg
+        FROM sample_receipt sr
+        JOIN geo_samples g ON g.id=sr.geo_sample_id
+        WHERE {ws_filter}
+        GROUP BY g.sample_type
+        ORDER BY cnt DESC
+    ''').fetchall()
+
+    # ── Sheet 6: Дээжний төрөл (нэгтгэсэн) ────────────────
+    ws6=wb.create_sheet('Дээжний төрөл')
+    ws6.sheet_view.showGridLines=False
+    title(ws6,'ДЭЭЖНИЙ ТӨРЛӨӨР НЭГТГЭСЭН',3)
+    for ci,h in enumerate(['Дээжний төрөл','Шинжилгээний тоо','Нийт жин (кг)'],1):
+        hdr(ws6,2,ci,h,bg=TEAL)
+    for ri,t in enumerate(type_summary,3):
+        bg=WHITE if ri%2==0 else GRAY
+        dat(ws6,ri,1,SAMPLE_TYPE_MN.get(t['sample_type'], t['sample_type'] or ''),bg=bg,left=True)
+        dat(ws6,ri,2,t['cnt'],bg=bg)
+        dat(ws6,ri,3,round(t['total_kg'],2),fmt='0.00',bg=bg)
+    tr=3+len(type_summary)
+    dat(ws6,tr,1,'НИЙТ',bold=True,bg='D6F0E8',left=True)
+    dat(ws6,tr,2,sum(t['cnt'] for t in type_summary),bold=True,bg='D6F0E8')
+    dat(ws6,tr,3,round(sum(t['total_kg'] for t in type_summary),2),fmt='0.00',bold=True,bg='D6F0E8')
+    for ci,w in enumerate([28,20,18],1):
+        ws6.column_dimensions[get_column_letter(ci)].width=w
+
+    # ── Sheet 7: Шинжилгээний үр дүн (төрлөөр нэгтгэсэн) ─
+    ws7=wb.create_sheet('Шинжилгээ')
+    ws7.sheet_view.showGridLines=False
+    title(ws7,'ШИНЖИЛГЭЭНИЙ ҮР ДҮНГИЙН ХҮСНЭГТ',11)
+    hdrs7=['№','Дээжний төрөл','Нийт дээж','Mt','Mad','Aad','Vad','Fc','St','Q','G']
+    for ci,h in enumerate(hdrs7,1):
+        hdr(ws7,2,ci,h,bg=TEAL)
+    ws7.row_dimensions[2].height=22
+
+    def has_mt(row):
+        try: return row['ff_sample'] is not None and float(row['ff_sample'])>0 and row['ff_dried'] is not None
+        except: return False
+    def has_g(row):
+        if row['g_val'] is not None: return True
+        try: return all(row[f] is not None for f in ['g_coke','g_tare','g_sieve1','g_sieve2'])
+        except: return False
+
+    type_receipts = conn.execute(f'''
+        SELECT g.sample_type, COUNT(DISTINCT sr.id) as cnt
+        FROM sample_receipt sr
+        JOIN geo_samples g ON g.id=sr.geo_sample_id
+        WHERE {ws_filter}
+        GROUP BY g.sample_type
+        ORDER BY cnt DESC
+    ''').fetchall()
+
+    analysis_rows=conn.execute(f'''
+        SELECT g.sample_type, se.mad, se.aad, se.vad, se.fc,
+               se.sulfur, se.cal_value, se.g_val,
+               se.ff_sample, se.ff_dried,
+               se.g_coke, se.g_tare, se.g_sieve1, se.g_sieve2
+        FROM sample_receipt sr
+        JOIN geo_samples g ON g.id=sr.geo_sample_id
+        JOIN sample_entries se ON se.receipt_id=sr.id
+        WHERE {ws_filter}
+          AND se.row_status IN ('done','approved')
+    ''').fetchall()
+
+    from collections import defaultdict
+    type_cnt = defaultdict(lambda: {k:0 for k in ['mt','mad','aad','vad','fc','sulfur','cal_value','g']})
+    for s in analysis_rows:
+        t = s['sample_type']
+        if has_mt(s): type_cnt[t]['mt'] += 1
+        for f in ['mad','aad','vad','fc','sulfur','cal_value']:
+            if s[f] is not None: type_cnt[t][f] += 1
+        if has_g(s): type_cnt[t]['g'] += 1
+
+    for ri, r in enumerate(type_receipts, 3):
+        bg = WHITE if ri%2==0 else GRAY
+        t = r['sample_type']
+        c = type_cnt[t]
+        dat(ws7,ri,1,ri-2,bg=bg)
+        dat(ws7,ri,2,SAMPLE_TYPE_MN.get(t,t),bg=bg,left=True)
+        dat(ws7,ri,3,r['cnt'],bg=bg)
+        dat(ws7,ri,4,c['mt'] or None,bg=bg)
+        dat(ws7,ri,5,c['mad'] or None,bg=bg)
+        dat(ws7,ri,6,c['aad'] or None,bg=bg)
+        dat(ws7,ri,7,c['vad'] or None,bg=bg)
+        dat(ws7,ri,8,c['fc'] or None,bg=bg)
+        dat(ws7,ri,9,c['sulfur'] or None,bg=bg)
+        dat(ws7,ri,10,c['cal_value'] or None,bg=bg)
+        dat(ws7,ri,11,c['g'] or None,bg=bg)
+
+    # Нийт нийлбэр мөр
+    total_row = 3 + len(type_receipts)
+    all_c = defaultdict(int)
+    for t_data in type_cnt.values():
+        for k,v in t_data.items():
+            all_c[k] += v
+    dat(ws7,total_row,1,'',bg='D6F0E8')
+    dat(ws7,total_row,2,'НИЙТ',bold=True,bg='D6F0E8',left=True)
+    dat(ws7,total_row,3,sum(r['cnt'] for r in type_receipts),bold=True,bg='D6F0E8')
+    dat(ws7,total_row,4,all_c['mt'] or None,bold=True,bg='D6F0E8')
+    dat(ws7,total_row,5,all_c['mad'] or None,bold=True,bg='D6F0E8')
+    dat(ws7,total_row,6,all_c['aad'] or None,bold=True,bg='D6F0E8')
+    dat(ws7,total_row,7,all_c['vad'] or None,bold=True,bg='D6F0E8')
+    dat(ws7,total_row,8,all_c['fc'] or None,bold=True,bg='D6F0E8')
+    dat(ws7,total_row,9,all_c['sulfur'] or None,bold=True,bg='D6F0E8')
+    dat(ws7,total_row,10,all_c['cal_value'] or None,bold=True,bg='D6F0E8')
+    dat(ws7,total_row,11,all_c['g'] or None,bold=True,bg='D6F0E8')
+
+    for ci,w in enumerate([5,24,14,10,10,10,10,10,10,10,10],1):
+        ws7.column_dimensions[get_column_letter(ci)].width=w
+
+    for ws in [ws1,ws2,ws3,ws4,ws5,ws6,ws7]:
         ws.page_setup.orientation='landscape'
         ws.page_setup.fitToPage=True; ws.page_setup.fitToWidth=1
 
@@ -1844,7 +2968,7 @@ def calculate_results(m):
             r['Y_index'] = round(4.89 + r['G_index'] ** 2 * 0.00102, 2)
 
     except Exception as e:
-        print(f"Calculation error: {e}")
+        app.logger.error(f"Calculation error: {e}")
     return r
 
 def check_qc(results, is_duplicate, meas1, meas2=None):
@@ -1878,16 +3002,55 @@ def analysis():
     role = session.get('role')
     uid = session.get('user_id', 0)
 
-    if role == 'geologist':
+    if role == 'bayjuulach':
+        # Баяжуулагч зөвхөн 6000-6999 серийн дүүрсэн ажлыг харна
+        u = conn.execute("SELECT can_view_result FROM users WHERE id=?", (uid,)).fetchone()
+        if not u or not u['can_view_result']:
+            conn.close()
+            flash('Үр дүн харах эрх байхгүй байна', 'error')
+            return redirect(url_for('dashboard'))
         samples = conn.execute("""
             SELECT g.*, u.name as reg_name,
                    sr.lab_number, sr.lab_serial, sr.received_date, sr.mass_kg, sr.id as receipt_id, sr.prep_status
             FROM geo_samples g
             LEFT JOIN users u ON u.id=g.registered_by
             LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
-            WHERE g.registered_by=? AND g.status != 'done'
-            ORDER BY sr.lab_serial DESC, g.created_at DESC LIMIT 50
-        """, (uid,)).fetchall()
+            WHERE g.status='done' AND sr.lab_serial BETWEEN 6000 AND 6999
+            ORDER BY sr.lab_serial DESC LIMIT 100
+        """).fetchall()
+        conn.close()
+        return render_template('analysis/index.html', samples=samples, lang=session.get('lang','mn'),
+            today=datetime.now().strftime('%Y-%m-%d'), prep_devices=[], pending_qc=[])
+    if role == 'geologist':
+        # Геологч зөвшөөрөгдсөн ажлын дугаарын мужийн дээжийг л харна (view_ranges).
+        # view_ranges NULL бол бүгдийг харна (default).
+        _u = conn.execute("SELECT view_ranges FROM users WHERE id=?", (uid,)).fetchone()
+        _vr = _u['view_ranges'] if _u else None
+        if _vr is None:
+            samples = conn.execute("""
+                SELECT g.*, u.name as reg_name,
+                       sr.lab_number, sr.lab_serial, sr.received_date, sr.mass_kg, sr.id as receipt_id, sr.prep_status
+                FROM geo_samples g
+                LEFT JOIN users u ON u.id=g.registered_by
+                LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
+                WHERE g.status != 'done'
+                ORDER BY sr.lab_serial DESC, g.created_at DESC LIMIT 200
+            """).fetchall()
+        else:
+            _thousands = [int(x) for x in _vr.split(',') if x.strip().isdigit()]
+            if not _thousands:
+                samples = []
+            else:
+                _ph = ','.join('?' * len(_thousands))
+                samples = conn.execute(f"""
+                    SELECT g.*, u.name as reg_name,
+                           sr.lab_number, sr.lab_serial, sr.received_date, sr.mass_kg, sr.id as receipt_id, sr.prep_status
+                    FROM geo_samples g
+                    LEFT JOIN users u ON u.id=g.registered_by
+                    LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
+                    WHERE g.status != 'done' AND (sr.lab_serial/1000) IN ({_ph})
+                    ORDER BY sr.lab_serial DESC, g.created_at DESC LIMIT 200
+                """, _thousands).fetchall()
     else:
         samples = conn.execute("""
             SELECT g.*, u.name as reg_name,
@@ -1903,17 +3066,39 @@ def analysis():
         WHERE status='active' AND COALESCE(stage,'both') IN ('prep','both')
         ORDER BY name
     """).fetchall()
+    pending_qc = conn.execute("""
+        SELECT iq.id, iq.triggered_date, iq.qc_number,
+            iq.receipt_id_1, iq.receipt_id_2, iq.row_num_1, iq.row_num_2,
+            sr1.lab_number as lab1, g1.sample_name as sname1,
+            sr2.lab_number as lab2, g2.sample_name as sname2
+        FROM internal_qc iq
+        LEFT JOIN sample_receipt sr1 ON sr1.id=iq.receipt_id_1
+        LEFT JOIN geo_samples g1 ON g1.id=sr1.geo_sample_id
+        LEFT JOIN sample_receipt sr2 ON sr2.id=iq.receipt_id_2
+        LEFT JOIN geo_samples g2 ON g2.id=sr2.geo_sample_id
+        WHERE iq.status='pending'
+        ORDER BY iq.created_at DESC
+    """).fetchall()
     conn.close()
     return render_template('analysis/index.html', samples=samples, lang=lang,
-        today=datetime.now().strftime('%Y-%m-%d'), prep_devices=prep_devices)
+        today=datetime.now().strftime('%Y-%m-%d'), prep_devices=prep_devices,
+        pending_qc=pending_qc)
 
 @app.route('/analysis/register', methods=['GET','POST'])
 @login_required
 def analysis_register():
     """Геологи дээж бүртгэнэ"""
     lang = session.get('lang','mn')
-    if session.get('role') not in ('admin','senior','staff','preparer','geologist'):
+    role = session.get('role')
+    if role not in ('admin','senior','staff','preparer','geologist','bayjuulach'):
         return redirect(url_for('dashboard'))
+    if role == 'bayjuulach':
+        conn2 = get_db()
+        u2 = conn2.execute("SELECT can_register FROM users WHERE id=?", (session.get('user_id'),)).fetchone()
+        conn2.close()
+        if not u2 or not u2['can_register']:
+            flash('Дээж бүртгэх эрх байхгүй байна.', 'error')
+            return redirect(url_for('dashboard'))
     if request.method == 'POST':
         conn = get_db()
         sample_type = request.form['sample_type']
@@ -2019,6 +3204,44 @@ def analysis_crm_register():
     return render_template('analysis/crm_register.html', today=datetime.now().strftime('%Y-%m-%d'),
                            crm_materials=crm_materials)
 
+@app.route('/analysis/sample/<int:geo_id>/edit', methods=['POST'])
+@senior_required
+def sample_edit(geo_id):
+    """Бүртгэсэн дээжийн нэр болон ажлын дугаарыг засах (Админ/Дэд админ)"""
+    lang = session.get('lang','mn')
+    new_name   = (request.form.get('sample_name') or '').strip()
+    new_serial = request.form.get('lab_serial','').strip()
+    conn = get_db()
+    geo = conn.execute("SELECT * FROM geo_samples WHERE id=?", (geo_id,)).fetchone()
+    if not geo:
+        conn.close()
+        flash('Дээж олдсонгүй.', 'error')
+        return redirect(url_for('analysis'))
+    # Нэр засах
+    if new_name:
+        conn.execute("UPDATE geo_samples SET sample_name=? WHERE id=?", (new_name, geo_id))
+    # Ажлын дугаар засах (receipt байвал)
+    if new_serial and new_serial.isdigit():
+        new_serial = int(new_serial)
+        receipt = conn.execute("SELECT * FROM sample_receipt WHERE geo_sample_id=?", (geo_id,)).fetchone()
+        if receipt:
+            # Давхцал шалгах (өөр дээж дээр ижил дугаар байвал болохгүй)
+            dup = conn.execute(
+                "SELECT id FROM sample_receipt WHERE lab_serial=? AND id!=?",
+                (new_serial, receipt['id'])).fetchone()
+            if dup:
+                conn.close()
+                flash(f'{new_serial} дугаар өөр ажилд бүртгэгдсэн байна.', 'error')
+                return redirect(request.referrer or url_for('analysis'))
+            date_str = (receipt['received_date'] or '').replace('-','')
+            new_labnum = f"{new_serial}-{date_str}" if date_str else str(new_serial)
+            conn.execute("UPDATE sample_receipt SET lab_serial=?, lab_number=? WHERE id=?",
+                         (new_serial, new_labnum, receipt['id']))
+    conn.commit()
+    conn.close()
+    flash('Дээжийн мэдээлэл засагдлаа.', 'success')
+    return redirect(request.referrer or url_for('analysis'))
+
 @app.route('/analysis/crm/chart')
 @login_required
 def crm_control_chart():
@@ -2106,7 +3329,7 @@ def analysis_receive(geo_id):
             session['user_id'],
             request.form.get('notes')
         ))
-        conn.execute("UPDATE geo_samples SET status='prepared' WHERE id=?", (geo_id,))
+        conn.execute("UPDATE geo_samples SET status='received' WHERE id=?", (geo_id,))
         conn.commit(); conn.close()
         flash(f'Дээж хүлээн авлаа! Ажлын дугаар: {lab_num}', 'success')
         return redirect(url_for('analysis'))
@@ -2247,22 +3470,30 @@ def analysis_autosave():
         field  = data.get('field')
         value  = data.get('value')
 
-        if not all([rid, row, field]):
+        if rid is None or row is None or not field:
             return jsonify({'ok': False, 'error': 'Missing params'})
 
         conn = get_db()
+        # SQL injection-оос хамгаалах: field нь sample_entries-ийн жинхэнэ багана байх ёстой
+        _cols = {r[1] for r in conn.execute("PRAGMA table_info(sample_entries)")}
+        _protected = {'id','receipt_id','row_num','is_duplicate','created_at'}
+        if field not in _cols or field in _protected:
+            conn.close()
+            return jsonify({'ok': False, 'error': 'Invalid field'})
         # Мөр байгаа эсэх шалгах
         existing = conn.execute(
             "SELECT id FROM sample_entries WHERE receipt_id=? AND row_num=? AND is_duplicate=?",
             (rid, row, is_dup)
         ).fetchone()
 
+        _empty = (value is None or value == '')
         if existing:
             conn.execute(
                 f"UPDATE sample_entries SET {field}=?, updated_by=?, updated_at=? WHERE receipt_id=? AND row_num=? AND is_duplicate=?",
                 (value, session['user_id'], datetime.now().isoformat(), rid, row, is_dup)
             )
-        else:
+        elif not _empty:
+            # Хоосон утгаар шинэ мөр үүсгэхгүй (дэмий хоосон бичлэг гарахаас сэргийлнэ)
             conn.execute(
                 f"INSERT INTO sample_entries(receipt_id, row_num, is_duplicate, {field}, updated_by, updated_at) VALUES(?,?,?,?,?,?)",
                 (rid, row, is_dup, value, session['user_id'], datetime.now().isoformat())
@@ -2286,12 +3517,13 @@ def analysis_autosave_calc():
         aad    = data.get('aad')
         vad    = data.get('vad')
         fc     = data.get('fc')
+        g_val  = data.get('g_val')
 
         conn = get_db()
         conn.execute("""
-            UPDATE sample_entries SET mad=?, aad=?, vad=?, fc=?, updated_at=?
+            UPDATE sample_entries SET mad=?, aad=?, vad=?, fc=?, g_val=?, updated_at=?
             WHERE receipt_id=? AND row_num=? AND is_duplicate=?
-        """, (mad, aad, vad, fc, datetime.now().isoformat(), rid, row, is_dup))
+        """, (mad, aad, vad, fc, g_val, datetime.now().isoformat(), rid, row, is_dup))
         conn.commit()
         conn.close()
         return jsonify({'ok': True})
@@ -2321,7 +3553,7 @@ def prep_start(receipt_id):
     conn = get_db()
     conn.execute("""UPDATE sample_receipt SET prep_status='preparing', prep_started_at=?
                    WHERE id=?""", (datetime.now().isoformat(), receipt_id))
-    conn.execute("UPDATE geo_samples SET status='preparing' WHERE id=(SELECT geo_sample_id FROM sample_receipt WHERE id=?)", (receipt_id,))
+    conn.execute("UPDATE geo_samples SET status='received' WHERE id=(SELECT geo_sample_id FROM sample_receipt WHERE id=?)", (receipt_id,))
     conn.commit(); conn.close()
     flash('Дээж бэлтгэж эхэллээ!', 'success')
     return redirect(url_for('analysis'))
@@ -2340,7 +3572,7 @@ def prep_done(receipt_id):
         WHERE id=?""", (datetime.now().isoformat(), notes,
                         prep_operator, prep_position, prep_devices,
                         receipt_id))
-    conn.execute("UPDATE geo_samples SET status='ready' WHERE id=(SELECT geo_sample_id FROM sample_receipt WHERE id=?)", (receipt_id,))
+    conn.execute("UPDATE geo_samples SET status='prepared' WHERE id=(SELECT geo_sample_id FROM sample_receipt WHERE id=?)", (receipt_id,))
     lab_num = conn.execute('SELECT lab_number FROM sample_receipt WHERE id=?', (receipt_id,)).fetchone()
     lab_str = lab_num[0] if lab_num else ''
     conn.commit(); conn.close()
@@ -2366,10 +3598,10 @@ def sample_types():
                 request.form.get('name_en',''),
                 request.form.get('icon','🧪'),
                 request.form.get('color','#185fa5'),
-                int(request.form.get('serial_from',7000)),
-                int(request.form.get('serial_to',7999)),
+                int(request.form.get('serial_from') or 7000),
+                int(request.form.get('serial_to') or 7999),
                 1 if request.form.get('is_pit') else 0,
-                int(request.form.get('sort_order',99))
+                int(request.form.get('sort_order') or 99)
             ))
             flash('Дээжний төрөл нэмэгдлээ!', 'success')
         elif action == 'toggle':
@@ -2449,7 +3681,7 @@ def row_done_all():
     return jsonify({'ok': True})
 
 @app.route('/analysis/row/approve', methods=['POST'])
-@senior_required
+@perm_required('can_approve')
 def row_approve():
     """Ахлах химич мөрийг баталгаажуулна"""
     data = request.get_json()
@@ -2473,17 +3705,50 @@ def row_approve():
     if total > 0 and total == approved:
         conn.execute("UPDATE geo_samples SET status='done' WHERE id=(SELECT geo_sample_id FROM sample_receipt WHERE id=?)", (rid,))
         conn.execute("UPDATE sample_receipt SET prep_status='done' WHERE id=?", (rid,))
+        # Энэ receipt QC ажил байвал internal_qc.status='done' болгоно
+        conn.execute("UPDATE internal_qc SET status='done' WHERE receipt_id_1=? AND status='pending'", (rid,))
         conn.commit()
     all_approved = (total > 0 and total == approved)
     conn.close()
     return jsonify({'ok': True, 'all_approved': all_approved})
 
 @app.route('/analysis/result/<int:receipt_id>')
-@login_required  
+@login_required
 def analysis_result(receipt_id):
     """Үр дүнгийн хуудас — бүх эрхэд харагдана"""
     lang = session.get('lang','mn')
+    role = session.get('role')
     conn = get_db()
+    # Баяжуулах эрхтэй: зөвхөн 6000-6999 + can_view_result=1 байвал харна
+    if role == 'bayjuulach':
+        u = conn.execute("SELECT can_view_result FROM users WHERE id=?", (session['user_id'],)).fetchone()
+        if not u or not u['can_view_result']:
+            conn.close()
+            flash('Үр дүн харах эрх байхгүй байна', 'error')
+            return redirect(url_for('dashboard'))
+        sr = conn.execute("SELECT lab_serial FROM sample_receipt WHERE id=?", (receipt_id,)).fetchone()
+        if not sr or not (6000 <= (sr['lab_serial'] or 0) <= 6999):
+            conn.close()
+            flash('Энэ ажлыг харах эрх байхгүй байна', 'error')
+            return redirect(url_for('dashboard'))
+        conn.execute("INSERT INTO result_view_log(user_id, receipt_id) VALUES(?,?)",
+                     (session['user_id'], receipt_id))
+        conn.commit()
+    elif role == 'geologist':
+        # Зөвшөөрөгдсөн мужийн дээж эсэхийг шалгана (view_ranges)
+        _u = conn.execute("SELECT view_ranges FROM users WHERE id=?", (session['user_id'],)).fetchone()
+        _vr = _u['view_ranges'] if _u else None
+        if _vr is not None:
+            _thousands = [int(x) for x in _vr.split(',') if x.strip().isdigit()]
+            _sr = conn.execute("SELECT lab_serial FROM sample_receipt WHERE id=?", (receipt_id,)).fetchone()
+            _ser = (_sr['lab_serial'] or 0) if _sr else 0
+            if (_ser // 1000) not in _thousands:
+                conn.close()
+                flash('Энэ ажлыг харах эрх байхгүй байна', 'error')
+                return redirect(url_for('analysis'))
+        conn.execute("INSERT INTO result_view_log(user_id, receipt_id) VALUES(?,?)",
+                     (session['user_id'], receipt_id))
+        conn.commit()
     receipt = conn.execute("""
         SELECT sr.*, g.sample_name, g.sample_type, g.location,
                g.collected_date, g.quantity,
@@ -2512,158 +3777,383 @@ def analysis_result(receipt_id):
 
     conn.close()
 
-    role = session.get('role')
-    pending_approve = [e for e in entries if e['row_status'] == 'done' and e['is_duplicate'] == 0]
+    # mt_result тооцоолох + display_name үүсгэх
+    import re as _re
+    _sname = receipt['sample_name'] or '' if receipt else ''
+    _sparts = [s.strip() for s in _sname.split(';')] if ';' in _sname else None
+    _m1 = _re.match(r'^(.*?)(\d+)\s*[-–]\s*(\d+)\s*$', _sname)
+    _m2 = _re.match(r'^(.*?)(\d+)$', _sname) if not _m1 else None
+    entries_list = []
+    for e in entries:
+        ed = dict(e)
+        try:
+            mt_s = ed.get('mt_sample') or 0
+            mt_t = ed.get('mt_tare') or 0
+            mt_d = ed.get('mt_dried') or 0
+            if mt_s and mt_s > 0:
+                ed['mt_result'] = (mt_s - (mt_d - mt_t)) / mt_s * 100
+            else:
+                ed['mt_result'] = None
+        except:
+            ed['mt_result'] = None
+        rn = ed.get('row_num', 1)
+        en = ed.get('sample_name') or ''
+        if en and en != _sname:
+            ed['display_name'] = en
+        elif _sparts and len(_sparts) >= rn:
+            ed['display_name'] = _sparts[rn - 1]
+        elif _m1:
+            ed['display_name'] = _m1.group(1) + str(int(_m1.group(2)) + rn - 1)
+        elif _m2:
+            ed['display_name'] = _m2.group(1) + str(int(_m2.group(2)) + rn - 1)
+        else:
+            ed['display_name'] = _sname
+        entries_list.append(ed)
+    # Мөр бүрийн нэр (entry байхгүй мөрөнд fallback болгон ашиглана)
+    _qty = (receipt['quantity'] or 1) if receipt else 1
+    row_names = []
+    for _rn in range(1, _qty + 1):
+        if _sparts and len(_sparts) >= _rn:
+            row_names.append(_sparts[_rn - 1])
+        elif _m1:
+            row_names.append(_m1.group(1) + str(int(_m1.group(2)) + _rn - 1))
+        elif _m2:
+            row_names.append(_m2.group(1) + str(int(_m2.group(2)) + _rn - 1))
+        else:
+            row_names.append(_sname)
+
+    qc_row = request.args.get('qc_row', type=int)
+    qc_id = request.args.get('qc_id', type=int)
+    if qc_row:
+        entries_list = [e for e in entries_list if e['row_num'] == qc_row]
+    pending_approve = [e for e in entries_list if e['row_status'] == 'done' and e['is_duplicate'] == 0]
     return render_template('analysis/result.html',
-        receipt=receipt, entries=entries, lang=lang, role=role, crm_cert=crm_cert,
-        pending_approve=pending_approve)
+        receipt=receipt, entries=entries_list, lang=lang, role=role, crm_cert=crm_cert,
+        pending_approve=pending_approve, qc_row=qc_row, qc_id=qc_id, row_names=row_names)
+
+
+def _restore_template_images(tmpl_path, buf):
+    """openpyxl нь Pillow суугаагүй (эсвэл хуучин хувилбартай) орчинд template-ийн
+    зургуудыг (logo) алдуулдаг. Гаралтын sheet1-д drawing холбоос байхгүй бол
+    эх template-ийн drawing + media хэсгүүдийг zip түвшинд буцааж хуулна."""
+    import zipfile, io, re
+    import xml.etree.ElementTree as ET
+
+    buf.seek(0)
+    zout = zipfile.ZipFile(buf, 'r')
+    try:
+        s1 = zout.read('xl/worksheets/sheet1.xml').decode('utf-8')
+    except KeyError:
+        zout.close(); buf.seek(0); return buf
+    if '<drawing ' in s1 or '<drawing/' in s1:
+        zout.close(); buf.seek(0); return buf  # зургууд хадгалагдсан байна
+
+    REL_NS = 'http://schemas.openxmlformats.org/package/2006/relationships'
+    CT_NS = 'http://schemas.openxmlformats.org/package/2006/content-types'
+    ztmpl = zipfile.ZipFile(tmpl_path, 'r')
+
+    # Template sheet1 → drawing хэсгийг олох
+    try:
+        trels = ET.fromstring(ztmpl.read('xl/worksheets/_rels/sheet1.xml.rels'))
+    except KeyError:
+        ztmpl.close(); zout.close(); buf.seek(0); return buf
+    drawing_part = None
+    for rel in trels.findall(f'{{{REL_NS}}}Relationship'):
+        if rel.get('Type', '').endswith('/drawing'):
+            drawing_part = 'xl/' + rel.get('Target', '').replace('../', '')
+            break
+    if not drawing_part:
+        ztmpl.close(); zout.close(); buf.seek(0); return buf
+
+    drawing_xml = ztmpl.read(drawing_part)
+    drawing_rels_part = 'xl/drawings/_rels/' + drawing_part.rsplit('/', 1)[-1] + '.rels'
+    drawing_rels = ztmpl.read(drawing_rels_part).decode('utf-8')
+
+    # Drawing-д хэрэглэгддэг media файлууд (нэрийг нь tmpl_ prefix-тэй болгож мөргөлдөөнөөс сэргийлнэ)
+    media_map = {}  # эх нэр → шинэ нэр
+    for tgt in re.findall(r'Target="(\.\./media/[^"]+)"', drawing_rels):
+        old = 'xl/' + tgt.replace('../', '')
+        new = 'xl/media/tmpl_' + old.rsplit('/', 1)[-1]
+        media_map[old] = new
+        drawing_rels = drawing_rels.replace(tgt, '../media/tmpl_' + old.rsplit('/', 1)[-1])
+
+    new_drawing_part = 'xl/drawings/drawingTmplLogo.xml'
+    new_drawing_rels_part = 'xl/drawings/_rels/drawingTmplLogo.xml.rels'
+    rel_id = 'rIdTmplLogo'
+
+    # sheet1.xml-д <drawing/> элемент нэмэх (schema дараалал: tableParts/extLst-ээс өмнө)
+    ins = len(s1)
+    for anchor in ('<tableParts', '<extLst', '</worksheet>'):
+        i = s1.find(anchor)
+        if i != -1:
+            ins = min(ins, i)
+    s1 = (s1[:ins]
+          + f'<drawing xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="{rel_id}"/>'
+          + s1[ins:])
+
+    # sheet1-ийн rels-д drawing relationship нэмэх (байхгүй бол шинээр үүсгэнэ)
+    sheet_rels_part = 'xl/worksheets/_rels/sheet1.xml.rels'
+    rel_elem = (f'<Relationship Id="{rel_id}" '
+                f'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" '
+                f'Target="../drawings/drawingTmplLogo.xml"/>')
+    try:
+        srels = zout.read(sheet_rels_part).decode('utf-8')
+        srels = srels.replace('</Relationships>', rel_elem + '</Relationships>')
+    except KeyError:
+        srels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                 f'<Relationships xmlns="{REL_NS}">' + rel_elem + '</Relationships>')
+
+    # [Content_Types].xml — зургийн өргөтгөлүүд ба drawing override нэмэх
+    ct = zout.read('[Content_Types].xml').decode('utf-8')
+    ct_add = ''
+    ext_types = {'jpeg': 'image/jpeg', 'jpg': 'image/jpeg', 'png': 'image/png',
+                 'emf': 'image/x-emf', 'wdp': 'image/vnd.ms-photo'}
+    for new in media_map.values():
+        ext = new.rsplit('.', 1)[-1].lower()
+        if ext in ext_types and f'Extension="{ext}"' not in ct + ct_add:
+            ct_add += f'<Default Extension="{ext}" ContentType="{ext_types[ext]}"/>'
+    ct_add += (f'<Override PartName="/{new_drawing_part}" '
+               f'ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>')
+    ct = ct.replace('</Types>', ct_add + '</Types>')
+
+    # Шинэ zip угсрах
+    out = io.BytesIO()
+    replaced = {'xl/worksheets/sheet1.xml': s1.encode('utf-8'),
+                sheet_rels_part: srels.encode('utf-8'),
+                '[Content_Types].xml': ct.encode('utf-8')}
+    with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as znew:
+        for item in zout.infolist():
+            data = replaced.pop(item.filename, None) or zout.read(item.filename)
+            znew.writestr(item, data)
+        for name, data in replaced.items():
+            znew.writestr(name, data)
+        znew.writestr(new_drawing_part, drawing_xml)
+        znew.writestr(new_drawing_rels_part, drawing_rels.encode('utf-8'))
+        for old, new in media_map.items():
+            znew.writestr(new, ztmpl.read(old))
+    ztmpl.close(); zout.close()
+    out.seek(0)
+    return out
 
 
 @app.route('/analysis/export/<int:receipt_id>')
 @login_required
 def analysis_export(receipt_id):
-    """Үр дүнг Excel файлаар татаж авах"""
     import openpyxl
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-    from openpyxl.utils import get_column_letter
-    import io
+    from openpyxl.styles import Font, Alignment
+    import io, os
+    # Харилцагч эрх шалгах
+    role = session.get('role')
+    if role in ('geologist', 'bayjuulach'):
+        conn_chk = get_db()
+        u = conn_chk.execute("SELECT can_export FROM users WHERE id=?", (session['user_id'],)).fetchone()
+        conn_chk.close()
+        if not u or not u['can_export']:
+            flash('Excel татах эрх байхгүй байна', 'error')
+            return redirect(url_for('analysis_result', receipt_id=receipt_id))
 
     conn = get_db()
     receipt = conn.execute("""
         SELECT sr.*, g.sample_name, g.sample_type, g.location,
                g.collected_date, g.quantity,
-               ug.name as geo_name, up.name as prep_name
+               ug.name as geo_name, up.name as prep_name,
+               uf.name as fm_op_name, um.name as mt_op_name
         FROM sample_receipt sr
         JOIN geo_samples g ON g.id=sr.geo_sample_id
         LEFT JOIN users ug ON ug.id=g.registered_by
         LEFT JOIN users up ON up.id=sr.received_by
+        LEFT JOIN users uf ON uf.id=sr.fm_operator
+        LEFT JOIN users um ON um.id=sr.mt_operator
         WHERE sr.id=?
     """, (receipt_id,)).fetchone()
-
     entries = conn.execute("""
-        SELECT * FROM sample_entries
-        WHERE receipt_id=?
-        ORDER BY row_num, is_duplicate
+        SELECT * FROM sample_entries WHERE receipt_id=? ORDER BY row_num, is_duplicate
     """, (receipt_id,)).fetchall()
+    # Гарын үсгийн блокт зориулж: шинжилсэн химич, баталсан хүмүүсийн нэр
+    chemist_names = [r['name'] for r in conn.execute("""
+        SELECT DISTINCT u.name FROM sample_entries se JOIN users u ON u.id=se.done_by
+        WHERE se.receipt_id=? AND se.done_by IS NOT NULL ORDER BY u.name""", (receipt_id,)).fetchall()]
+    approver_names = [r['name'] for r in conn.execute("""
+        SELECT DISTINCT u.name FROM sample_entries se JOIN users u ON u.id=se.approved_by
+        WHERE se.receipt_id=? AND se.approved_by IS NOT NULL ORDER BY u.name""", (receipt_id,)).fetchall()]
     conn.close()
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Үр дүн"
+    # Template ачаалах
+    tmpl = os.path.join(os.path.dirname(__file__), 'static', 'report_template.xlsx')
+    wb = openpyxl.load_workbook(tmpl)
+    ws = wb.worksheets[0]
 
-    # Өнгө тодорхойлох
-    hdr_fill = PatternFill("solid", fgColor="1E3A5F")
-    hdr2_fill = PatternFill("solid", fgColor="2D5282")
-    done_fill = PatternFill("solid", fgColor="FFF8F0")
-    appr_fill = PatternFill("solid", fgColor="E6FFF8")
-    dup_fill  = PatternFill("solid", fgColor="EEF5FF")
-    hdr_font  = Font(bold=True, color="FFFFFF", size=10)
-    hdr2_font = Font(color="BEE3F8", size=9)
+    # Лого дахин нэмэх (template доторх wmf лого openpyxl-д хасагддаг тул)
+    try:
+        from openpyxl.drawing.image import Image as _XLImage
+        _logo_path = os.path.join(os.path.dirname(__file__), 'static', 'logo.png')
+        if os.path.exists(_logo_path):
+            _img = _XLImage(_logo_path)
+            _img.width = 80
+            _img.height = 115
+            ws.add_image(_img, 'A1')
+    except Exception:
+        pass
 
-    thin = Side(style='thin', color="D0D0C8")
-    med  = Side(style='medium', color="555555")
-    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    # ── Мэдээлэл нөхөх ──────────────────────────────────────
+    TYPE_DISPLAY = {
+        'PIT':'Уурхай\nPIT','STOCKPILE':'Овоолго\nStockpile','EXPORT':'Экспорт\nExport',
+        'CONTROL':'Гааль\nControl','EQ_CONTROL':'Гадаад хяналт\nEQ control','DP':'Баяжуулах\nDP',
+    }
 
-    # 1-р мөр: Мэдээлэл
-    ws.merge_cells('A1:M1')
-    ws['A1'] = f"Ажлын дугаар: {receipt['lab_number']}  |  {receipt['sample_name']}  |  {receipt['sample_type']}  |  Огноо: {receipt['collected_date']}  |  Геологи: {receipt['geo_name'] or '—'}"
-    ws['A1'].font = Font(bold=True, size=11, color="1E3A5F")
-    ws.row_dimensions[1].height = 20
+    # A9: гарчиг template-ийн дагуу (дугаар нь C12-т бичигдэнэ)
 
-    # 2-р мөр: Толгой
-    headers = ['No.', 'Дээжний нэр', 'Статус', 'Mt %', 'Mad %', 'Aad %', 'Vad %', 'FCad %', 'Sad %', 'Qb,ad J/g', 'G', 'CSN', 'Тэмдэглэл']
-    for ci, h in enumerate(headers, 1):
-        cell = ws.cell(2, ci, h)
-        cell.fill = hdr_fill
-        cell.font = hdr_font
-        cell.alignment = Alignment(horizontal='center', vertical='center')
-        cell.border = border
-    ws.row_dimensions[2].height = 18
+    # C12: лаб дугаар
+    ws['C12'] = receipt['lab_number']
 
-    # Өгөгдөл
-    row_data = {}
-    for e in entries:
-        key = (e['row_num'], e['is_duplicate'])
-        row_data[key] = e
+    # H12: хүлээн авсан огноо
+    ws['H12'] = receipt['received_date'] or ''
 
-    data_row = 3
+    # C13: дээжний төрөл
+    ws['C13'] = TYPE_DISPLAY.get(receipt['sample_type'], receipt['sample_type'])
+
+    # H13: шинжилгээ хийсэн огноо
+    analysed = receipt['prep_done_at'] or ''
+    if analysed and 'T' in str(analysed):
+        analysed = str(analysed).split('T')[0]
+    ws['H13'] = analysed
+
+    # H14: тайлан хэвлэсэн огноо
+    ws['H14'] = datetime.now().strftime('%Y-%m-%d')
+
+    # ── Өгөгдлийн мөрүүд (20-р мөрөөс) ─────────────────────
+    row_map = {(e['row_num'], e['is_duplicate']): e for e in entries}
+
+    def safe(e, field, dec=None):
+        try:
+            v = e[field]
+            if v is None:
+                return None
+            return round(float(v), dec) if dec is not None else v
+        except Exception:
+            return None
+
+    def calc_mt(e):
+        # Нийт чийг = чөлөөт чийг + үлдэгдэл чийг (measure хуудастай ижил)
+        # Бүрэн нарийвчлалтай буцаана — харагдац нь нүдний тоон форматаар (0.0)
+        fs = safe(e, 'ff_sample'); fd = safe(e, 'ff_dried')
+        chch = ((fs - fd) / fs * 100) if (fs and fs > 0 and fd is not None) else 0
+        mtt = safe(e, 'mt_tare'); mts = safe(e, 'mt_sample'); mtd = safe(e, 'mt_dried')
+        if mtt is not None and mts and mts > 0 and mtd is not None:
+            tm_raw = (mtt + mts - mtd) / mts * 100
+            return (chch + tm_raw * (1 - chch / 100)) if chch else tm_raw
+        return None
+
+    def calc_g(e):
+        try:
+            if e['g_val'] is not None:
+                return float(e['g_val'])
+            gc = safe(e,'g_coke'); gt = safe(e,'g_tare')
+            gs1 = safe(e,'g_sieve1'); gs2 = safe(e,'g_sieve2')
+            if gc is not None and gt is not None and gs1 is not None and gs2 is not None:
+                d = gc - gt
+                if d > 0:
+                    return 10 + (30 * (gs1 - gt) + 70 * (gs2 - gt)) / d
+        except Exception:
+            pass
+        return None
+
+    # Тоон формат — албан тайлангийн жишиг файлтай ижил (утга бүрэн нарийвчлалтай
+    # хадгалагдаж, харагдац нь форматаар зохицуулагдана)
+    COL_FMT = {3: '0.0', 4: '0.0', 5: '0.00', 6: '0.00', 7: '0.00', 8: '0.00',
+               9: '0.00', 10: '0.00', 11: '0.00', 12: '0.00', 13: '0.00',
+               14: '0', 15: '0', 16: '0', 17: '0.0'}
+
+    data_row = 20
     for ri in range(1, (receipt['quantity'] or 1) + 1):
-        e  = row_data.get((ri, 0))
-        de = row_data.get((ri, 1))
-        is_done     = e and e['row_status'] in ('done','approved')
-        is_approved = e and e['row_status'] == 'approved'
+        e  = row_map.get((ri, 0))
+        de = row_map.get((ri, 1))
 
-        fill = appr_fill if is_approved else (done_fill if is_done else PatternFill())
+        # Тооцоолсон үзүүлэлтүүд — үр дүнгийн хуудасны (result.html) томьёотой ижил
+        mt  = calc_mt(e)
+        mad = safe(e,'mad'); aad = safe(e,'aad'); vad = safe(e,'vad')
+        sulfur = safe(e,'sulfur'); cal = safe(e,'cal_value')
+        adb = vdb = vdaf = sdb = qb_ad = qnet_ar = None
+        if mad is not None and (100 - mad) > 0:
+            if aad:    adb = aad * 100 / (100 - mad)
+            if vad:    vdb = vad * 100 / (100 - mad)
+            if sulfur: sdb = sulfur * 100 / (100 - mad)
+            if vad and aad is not None and (100 - mad - aad) > 0:
+                vdaf = vad * 100 / (100 - mad - aad)
+        if cal:
+            qb_ad = cal / 4.1868
+            if (sulfur is not None and mad is not None and aad is not None
+                    and vad is not None and mt is not None and (100 - mad) > 0):
+                qgr_ad_jg = cal - (sulfur * 94.1 + cal * 0.0016)
+                _vdaf = vad * 100 / (100 - mad - aad) if (100 - mad - aad) > 0 else 0
+                _adb = aad * 100 / (100 - mad)
+                hdaf = 2.888 + 0.393 * (_vdaf ** 0.5) - 0.0023 * _adb
+                had = hdaf * (100 - mad - aad) / 100
+                qnet_ar = ((qgr_ad_jg - 206 * had) * ((100 - mt) / (100 - mad))
+                           - 23 * mt) / 4.1868
 
-        vals = [
-            ri,
-            e['sample_name'] if e and e['sample_name'] else '—',
-            '🟢 Баталгаажсан' if is_approved else ('🟠 Урьдчилсан' if is_done else '⬜ Хүлээгдэж байна'),
-            None,  # Mt
-            round(e['mad'], 4) if e and e['mad'] else None,
-            round(e['aad'], 4) if e and e['aad'] else None,
-            round(e['vad'], 4) if e and e['vad'] else None,
-            round(e['fc'],  4) if e and e['fc']  else None,
-            round(e['sulfur'], 3) if e and e['sulfur'] else None,
-            round(e['cal_value'], 1) if e and e['cal_value'] else None,
-            None,  # G
-            round(e['fsi'], 1) if e and e['fsi'] else None,
-            '',
-        ]
-
-        for ci, v in enumerate(vals, 1):
-            cell = ws.cell(data_row, ci, v)
-            cell.fill = fill
-            cell.border = border
-            cell.alignment = Alignment(horizontal='center' if ci != 2 else 'left', vertical='center')
-            if ci >= 4 and v is not None:
-                cell.number_format = '0.0000' if ci <= 8 else ('0.000' if ci == 9 else '0.0')
-        ws.row_dimensions[data_row].height = 16
+        vals = {1: ri, 2: safe(e,'sample_name') or f'Дээж {ri}', 3: safe(e,'mass_kg'),
+                4: mt, 5: safe(e,'mad'), 6: safe(e,'aad'), 7: adb, 8: safe(e,'vad'),
+                9: vdb, 10: vdaf, 11: safe(e,'fc'), 12: safe(e,'sulfur'), 13: sdb,
+                14: qb_ad, 15: qnet_ar, 16: calc_g(e), 17: safe(e,'fsi')}
+        for col, v in vals.items():
+            cell = ws.cell(data_row, col, v)
+            if col in COL_FMT:
+                cell.number_format = COL_FMT[col]
         data_row += 1
 
-        # Зэрэгцээ мөр
-        if de and de['row_status'] in ('done', 'approved'):
-            dup_vals = [
-                '', '↳ зэрэгцээ', '',
-                None,
-                round(de['mad'], 4) if de['mad'] else None,
-                round(de['aad'], 4) if de['aad'] else None,
-                round(de['vad'], 4) if de['vad'] else None,
-                round(de['fc'],  4) if de['fc']  else None,
-                round(de['sulfur'], 3) if de['sulfur'] else None,
-                round(de['cal_value'], 1) if de['cal_value'] else None,
-                None, None, '',
-            ]
-            for ci, v in enumerate(dup_vals, 1):
-                cell = ws.cell(data_row, ci, v)
-                cell.fill = dup_fill
-                cell.border = border
-                cell.alignment = Alignment(horizontal='center', vertical='center')
-                if ci == 2:
-                    cell.font = Font(italic=True, color="185FA5", size=9)
-            ws.row_dimensions[data_row].height = 14
-            data_row += 1
+    # ── Гарын үсгийн блок (template мөр 196-199, дараа нь дээш шилжинэ) ────
+    ws['B196'] = 'Шинжилгээ хийсэн: Химич\n/Analysed: Chemist/'
+    for i, name in enumerate(chemist_names[:3]):
+        ws.cell(196 + i, 7, f'/{name}/')
+    ws['K196'] = 'Дээж бэлтгэсэн: Дээж бэлтгэгч\n/Sample prepared: Sample preparer/'
+    preparers = [p for p in dict.fromkeys(
+        [receipt['prep_operator'], receipt['fm_op_name'], receipt['mt_op_name']]) if p]
+    for i, name in enumerate(preparers[:2]):
+        ws.cell(196 + i, 16, f'/{name}/')
+    ws['B199'] = 'Шинжилгээ хийсэн: Ахлах химич\n/Analysed: Senior Chemist/'
+    ws['J199'] = 'Хянсан: Лаборатори хариуцсан ахлах мэргэжилтэн\n/Checked: Senior Laboratory Specialist/ '
+    if approver_names:
+        ws['P199'] = f'/{approver_names[0]}/'
 
-    # Баганы өргөн
-    col_widths = [5, 20, 16, 8, 10, 10, 10, 10, 8, 12, 8, 8, 14]
-    for ci, w in enumerate(col_widths, 1):
-        ws.column_dimensions[get_column_letter(ci)].width = w
+    # ── Ашиглагдаагүй мөрүүдийг устгах (template-д 20..189 = 170 мөр байдаг) ──
+    n_rows = receipt['quantity'] or 1
+    TMPL_ROWS = 170
+    if n_rows < TMPL_ROWS:
+        start = 20 + n_rows          # эхний устгах мөр
+        count = TMPL_ROWS - n_rows
+        cut_end = start + count      # footer-ийн хуучин эхлэл (мөр 190)
+        # openpyxl delete_rows нь merged муж, мөрийн өндрийг шилжүүлдэггүй —
+        # гараар зөөнө
+        below = []
+        for rng in list(ws.merged_cells.ranges):
+            if rng.min_row >= cut_end:
+                below.append((rng.min_col, rng.min_row, rng.max_col, rng.max_row))
+                ws.unmerge_cells(str(rng))
+            elif rng.min_row >= start:
+                ws.unmerge_cells(str(rng))
+        heights = {r: d.height for r, d in list(ws.row_dimensions.items())
+                   if r >= cut_end and d.height is not None}
+        for r in [r for r in list(ws.row_dimensions) if r >= start]:
+            del ws.row_dimensions[r]
+        ws.delete_rows(start, count)
+        for c1, r1, c2, r2 in below:
+            ws.merge_cells(start_row=r1 - count, start_column=c1,
+                           end_row=r2 - count, end_column=c2)
+        for r, h in heights.items():
+            ws.row_dimensions[r - count].height = h
+        ws.print_area = f'A1:Q{200 - count}'
 
-    # Freeze
-    ws.freeze_panes = 'A3'
 
-    # Excel файл буцаах
     output = io.BytesIO()
     wb.save(output)
+    output = _restore_template_images(tmpl, output)
     output.seek(0)
 
     fname = f"result_{receipt['lab_number']}_{datetime.now().strftime('%Y%m%d')}.xlsx"
-    return send_file(
-        output,
+    return send_file(output,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        as_attachment=True,
-        download_name=fname
-    )
+        as_attachment=True, download_name=fname)
 
 
 # ── DEVICE USAGE ─────────────────────────────────────────
@@ -2675,20 +4165,21 @@ def device_map():
     conn = get_db()
     if request.method == 'POST':
         analysis_type = request.form.get('analysis_type')
-        device_id = request.form.get('device_id')
-        # Хуучин устгаад шинэ нэмэх
+        device_ids = request.form.getlist('device_ids[]')
         conn.execute("DELETE FROM analysis_device_map WHERE analysis_type=?", (analysis_type,))
-        if device_id:
-            conn.execute("""INSERT INTO analysis_device_map(analysis_type, device_id, updated_by, updated_at)
-                           VALUES(?,?,?,?)""",
-                        (analysis_type, device_id, session['user_id'], datetime.now().isoformat()))
+        for did in device_ids:
+            if did:
+                conn.execute("""INSERT INTO analysis_device_map(analysis_type, device_id, is_active, updated_by, updated_at)
+                               VALUES(?,?,1,?,?)""",
+                            (analysis_type, did, session['user_id'], datetime.now().isoformat()))
         conn.commit()
         conn.close()
         return jsonify({'ok': True})
-    
+
     devices = conn.execute("SELECT * FROM devices WHERE status='active' AND (stage='analysis' OR stage='both' OR stage IS NULL) ORDER BY name").fetchall()
-    mapping = {r['analysis_type']: r['device_id'] for r in
-               conn.execute("SELECT * FROM analysis_device_map WHERE is_active=1").fetchall()}
+    mapping = {}
+    for r in conn.execute("SELECT * FROM analysis_device_map WHERE is_active=1").fetchall():
+        mapping.setdefault(r['analysis_type'], []).append(r['device_id'])
     conn.close()
     return jsonify({'devices': [dict(d) for d in devices], 'mapping': mapping})
 
@@ -2772,9 +4263,19 @@ def analysis_measure_multi():
     ids_str = request.args.get('ids','')
     if not ids_str:
         return redirect(url_for('analysis'))
-    
+
     ids = [int(i) for i in ids_str.split(',') if i.strip().isdigit()]
-    
+
+    # qc_rows параметр: "rid1:rn1,rid2:rn2" — зөвхөн тодорхой мөрийг харуулах
+    qc_rows_str = request.args.get('qc_rows','')
+    qc_row_map = {}  # {receipt_id: row_num}
+    if qc_rows_str:
+        for part in qc_rows_str.split(','):
+            if ':' in part:
+                r, n = part.split(':', 1)
+                if r.strip().isdigit() and n.strip().isdigit():
+                    qc_row_map[int(r.strip())] = int(n.strip())
+
     receipts = []
     for rid in ids:
         r = conn.execute("""
@@ -2789,14 +4290,16 @@ def analysis_measure_multi():
         """, (rid,)).fetchone()
         if r:
             receipts.append(r)
-    
+
     conn.close()
     if not receipts:
         return redirect(url_for('analysis'))
-    
-    return render_template('analysis/measure_multi.html', 
+
+    qc_receipt_ids = [str(k) for k in qc_row_map.keys()]
+    qc_id = request.args.get('qc_id', type=int)
+    return render_template('analysis/measure_multi.html',
         receipts=receipts, lang=lang,
-        ids=ids_str)
+        ids=ids_str, qc_row_map=qc_row_map, qc_receipt_ids=qc_receipt_ids, qc_id=qc_id)
 
 # ── LAB SETTINGS ────────────────────────────────────────
 import json as _json
@@ -2986,183 +4489,110 @@ def backup_db():
     fname = f"lab_backup_{dt.now().strftime('%Y%m%d_%H%M%S')}.db"
     return send_file(db_path, as_attachment=True, download_name=fname)
 
-
-# ── ЦАЙНЫ ГАЗРЫН МЕНЮ ───────────────────────────────────
-MEAL_TYPES = [
-    ('breakfast', 'Өглөөний цай', '🌅'),
-    ('lunch',     'Өдрийн хоол',  '☀️'),
-    ('dinner',    'Оройн хоол',   '🌙'),
-]
-DISH_CATEGORIES = [
-    ('soup',   'Шөл',                    '🍲'),
-    ('main',   'Үндсэн хоол',            '🍛'),
-    ('salad',  'Салат',                  '🥗'),
-    ('bakery', 'Гурилан бүтээгдэхүүн',   '🥟'),
-    ('dessert','Амттан',                 '🍰'),
-    ('drink',  'Ундаа',                  '🥤'),
-]
-
-def _canteen_week_range():
-    """Энэ долоо хоногийн Даваагаас 14 хоног"""
-    from datetime import timedelta
-    today = date.today()
-    monday = today - timedelta(days=today.weekday())
-    return [monday + timedelta(days=i) for i in range(14)]
-
-@app.route('/canteen')
+# ── ШАЛГАЛТЫН ЗАГВАР (check templates) ──────────────────
+@app.route('/check-templates')
 @login_required
-def canteen():
-    days = _canteen_week_range()
-    start, end = days[0].isoformat(), days[-1].isoformat()
+def check_templates_list():
     conn = get_db()
-    rows = conn.execute("""
-        SELECT m.menu_date, m.meal, d.name, d.category, d.description, d.price, d.kcal, d.photo
-        FROM canteen_menu m JOIN canteen_dishes d ON d.id = m.dish_id
-        WHERE m.menu_date BETWEEN ? AND ? AND d.is_active = 1
-        ORDER BY m.menu_date, m.meal, m.sort_order, d.name
-    """, (start, end)).fetchall()
+    rows = conn.execute("SELECT * FROM check_templates ORDER BY name").fetchall()
     conn.close()
-    menu = {}
-    for r in rows:
-        menu.setdefault(r['menu_date'], {}).setdefault(r['meal'], []).append({
-            'name': r['name'], 'category': r['category'], 'desc': r['description'],
-            'price': r['price'], 'kcal': r['kcal'], 'photo': r['photo'],
+    return jsonify([dict(r) for r in rows])
+
+@app.route('/check-templates/add', methods=['POST'])
+@senior_required
+def check_templates_add():
+    conn = get_db()
+    data = request.get_json()
+    conn.execute("""INSERT INTO check_templates
+        (name,param1,standard1,tolerance1,param2,standard2,tolerance2,
+         param3,standard3,tolerance3,param4,standard4,tolerance4,created_by)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+        data.get('name'), data.get('param1'), data.get('standard1'), data.get('tolerance1'),
+        data.get('param2'), data.get('standard2'), data.get('tolerance2'),
+        data.get('param3'), data.get('standard3'), data.get('tolerance3'),
+        data.get('param4'), data.get('standard4'), data.get('tolerance4'),
+        session.get('user_id')
+    ))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+@app.route('/check-templates/<int:tid>/delete', methods=['POST'])
+@senior_required
+def check_templates_delete(tid):
+    conn = get_db()
+    conn.execute("DELETE FROM check_templates WHERE id=?", (tid,))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+@app.route('/backup/list')
+@admin_required
+def backup_list():
+    import glob, os
+    inst = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance')
+    files = []
+    for f in sorted(glob.glob(os.path.join(inst, 'lab_backup_*.db')), reverse=True):
+        stat = os.stat(f)
+        files.append({
+            'name': os.path.basename(f),
+            'size': stat.st_size,
+            'mtime': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M')
         })
-    cats = {c: {'name': n, 'icon': i} for c, n, i in DISH_CATEGORIES}
-    return render_template('canteen/app.html',
-                           menu=menu, days=[d.isoformat() for d in days],
-                           today=date.today().isoformat(),
-                           meals=MEAL_TYPES, cats=cats)
+    return jsonify(files)
 
-@app.route('/canteen/manage')
-@senior_required
-def canteen_manage():
-    days = _canteen_week_range()
-    start, end = days[0].isoformat(), days[-1].isoformat()
-    conn = get_db()
-    dishes = conn.execute(
-        "SELECT * FROM canteen_dishes ORDER BY is_active DESC, category, name").fetchall()
-    entries = conn.execute("""
-        SELECT m.id, m.menu_date, m.meal, d.name, d.category, d.price
-        FROM canteen_menu m JOIN canteen_dishes d ON d.id = m.dish_id
-        WHERE m.menu_date BETWEEN ? AND ?
-        ORDER BY m.menu_date, m.meal, m.sort_order, d.name
-    """, (start, end)).fetchall()
-    conn.close()
-    plan = {}
-    for e in entries:
-        plan.setdefault(e['menu_date'], {}).setdefault(e['meal'], []).append(e)
-    cats = {c: {'name': n, 'icon': i} for c, n, i in DISH_CATEGORIES}
-    meals = {m: {'name': n, 'icon': i} for m, n, i in MEAL_TYPES}
-    return render_template('canteen/manage.html',
-                           dishes=dishes, plan=plan,
-                           days=[d.isoformat() for d in days],
-                           today=date.today().isoformat(),
-                           cats=cats, cat_list=DISH_CATEGORIES,
-                           meals=meals, meal_list=MEAL_TYPES)
+@app.route('/backup/download/<filename>')
+@admin_required
+def backup_download(filename):
+    import re
+    if not re.match(r'^lab_backup_[\d_]+\.db$', filename):
+        return 'Invalid', 400
+    inst = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance')
+    path = os.path.join(inst, filename)
+    if not os.path.exists(path):
+        return 'Not found', 404
+    return send_file(path, as_attachment=True, download_name=filename)
 
-@app.route('/canteen/dish/add', methods=['POST'])
-@senior_required
-def canteen_dish_add():
-    name = request.form.get('name', '').strip()
-    if not name:
-        flash('Хоолны нэр оруулна уу.', 'error')
-        return redirect(url_for('canteen_manage'))
-    photo = save_file(request.files.get('photo'), 'canteen')
-    conn = get_db()
-    conn.execute("""INSERT INTO canteen_dishes(name, category, description, price, kcal, photo, created_by)
-                    VALUES(?,?,?,?,?,?,?)""", (
-        name,
-        request.form.get('category', 'main'),
-        request.form.get('description', '').strip() or None,
-        request.form.get('price') or None,
-        request.form.get('kcal') or None,
-        photo,
-        session.get('user_id'),
-    ))
-    conn.commit(); conn.close()
-    flash(f'"{name}" хоол нэмэгдлээ.', 'success')
-    return redirect(url_for('canteen_manage'))
+@app.route('/backup/create', methods=['POST'])
+@admin_required
+def backup_create():
+    import shutil
+    from datetime import datetime as dt
+    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'lab.db')
+    bk_name = f"lab_backup_{dt.now().strftime('%Y%m%d_%H%M%S')}.db"
+    bk_path = os.path.join(os.path.dirname(db_path), bk_name)
+    shutil.copy2(db_path, bk_path)
+    return jsonify({'ok': True, 'name': bk_name})
 
-@app.route('/canteen/dish/<int:dish_id>/edit', methods=['POST'])
-@senior_required
-def canteen_dish_edit(dish_id):
-    conn = get_db()
-    dish = conn.execute("SELECT * FROM canteen_dishes WHERE id=?", (dish_id,)).fetchone()
-    if not dish:
-        conn.close()
-        flash('Хоол олдсонгүй.', 'error')
-        return redirect(url_for('canteen_manage'))
-    photo = save_file(request.files.get('photo'), 'canteen') or dish['photo']
-    conn.execute("""UPDATE canteen_dishes SET name=?, category=?, description=?, price=?, kcal=?, photo=?
-                    WHERE id=?""", (
-        request.form.get('name', '').strip() or dish['name'],
-        request.form.get('category', dish['category']),
-        request.form.get('description', '').strip() or None,
-        request.form.get('price') or None,
-        request.form.get('kcal') or None,
-        photo, dish_id,
-    ))
-    conn.commit(); conn.close()
-    flash('Хоолны мэдээлэл шинэчлэгдлээ.', 'success')
-    return redirect(url_for('canteen_manage'))
-
-@app.route('/canteen/dish/<int:dish_id>/toggle', methods=['POST'])
-@senior_required
-def canteen_dish_toggle(dish_id):
-    conn = get_db()
-    conn.execute("UPDATE canteen_dishes SET is_active = 1 - is_active WHERE id=?", (dish_id,))
-    conn.commit(); conn.close()
-    flash('Хоолны төлөв өөрчлөгдлөө.', 'success')
-    return redirect(url_for('canteen_manage'))
-
-@app.route('/canteen/dish/<int:dish_id>/delete', methods=['POST'])
-@senior_required
-def canteen_dish_delete(dish_id):
-    conn = get_db()
-    conn.execute("DELETE FROM canteen_menu WHERE dish_id=?", (dish_id,))
-    conn.execute("DELETE FROM canteen_dishes WHERE id=?", (dish_id,))
-    conn.commit(); conn.close()
-    flash('Хоол устгагдлаа.', 'success')
-    return redirect(url_for('canteen_manage'))
-
-@app.route('/canteen/menu/add', methods=['POST'])
-@senior_required
-def canteen_menu_add():
-    menu_date = request.form.get('menu_date', '')
-    meal = request.form.get('meal', '')
-    dish_ids = request.form.getlist('dish_ids')
-    if not menu_date or meal not in [m for m, _, _ in MEAL_TYPES] or not dish_ids:
-        flash('Огноо, цаг, хоолоо сонгоно уу.', 'error')
-        return redirect(url_for('canteen_manage') + '?tab=plan')
-    conn = get_db()
-    added = 0
-    for did in dish_ids:
-        try:
-            conn.execute("""INSERT OR IGNORE INTO canteen_menu(menu_date, meal, dish_id, created_by)
-                            VALUES(?,?,?,?)""", (menu_date, meal, int(did), session.get('user_id')))
-            added += 1
-        except Exception:
-            pass
-    conn.commit(); conn.close()
-    flash(f'{menu_date} — {added} хоол менюнд нэмэгдлээ.', 'success')
-    return redirect(url_for('canteen_manage') + '?tab=plan')
-
-@app.route('/canteen/menu/<int:mid>/delete', methods=['POST'])
-@senior_required
-def canteen_menu_delete(mid):
-    conn = get_db()
-    conn.execute("DELETE FROM canteen_menu WHERE id=?", (mid,))
-    conn.commit(); conn.close()
-    flash('Менюнээс хасагдлаа.', 'success')
-    return redirect(url_for('canteen_manage') + '?tab=plan')
+@app.route('/backup/delete/<filename>', methods=['POST'])
+@admin_required
+def backup_delete(filename):
+    import re
+    if not re.match(r'^lab_backup_[\d_]+\.db$', filename):
+        return jsonify({'ok': False}), 400
+    inst = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance')
+    path = os.path.join(inst, filename)
+    if os.path.exists(path):
+        os.remove(path)
+    return jsonify({'ok': True})
 
 
-if __name__ == '__main__':
+def _startup():
     init_db()
     from models import init_analysis_db
     init_analysis_db()
     ensure_tables()
+
+_startup()
+
+if __name__ == '__main__':
+    # Автомат backup
+    import shutil
+    _db = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'lab.db')
+    _bk = _db.replace('lab.db', f'lab_backup_{datetime.now().strftime("%Y%m%d")}.db')
+    if os.path.exists(_db) and not os.path.exists(_bk):
+        shutil.copy2(_db, _bk)
+        print(f'Backup: {_bk}')
     print('Систем эхэллээ!')
     print('Браузерт нэвтрэх: http://localhost:5000')
     app.run(debug=False, host='0.0.0.0', port=5000)

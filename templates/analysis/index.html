@@ -13,10 +13,10 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
       <p class="page-sub">Дээжний бүртгэл, хүлээн авалт, шинжилгээ</p>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <!-- Огноо шүүлтүүр -->
+      <!-- Огноо шүүлтүүр (хоосон = бүх бүртгэсэн дээж харагдана) -->
       <input type="date" id="filter-date" class="form-input"
         style="width:150px;font-size:13px;padding:6px 10px"
-        value="{{ today }}" onchange="filterDate()">
+        value="" onchange="filterDate()" title="Огноогоор шүүх (хоосон бол бүгд харагдана)">
       <a href="{{ url_for('analysis_register') }}" class="btn btn-primary">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -24,10 +24,13 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
         Дээж бүртгэх
       </a>
       {% if current_user['role'] in ('admin','senior','staff','preparer','guest') %}
+      <form method="POST" action="{{ url_for('internal_qc_create') }}" style="display:inline" onsubmit="return confirm('Өмнөх 7 хоногийн дээжнүүдээс санамсаргүй 1 дээж сонгох уу?')">
+        <button type="submit" class="btn" style="background:#0d9488;color:#fff;">🔁 Дотоод QC</button>
+      </form>
       <a href="{{ url_for('analysis_crm_register') }}" class="btn" style="background:#7C3AED;color:#fff;">🔬 CRM дээж</a>
       <a href="{{ url_for('crm_control_chart') }}" class="btn" style="background:#ede9fe;color:#7C3AED;border:1px solid #c4b5fd">📈 CRM chart</a>
       {% endif %}
-      {% if current_user['role'] in ('admin','senior','staff') %}
+      {% if current_user['role'] in ('admin','senior','staff','preparer') %}
       <button onclick="startMulti()" class="btn btn-teal" id="multiBtn" disabled style="opacity:.4;cursor:not-allowed">
         🧪 Шинжилгээ эхлэх
       </button>
@@ -66,6 +69,32 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
         </tr>
       </thead>
       <tbody>
+      {% for qc in pending_qc %}
+      <tr class="sample-row" data-cat="anal" data-date="{{ qc['triggered_date'] }}" data-rid="">
+        <td style="width:36px;text-align:center">
+          {% if current_user['role'] in ('admin','senior','staff','preparer') %}
+          <input type="checkbox" class="lot-cb" value="{{ qc['receipt_id_1'] }}" data-qc-rows="{{ qc['receipt_id_1'] }}:{{ qc['row_num_1'] or 1 }}" data-qc-id="{{ qc['id'] }}" onchange="updateMultiBtn()" style="width:15px;height:15px;cursor:pointer">
+          {% endif %}
+        </td>
+        <td>
+          <strong style="font-family:monospace;color:#0d9488">QC {{ qc['lab1'] }}</strong>
+        </td>
+        <td style="font-size:12px;color:#555">{{ qc['lab1'] }}</td>
+        <td><span class="badge" style="background:#ccfbf1;color:#0d9488">QC</span></td>
+        <td>1</td>
+        <td>—</td>
+        <td>{{ qc['triggered_date'] }}</td>
+        <td><span class="badge" style="background:#e8f5f1;color:#0d6e5f">Шинжилгээнд бэлэн</span></td>
+        <td>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            {% if current_user['role'] in ('admin','senior','staff','preparer') %}
+            <a href="{{ url_for('analysis_measure_multi') }}?ids={{ qc['receipt_id_1'] }}&qc_rows={{ qc['receipt_id_1'] }}:{{ qc['row_num_1'] or 1 }}&qc_id={{ qc['id'] }}" class="btn btn-ghost btn-sm">🧪 Шинжилгээ хийх</a>
+            {% endif %}
+            <a href="{{ url_for('analysis_result', receipt_id=qc['receipt_id_1']) }}?qc_row={{ qc['row_num_1'] or 1 }}&qc_id={{ qc['id'] }}" class="btn btn-ghost btn-sm">📊 Үр дүн</a>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
       {% for s in samples %}
       {% set ps2 = s['prep_status'] or '' %}
       {% set st2 = s['status'] or '' %}
@@ -73,7 +102,7 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
       {% set cat = 'anal' if (ps2 in ('ready','done') or st2 == 'analysing') else 'prep' %}
       <tr class="sample-row" data-status="{{ s['status'] }}" data-date="{{ s['collected_date'] or '' }}" data-rid="{{ s['receipt_id'] or '' }}" data-cat="{{ cat }}">
         <td style="width:36px;text-align:center">
-          {% if is_ready and s['receipt_id'] and current_user['role'] in ('admin','senior','staff') %}
+          {% if cat == 'anal' and s['receipt_id'] and current_user['role'] in ('admin','senior','staff','preparer') %}
           <input type="checkbox" class="lot-cb" value="{{ s['receipt_id'] }}" onchange="updateMultiBtn()" style="width:15px;height:15px;cursor:pointer">
           {% endif %}
         </td>
@@ -121,6 +150,12 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
             {% set ps = s['prep_status'] or '' %}
             {% set st = s['status'] or '' %}
             {% set rid = s['receipt_id'] %}
+            {% if current_user['role'] in ('admin','senior') and s['sample_type'] != 'CRM' %}
+            <button type="button"
+              onclick="openSampleEdit({{ s['id'] }}, this)"
+              data-name="{{ s['sample_name']|e }}" data-serial="{{ s['lab_serial'] or '' }}"
+              class="btn btn-ghost btn-sm" title="Нэр/дугаар засах" style="padding:3px 8px">✏️</button>
+            {% endif %}
             {% set role = current_user['role'] %}
 
             {% if st == 'pending' %}
@@ -140,7 +175,7 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
               {% endif %}
 
             {% elif ps == 'ready' or st == 'analysing' %}
-              {% if role in ('admin','senior','staff') %}
+              {% if role in ('admin','senior','staff','preparer') %}
               <a href="{{ url_for('analysis_measure', receipt_id=rid) }}"
                  class="btn btn-ghost btn-sm">🧪 Шинжилгээ хийх</a>
               {% endif %}
@@ -170,6 +205,30 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
 
 
 {% block scripts %}
+<!-- Дээж засах modal -->
+<div id="sampleEditModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:120;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;padding:22px;width:380px;max-width:95%">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h3 style="font-size:15px;font-weight:700">✏️ Дээж засах</h3>
+      <button type="button" onclick="closeSampleEdit()" style="background:none;border:none;font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <form id="sampleEditForm" method="POST">
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">Дээжийн нэр</label>
+        <input type="text" name="sample_name" id="seName" class="form-input" placeholder="Ж: 1-10 эсвэл a;b;c">
+      </div>
+      <div class="form-group" style="margin-bottom:6px">
+        <label class="form-label">Ажлын дугаар (serial)</label>
+        <input type="number" name="lab_serial" id="seSerial" class="form-input" placeholder="Ж: 1046">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Хоосон бол дугаар өөрчлөгдөхгүй. Огноо хэвээр үлдэнэ.</div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button type="button" onclick="closeSampleEdit()" class="btn btn-ghost">Болих</button>
+        <button type="submit" class="btn btn-primary">Хадгалах</button>
+      </div>
+    </form>
+  </div>
+</div>
 <!-- Бэлтгэж дууслаа modal -->
 <div id="doneModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:10px;padding:24px;max-width:480px;width:95%;max-height:90vh;overflow-y:auto">
@@ -239,6 +298,14 @@ function switchTab(tab){
   document.getElementById('tab-anal').classList.toggle('active', tab==='anal');
   applyFilters();
 }
+function openSampleEdit(geoId, btn){
+  var f = document.getElementById('sampleEditForm');
+  f.action = '/analysis/sample/' + geoId + '/edit';
+  document.getElementById('seName').value = btn.dataset.name || '';
+  document.getElementById('seSerial').value = btn.dataset.serial || '';
+  document.getElementById('sampleEditModal').style.display = 'flex';
+}
+function closeSampleEdit(){ document.getElementById('sampleEditModal').style.display='none'; }
 function filterDate(){
   applyFilters();
 }
@@ -292,13 +359,19 @@ function toggleAll(cb){
 
 function startMulti(){
   var ids = [];
-  document.querySelectorAll('.lot-cb:checked').forEach(function(cb){ ids.push(cb.value); });
+  var qcRows = [];
+  var qcId = '';
+  document.querySelectorAll('.lot-cb:checked').forEach(function(cb){
+    ids.push(cb.value);
+    if(cb.dataset.qcRows) qcRows.push(cb.dataset.qcRows);
+    if(cb.dataset.qcId) qcId = cb.dataset.qcId;
+  });
   if(!ids.length){ alert('Дор хаяж нэг ажлын дугаар сонгоно уу!'); return; }
-  if(ids.length === 1){
-    window.location.href = '/analysis/measure/' + ids[0];
-  } else {
-    window.location.href = '/analysis/measure/multi?ids=' + ids.join(',');
-  }
+  var allIds = ids.join(',');
+  var url = '/analysis/measure/multi?ids=' + allIds;
+  if(qcRows.length) url += '&qc_rows=' + qcRows.join(',');
+  if(qcId) url += '&qc_id=' + qcId;
+  window.location.href = url;
 }
 // Анхдагч таб харуулах — функцүүд тодорхойлогдсоны дараа дуудна
 applyFilters();

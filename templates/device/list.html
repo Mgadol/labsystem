@@ -101,8 +101,13 @@
             {% endif %}
             {% if d['status']=='active' and current_user['role'] != 'guest' %}
               {% set log_id = active_map.get(d['id']) %}
+              {% set busy = busy_map.get(d['id']) if busy_map else None %}
+              {% set other_busy = [] %}
+              {% if busy %}{% for b in busy %}{% if b['user_id'] != session['user_id'] %}{% set _ = other_busy.append(b) %}{% endif %}{% endfor %}{% endif %}
               {% if log_id %}
               <button onclick="stopUsage({{ log_id }})" class="btn btn-stop" style="padding:1px 6px;font-size:9px;line-height:1.5;height:auto;flex-shrink:0;font-weight:600">⏹ STOP</button>
+              {% elif other_busy %}
+              <span title="{{ other_busy[0]['name'] }} ажиллаж байна — {{ other_busy[0]['start'] }}-с" style="padding:1px 8px;font-size:11px;flex-shrink:0;color:#b91c1c;font-weight:700">🔒</span>
               {% else %}
               <button onclick="startUsage({{ d['id'] }})" class="btn btn-start" style="padding:1px 6px;font-size:9px;line-height:1.5;height:auto;flex-shrink:0;font-weight:600">▶ START</button>
               {% endif %}

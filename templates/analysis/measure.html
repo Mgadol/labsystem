@@ -352,15 +352,23 @@ function autoNames(){
 // Edit/Save горим
 var editMode = false;
 var pendingChanges = {};
+function setSheetReadonly(state){
+  // state=true: зөвхөн УТГАТАЙ нүдийг түгжинэ (хоосон нүд чөлөөтэй), false: бүгдийг тайлна
+  document.querySelectorAll('.tbl input').forEach(function(i){
+    i.readOnly = state ? (i.value!==''&&i.value!=null) : false;
+  });
+}
 function toggleEditMode(){
   editMode = !editMode;
   var btn = document.getElementById('editModeBtn');
   if(editMode){
+    setSheetReadonly(false);
     btn.textContent = '💾 Хадгалах';
-    btn.style.background = 'rgba(255,255,255,.1)';
-    btn.style.borderColor = 'rgba(255,255,255,.2)';
+    btn.style.background = 'rgba(74,222,128,.25)';
+    btn.style.borderColor = 'rgba(74,222,128,.5)';
     document.getElementById('saveStatus').textContent = 'Засах горим';
   } else {
+    setSheetReadonly(true);
     // Save хийх
     var keys = Object.keys(pendingChanges);
     if(!keys.length){
@@ -401,11 +409,14 @@ function autoSave(inp){
     pendingChanges[key] = {receipt_id:RID,row_num:parseInt(inp.dataset.row),is_duplicate:parseInt(inp.dataset.dup),field:inp.dataset.field,value:inp.value===''?null:inp.value};
     return;
   }
-  if(!inp.value) return;
+  // Гр-ийн нүд (step 0.0001) 4 орноор форматлана (1.000 → 1.0000)
+  if(inp.step==='0.0001'&&inp.value!==''&&!isNaN(parseFloat(inp.value))) inp.value=parseFloat(inp.value).toFixed(4);
   setSave('pending');
+  // Утга орсон нүд түгжигдэнэ (санамсаргүй өөрчлөхөөс сэргийлнэ)
+  if(inp.value!=='') inp.readOnly = true;
   fetch('/analysis/autosave',{
     method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({receipt_id:RID,row_num:parseInt(inp.dataset.row),is_duplicate:parseInt(inp.dataset.dup),field:inp.dataset.field,value:inp.value})
+    body:JSON.stringify({receipt_id:RID,row_num:parseInt(inp.dataset.row),is_duplicate:parseInt(inp.dataset.dup),field:inp.dataset.field,value:inp.value===''?null:inp.value})
   }).then(r=>r.json()).then(d=>setSave(d.ok?'ok':'err')).catch(()=>setSave('err'));
 }
 
@@ -423,7 +434,7 @@ function calc(ri,dup){
   var tm_raw=(mtt!=null&&mts&&mts>0&&mtd!=null)?(mtt+mts-mtd)/mts*100:null;
   var tm=null;
   if(tm_raw!=null){tm=chch?(chch+tm_raw*(1-chch/100)):tm_raw;}
-  setC('r'+id+'_tm',tm,2);
+  setC('r'+id+'_tm',tm,1);
   // Mad
   var t=gv(ri,dup,'dc_tare'),s=gv(ri,dup,'dc_sample'),d=gv(ri,dup,'dc_dried');
   var mad=(t!=null&&s&&s>0&&d!=null)?(t+s-d)/s*100:null;
@@ -435,11 +446,11 @@ function calc(ri,dup){
   // G индекс: G = 10 + (30×(m3-m1) + 70×(m4-m1)) / (m2-m1)
   var gm1=gv(ri,dup,'g_tare'),gm2=gv(ri,dup,'g_coke'),gm3=gv(ri,dup,'g_sieve1'),gm4=gv(ri,dup,'g_sieve2');
   var gval=(gm1!=null&&gm2!=null&&gm3!=null&&gm4!=null&&(gm2-gm1)>0)?10+(30*(gm3-gm1)+70*(gm4-gm1))/(gm2-gm1):null;
-  setC('r'+id+'_g',gval,2);
+  setC('r'+id+'_g',gval,0);
   setC('r'+id+'_mad',mad,2);setC('r'+id+'_aad',aad,2);
   setC('r'+id+'_vad',vad,2);setC('r'+id+'_fc',fc,2);
   var sad=gv(ri,dup,'sulfur'),qb=gv(ri,dup,'cal_value');
-  setC('r'+id+'_sad',sad,3);setC('r'+id+'_qb',qb,1);
+  setC('r'+id+'_sad',sad,2);setC('r'+id+'_qb',qb,1);
   rawVals[ri+'_'+dup]={tm:tm,mad:mad,aad:aad,vad:vad,fc:fc,g:gval,sad:sad,qb:qb};
   if(dup) checkQC(ri);
   else if(rawVals[ri+'_1']) checkQC(ri);
@@ -451,13 +462,13 @@ function setC(id,v,d){var e=document.getElementById(id);if(e){e.textContent=v!=n
 function calcQC(ri){calc(ri,0);if(document.getElementById('dr'+ri).classList.contains('show'))calc(ri,1);}
 function checkQC(ri){
   var qcMap={mad:QC.mad,aad:QC.aad,vad:QC.vad,sad:QC.sad,qb:QC.qb,g:QC.g};
-  var decMap={tm:2,mad:2,aad:2,vad:2,fc:2,g:2,sad:3,qb:1};
+  var decMap={tm:1,mad:2,aad:2,vad:2,fc:2,g:0,sad:2,qb:1};
   var d0=rawVals[ri+'_0']||{};
   var d1=rawVals[ri+'_1']||{};
   ['tm','mad','aad','vad','fc','g','sad','qb'].forEach(function(p){
     var v1=d0[p],v2=d1[p];
     if(v1!=null&&v2!=null){
-      var d=decMap[p]||2;
+      var d=decMap[p]!=null?decMap[p]:2;
       var diff=Math.round(Math.abs(v1-v2)*100000)/100000;
       var avg=(v1+v2)/2;
       var el=document.getElementById('r'+ri+'_'+p);
@@ -588,13 +599,19 @@ function loadData(){
       Object.keys(e).forEach(function(f){
         if(['id','receipt_id','row_num','is_duplicate','created_at','updated_at','updated_by'].includes(f)) return;
         var inp=document.querySelector('[data-row="'+row+'"][data-dup="'+dup+'"][data-field="'+f+'"]');
-        if(inp&&e[f]!=null) inp.value=e[f];
+        if(inp&&e[f]!=null) inp.value=(inp.step==='0.0001'&&!isNaN(parseFloat(e[f])))?parseFloat(e[f]).toFixed(4):e[f];
       });
       calc(parseInt(row),parseInt(dup));
       if(e.row_status==='done'){var btn=document.getElementById('dnbtn'+row+'_'+dup);if(btn){btn.classList.add('done');btn.textContent='✓';}}
-      if(dup==='1'&&!document.getElementById('dr'+row).classList.contains('show')) toggleDup(parseInt(row));
+      // Зэрэгцээ мөрийг зөвхөн БОДИТ хэмжилтийн утгатай үед л задлана (хоосон бичлэгээр задлахгүй)
+      if(dup==='1'){
+        var meta=['id','receipt_id','row_num','is_duplicate','created_at','updated_at','updated_by','row_status','done_by','done_at','approved_by','approved_at','sample_name','mass_kg','mad','aad','vad','fc'];
+        var hasData=Object.keys(e).some(function(f){return meta.indexOf(f)===-1&&e[f]!=null&&e[f]!=='';});
+        if(hasData&&!document.getElementById('dr'+row).classList.contains('show')) toggleDup(parseInt(row));
+      }
     });
     setSave('ok');
+    if(!editMode) setSheetReadonly(true);
   });
   var saved=localStorage.getItem('dmap_'+RID);
   if(saved){try{deviceMap=JSON.parse(saved);}catch(e){}}
@@ -681,6 +698,8 @@ document.addEventListener('DOMContentLoaded',function(){
     document.querySelectorAll('.cg-'+g).forEach(function(el){el.classList.add('hide');});
   });
   loadData();
+  // Анхдагчаар түгжээтэй — "Засах" дарж л засна
+  setSheetReadonly(true);
   document.getElementById('sheetWrap').addEventListener('mousemove', function(e){
     if(e.buttons !== 1) return;
     var td = e.target.closest('td');
