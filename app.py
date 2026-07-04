@@ -1435,6 +1435,29 @@ def ensure_tables():
     except Exception: pass
     try: conn.execute("ALTER TABLE users ADD COLUMN shift TEXT")
     except Exception: pass
+    # Цайны газрын меню
+    conn.execute("""CREATE TABLE IF NOT EXISTS canteen_dishes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        category TEXT DEFAULT 'main',
+        description TEXT,
+        price REAL,
+        kcal INTEGER,
+        photo TEXT,
+        is_active INTEGER DEFAULT 1,
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS canteen_menu (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        menu_date TEXT NOT NULL,
+        meal TEXT NOT NULL,
+        dish_id INTEGER NOT NULL REFERENCES canteen_dishes(id),
+        sort_order INTEGER DEFAULT 0,
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(menu_date, meal, dish_id)
+    )""")
     # Барабан (Эргэдэг хүрд) тохиргоо — лаб дугаар 11-14 (4 параметр)
     conn.execute("""
         UPDATE devices SET
@@ -2962,6 +2985,177 @@ def backup_db():
     from datetime import datetime as dt
     fname = f"lab_backup_{dt.now().strftime('%Y%m%d_%H%M%S')}.db"
     return send_file(db_path, as_attachment=True, download_name=fname)
+
+
+# ── ЦАЙНЫ ГАЗРЫН МЕНЮ ───────────────────────────────────
+MEAL_TYPES = [
+    ('breakfast', 'Өглөөний цай', '🌅'),
+    ('lunch',     'Өдрийн хоол',  '☀️'),
+    ('dinner',    'Оройн хоол',   '🌙'),
+]
+DISH_CATEGORIES = [
+    ('soup',   'Шөл',                    '🍲'),
+    ('main',   'Үндсэн хоол',            '🍛'),
+    ('salad',  'Салат',                  '🥗'),
+    ('bakery', 'Гурилан бүтээгдэхүүн',   '🥟'),
+    ('dessert','Амттан',                 '🍰'),
+    ('drink',  'Ундаа',                  '🥤'),
+]
+
+def _canteen_week_range():
+    """Энэ долоо хоногийн Даваагаас 14 хоног"""
+    from datetime import timedelta
+    today = date.today()
+    monday = today - timedelta(days=today.weekday())
+    return [monday + timedelta(days=i) for i in range(14)]
+
+@app.route('/canteen')
+@login_required
+def canteen():
+    days = _canteen_week_range()
+    start, end = days[0].isoformat(), days[-1].isoformat()
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT m.menu_date, m.meal, d.name, d.category, d.description, d.price, d.kcal, d.photo
+        FROM canteen_menu m JOIN canteen_dishes d ON d.id = m.dish_id
+        WHERE m.menu_date BETWEEN ? AND ? AND d.is_active = 1
+        ORDER BY m.menu_date, m.meal, m.sort_order, d.name
+    """, (start, end)).fetchall()
+    conn.close()
+    menu = {}
+    for r in rows:
+        menu.setdefault(r['menu_date'], {}).setdefault(r['meal'], []).append({
+            'name': r['name'], 'category': r['category'], 'desc': r['description'],
+            'price': r['price'], 'kcal': r['kcal'], 'photo': r['photo'],
+        })
+    cats = {c: {'name': n, 'icon': i} for c, n, i in DISH_CATEGORIES}
+    return render_template('canteen/app.html',
+                           menu=menu, days=[d.isoformat() for d in days],
+                           today=date.today().isoformat(),
+                           meals=MEAL_TYPES, cats=cats)
+
+@app.route('/canteen/manage')
+@senior_required
+def canteen_manage():
+    days = _canteen_week_range()
+    start, end = days[0].isoformat(), days[-1].isoformat()
+    conn = get_db()
+    dishes = conn.execute(
+        "SELECT * FROM canteen_dishes ORDER BY is_active DESC, category, name").fetchall()
+    entries = conn.execute("""
+        SELECT m.id, m.menu_date, m.meal, d.name, d.category, d.price
+        FROM canteen_menu m JOIN canteen_dishes d ON d.id = m.dish_id
+        WHERE m.menu_date BETWEEN ? AND ?
+        ORDER BY m.menu_date, m.meal, m.sort_order, d.name
+    """, (start, end)).fetchall()
+    conn.close()
+    plan = {}
+    for e in entries:
+        plan.setdefault(e['menu_date'], {}).setdefault(e['meal'], []).append(e)
+    cats = {c: {'name': n, 'icon': i} for c, n, i in DISH_CATEGORIES}
+    meals = {m: {'name': n, 'icon': i} for m, n, i in MEAL_TYPES}
+    return render_template('canteen/manage.html',
+                           dishes=dishes, plan=plan,
+                           days=[d.isoformat() for d in days],
+                           today=date.today().isoformat(),
+                           cats=cats, cat_list=DISH_CATEGORIES,
+                           meals=meals, meal_list=MEAL_TYPES)
+
+@app.route('/canteen/dish/add', methods=['POST'])
+@senior_required
+def canteen_dish_add():
+    name = request.form.get('name', '').strip()
+    if not name:
+        flash('Хоолны нэр оруулна уу.', 'error')
+        return redirect(url_for('canteen_manage'))
+    photo = save_file(request.files.get('photo'), 'canteen')
+    conn = get_db()
+    conn.execute("""INSERT INTO canteen_dishes(name, category, description, price, kcal, photo, created_by)
+                    VALUES(?,?,?,?,?,?,?)""", (
+        name,
+        request.form.get('category', 'main'),
+        request.form.get('description', '').strip() or None,
+        request.form.get('price') or None,
+        request.form.get('kcal') or None,
+        photo,
+        session.get('user_id'),
+    ))
+    conn.commit(); conn.close()
+    flash(f'"{name}" хоол нэмэгдлээ.', 'success')
+    return redirect(url_for('canteen_manage'))
+
+@app.route('/canteen/dish/<int:dish_id>/edit', methods=['POST'])
+@senior_required
+def canteen_dish_edit(dish_id):
+    conn = get_db()
+    dish = conn.execute("SELECT * FROM canteen_dishes WHERE id=?", (dish_id,)).fetchone()
+    if not dish:
+        conn.close()
+        flash('Хоол олдсонгүй.', 'error')
+        return redirect(url_for('canteen_manage'))
+    photo = save_file(request.files.get('photo'), 'canteen') or dish['photo']
+    conn.execute("""UPDATE canteen_dishes SET name=?, category=?, description=?, price=?, kcal=?, photo=?
+                    WHERE id=?""", (
+        request.form.get('name', '').strip() or dish['name'],
+        request.form.get('category', dish['category']),
+        request.form.get('description', '').strip() or None,
+        request.form.get('price') or None,
+        request.form.get('kcal') or None,
+        photo, dish_id,
+    ))
+    conn.commit(); conn.close()
+    flash('Хоолны мэдээлэл шинэчлэгдлээ.', 'success')
+    return redirect(url_for('canteen_manage'))
+
+@app.route('/canteen/dish/<int:dish_id>/toggle', methods=['POST'])
+@senior_required
+def canteen_dish_toggle(dish_id):
+    conn = get_db()
+    conn.execute("UPDATE canteen_dishes SET is_active = 1 - is_active WHERE id=?", (dish_id,))
+    conn.commit(); conn.close()
+    flash('Хоолны төлөв өөрчлөгдлөө.', 'success')
+    return redirect(url_for('canteen_manage'))
+
+@app.route('/canteen/dish/<int:dish_id>/delete', methods=['POST'])
+@senior_required
+def canteen_dish_delete(dish_id):
+    conn = get_db()
+    conn.execute("DELETE FROM canteen_menu WHERE dish_id=?", (dish_id,))
+    conn.execute("DELETE FROM canteen_dishes WHERE id=?", (dish_id,))
+    conn.commit(); conn.close()
+    flash('Хоол устгагдлаа.', 'success')
+    return redirect(url_for('canteen_manage'))
+
+@app.route('/canteen/menu/add', methods=['POST'])
+@senior_required
+def canteen_menu_add():
+    menu_date = request.form.get('menu_date', '')
+    meal = request.form.get('meal', '')
+    dish_ids = request.form.getlist('dish_ids')
+    if not menu_date or meal not in [m for m, _, _ in MEAL_TYPES] or not dish_ids:
+        flash('Огноо, цаг, хоолоо сонгоно уу.', 'error')
+        return redirect(url_for('canteen_manage') + '?tab=plan')
+    conn = get_db()
+    added = 0
+    for did in dish_ids:
+        try:
+            conn.execute("""INSERT OR IGNORE INTO canteen_menu(menu_date, meal, dish_id, created_by)
+                            VALUES(?,?,?,?)""", (menu_date, meal, int(did), session.get('user_id')))
+            added += 1
+        except Exception:
+            pass
+    conn.commit(); conn.close()
+    flash(f'{menu_date} — {added} хоол менюнд нэмэгдлээ.', 'success')
+    return redirect(url_for('canteen_manage') + '?tab=plan')
+
+@app.route('/canteen/menu/<int:mid>/delete', methods=['POST'])
+@senior_required
+def canteen_menu_delete(mid):
+    conn = get_db()
+    conn.execute("DELETE FROM canteen_menu WHERE id=?", (mid,))
+    conn.commit(); conn.close()
+    flash('Менюнээс хасагдлаа.', 'success')
+    return redirect(url_for('canteen_manage') + '?tab=plan')
 
 
 if __name__ == '__main__':
