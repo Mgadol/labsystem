@@ -4608,4 +4608,10 @@ if __name__ == '__main__':
         print(f'Backup: {_bk}')
     print('Систем эхэллээ!')
     print('Браузерт нэвтрэх: http://localhost:5000')
-    app.run(debug=False, host='0.0.0.0', port=5000)
+    try:
+        # Production сервер: олон хэрэглэгчийн ачааллыг Flask-ийн dev серверээс
+        # хамаагүй сайн даана (хүсэлтийн дараалал, тогтмол thread pool)
+        from waitress import serve
+        serve(app, host='0.0.0.0', port=5000, threads=8)
+    except ImportError:
+        app.run(debug=False, host='0.0.0.0', port=5000)
