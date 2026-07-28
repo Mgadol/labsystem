@@ -410,9 +410,10 @@ function calc(uid,dup,rid,ri){
   // Aad
   var pt=gvr(rid,ri,dup,'ash_tare'),ps=gvr(rid,ri,dup,'ash_sample'),pb=gvr(rid,ri,dup,'ash_burned');
   var aad=(pt!=null&&ps&&ps>0&&pb!=null)?(pb-pt)/ps*100:null;
-  // Vad
+  // Vad — зэрэгцээ мөрөнд өөрийн Mad хэмжээгүй бол үндсэн мөрийн Mad-аар бодно
   var vt=gvr(rid,ri,dup,'vol_tare'),vs=gvr(rid,ri,dup,'vol_sample'),vb=gvr(rid,ri,dup,'vol_burned');
-  var vad=(vt!=null&&vs&&vs>0&&vb!=null&&mad!=null)?(vt+vs-vb)/vs*100-mad:null;
+  var madV=mad!=null?mad:(dup&&rawVals[uid+'_0']?rawVals[uid+'_0'].mad:null);
+  var vad=(vt!=null&&vs&&vs>0&&vb!=null&&madV!=null)?(vt+vs-vb)/vs*100-madV:null;
   var fc=(mad!=null&&aad!=null&&vad!=null)?100-mad-aad-vad:null;
   // G-index
   var gt=gvr(rid,ri,dup,'g_tare'),gc=gvr(rid,ri,dup,'g_coke'),gs1=gvr(rid,ri,dup,'g_sieve1'),gs2=gvr(rid,ri,dup,'g_sieve2');
@@ -426,9 +427,31 @@ function calc(uid,dup,rid,ri){
   setC('r'+id+'_g',g,0);setC('r'+id+'_sad',sad,2);setC('r'+id+'_qb',qb,1);
   rawVals[uid+'_'+dup]={tm:tm,mad:mad,aad:aad,vad:vad,fc:fc,g:g,sad:sad,qb:qb};
   checkQC(uid,rid,ri);
-  if(mad!=null||aad!=null||g!=null)
-    fetch('/analysis/autosave/calc',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({receipt_id:parseInt(rid),row_num:parseInt(ri),is_duplicate:dup,mad:mad,aad:aad,vad:vad,fc:fc,g_val:g})});
+  if(mad!=null||aad!=null||vad!=null||g!=null) sendCalc(uid,dup,rid,ri);
+  // Үндсэн мөрийн Mad өөрчлөгдөхөд зэрэгцээ мөрийн Vad-ийг дахин бодно
+  if(!dup&&rawVals[uid+'_1']){
+    var _dr=document.getElementById('dr'+uid);
+    if(_dr&&_dr.classList.contains('show')) calc(uid,1,rid,ri);
+  }
+}
+// Тооцооллын хадгалалт: debounce + мөр тус бүрд дараалсан илгээлт.
+// Товч дарах бүрт шууд илгээвэл зэрэгцээ хүсэлтүүд сервер дээр буруу
+// дарааллаар буун, хуучин утга шинийг дарж бичих эрсдэлтэй.
+var calcTimers={},calcChain={};
+function sendCalc(uid,dup,rid,ri){
+  var k=uid+'_'+dup;
+  clearTimeout(calcTimers[k]);
+  calcTimers[k]=setTimeout(function(){
+    var v=rawVals[k]||{};
+    var body=JSON.stringify({receipt_id:parseInt(rid),row_num:parseInt(ri),is_duplicate:dup,
+      mad:v.mad!=null?v.mad:null,aad:v.aad!=null?v.aad:null,
+      vad:v.vad!=null?v.vad:null,fc:v.fc!=null?v.fc:null,
+      g_val:v.g!=null?v.g:null});
+    calcChain[k]=(calcChain[k]||Promise.resolve()).then(function(){
+      return fetch('/analysis/autosave/calc',{method:'POST',
+        headers:{'Content-Type':'application/json'},body:body}).catch(function(){});
+    });
+  },350);
 }
 function setC(id,v,d){var e=document.getElementById(id);if(e){e.textContent=v!=null?v.toFixed(d):'—';e.className='calc-cell'+(id.includes('_tm')?' gs':'');}}
 function checkQC(uid,rid,ri){
