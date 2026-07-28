@@ -441,7 +441,9 @@ function calc(ri,dup){
   var pt=gv(ri,dup,'ash_tare'),ps=gv(ri,dup,'ash_sample'),pb=gv(ri,dup,'ash_burned');
   var aad=(pt!=null&&ps&&ps>0&&pb!=null)?(pb-pt)/ps*100:null;
   var vt=gv(ri,dup,'vol_tare'),vs=gv(ri,dup,'vol_sample'),vb=gv(ri,dup,'vol_burned');
-  var vad=(vt!=null&&vs&&vs>0&&vb!=null&&mad!=null)?(vt+vs-vb)/vs*100-mad:null;
+  // Зэрэгцээ мөрөнд өөрийн Mad хэмжээгүй бол үндсэн мөрийн Mad-аар Vad бодно
+  var madV=mad!=null?mad:(dup&&rawVals[ri+'_0']?rawVals[ri+'_0'].mad:null);
+  var vad=(vt!=null&&vs&&vs>0&&vb!=null&&madV!=null)?(vt+vs-vb)/vs*100-madV:null;
   var fc=(mad!=null&&aad!=null&&vad!=null)?100-mad-aad-vad:null;
   // G индекс: G = 10 + (30×(m3-m1) + 70×(m4-m1)) / (m2-m1)
   var gm1=gv(ri,dup,'g_tare'),gm2=gv(ri,dup,'g_coke'),gm3=gv(ri,dup,'g_sieve1'),gm4=gv(ri,dup,'g_sieve2');
@@ -454,9 +456,31 @@ function calc(ri,dup){
   rawVals[ri+'_'+dup]={tm:tm,mad:mad,aad:aad,vad:vad,fc:fc,g:gval,sad:sad,qb:qb};
   if(dup) checkQC(ri);
   else if(rawVals[ri+'_1']) checkQC(ri);
-  if(mad!=null||aad!=null||gval!=null)
-    fetch('/analysis/autosave/calc',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({receipt_id:RID,row_num:ri,is_duplicate:dup,mad:mad,aad:aad,vad:vad,fc:fc,g_val:gval})});
+  if(mad!=null||aad!=null||vad!=null||gval!=null) sendCalc(ri,dup);
+  // Үндсэн мөрийн Mad өөрчлөгдөхөд зэрэгцээ мөрийн Vad-ийг дахин бодно
+  if(!dup&&rawVals[ri+'_1']){
+    var _dr=document.getElementById('dr'+ri);
+    if(_dr&&_dr.classList.contains('show')) calc(ri,1);
+  }
+}
+// Тооцооллын хадгалалт: debounce + мөр тус бүрд дараалсан илгээлт.
+// Товч дарах бүрт шууд илгээвэл зэрэгцээ хүсэлтүүд сервер дээр буруу
+// дарааллаар буун, хуучин утга шинийг дарж бичих эрсдэлтэй.
+var calcTimers={},calcChain={};
+function sendCalc(ri,dup){
+  var k=ri+'_'+dup;
+  clearTimeout(calcTimers[k]);
+  calcTimers[k]=setTimeout(function(){
+    var v=rawVals[k]||{};
+    var body=JSON.stringify({receipt_id:RID,row_num:ri,is_duplicate:dup,
+      mad:v.mad!=null?v.mad:null,aad:v.aad!=null?v.aad:null,
+      vad:v.vad!=null?v.vad:null,fc:v.fc!=null?v.fc:null,
+      g_val:v.g!=null?v.g:null});
+    calcChain[k]=(calcChain[k]||Promise.resolve()).then(function(){
+      return fetch('/analysis/autosave/calc',{method:'POST',
+        headers:{'Content-Type':'application/json'},body:body}).catch(function(){});
+    });
+  },350);
 }
 function setC(id,v,d){var e=document.getElementById(id);if(e){e.textContent=v!=null?v.toFixed(d):'—';e.className='calc-cell'+(id.includes('_tm')?' gs':'');}}
 function calcQC(ri){calc(ri,0);if(document.getElementById('dr'+ri).classList.contains('show'))calc(ri,1);}

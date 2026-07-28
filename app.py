@@ -3520,10 +3520,23 @@ def analysis_autosave_calc():
         g_val  = data.get('g_val')
 
         conn = get_db()
-        conn.execute("""
-            UPDATE sample_entries SET mad=?, aad=?, vad=?, fc=?, g_val=?, updated_at=?
-            WHERE receipt_id=? AND row_num=? AND is_duplicate=?
-        """, (mad, aad, vad, fc, g_val, datetime.now().isoformat(), rid, row, is_dup))
+        existing = conn.execute(
+            "SELECT id FROM sample_entries WHERE receipt_id=? AND row_num=? AND is_duplicate=?",
+            (rid, row, is_dup)).fetchone()
+        if existing:
+            conn.execute("""
+                UPDATE sample_entries SET mad=?, aad=?, vad=?, fc=?, g_val=?, updated_at=?
+                WHERE receipt_id=? AND row_num=? AND is_duplicate=?
+            """, (mad, aad, vad, fc, g_val, datetime.now().isoformat(), rid, row, is_dup))
+        elif any(v is not None for v in (mad, aad, vad, fc, g_val)):
+            # Мөр хараахан үүсээгүй байхад тооцоолол түрүүлж ирвэл шинээр үүсгэнэ
+            # (autosave-тай зэрэг явахад UPDATE хоосон өнгөрөх race-ээс сэргийлнэ)
+            conn.execute("""
+                INSERT INTO sample_entries(receipt_id, row_num, is_duplicate,
+                    mad, aad, vad, fc, g_val, updated_by, updated_at)
+                VALUES(?,?,?,?,?,?,?,?,?,?)
+            """, (rid, row, is_dup, mad, aad, vad, fc, g_val,
+                  session['user_id'], datetime.now().isoformat()))
         conn.commit()
         conn.close()
         return jsonify({'ok': True})
