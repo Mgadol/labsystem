@@ -1716,13 +1716,7 @@ def archive_result(receipt_id):
     entries = []
     for e in entries_raw:
         ed = dict(e)
-        try:
-            mt_s = ed.get('mt_sample') or 0
-            mt_t = ed.get('mt_tare') or 0
-            mt_d = ed.get('mt_dried') or 0
-            ed['mt_result'] = (mt_s - (mt_d - mt_t)) / mt_s * 100 if mt_s and mt_s > 0 else None
-        except Exception:
-            ed['mt_result'] = None
+        ed['mt_result'] = total_moisture(ed)
         entries.append(ed)
     apply_final_results(entries)   # давталтаас эцсийн үр дүнг сонгоно
     qc = {r['parameter']: r for r in conn.execute("SELECT * FROM qc_settings").fetchall()}
@@ -2036,6 +2030,27 @@ def staff_activate(uid):
 # давтахад хангалттай — бусад үзүүлэлт хөндөгдөхгүй.
 FINAL_RESULT_FIELDS = ('mt_result', 'mad', 'aad', 'vad', 'sulfur',
                        'cal_value', 'g_val', 'fsi')
+
+
+def total_moisture(d):
+    """Нийт чийг Mt = чөлөөт чийг + үлдэгдэл чийг (нийлмэл).
+
+    Хэмжилтийн хуудас болон Excel тайлантай ижил томьёо. Чөлөөт чийг
+    бичигдээгүй бол зөвхөн үлдэгдэл чийг буцаана.
+    """
+    def num(k):
+        v = d.get(k)
+        try:
+            return float(v) if v is not None else None
+        except (TypeError, ValueError):
+            return None
+    fs, fd = num('ff_sample'), num('ff_dried')
+    chch = ((fs - fd) / fs * 100) if (fs and fs > 0 and fd is not None) else 0
+    mtt, mts, mtd = num('mt_tare'), num('mt_sample'), num('mt_dried')
+    if mtt is not None and mts and mts > 0 and mtd is not None:
+        tm_raw = (mtt + mts - mtd) / mts * 100
+        return (chch + tm_raw * (1 - chch / 100)) if chch else tm_raw
+    return None
 
 
 def closest_pair_mean(values):
@@ -3639,22 +3654,25 @@ def analysis_autosave():
         ).fetchone()
 
         _empty = (value is None or value == '')
-        if existing:
+        if existing or not _empty:
+            # Атомик UPSERT — тооцооллын хадгалалттай зэрэг ажиллахад UNIQUE
+            # зөрчил үүсгэхгүй. Хоосон утгаар шинэ мөр үүсгэхгүй (дээрх нөхцөл).
             conn.execute(
-                f"UPDATE sample_entries SET {field}=?, updated_by=?, updated_at=? WHERE receipt_id=? AND row_num=? AND is_duplicate=?",
-                (value, session['user_id'], datetime.now().isoformat(), rid, row, is_dup)
-            )
-        elif not _empty:
-            # Хоосон утгаар шинэ мөр үүсгэхгүй (дэмий хоосон бичлэг гарахаас сэргийлнэ)
-            conn.execute(
-                f"INSERT INTO sample_entries(receipt_id, row_num, is_duplicate, {field}, updated_by, updated_at) VALUES(?,?,?,?,?,?)",
+                f"""INSERT INTO sample_entries(receipt_id, row_num, is_duplicate,
+                        {field}, updated_by, updated_at)
+                    VALUES(?,?,?,?,?,?)
+                    ON CONFLICT(receipt_id, row_num, is_duplicate) DO UPDATE SET
+                        {field}=excluded.{field},
+                        updated_by=excluded.updated_by,
+                        updated_at=excluded.updated_at""",
                 (rid, row, is_dup, value, session['user_id'], datetime.now().isoformat())
             )
         conn.commit()
         conn.close()
         return jsonify({'ok': True})
     except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
+        app.logger.exception('autosave алдаа')
+        return jsonify({'ok': False, 'error': str(e)}), 500
 
 @app.route('/analysis/autosave/calc', methods=['POST'])
 @lab_required
@@ -3671,29 +3689,29 @@ def analysis_autosave_calc():
         fc     = data.get('fc')
         g_val  = data.get('g_val')
 
+        if not any(v is not None for v in (mad, aad, vad, fc, g_val)):
+            return jsonify({'ok': True})   # хадгалах утга алга
+
         conn = get_db()
-        existing = conn.execute(
-            "SELECT id FROM sample_entries WHERE receipt_id=? AND row_num=? AND is_duplicate=?",
-            (rid, row, is_dup)).fetchone()
-        if existing:
-            conn.execute("""
-                UPDATE sample_entries SET mad=?, aad=?, vad=?, fc=?, g_val=?, updated_at=?
-                WHERE receipt_id=? AND row_num=? AND is_duplicate=?
-            """, (mad, aad, vad, fc, g_val, datetime.now().isoformat(), rid, row, is_dup))
-        elif any(v is not None for v in (mad, aad, vad, fc, g_val)):
-            # Мөр хараахан үүсээгүй байхад тооцоолол түрүүлж ирвэл шинээр үүсгэнэ
-            # (autosave-тай зэрэг явахад UPDATE хоосон өнгөрөх race-ээс сэргийлнэ)
-            conn.execute("""
-                INSERT INTO sample_entries(receipt_id, row_num, is_duplicate,
-                    mad, aad, vad, fc, g_val, updated_by, updated_at)
-                VALUES(?,?,?,?,?,?,?,?,?,?)
-            """, (rid, row, is_dup, mad, aad, vad, fc, g_val,
-                  session['user_id'], datetime.now().isoformat()))
+        # Атомик UPSERT. Урьд нь SELECT→INSERT хийдэг байсан нь нүдний autosave-тай
+        # зэрэг ажиллахад UNIQUE зөрчил үүсгэж, тооцоолсон утга чимээгүй алдагддаг
+        # байсан (хүсэлт нь 200 буцаадаг тул мэдэгддэггүй).
+        conn.execute("""
+            INSERT INTO sample_entries(receipt_id, row_num, is_duplicate,
+                mad, aad, vad, fc, g_val, updated_by, updated_at)
+            VALUES(?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(receipt_id, row_num, is_duplicate) DO UPDATE SET
+                mad=excluded.mad, aad=excluded.aad, vad=excluded.vad,
+                fc=excluded.fc, g_val=excluded.g_val,
+                updated_at=excluded.updated_at
+        """, (rid, row, is_dup, mad, aad, vad, fc, g_val,
+              session['user_id'], datetime.now().isoformat()))
         conn.commit()
         conn.close()
         return jsonify({'ok': True})
     except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
+        app.logger.exception('autosave/calc алдаа')
+        return jsonify({'ok': False, 'error': str(e)}), 500
 
 @app.route('/analysis/load/<int:receipt_id>')
 @lab_required
@@ -3951,16 +3969,7 @@ def analysis_result(receipt_id):
     entries_list = []
     for e in entries:
         ed = dict(e)
-        try:
-            mt_s = ed.get('mt_sample') or 0
-            mt_t = ed.get('mt_tare') or 0
-            mt_d = ed.get('mt_dried') or 0
-            if mt_s and mt_s > 0:
-                ed['mt_result'] = (mt_s - (mt_d - mt_t)) / mt_s * 100
-            else:
-                ed['mt_result'] = None
-        except:
-            ed['mt_result'] = None
+        ed['mt_result'] = total_moisture(ed)
         rn = ed.get('row_num', 1)
         en = ed.get('sample_name') or ''
         if en and en != _sname:
@@ -4201,15 +4210,8 @@ def analysis_export(receipt_id):
             return None
 
     def calc_mt(e):
-        # Нийт чийг = чөлөөт чийг + үлдэгдэл чийг (measure хуудастай ижил)
-        # Бүрэн нарийвчлалтай буцаана — харагдац нь нүдний тоон форматаар (0.0)
-        fs = safe(e, 'ff_sample'); fd = safe(e, 'ff_dried')
-        chch = ((fs - fd) / fs * 100) if (fs and fs > 0 and fd is not None) else 0
-        mtt = safe(e, 'mt_tare'); mts = safe(e, 'mt_sample'); mtd = safe(e, 'mt_dried')
-        if mtt is not None and mts and mts > 0 and mtd is not None:
-            tm_raw = (mtt + mts - mtd) / mts * 100
-            return (chch + tm_raw * (1 - chch / 100)) if chch else tm_raw
-        return None
+        # Үр дүнгийн хуудастай нэг ижил функц (зөрөх боломжгүй болгов)
+        return total_moisture(e) if e else None
 
     def calc_g(e):
         try:
