@@ -1626,7 +1626,7 @@ def archive():
         ORDER BY d.name
     """).fetchall()
     archived_staff = conn.execute(
-        "SELECT * FROM users WHERE is_active=0 AND role != 'admin' ORDER BY name"
+        "SELECT * FROM users WHERE is_active=0 AND is_deleted=0 AND role != 'admin' ORDER BY name"
     ).fetchall()
     completed_repairs = conn.execute("""
         SELECT r.*, d.name as dname FROM repairs r
@@ -2019,6 +2019,29 @@ def staff_activate(uid):
     flash('Ажилтан идэвхжүүлэгдлээ.' if lang=='mn' else 'Staff activated.', 'success')
     return redirect(url_for('staff_list'))
 
+# Ажилтны ажлын түүх байрлах хүснэгт → багана (устгахад шалгана)
+STAFF_HISTORY_REFS = [
+    ('sample_entries',  'done_by'),     ('sample_entries',  'approved_by'),
+    ('geo_samples',     'registered_by'),
+    ('sample_receipt',  'received_by'), ('sample_receipt',  'fm_operator'),
+    ('sample_receipt',  'mt_operator'),
+    ('calibrations',    'performed_by'), ('repairs',        'reported_by'),
+    ('device_usage_log','user_id'),      ('qc_settings',    'updated_by'),
+    ('analysis_device_map', 'updated_by'),
+]
+
+def _staff_history_count(conn, uid):
+    """Ажилтны нэртэй холбоотой бичлэгийн тоо (байхгүй хүснэгт/баганыг алгасана)"""
+    total = 0
+    for table, col in STAFF_HISTORY_REFS:
+        try:
+            total += conn.execute(
+                f"SELECT COUNT(*) FROM {table} WHERE {col}=?", (uid,)).fetchone()[0]
+        except Exception:
+            pass  # хүснэгт эсвэл багана байхгүй хувилбар
+    return total
+
+
 @app.route('/staff/<int:uid>/delete', methods=['POST'])
 @admin_required
 def staff_delete(uid):
@@ -2027,11 +2050,39 @@ def staff_delete(uid):
         flash('Өөрийгөө устгах боломжгүй!', 'error')
         return redirect(url_for('archive'))
     conn = get_db()
-    conn.execute("DELETE FROM staff_device_permissions WHERE user_id=?", (uid,))
-    conn.execute("DELETE FROM users WHERE id=? AND is_active=0", (uid,))
+    target = conn.execute(
+        "SELECT * FROM users WHERE id=? AND is_active=0 AND is_deleted=0", (uid,)).fetchone()
+    if not target:
+        conn.close()
+        flash('Ажилтан олдсонгүй. Эхлээд идэвхгүй болгоно уу.', 'error')
+        return redirect(url_for('archive'))
+
+    name = target['name']
+    linked = _staff_history_count(conn, uid)
+    # Эрхийн бичлэг бол ажлын түүх биш — үргэлж устгана
+    try: conn.execute("DELETE FROM staff_device_permissions WHERE user_id=?", (uid,))
+    except Exception: pass
+
+    if linked == 0:
+        # Ажлын түүхгүй → бүрмөсөн устгана
+        conn.execute("DELETE FROM users WHERE id=?", (uid,))
+        msg = (f'{name} бүрмөсөн устгагдлаа.' if lang=='mn'
+               else f'{name} permanently deleted.')
+    else:
+        # Ажлын түүхтэй → системээс алга болно, гэхдээ хуучин шинжилгээ,
+        # тайлангийн гарын үсэгт нэр нь хадгалагдана
+        conn.execute("""
+            UPDATE users SET is_deleted=1, is_active=0, deleted_at=?,
+                   password_hash='', employee_id=?, phone=NULL, email=NULL,
+                   photo=NULL, shift=NULL
+            WHERE id=?
+        """, (datetime.now().isoformat(), f'DELETED-{uid}', uid))
+        msg = (f'{name} устгагдлаа. Холбоотой {linked} бичлэгт нэр нь '
+               f'мөшгих зорилгоор хадгалагдав.' if lang=='mn'
+               else f'{name} deleted; name retained in {linked} linked records.')
     conn.commit()
     conn.close()
-    flash('Ажилтан бүрмөсөн устгагдлаа.' if lang=='mn' else 'Staff permanently deleted.', 'success')
+    flash(msg, 'success')
     return redirect(url_for('archive'))
 
 # ── DEVICE ARCHIVE / RESTORE ────────────────────────────
@@ -2206,6 +2257,12 @@ def ensure_tables():
     try: conn.execute("ALTER TABLE users ADD COLUMN can_report INTEGER DEFAULT 0")
     except Exception: pass
     try: conn.execute("ALTER TABLE users ADD COLUMN can_reopen INTEGER DEFAULT 0")
+    except Exception: pass
+    # Устгагдсан ажилтан: бүх жагсаалтаас алга болно, гэхдээ нэр нь хуучин
+    # шинжилгээ/тайланд хадгалагдаж үлдэнэ (мөшгих чадвар алдагдахгүй)
+    try: conn.execute("ALTER TABLE users ADD COLUMN is_deleted INTEGER DEFAULT 0")
+    except Exception: pass
+    try: conn.execute("ALTER TABLE users ADD COLUMN deleted_at TEXT")
     except Exception: pass
     # Геологчийн харах эрхтэй ажлын дугаарын муж (мянгатаар: "1,2,6"). NULL = бүгдийг харах
     try: conn.execute("ALTER TABLE users ADD COLUMN view_ranges TEXT")
