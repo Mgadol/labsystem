@@ -1724,6 +1724,7 @@ def archive_result(receipt_id):
         except Exception:
             ed['mt_result'] = None
         entries.append(ed)
+    apply_final_results(entries)   # давталтаас эцсийн үр дүнг сонгоно
     qc = {r['parameter']: r for r in conn.execute("SELECT * FROM qc_settings").fetchall()}
     conn.close()
     return render_template('analysis/archive_result.html',
@@ -2027,6 +2028,53 @@ def staff_activate(uid):
     conn.close()
     flash('Ажилтан идэвхжүүлэгдлээ.' if lang=='mn' else 'Staff activated.', 'success')
     return redirect(url_for('staff_list'))
+
+# ── ЭЦСИЙН ҮР ДҮН СОНГОХ (давталттай үед) ───────────────
+# Нэг дээжийн үндсэн (is_duplicate=0), зэрэгцээ (1) болон давталт (2,3…)
+# хэмжилтээс албан ёсны үр дүнг сонгоно: ХАМГИЙН ОЙРХОН ХОЁРЫН ДУНДАЖ.
+# Үзүүлэлт бүр дээр тусад нь тооцогддог тул зөвхөн зөрсөн шинжилгээг
+# давтахад хангалттай — бусад үзүүлэлт хөндөгдөхгүй.
+FINAL_RESULT_FIELDS = ('mt_result', 'mad', 'aad', 'vad', 'sulfur',
+                       'cal_value', 'g_val', 'fsi')
+
+
+def closest_pair_mean(values):
+    """Хамгийн ойрхон хоёр утгын дундаж (нэг л утга байвал өөрийг нь)"""
+    vals = sorted(v for v in values if v is not None)
+    if not vals:
+        return None
+    if len(vals) == 1:
+        return vals[0]
+    # Эрэмбэлсний дараа хамгийн ойрхон хос үргэлж зэргэлдээ байрлана
+    i = min(range(len(vals) - 1), key=lambda k: vals[k + 1] - vals[k])
+    return (vals[i] + vals[i + 1]) / 2
+
+
+def apply_final_results(entries):
+    """Мөр бүрийн эцсийн үр дүнг үндсэн мөрөнд (is_duplicate=0) бичнэ.
+
+    entries — dict-үүдийн жагсаалт. Үндсэн мөрийн утгууд албан ёсны үр дүн
+    болж тайлан болон үр дүнгийн хуудсанд гардаг тул энд бичигдэнэ.
+    Зэрэгцээ ба давталтын мөрүүд хэвээр үлдэж QC зөрүү харуулахад орно.
+    """
+    by_row = {}
+    for e in entries:
+        by_row.setdefault(e.get('row_num'), []).append(e)
+    for rows in by_row.values():
+        if len(rows) < 2:
+            continue                       # давталтгүй — сонгох зүйлгүй
+        primary = next((r for r in rows if r.get('is_duplicate') == 0), None)
+        if not primary:
+            continue
+        for f in FINAL_RESULT_FIELDS:
+            v = closest_pair_mean([r.get(f) for r in rows])
+            if v is not None:
+                primary[f] = v
+        # FC-г эцсийн Mad/Aad/Vad-аас гаргана (хоорондоо нийцтэй байхын тулд)
+        if all(primary.get(x) is not None for x in ('mad', 'aad', 'vad')):
+            primary['fc'] = 100 - primary['mad'] - primary['aad'] - primary['vad']
+    return entries
+
 
 def _staff_ref_columns(conn):
     """users(id) руу заасан бүх хүснэгт.багана — схемээс шууд уншина.
@@ -3926,6 +3974,7 @@ def analysis_result(receipt_id):
         else:
             ed['display_name'] = _sname
         entries_list.append(ed)
+    apply_final_results(entries_list)   # давталтаас эцсийн үр дүнг сонгоно
     # Мөр бүрийн нэр (entry байхгүй мөрөнд fallback болгон ашиглана)
     _qty = (receipt['quantity'] or 1) if receipt else 1
     row_names = []
@@ -4139,7 +4188,8 @@ def analysis_export(receipt_id):
     ws['H14'] = datetime.now().strftime('%Y-%m-%d')
 
     # ── Өгөгдлийн мөрүүд (20-р мөрөөс) ─────────────────────
-    row_map = {(e['row_num'], e['is_duplicate']): e for e in entries}
+    _rows = [dict(e) for e in entries]
+    row_map = {(e['row_num'], e['is_duplicate']): e for e in _rows}
 
     def safe(e, field, dec=None):
         try:
@@ -4175,6 +4225,12 @@ def analysis_export(receipt_id):
             pass
         return None
 
+    # Давталттай үед эцсийн үр дүнг сонгоно — үр дүнгийн хуудастай ижил дүрэм
+    # (хамгийн ойрхон хоёрын дундаж). Mt-г энэ файлын өөрийн томьёогоор бодно.
+    for _r in _rows:
+        _r['mt_result'] = calc_mt(_r)
+    apply_final_results(_rows)
+
     # Тоон формат — албан тайлангийн жишиг файлтай ижил (утга бүрэн нарийвчлалтай
     # хадгалагдаж, харагдац нь форматаар зохицуулагдана)
     COL_FMT = {3: '0.0', 4: '0.0', 5: '0.00', 6: '0.00', 7: '0.00', 8: '0.00',
@@ -4187,7 +4243,7 @@ def analysis_export(receipt_id):
         de = row_map.get((ri, 1))
 
         # Тооцоолсон үзүүлэлтүүд — үр дүнгийн хуудасны (result.html) томьёотой ижил
-        mt  = calc_mt(e)
+        mt  = safe(e, 'mt_result')   # давталтаас сонгогдсон эцсийн Mt
         mad = safe(e,'mad'); aad = safe(e,'aad'); vad = safe(e,'vad')
         sulfur = safe(e,'sulfur'); cal = safe(e,'cal_value')
         adb = vdb = vdaf = sdb = qb_ad = qnet_ar = None
