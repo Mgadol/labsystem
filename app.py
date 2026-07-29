@@ -1254,27 +1254,29 @@ def staff_list():
     conn = get_db()
     is_admin = session.get('role') == 'admin'
     role_filter = '' if is_admin else "AND role != 'admin'"
-    # Идэвхтэй болон ээлжид идэвхгүй болсон (амарсан) хүмүүсийг хоёуланг харуулна.
-    # Ээлжгүй идэвхгүй хүмүүс (бүрмөсөн гарсан) зөвхөн архивт харагдана.
+    # Амарсан хүн (is_active=0, is_dismissed=0) энд идэвхгүй байдлаар ХАРАГДАНА.
+    # Ажлаас гарсан хүн (is_dismissed=1) зөвхөн архивт харагдана.
     users_a = conn.execute(f"""
-        SELECT * FROM users WHERE shift='A' {role_filter}
+        SELECT * FROM users WHERE shift='A' AND is_dismissed=0 AND is_deleted=0 {role_filter}
         ORDER BY is_active DESC, CASE role
             WHEN 'admin' THEN 1 WHEN 'senior' THEN 2 WHEN 'staff' THEN 3
             WHEN 'preparer' THEN 4 WHEN 'geologist' THEN 5 ELSE 6 END, name
     """).fetchall()
     users_b = conn.execute(f"""
-        SELECT * FROM users WHERE shift='B' {role_filter}
+        SELECT * FROM users WHERE shift='B' AND is_dismissed=0 AND is_deleted=0 {role_filter}
         ORDER BY is_active DESC, CASE role
             WHEN 'admin' THEN 1 WHEN 'senior' THEN 2 WHEN 'staff' THEN 3
             WHEN 'preparer' THEN 4 WHEN 'geologist' THEN 5 ELSE 6 END, name
     """).fetchall()
     users_none = conn.execute(f"""
-        SELECT * FROM users WHERE is_active=1 AND (shift IS NULL OR shift='') {role_filter}
-        ORDER BY CASE role
+        SELECT * FROM users
+        WHERE is_dismissed=0 AND is_deleted=0 AND (shift IS NULL OR shift='') {role_filter}
+        ORDER BY is_active DESC, CASE role
             WHEN 'admin' THEN 1 WHEN 'senior' THEN 2 WHEN 'staff' THEN 3
             WHEN 'preparer' THEN 4 WHEN 'geologist' THEN 5 ELSE 6 END, name
     """).fetchall()
-    _bayj_raw = conn.execute("SELECT * FROM users WHERE role='bayjuulach' AND (is_active=1 OR shift IN ('A','B'))").fetchall()
+    _bayj_raw = conn.execute(
+        "SELECT * FROM users WHERE role='bayjuulach' AND is_dismissed=0 AND is_deleted=0").fetchall()
     _pos_rank = ['Үйлдвэрийн дарга','Ашиглалтын ахлах инженер','Ашиглалтын инженер',
                  'Цахилгаан автоматжуулалтын инженер','Удирдлагын оператор',
                  'Орчуулагч, бичиг хэргийн мэргэжилтэн']
@@ -1626,7 +1628,8 @@ def archive():
         ORDER BY d.name
     """).fetchall()
     archived_staff = conn.execute(
-        "SELECT * FROM users WHERE is_active=0 AND is_deleted=0 AND role != 'admin' ORDER BY name"
+        # Архивт зөвхөн ажлаас ГАРСАН хүн (амарсан хүн ажилтны хуудсанд үлдэнэ)
+        "SELECT * FROM users WHERE is_dismissed=1 AND is_deleted=0 AND role != 'admin' ORDER BY name"
     ).fetchall()
     completed_repairs = conn.execute("""
         SELECT r.*, d.name as dname FROM repairs r
@@ -1979,10 +1982,12 @@ def staff_deactivate(uid):
         conn.close()
         flash('Өөрийгөө идэвхгүй болгох боломжгүй!' if lang=='mn' else 'Cannot deactivate yourself!', 'error')
         return redirect(url_for('staff_list'))
-    conn.execute("UPDATE users SET is_active=0 WHERE id=?", (uid,))
+    # "Гаргах" = ажлаас гарсан → архивт шилжинэ, ажилтны хуудсанд харагдахгүй
+    conn.execute("UPDATE users SET is_active=0, is_dismissed=1 WHERE id=?", (uid,))
     conn.commit()
     conn.close()
-    flash('Ажилтан идэвхгүй болголоо.' if lang=='mn' else 'Staff deactivated.', 'success')
+    flash('Ажилтан ажлаас гарсан — архивт шилжлээ.' if lang=='mn'
+          else 'Staff dismissed — moved to archive.', 'success')
     return redirect(url_for('staff_list'))
 
 @app.route('/staff/shift/<shift>/<action>', methods=['POST'])
@@ -1995,10 +2000,13 @@ def staff_shift_bulk(shift, action):
         return redirect(url_for('staff_list'))
     new_active = 0 if action == 'rest' else 1
     conn = get_db()
-    # Өөрийгөө болон админыг хөндөхгүй
+    # Өөрийгөө, админ болон ажлаас гарсан хүнийг хөндөхгүй.
+    # Амраах нь is_dismissed-д хүрэхгүй тул архивт ОРОХГҮЙ — зөвхөн
+    # ажилтны хуудсанд идэвхгүй болж харагдана.
     me = session.get('user_id', 0)
     conn.execute(
-        "UPDATE users SET is_active=? WHERE shift=? AND role != 'admin' AND id != ?",
+        """UPDATE users SET is_active=? WHERE shift=? AND role != 'admin'
+           AND id != ? AND is_dismissed=0""",
         (new_active, shift, me))
     conn.commit()
     conn.close()
@@ -2013,7 +2021,8 @@ def staff_shift_bulk(shift, action):
 def staff_activate(uid):
     lang = session.get('lang','mn')
     conn = get_db()
-    conn.execute("UPDATE users SET is_active=1 WHERE id=?", (uid,))
+    # "Буцаах" = ажилдаа эргэж орлоо (амарсан ч бай, ажлаас гарсан ч бай)
+    conn.execute("UPDATE users SET is_active=1, is_dismissed=0 WHERE id=?", (uid,))
     conn.commit()
     conn.close()
     flash('Ажилтан идэвхжүүлэгдлээ.' if lang=='mn' else 'Staff activated.', 'success')
@@ -2050,11 +2059,12 @@ def staff_delete(uid):
         flash('Өөрийгөө устгах боломжгүй!', 'error')
         return redirect(url_for('archive'))
     conn = get_db()
+    # Устгахын өмнө заавал "Гаргах" хийж архивт орсон байх ёстой
     target = conn.execute(
-        "SELECT * FROM users WHERE id=? AND is_active=0 AND is_deleted=0", (uid,)).fetchone()
+        "SELECT * FROM users WHERE id=? AND is_dismissed=1 AND is_deleted=0", (uid,)).fetchone()
     if not target:
         conn.close()
-        flash('Ажилтан олдсонгүй. Эхлээд идэвхгүй болгоно уу.', 'error')
+        flash('Ажилтан архивт олдсонгүй. Эхлээд "Гаргах" товчийг дарна уу.', 'error')
         return redirect(url_for('archive'))
 
     name = target['name']
@@ -2264,6 +2274,19 @@ def ensure_tables():
     except Exception: pass
     try: conn.execute("ALTER TABLE users ADD COLUMN deleted_at TEXT")
     except Exception: pass
+    # Ажлаас гарсан (Гаргах) ба түр амарсан (Амраах) хоёрыг ялгана.
+    # Өмнө нь хоёул is_active=0 тавьдаг байсан тул амарсан ажилтан архивт
+    # ажлаас гарсантай хамт орж, ажилтны хуудаснаас алга болдог байсан.
+    _new_dismissed = False
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN is_dismissed INTEGER DEFAULT 0")
+        _new_dismissed = True
+    except Exception: pass
+    if _new_dismissed:
+        # Хуучин өгөгдлийг ялгах: ээлжгүй + идэвхгүй = ажлаас гарсан,
+        # ээлжтэй + идэвхгүй = зүгээр амарсан (ажилтны хуудсанд үлдэнэ)
+        conn.execute("""UPDATE users SET is_dismissed=1
+                        WHERE is_active=0 AND (shift IS NULL OR shift='')""")
     # Геологчийн харах эрхтэй ажлын дугаарын муж (мянгатаар: "1,2,6"). NULL = бүгдийг харах
     try: conn.execute("ALTER TABLE users ADD COLUMN view_ranges TEXT")
     except Exception: pass
