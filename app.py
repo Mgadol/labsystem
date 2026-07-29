@@ -2028,26 +2028,35 @@ def staff_activate(uid):
     flash('Ажилтан идэвхжүүлэгдлээ.' if lang=='mn' else 'Staff activated.', 'success')
     return redirect(url_for('staff_list'))
 
-# Ажилтны ажлын түүх байрлах хүснэгт → багана (устгахад шалгана)
-STAFF_HISTORY_REFS = [
-    ('sample_entries',  'done_by'),     ('sample_entries',  'approved_by'),
-    ('geo_samples',     'registered_by'),
-    ('sample_receipt',  'received_by'), ('sample_receipt',  'fm_operator'),
-    ('sample_receipt',  'mt_operator'),
-    ('calibrations',    'performed_by'), ('repairs',        'reported_by'),
-    ('device_usage_log','user_id'),      ('qc_settings',    'updated_by'),
-    ('analysis_device_map', 'updated_by'),
-]
+def _staff_ref_columns(conn):
+    """users(id) руу заасан бүх хүснэгт.багана — схемээс шууд уншина.
+
+    Гараар жагсаалт хөтөлбөл шинэ хүснэгт нэмэгдэхэд мартагдаж, ажилтныг
+    'түүхгүй' гэж андуурч устгах гэж оролдоод FOREIGN KEY алдаа өгдөг.
+    """
+    refs = []
+    for (table,) in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"):
+        if table in ('users', 'staff_device_permissions'):
+            continue  # өөрөө / эрхийн бичлэг тусдаа боловсруулагдана
+        try:
+            for fk in conn.execute(f'PRAGMA foreign_key_list("{table}")'):
+                if fk[2] == 'users' and fk[3]:
+                    refs.append((table, fk[3]))
+        except Exception:
+            pass
+    return refs
+
 
 def _staff_history_count(conn, uid):
-    """Ажилтны нэртэй холбоотой бичлэгийн тоо (байхгүй хүснэгт/баганыг алгасана)"""
+    """Ажилтны нэртэй холбоотой бичлэгийн тоо (схемээс автоматаар)"""
     total = 0
-    for table, col in STAFF_HISTORY_REFS:
+    for table, col in _staff_ref_columns(conn):
         try:
             total += conn.execute(
-                f"SELECT COUNT(*) FROM {table} WHERE {col}=?", (uid,)).fetchone()[0]
+                f'SELECT COUNT(*) FROM "{table}" WHERE "{col}"=?', (uid,)).fetchone()[0]
         except Exception:
-            pass  # хүснэгт эсвэл багана байхгүй хувилбар
+            pass
     return total
 
 
@@ -2073,12 +2082,20 @@ def staff_delete(uid):
     try: conn.execute("DELETE FROM staff_device_permissions WHERE user_id=?", (uid,))
     except Exception: pass
 
+    hard_deleted = False
     if linked == 0:
-        # Ажлын түүхгүй → бүрмөсөн устгана
-        conn.execute("DELETE FROM users WHERE id=?", (uid,))
-        msg = (f'{name} бүрмөсөн устгагдлаа.' if lang=='mn'
-               else f'{name} permanently deleted.')
-    else:
+        # Ажлын түүхгүй → бүрмөсөн устгахыг оролдоно.
+        # Хэрэв тооллогод ороогүй холбоос үлдсэн бол алдаа өгөхийн оронд
+        # доорх нэр хадгалах горим руу шилжинэ (500 хуудас хэзээ ч гарахгүй).
+        try:
+            # SQLite-д алдаатай мөр зөвхөн өөрөө буцдаг тул гүйлгээ бүтэн үлдэнэ
+            conn.execute("DELETE FROM users WHERE id=?", (uid,))
+            hard_deleted = True
+            msg = (f'{name} бүрмөсөн устгагдлаа.' if lang=='mn'
+                   else f'{name} permanently deleted.')
+        except Exception:
+            linked = -1   # тооллогод ороогүй холбоос үлдсэн → нэр хадгална
+    if not hard_deleted:
         # Ажлын түүхтэй → системээс алга болно, гэхдээ хуучин шинжилгээ,
         # тайлангийн гарын үсэгт нэр нь хадгалагдана
         conn.execute("""
@@ -2087,9 +2104,10 @@ def staff_delete(uid):
                    photo=NULL, shift=NULL
             WHERE id=?
         """, (datetime.now().isoformat(), f'DELETED-{uid}', uid))
-        msg = (f'{name} устгагдлаа. Холбоотой {linked} бичлэгт нэр нь '
+        cnt = f'{linked} ' if linked > 0 else ''
+        msg = (f'{name} устгагдлаа. Холбоотой {cnt}бичлэгт нэр нь '
                f'мөшгих зорилгоор хадгалагдав.' if lang=='mn'
-               else f'{name} deleted; name retained in {linked} linked records.')
+               else f'{name} deleted; name retained in linked records.')
     conn.commit()
     conn.close()
     flash(msg, 'success')
