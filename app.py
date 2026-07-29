@@ -2421,24 +2421,30 @@ def ensure_tables():
       conn.execute("UPDATE devices SET check_param5=NULL, check_standard5=NULL, check_tolerance5=NULL WHERE check_param5='5'")
       # Энэ блок дахин ажиллахгүй болгоно
       conn.execute("PRAGMA user_version=1")
-    try: conn.execute("ALTER TABLE internal_qc ADD COLUMN qc_number TEXT")
-    except: pass
-    try: conn.execute("ALTER TABLE internal_qc ADD COLUMN row_num_1 INTEGER")
-    except: pass
-    try: conn.execute("ALTER TABLE internal_qc ADD COLUMN row_num_2 INTEGER")
-    except: pass
+    # ЗААВАЛ: CREATE эхэлж, ALTER дараа нь. Урвуу дараалалтай байхад шинэ
+    # мэдээллийн санд ALTER амжилтгүй болж (хүснэгт хараахан байхгүй), улмаас
+    # хүснэгт дутуу баганатай үүсээд /analysis хуудас 500 алдаа өгдөг байсан.
     conn.execute("""CREATE TABLE IF NOT EXISTS internal_qc (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         qc_number TEXT,
         triggered_date TEXT NOT NULL,
         receipt_id_1 INTEGER REFERENCES sample_receipt(id),
         receipt_id_2 INTEGER REFERENCES sample_receipt(id),
+        row_num_1 INTEGER,
+        row_num_2 INTEGER,
         assigned_to INTEGER REFERENCES users(id),
         status TEXT DEFAULT 'pending',
         notes TEXT,
         created_by INTEGER REFERENCES users(id),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""")
+    # Хуучин мэдээллийн санг шинэчлэх (аль хэдийн байвал алдаа өгөхгүй)
+    try: conn.execute("ALTER TABLE internal_qc ADD COLUMN qc_number TEXT")
+    except Exception: pass
+    try: conn.execute("ALTER TABLE internal_qc ADD COLUMN row_num_1 INTEGER")
+    except Exception: pass
+    try: conn.execute("ALTER TABLE internal_qc ADD COLUMN row_num_2 INTEGER")
+    except Exception: pass
     conn.execute("""CREATE TABLE IF NOT EXISTS internal_qc_results (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         qc_id INTEGER REFERENCES internal_qc(id),
