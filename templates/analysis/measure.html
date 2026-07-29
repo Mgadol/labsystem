@@ -184,6 +184,8 @@
   <tr class="main-row" id="mr{{ ri }}">
     <td class="f0" style="font-size:10px;color:#666;padding:0 2px">
       <button class="dup-btn" id="db{{ ri }}" onclick="toggleDup({{ ri }})">+</button>
+      <button class="dup-btn" id="rb{{ ri }}" onclick="addRepeat({{ ri }})"
+              title="Давталт нэмэх (QC зөрсөн үед)" style="margin-left:2px">↻</button>
     </td>
     <td class="f1" style="font-size:10px;font-weight:600;color:
       {% if stype=='PIT' %}#0f6e56{% elif stype=='STOCKPILE' %}#185fa5
@@ -425,8 +427,33 @@ function gv(row,dup,field){
   var inp=document.querySelector('[data-row="'+row+'"][data-dup="'+dup+'"][data-field="'+field+'"]');
   return inp&&inp.value!==''?parseFloat(inp.value):null;
 }
+// Хэмжилтийн дугаар → нүдний id угтвар. 0=үндсэн, 1=зэрэгцээ, 2,3…=давталт
+function idFor(ri,dup){ return dup?(dup===1?ri+'d':ri+'d'+dup):(''+ri); }
+// Тухайн мөрөнд одоо байгаа бүх хэмжилтийн дугаар
+function dupsOf(ri){
+  var out=[];
+  Object.keys(rawVals).forEach(function(k){
+    var p=k.split('_');
+    if(+p[0]===ri) out.push(+p[1]);
+  });
+  return out.sort(function(a,b){return a-b;});
+}
+// Хамгийн ойрхон хоёрын дундаж — албан ёсны үр дүн болно (сервертэй ижил дүрэм)
+function closestPair(list){
+  var a=list.filter(function(x){return x.v!=null&&!isNaN(x.v);})
+            .sort(function(x,y){return x.v-y.v;});
+  if(!a.length) return null;
+  if(a.length===1) return {mean:a[0].v,diff:0,picked:[a[0].dup],all:a};
+  var bi=0,bd=Math.abs(a[1].v-a[0].v);
+  for(var i=1;i<a.length-1;i++){
+    var d=Math.abs(a[i+1].v-a[i].v);
+    if(d<bd){bd=d;bi=i;}
+  }
+  return {mean:(a[bi].v+a[bi+1].v)/2,diff:bd,picked:[a[bi].dup,a[bi+1].dup],all:a};
+}
+
 function calc(ri,dup){
-  var id=dup?ri+'d':ri+'';
+  var id=idFor(ri,dup);
   // TM (нийт чийг)
   var ffs=gv(ri,dup,'ff_sample'),ffd=gv(ri,dup,'ff_dried');
   var chch=(ffs&&ffs>0&&ffd!=null)?(ffs-ffd)/ffs*100:0;
@@ -454,13 +481,13 @@ function calc(ri,dup){
   var sad=gv(ri,dup,'sulfur'),qb=gv(ri,dup,'cal_value');
   setC('r'+id+'_sad',sad,2);setC('r'+id+'_qb',qb,1);
   rawVals[ri+'_'+dup]={tm:tm,mad:mad,aad:aad,vad:vad,fc:fc,g:gval,sad:sad,qb:qb};
-  if(dup) checkQC(ri);
-  else if(rawVals[ri+'_1']) checkQC(ri);
+  if(dupsOf(ri).length>1) checkQC(ri);
   if(mad!=null||aad!=null||vad!=null||gval!=null) sendCalc(ri,dup);
-  // Үндсэн мөрийн Mad өөрчлөгдөхөд зэрэгцээ мөрийн Vad-ийг дахин бодно
-  if(!dup&&rawVals[ri+'_1']){
-    var _dr=document.getElementById('dr'+ri);
-    if(_dr&&_dr.classList.contains('show')) calc(ri,1);
+  // Үндсэн мөрийн Mad өөрчлөгдөхөд бусад хэмжилтийн Vad-ийг дахин бодно
+  if(!dup){
+    dupsOf(ri).forEach(function(dp){
+      if(dp>0 && rawVals[ri+'_'+dp]) calc(ri,dp);
+    });
   }
 }
 // Тооцооллын хадгалалт: debounce + мөр тус бүрд дараалсан илгээлт.
@@ -483,29 +510,58 @@ function sendCalc(ri,dup){
   },350);
 }
 function setC(id,v,d){var e=document.getElementById(id);if(e){e.textContent=v!=null?v.toFixed(d):'—';e.className='calc-cell'+(id.includes('_tm')?' gs':'');}}
-function calcQC(ri){calc(ri,0);if(document.getElementById('dr'+ri).classList.contains('show'))calc(ri,1);}
+function calcQC(ri){
+  calc(ri,0);
+  var dr=document.getElementById('dr'+ri);
+  if(dr&&dr.classList.contains('show')) calc(ri,1);
+  repeatRows(ri).forEach(function(r){
+    var inp=r.querySelector('input[data-dup]');
+    if(inp) calc(ri,+inp.getAttribute('data-dup'));
+  });
+}
 function checkQC(ri){
   var qcMap={mad:QC.mad,aad:QC.aad,vad:QC.vad,sad:QC.sad,qb:QC.qb,g:QC.g};
   var decMap={tm:1,mad:2,aad:2,vad:2,fc:2,g:0,sad:2,qb:1};
-  var d0=rawVals[ri+'_0']||{};
-  var d1=rawVals[ri+'_1']||{};
+  var dups=dupsOf(ri);
+  if(dups.length<2) return;
   ['tm','mad','aad','vad','fc','g','sad','qb'].forEach(function(p){
-    var v1=d0[p],v2=d1[p];
-    if(v1!=null&&v2!=null){
-      var d=decMap[p]!=null?decMap[p]:2;
-      var diff=Math.round(Math.abs(v1-v2)*100000)/100000;
-      var avg=(v1+v2)/2;
-      var el=document.getElementById('r'+ri+'_'+p);
-      var el2=document.getElementById('r'+ri+'d_'+p);
-      if(qcMap[p]!=null){
-        var ok=diff<=qcMap[p];
-        if(el){el.textContent=avg.toFixed(d);el.className='calc-cell'+(p==='tm'?' gs':'');el.style.color=ok?'#0a6e3f':'';}
-        if(el2){el2.textContent=diff.toFixed(d);el2.className='calc-cell '+(ok?'':'qc-warn');el2.style.color='';}
-      } else {
-        if(el){el.textContent=avg.toFixed(d);el.className='calc-cell'+(p==='tm'?' gs':'');el.style.color='';}
-        if(el2){el2.textContent=diff.toFixed(d);el2.className='calc-cell';el2.style.color='';}
-      }
+    var list=dups.map(function(dp){return {dup:dp,v:(rawVals[ri+'_'+dp]||{})[p]};});
+    var res=closestPair(list);
+    if(!res||res.picked.length<2) return;
+    var d=decMap[p]!=null?decMap[p]:2, tol=qcMap[p];
+    var ok=(tol==null)||(res.diff<=tol);
+    // ── Үндсэн нүд: албан ёсны үр дүн (хамгийн ойрхон хоёрын дундаж) ──
+    var el=document.getElementById('r'+ri+'_'+p);
+    if(el){
+      el.textContent=res.mean.toFixed(d);
+      el.className='calc-cell'+(p==='tm'?' gs':'');
+      el.style.color=(tol==null)?'':(ok?'#0a6e3f':'#b42318');
+      el.title='Хэмжилт: '+res.all.map(function(x){return x.v.toFixed(d);}).join(' / ')
+              +'  →  сонгосон зөрүү '+res.diff.toFixed(d)
+              +(tol!=null?(' (хүлцэл '+tol+')'):'');
     }
+    // ── Бусад мөр ──
+    dups.forEach(function(dp){
+      if(dp===0) return;
+      var el2=document.getElementById('r'+idFor(ri,dp)+'_'+p);
+      if(!el2) return;
+      var own=(rawVals[ri+'_'+dp]||{})[p];
+      if(own==null){el2.textContent='—';el2.className='calc-cell';el2.style.color='';el2.title='';return;}
+      if(dups.length===2){
+        // Хоёрхон хэмжилт — өмнөх шигээ зөрүүг харуулна
+        el2.textContent=res.diff.toFixed(d);
+        el2.className='calc-cell '+(ok?'':'qc-warn');
+        el2.style.color='';
+        el2.title='Зөрүү';
+      } else {
+        // Давталттай — мөр бүр өөрийн утгаа, сонгогдсон хоёр нь ногооноор
+        var used=res.picked.indexOf(dp)>=0;
+        el2.textContent=own.toFixed(d);
+        el2.className='calc-cell';
+        el2.style.color=used?'#0a6e3f':'#9aa0a6';
+        el2.title=used?'Үр дүнд сонгогдсон':'Сонгогдоогүй';
+      }
+    });
   });
 }
 function getN(id){var e=document.getElementById(id);return e&&e.textContent!='—'?parseFloat(e.textContent):null;}
@@ -522,6 +578,56 @@ function toggleDup(ri){
     var first=dr.querySelector('input');
     if(first) setTimeout(function(){first.focus();first.select();},30);
   }
+}
+
+// ── Давталт (3, 4 дэх хэмжилт) ──────────────────────────
+// QC хүлцэл давсан үед үзүүлэлтээ дахин хэмжинэ. Бүх хэмжилт хадгалагдаж,
+// эцсийн үр дүнд хамгийн ойрхон хоёр нь сонгогдоно.
+var MAX_DUP=6;   // үндсэн + зэрэгцээ + 5 давталт хүртэл
+function repeatRows(ri){ return document.querySelectorAll('tr[data-rep="'+ri+'"]'); }
+
+function addRepeat(ri,silent){
+  var base=document.getElementById('dr'+ri);
+  if(!base) return null;
+  var dup=2+repeatRows(ri).length;
+  if(dup>MAX_DUP){ if(!silent) alert('Хамгийн ихдээ '+(MAX_DUP-1)+' давталт хийж болно.'); return null; }
+  var row=base.cloneNode(true);
+  row.id='dr'+ri+'_'+dup;
+  row.setAttribute('data-rep',ri);
+  row.className='dup-row show';
+  row.querySelectorAll('input').forEach(function(inp){
+    inp.setAttribute('data-dup',dup);
+    inp.value='';
+    inp.readOnly=false;
+    inp.removeAttribute('id');
+    if(inp.getAttribute('oninput')) inp.setAttribute('oninput','calc('+ri+','+dup+')');
+  });
+  row.querySelectorAll('.calc-cell').forEach(function(c){
+    if(c.id) c.id='r'+idFor(ri,dup)+'_'+c.id.split('_').pop();
+    c.textContent='—'; c.style.color=''; c.title='';
+  });
+  var lbl=row.querySelector('.f3');
+  if(lbl){ lbl.textContent='давталт '+(dup-1); }
+  // Хамгийн сүүлийн давталтын (эсвэл зэрэгцээ мөрийн) ард байрлуулна
+  var reps=repeatRows(ri);
+  var after=reps.length?reps[reps.length-1]:base;
+  after.parentNode.insertBefore(row,after.nextSibling);
+  // Зэрэгцээ мөр нуугдсан байвал нээнэ (эс тэгвэл давталт ганцаараа өлгөөтэй)
+  if(!base.classList.contains('show')) toggleDup(ri);
+  rawVals[ri+'_'+dup]=rawVals[ri+'_'+dup]||{};
+  if(!silent){
+    var first=row.querySelector('input');
+    if(first) setTimeout(function(){first.focus();first.select();},30);
+  }
+  return row;
+}
+
+// Тухайн мөрөнд шаардлагатай тооны давталтын мөр байгаа эсэхийг хангана
+function ensureRepeat(ri,dup){
+  while(2+repeatRows(ri).length<=dup){
+    if(!addRepeat(ri,true)) break;
+  }
+  return document.getElementById('dr'+ri+'_'+dup);
 }
 
 // Багана нуух
@@ -620,6 +726,7 @@ function loadData(){
   fetch('/analysis/load/'+RID).then(r=>r.json()).then(function(data){
     Object.keys(data).forEach(function(key){
       var p=key.split('_'),row=p[0],dup=p[1],e=data[key];
+      if(+dup>=2) ensureRepeat(+row,+dup);   // давталтын мөрийг сэргээнэ
       Object.keys(e).forEach(function(f){
         if(['id','receipt_id','row_num','is_duplicate','created_at','updated_at','updated_by'].includes(f)) return;
         var inp=document.querySelector('[data-row="'+row+'"][data-dup="'+dup+'"][data-field="'+f+'"]');
