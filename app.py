@@ -4812,6 +4812,43 @@ def backup_create():
     shutil.copy2(db_path, bk_path)
     return jsonify({'ok': True, 'name': bk_name})
 
+@app.route('/lab-settings/usage-clear', methods=['POST'])
+@admin_required
+def usage_clear():
+    """Тоног төхөөрөмж ашигласан цагийн бүх бүртгэлийг цэвэрлэнэ.
+
+    Буцаах боломжгүй тул устгахын өмнө автоматаар нөөцөлнө. Ашиглагдаж
+    байгаа (дуусаагүй) бүртгэл ч цэвэрлэгдэх тул түгжигдсэн тоног
+    төхөөрөмж чөлөөлөгдөнө.
+    """
+    import shutil
+    from datetime import datetime as dt
+    inst = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance')
+    bk_name = f"lab_backup_{dt.now().strftime('%Y%m%d_%H%M%S')}.db"
+    try:
+        shutil.copy2(os.path.join(inst, 'lab.db'), os.path.join(inst, bk_name))
+    except Exception:
+        bk_name = None
+
+    conn = get_db()
+    counts = {}
+    for tbl in ('usage_logs', 'device_usage_log'):
+        try:
+            counts[tbl] = conn.execute(f"SELECT COUNT(*) FROM {tbl}").fetchone()[0]
+            conn.execute(f"DELETE FROM {tbl}")
+        except Exception:
+            counts[tbl] = 0
+    conn.commit()
+    conn.close()
+
+    msg = (f"Ашиглалтын цаг цэвэрлэгдлээ — {counts.get('usage_logs',0)} ашиглалтын "
+           f"бүртгэл, {counts.get('device_usage_log',0)} шинжилгээний ашиглалт устгав.")
+    if bk_name:
+        msg += f' Нөөц хуулбар: {bk_name}'
+    flash(msg, 'success')
+    return redirect(url_for('lab_settings'))
+
+
 @app.route('/backup/delete/<filename>', methods=['POST'])
 @admin_required
 def backup_delete(filename):
