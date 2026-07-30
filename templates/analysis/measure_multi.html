@@ -287,6 +287,9 @@ var rawVals = {};
 var deviceMap = {};
 var editMode = false;
 var pendingChanges = {};
+var pendingCalc = {};
+// DB-д хадгалагдсан ч жингээс дахин бодогдохгүй тооцоо
+var storedVals = {};
 
 // Toolbar дээр давтагдсан "Дотоод QC" товчийг нэг болгох
 (function(){
@@ -316,11 +319,18 @@ function toggleEditMode(){
   } else {
     setSheetReadonly(true);
     var keys = Object.keys(pendingChanges);
-    if(!keys.length){ btn.textContent='✏️ Засах'; document.getElementById('saveStatus').textContent='Хадгалагдсан'; return; }
+    var calcKeys = Object.keys(pendingCalc);
+    if(!keys.length && !calcKeys.length){ btn.textContent='✏️ Засах'; document.getElementById('saveStatus').textContent='Хадгалагдсан'; return; }
     setSave('pending');
     Promise.all(keys.map(function(k){
       return fetch('/analysis/autosave',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(pendingChanges[k])}).then(r=>r.json());
-    })).then(function(){ pendingChanges={}; setSave('ok'); }).catch(function(){ setSave('err'); });
+    })).then(function(){
+      pendingChanges={};
+      // Түүхий жин хадгалагдсаны ДАРАА тооцоог илгээнэ
+      calcKeys.forEach(function(k){var c=pendingCalc[k];sendCalc(c.uid,c.dup,c.rid,c.ri);});
+      pendingCalc={};
+      setSave('ok');
+    }).catch(function(){ setSave('err'); });
     btn.textContent = '✏️ Засах';
   }
 }
@@ -424,7 +434,10 @@ function closestPair(list){
   return {mean:(a[bi].v+a[bi+1].v)/2,diff:bd,picked:[a[bi].dup,a[bi+1].dup],all:a};
 }
 
-function calc(uid,dup,rid,ri){
+// save===false: зөвхөн дэлгэц дээр бодно, DB-д БИЧИХГҮЙ (хуудас ачаалах үед).
+// Урьд нь ачаалах үед ч бичдэг тул жингээс дахин бодогдохгүй үзүүлэлт
+// (жин нь байхгүй) NULL болж, БАТАЛГААЖСАН үр дүн ч устдаг байсан.
+function calc(uid,dup,rid,ri,save){
   var id=idFor(uid,dup);
   // TM (Нийт чийг) = чөлөөт чийг + үлдэгдэл чийг
   var ffs=gvr(rid,ri,dup,'ff_sample'),ffd=gvr(rid,ri,dup,'ff_dried');
@@ -443,10 +456,18 @@ function calc(uid,dup,rid,ri){
   var vt=gvr(rid,ri,dup,'vol_tare'),vs=gvr(rid,ri,dup,'vol_sample'),vb=gvr(rid,ri,dup,'vol_burned');
   var madV=mad!=null?mad:(dup&&rawVals[uid+'_0']?rawVals[uid+'_0'].mad:null);
   var vad=(vt!=null&&vs&&vs>0&&vb!=null&&madV!=null)?(vt+vs-vb)/vs*100-madV:null;
-  var fc=(mad!=null&&aad!=null&&vad!=null)?100-mad-aad-vad:null;
   // G-index
   var gt=gvr(rid,ri,dup,'g_tare'),gc=gvr(rid,ri,dup,'g_coke'),gs1=gvr(rid,ri,dup,'g_sieve1'),gs2=gvr(rid,ri,dup,'g_sieve2');
   var g=(gt!=null&&gc!=null&&gs1!=null&&gs2!=null&&(gc-gt)>0)?10+(30*(gs1-gt)+70*(gs2-gt))/(gc-gt):null;
+  // Жингээс бодогдохгүй ч хадгалагдсан утга байвал ХЭВЭЭР үлдээнэ (хөндөөгүй
+  // үзүүлэлт устахаас сэргийлнэ). Жин орсон даруйд хадгалагдсан нь хүчингүй.
+  var _sv=storedVals[uid+'_'+dup];
+  function keep(n,v){
+    if(v!=null){ if(_sv) delete _sv[n]; return v; }
+    return (_sv&&_sv[n]!=null)?_sv[n]:null;
+  }
+  mad=keep('mad',mad); aad=keep('aad',aad); vad=keep('vad',vad); g=keep('g',g);
+  var fc=(mad!=null&&aad!=null&&vad!=null)?100-mad-aad-vad:keep('fc',null);
   // Sad, Qb (direct inputs → reflect to calc cells)
   var sad=gvr(rid,ri,dup,'sulfur');
   var qb=gvr(rid,ri,dup,'cal_value');
@@ -456,11 +477,15 @@ function calc(uid,dup,rid,ri){
   setC('r'+id+'_g',g,0);setC('r'+id+'_sad',sad,2);setC('r'+id+'_qb',qb,1);
   rawVals[uid+'_'+dup]={tm:tm,mad:mad,aad:aad,vad:vad,fc:fc,g:g,sad:sad,qb:qb};
   checkQC(uid,rid,ri);
-  if(mad!=null||aad!=null||vad!=null||g!=null) sendCalc(uid,dup,rid,ri);
+  if(save!==false){
+    // Засах горимд түүхий жинтэйгээ нэг зэрэг хадгалагдана (доор үзнэ үү)
+    if(editMode) pendingCalc[uid+'_'+dup]={uid:uid,dup:dup,rid:rid,ri:ri};
+    else sendCalc(uid,dup,rid,ri);
+  }
   // Үндсэн мөрийн Mad өөрчлөгдөхөд зэрэгцээ мөрийн Vad-ийг дахин бодно
   if(!dup&&rawVals[uid+'_1']){
     var _dr=document.getElementById('dr'+uid);
-    if(_dr&&_dr.classList.contains('show')) calc(uid,1,rid,ri);
+    if(_dr&&_dr.classList.contains('show')) calc(uid,1,rid,ri,save);
   }
 }
 // Тооцооллын хадгалалт: debounce + мөр тус бүрд дараалсан илгээлт.
@@ -638,6 +663,26 @@ function toggleG(cb,g){
 }
 
 // Өгөгдөл ачаалах
+// Жингээс дахин бодогдохгүй ч DB-д хадгалагдсан тооцоо байвал түүнийг харуулна
+// (өмнө нь "—" гэж хоосон харагдаж, үр дүнгийн хуудастай зөрдөг байсан).
+function showStored(uid,dup,e){
+  var id=idFor(uid,dup);
+  var rv=rawVals[uid+'_'+dup]||(rawVals[uid+'_'+dup]={});
+  var sv=storedVals[uid+'_'+dup]||(storedVals[uid+'_'+dup]={});
+  [['mad','_mad','mad',2],['aad','_aad','aad',2],['vad','_vad','vad',2],
+   ['fc','_fc','fc',2],['g_val','_g','g',0]].forEach(function(x){
+    if(e[x[0]]==null) return;
+    var el=document.getElementById('r'+id+x[1]);
+    if(el&&el.textContent==='—'){
+      el.textContent=parseFloat(e[x[0]]).toFixed(x[3]);
+      el.style.fontStyle='italic';
+      el.title='Хадгалагдсан утга — жин бүрэн биш тул дахин бодогдоогүй';
+      rv[x[2]]=parseFloat(e[x[0]]);
+      sv[x[2]]=parseFloat(e[x[0]]);   // дараагийн тооцоонд устгагдахгүй
+    }
+  });
+}
+
 function loadAllData(){
   {% for receipt in receipts %}
   fetch('/analysis/load/{{ receipt["id"] }}').then(r=>r.json()).then(function(data){

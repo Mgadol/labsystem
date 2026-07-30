@@ -4215,10 +4215,20 @@ def analysis_autosave_calc():
         fc     = data.get('fc')
         g_val  = data.get('g_val')
 
-        if not any(v is not None for v in (mad, aad, vad, fc, g_val)):
-            return jsonify({'ok': True})   # хадгалах утга алга
-
         conn = get_db()
+        if not any(v is not None for v in (mad, aad, vad, fc, g_val)):
+            # Хэмжигч жингүүдийг бүгдийг хоосруулсан — БАЙГАА мөрийн тооцоог
+            # цэвэрлэнэ. Урьд нь юу ч хийхгүй буцдаг тул дэлгэц "—" харуулж
+            # байхад DB-д хуучин тооцоо үлдэж, тайланд гардаг байсан.
+            conn.execute("""UPDATE sample_entries
+                SET mad=NULL, aad=NULL, vad=NULL, fc=NULL, g_val=NULL,
+                    updated_by=?, updated_at=?
+                WHERE receipt_id=? AND row_num=? AND is_duplicate=?""",
+                (session['user_id'], datetime.now().isoformat(), rid, row, is_dup))
+            conn.commit()
+            conn.close()
+            return jsonify({'ok': True})
+
         # Атомик UPSERT. Урьд нь SELECT→INSERT хийдэг байсан нь нүдний autosave-тай
         # зэрэг ажиллахад UNIQUE зөрчил үүсгэж, тооцоолсон утга чимээгүй алдагддаг
         # байсан (хүсэлт нь 200 буцаадаг тул мэдэгддэггүй).
