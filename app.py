@@ -389,19 +389,47 @@ def dashboard():
             my_devices=my_devices, active_map=active_map, lang=lang)
     else:
         uid = session.get('user_id', 0)
-        if session.get('role') == 'bayjuulach':
+        role = session.get('role')
+        if role in ('bayjuulach', 'geologist'):
+            # Харилцагчийн нүүр хуудас — баяжуулагч, геологич хоёулаа ижил
             user = conn.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
-            samples = conn.execute("""
+            if role == 'bayjuulach':
+                thousands = [6]                       # 6000–6999 баяжуулах дээж
+            else:
+                vr = user['view_ranges'] if user else None
+                thousands = (None if vr is None else
+                             [int(x) for x in vr.split(',') if x.strip().isdigit()])
+            SAMPLE_SQL = """
                 SELECT sr.id as receipt_id, sr.lab_number, sr.lab_serial, sr.received_date,
                        g.sample_name, g.sample_type, g.status
                 FROM sample_receipt sr
                 JOIN geo_samples g ON g.id=sr.geo_sample_id
-                WHERE g.status='done' AND sr.lab_serial BETWEEN 6000 AND 6999
+                WHERE g.status='done' {rng}
                 ORDER BY sr.lab_serial DESC LIMIT 100
-            """).fetchall() if (user and user['can_view_result']) else []
+            """
+            samples = []
+            if user and user['can_view_result']:
+                if thousands is None:
+                    samples = conn.execute(SAMPLE_SQL.format(rng='')).fetchall()
+                elif thousands:
+                    ph = ','.join('?' * len(thousands))
+                    samples = conn.execute(
+                        SAMPLE_SQL.format(rng=f'AND CAST(sr.lab_serial/1000 AS INTEGER) IN ({ph})'),
+                        thousands).fetchall()
+            # Хүрээний тайлбар — дээжийн төрлийн тохиргооноос уншина
+            names = {int(r['serial_from'] or 0) // 1000: (r['name_mn'] or r['code'])
+                     for r in conn.execute(
+                         "SELECT code, name_mn, serial_from FROM sample_types WHERE serial_from IS NOT NULL")}
+            if thousands is None:
+                range_label = 'бүх дугаар'
+            elif thousands:
+                range_label = ', '.join(f'{t}000 {names.get(t, "")}'.strip() for t in sorted(thousands))
+            else:
+                range_label = 'муж тохируулаагүй'
             conn.close()
-            return render_template('staff/dashboard_bayjuulach.html',
-                user=user, samples=samples, lang=lang)
+            return render_template('staff/dashboard_client.html',
+                user=user, samples=samples, lang=lang, range_label=range_label,
+                role_label=('Баяжуулах цех' if role == 'bayjuulach' else 'Геологи'))
         my_devices = conn.execute("""
             SELECT d.*, dm.manufacturer, dm.model FROM devices d
             LEFT JOIN device_marks dm ON d.mark_id=dm.id

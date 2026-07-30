@@ -1,5 +1,5 @@
 {% extends "partial/base.html" %}
-{% block title %}Баяжуулах — Нүүр{% endblock %}
+{% block title %}{{ role_label }} — Нүүр{% endblock %}
 {% block content %}
 <div class="page" style="max-width:900px">
   <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
@@ -10,7 +10,7 @@
     {% endif %}
     <div>
       <div style="font-size:18px;font-weight:700">{{ user['name'] }}</div>
-      <div style="font-size:12px;color:var(--text-muted)">{{ user['position'] or 'Баяжуулах цех' }}</div>
+      <div style="font-size:12px;color:var(--text-muted)">{{ user['position'] or role_label }}</div>
     </div>
     {% if user['can_register'] %}
     <a href="{{ url_for('analysis_register') }}" class="btn btn-primary" style="margin-left:auto">+ Дээж нэмэх</a>
@@ -20,7 +20,7 @@
   <div class="card">
     <div style="font-weight:600;font-size:14px;margin-bottom:14px;color:var(--navy)">
       🧪 Шинжилгээний үр дүн
-      <span style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:6px">6000–6999 дугаар</span>
+      <span style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:6px">{{ range_label }}</span>
     </div>
     {% if user['can_view_result'] %}
       {% if samples %}
