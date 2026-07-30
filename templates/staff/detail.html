@@ -61,17 +61,21 @@
     <div>
 
       <!-- Stat cards -->
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
         <div class="card" style="padding:14px;text-align:center">
           <div style="font-size:28px;font-weight:700;color:var(--navy)">{{ total_done }}</div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Нийт шинжилгээ</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Шинжилсэн дээж</div>
+        </div>
+        <div class="card" style="padding:14px;text-align:center">
+          <div style="font-size:28px;font-weight:700;color:#854f0b">{{ total_prepared }}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Бэлтгэсэн дээж</div>
         </div>
         <div class="card" style="padding:14px;text-align:center">
           <div style="font-size:28px;font-weight:700;color:#0f6e56">{{ total_approved }}</div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Баталгаажуулсан</div>
         </div>
         <div class="card" style="padding:14px;text-align:center">
-          <div style="font-size:28px;font-weight:700;color:#854f0b">{{ '%.1f'|format(total_hours) }}</div>
+          <div style="font-size:28px;font-weight:700;color:#0d9488">{{ '%.1f'|format(total_hours) }}</div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Нийт цаг</div>
         </div>
       </div>
@@ -96,6 +100,7 @@
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
             <div style="font-size:12px;font-weight:600;color:var(--navy)">📊 Сарын шинжилгээ</div>
             <div style="display:flex;gap:4px">
+              <button onclick="setRange('week')" id="btnWeek" class="btn btn-sm btn-ghost" style="font-size:10px;padding:2px 8px">Долоо хоног</button>
               <button onclick="setRange('6m')" id="btn6m" class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:var(--navy);color:#fff;border:none">6 сар</button>
               <button onclick="setRange('12m')" id="btn12m" class="btn btn-sm btn-ghost" style="font-size:10px;padding:2px 8px">1 жил</button>
               <button onclick="setRange('all')" id="btnAll" class="btn btn-sm btn-ghost" style="font-size:10px;padding:2px 8px">Бүгд</button>
@@ -222,19 +227,46 @@ new Chart(document.getElementById('radarChart'), {
 {% endif %}
 
 var RANGES = {
-  '6m':  { months: {{ monthly_6|map(attribute='month')|list|tojson }},  counts: {{ monthly_6|map(attribute='cnt')|list|tojson }} },
-  '12m': { months: {{ monthly_12|map(attribute='month')|list|tojson }}, counts: {{ monthly_12|map(attribute='cnt')|list|tojson }} },
-  'all': { months: {{ monthly_all|map(attribute='month')|list|tojson }},counts: {{ monthly_all|map(attribute='cnt')|list|tojson }} }
+  'week': { months: {{ weekly_all|map(attribute='period')|list|tojson }},  counts: {{ weekly_all|map(attribute='cnt')|list|tojson }} },
+  '6m':   { months: {{ monthly_6|map(attribute='period')|list|tojson }},   counts: {{ monthly_6|map(attribute='cnt')|list|tojson }} },
+  '12m':  { months: {{ monthly_12|map(attribute='period')|list|tojson }},  counts: {{ monthly_12|map(attribute='cnt')|list|tojson }} },
+  'all':  { months: {{ monthly_all|map(attribute='period')|list|tojson }}, counts: {{ monthly_all|map(attribute='cnt')|list|tojson }} }
 };
+// Бэлтгэсэн дээж — тусдаа сериэс
+var PREP = {
+  'week': { months: {{ prep_weekly|map(attribute='period')|list|tojson }},  counts: {{ prep_weekly|map(attribute='cnt')|list|tojson }} },
+  '6m':   { months: {{ prep_monthly|map(attribute='period')|list|tojson }}, counts: {{ prep_monthly|map(attribute='cnt')|list|tojson }} },
+  '12m':  { months: {{ prep_monthly|map(attribute='period')|list|tojson }}, counts: {{ prep_monthly|map(attribute='cnt')|list|tojson }} },
+  'all':  { months: {{ prep_monthly|map(attribute='period')|list|tojson }}, counts: {{ prep_monthly|map(attribute='cnt')|list|tojson }} }
+};
+// Хугацааны нэг тэнхлэг дээр хоёр сериэсийг нийлүүлнэ
+function mergeSeries(r){
+  var a=RANGES[r], b=PREP[r];
+  var keys=a.months.slice();
+  b.months.forEach(function(m){ if(keys.indexOf(m)<0) keys.push(m); });
+  keys.sort();
+  var pick=function(s,k){ var i=s.months.indexOf(k); return i<0?0:s.counts[i]; };
+  return {labels:keys,
+          done:keys.map(function(k){return pick(a,k);}),
+          prep:keys.map(function(k){return pick(b,k);})};
+}
+var _m0 = mergeSeries('6m');
 var barChart = new Chart(document.getElementById('barChart'), {
   type: 'bar',
   data: {
-    labels: RANGES['6m'].months,
+    labels: _m0.labels,
     datasets: [{
-      label: 'Шинжилгээ',
-      data: RANGES['6m'].counts,
+      label: 'Шинжилсэн дээж',
+      data: _m0.done,
       backgroundColor: 'rgba(15,110,86,0.75)',
       borderColor: 'rgba(15,110,86,1)',
+      borderWidth: 1,
+      borderRadius: 4
+    },{
+      label: 'Бэлтгэсэн дээж',
+      data: _m0.prep,
+      backgroundColor: 'rgba(133,79,11,0.65)',
+      borderColor: 'rgba(133,79,11,1)',
       borderWidth: 1,
       borderRadius: 4
     }]
@@ -242,23 +274,25 @@ var barChart = new Chart(document.getElementById('barChart'), {
   options: {
     responsive: true,
     maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
+    plugins: { legend: { display: true, labels: { font: { size: 10 }, boxWidth: 10 } } },
     scales: {
       x: { ticks: { font: { size: 9 } } },
-      y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 9 } } }
+      y: { beginAtZero: true, ticks: { precision: 0, font: { size: 9 } } }
     }
   }
 });
 function setRange(r) {
-  barChart.data.labels = RANGES[r].months;
-  barChart.data.datasets[0].data = RANGES[r].counts;
+  var m = mergeSeries(r);
+  barChart.data.labels = m.labels;
+  barChart.data.datasets[0].data = m.done;
+  barChart.data.datasets[1].data = m.prep;
   barChart.update();
-  ['6m','12m','all'].forEach(function(k) {
-    var id = k==='6m'?'btn6m':k==='12m'?'btn12m':'btnAll';
+  ['week','6m','12m','all'].forEach(function(k) {
+    var id = k==='week'?'btnWeek':k==='6m'?'btn6m':k==='12m'?'btn12m':'btnAll';
     var btn = document.getElementById(id);
     if(btn) { btn.style.background=''; btn.style.color=''; btn.classList.add('btn-ghost'); }
   });
-  var aid = r==='6m'?'btn6m':r==='12m'?'btn12m':'btnAll';
+  var aid = r==='week'?'btnWeek':r==='6m'?'btn6m':r==='12m'?'btn12m':'btnAll';
   var active = document.getElementById(aid);
   if(active) { active.style.background='var(--navy)'; active.style.color='#fff'; active.classList.remove('btn-ghost'); }
 }

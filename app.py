@@ -1381,11 +1381,18 @@ def staff_detail(uid):
 
     # ── ХАРИЛЦАГЧ (геологи + баяжуулах): зөвхөн дээж бүртгэлийн мэдээлэл ──
     if target['role'] in ('geologist', 'bayjuulach'):
-        geo_total = conn.execute("SELECT COUNT(*) FROM geo_samples WHERE registered_by=?", (uid,)).fetchone()[0]
-        geo_done  = conn.execute("SELECT COUNT(*) FROM geo_samples WHERE registered_by=? AND status='done'", (uid,)).fetchone()[0]
+        # Тоолол нь АЖЛААР биш ДЭЭЖЭЭР явна: нэг ажилд quantity дээж байдаг
+        # (10 дээжтэй ажил = 10, өмнө нь 1 гэж бодогддог байсан).
+        QTY = "COALESCE(SUM(COALESCE(quantity,1)),0)"
+        geo_total = conn.execute(
+            f"SELECT {QTY} FROM geo_samples WHERE registered_by=?", (uid,)).fetchone()[0]
+        geo_done  = conn.execute(
+            f"SELECT {QTY} FROM geo_samples WHERE registered_by=? AND status='done'", (uid,)).fetchone()[0]
+        geo_jobs  = conn.execute(
+            "SELECT COUNT(*) FROM geo_samples WHERE registered_by=?", (uid,)).fetchone()[0]
         geo_active = geo_total - geo_done
-        geo_by_type = conn.execute("""
-            SELECT sample_type, COUNT(*) as cnt FROM geo_samples
+        geo_by_type = conn.execute(f"""
+            SELECT sample_type, {QTY} as cnt FROM geo_samples
             WHERE registered_by=? GROUP BY sample_type ORDER BY cnt DESC
         """, (uid,)).fetchall()
         geo_recent = conn.execute("""
@@ -1393,10 +1400,19 @@ def staff_detail(uid):
             LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
             WHERE g.registered_by=? ORDER BY g.created_at DESC LIMIT 30
         """, (uid,)).fetchall()
-        geo_monthly = conn.execute("""
-            SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as cnt
-            FROM geo_samples WHERE registered_by=?
-            GROUP BY month ORDER BY month
+        geo_monthly = conn.execute(f"""
+            SELECT strftime('%Y-%m', created_at) as period, {QTY} as cnt
+            FROM geo_samples WHERE registered_by=? AND created_at IS NOT NULL
+            GROUP BY period ORDER BY period
+        """, (uid,)).fetchall()
+        # Долоо хоногоор (ISO: %Y-W%W) — сүүлийн 26 долоо хоног
+        geo_weekly = conn.execute(f"""
+            SELECT strftime('%Y-W%W', created_at) as period, {QTY} as cnt,
+                   MIN(date(created_at)) as first_day
+            FROM geo_samples
+            WHERE registered_by=? AND created_at IS NOT NULL
+              AND date(created_at) >= date('now','-182 days')
+            GROUP BY period ORDER BY period
         """, (uid,)).fetchall()
         # Үр дүн харсан лог (геологи + баяжуулах)
         view_total = conn.execute("SELECT COUNT(*) FROM result_view_log WHERE user_id=?", (uid,)).fetchone()[0]
@@ -1410,7 +1426,8 @@ def staff_detail(uid):
         conn.close()
         return render_template('staff/detail_geologist.html', target=target, lang=lang,
                                geo_total=geo_total, geo_done=geo_done, geo_active=geo_active,
-                               geo_by_type=geo_by_type, geo_recent=geo_recent, geo_monthly=geo_monthly,
+                               geo_by_type=geo_by_type, geo_recent=geo_recent,
+                               geo_monthly=geo_monthly, geo_weekly=geo_weekly, geo_jobs=geo_jobs,
                                view_total=view_total, view_log=view_log)
 
     logs    = conn.execute("""
@@ -1448,29 +1465,54 @@ def staff_detail(uid):
         LIMIT 1
     """, (uid,)).fetchall()
     qc_radar = {}
-    # Monthly analysis counts
-    now = datetime.now()
-    def monthly_counts(months_back):
-        rows = conn.execute("""
-            SELECT strftime('%Y-%m', se.done_at) as month, COUNT(*) as cnt
-            FROM sample_entries se
-            WHERE se.done_by=? AND se.row_status IN ('done','approved')
-              AND se.done_at >= date('now', ?)
-            GROUP BY month ORDER BY month
-        """, (uid, f'-{months_back} months')).fetchall()
-        return rows
-    monthly_6   = monthly_counts(6)
-    monthly_12  = monthly_counts(12)
-    monthly_all = conn.execute("""
-        SELECT strftime('%Y-%m', done_at) as month, COUNT(*) as cnt
-        FROM sample_entries WHERE done_by=? AND row_status IN ('done','approved')
-        GROUP BY month ORDER BY month
-    """, (uid,)).fetchall()
+    # ── Бэлтгэсэн дээж (ажлаар биш дээжээр) ──────────────
+    # prep_by шинэ багана. Хуучин бичлэгт байхгүй тул нэрээр нөхөж тооцно.
+    PREP_WHERE = """
+        FROM sample_receipt sr JOIN geo_samples g ON g.id=sr.geo_sample_id
+        WHERE sr.prep_done_at IS NOT NULL
+          AND (sr.prep_by=? OR (sr.prep_by IS NULL AND sr.prep_operator=?))
+    """
+    prep_args = (uid, target['name'])
+    total_prepared = conn.execute(
+        f"SELECT COALESCE(SUM(COALESCE(g.quantity,1)),0) {PREP_WHERE}", prep_args).fetchone()[0]
+
+    # Monthly / weekly counts — шинжилсэн ба бэлтгэсэн дээжийн тоо
+    def series(fmt, days=None, kind='done'):
+        if kind == 'done':
+            sql = f"""
+                SELECT strftime('{fmt}', se.done_at) as period, COUNT(*) as cnt
+                FROM sample_entries se
+                WHERE se.done_by=? AND se.row_status IN ('done','approved')
+                  AND se.done_at IS NOT NULL
+                  {"AND date(se.done_at) >= date('now', ?)" if days else ""}
+                GROUP BY period ORDER BY period
+            """
+            args = (uid, f'-{days} days') if days else (uid,)
+        else:
+            sql = f"""
+                SELECT strftime('{fmt}', sr.prep_done_at) as period,
+                       COALESCE(SUM(COALESCE(g.quantity,1)),0) as cnt
+                {PREP_WHERE}
+                  {"AND date(sr.prep_done_at) >= date('now', ?)" if days else ""}
+                GROUP BY period ORDER BY period
+            """
+            args = prep_args + ((f'-{days} days',) if days else ())
+        return conn.execute(sql, args).fetchall()
+
+    monthly_all  = series('%Y-%m', kind='done')
+    monthly_6    = series('%Y-%m', days=183, kind='done')
+    monthly_12   = series('%Y-%m', days=366, kind='done')
+    weekly_all   = series('%Y-W%W', days=182, kind='done')
+    prep_monthly = series('%Y-%m', kind='prep')
+    prep_weekly  = series('%Y-W%W', days=182, kind='prep')
     conn.close()
     return render_template('staff/detail.html', target=target, logs=logs, my_devices=my_devs,
                            device_usage=device_usage, lang=lang,
                            total_done=total_done, total_approved=total_approved, total_hours=total_hours,
-                           qc_radar=qc_radar, monthly_6=monthly_6, monthly_12=monthly_12, monthly_all=monthly_all)
+                           total_prepared=total_prepared,
+                           qc_radar=qc_radar, monthly_6=monthly_6, monthly_12=monthly_12,
+                           monthly_all=monthly_all, weekly_all=weekly_all,
+                           prep_monthly=prep_monthly, prep_weekly=prep_weekly)
 
 # ── INTERNAL QC ─────────────────────────────────────────
 @app.route('/internal-qc')
@@ -2313,6 +2355,9 @@ def ensure_tables():
                 'crm_vad_unc REAL','crm_sulfur_unc REAL','crm_cal_unc REAL','sample_range TEXT']:
         try: conn.execute(f"ALTER TABLE geo_samples ADD COLUMN {col}")
         except Exception: pass
+    # Бэлтгэгчийг хэрэглэгчийн ID-гаар бүртгэнэ (нэрээр тоолох найдваргүй)
+    try: conn.execute("ALTER TABLE sample_receipt ADD COLUMN prep_by INTEGER REFERENCES users(id)")
+    except Exception: pass
     for col in ['prep_operator TEXT', 'prep_position TEXT', 'prep_devices TEXT']:
         try: conn.execute(f"ALTER TABLE sample_receipt ADD COLUMN {col}")
         except Exception: pass
@@ -3779,10 +3824,10 @@ def prep_done(receipt_id):
     prep_devices  = ', '.join(filter(None, request.form.getlist('prep_device')))
     conn.execute("""UPDATE sample_receipt
         SET prep_status='ready', prep_done_at=?, prep_notes=?,
-            prep_operator=?, prep_position=?, prep_devices=?
+            prep_operator=?, prep_position=?, prep_devices=?, prep_by=?
         WHERE id=?""", (datetime.now().isoformat(), notes,
                         prep_operator, prep_position, prep_devices,
-                        receipt_id))
+                        session.get('user_id'), receipt_id))
     conn.execute("UPDATE geo_samples SET status='prepared' WHERE id=(SELECT geo_sample_id FROM sample_receipt WHERE id=?)", (receipt_id,))
     lab_num = conn.execute('SELECT lab_number FROM sample_receipt WHERE id=?', (receipt_id,)).fetchone()
     lab_str = lab_num[0] if lab_num else ''

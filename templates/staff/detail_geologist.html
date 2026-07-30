@@ -79,7 +79,13 @@
 
       <!-- Bar: сарын бүртгэл -->
       <div class="card" style="padding:16px;margin-bottom:16px">
-        <div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:12px">📊 Сараар бүртгэсэн дээж</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div style="font-size:12px;font-weight:600;color:var(--navy)">📊 Бүртгэсэн дээж</div>
+          <div style="display:flex;gap:4px">
+            <button onclick="geoRange('week')" id="gbWeek" class="btn btn-sm btn-ghost" style="font-size:10px;padding:2px 8px">Долоо хоног</button>
+            <button onclick="geoRange('month')" id="gbMonth" class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:var(--navy);color:#fff;border:none">Сар</button>
+          </div>
+        </div>
         <div style="position:relative;height:220px">
           <canvas id="barChart"></canvas>
         </div>
@@ -154,15 +160,19 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script>
-var BAR_LABELS = {{ geo_monthly|map(attribute='month')|list|tojson }};
-var BAR_COUNTS = {{ geo_monthly|map(attribute='cnt')|list|tojson }};
-new Chart(document.getElementById('barChart'), {
+var GEO_SERIES = {
+  month: { labels: {{ geo_monthly|map(attribute='period')|list|tojson }},
+           counts: {{ geo_monthly|map(attribute='cnt')|list|tojson }} },
+  week:  { labels: {{ geo_weekly|map(attribute='period')|list|tojson }},
+           counts: {{ geo_weekly|map(attribute='cnt')|list|tojson }} }
+};
+var geoBar = new Chart(document.getElementById('barChart'), {
   type: 'bar',
   data: {
-    labels: BAR_LABELS,
+    labels: GEO_SERIES.month.labels,
     datasets: [{
       label: 'Бүртгэсэн дээж',
-      data: BAR_COUNTS,
+      data: GEO_SERIES.month.counts,
       backgroundColor: '{{ "rgba(13,148,136,0.7)" if target["role"]=="bayjuulach" else "rgba(124,58,237,0.7)" }}',
       borderColor: '{{ "rgba(13,148,136,1)" if target["role"]=="bayjuulach" else "rgba(124,58,237,1)" }}',
       borderWidth: 1,
@@ -175,9 +185,20 @@ new Chart(document.getElementById('barChart'), {
     plugins: { legend: { display: false } },
     scales: {
       x: { ticks: { font: { size: 9 } } },
-      y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 9 } } }
+      y: { beginAtZero: true, ticks: { precision: 0, font: { size: 9 } } }
     }
   }
 });
+function geoRange(r){
+  geoBar.data.labels = GEO_SERIES[r].labels;
+  geoBar.data.datasets[0].data = GEO_SERIES[r].counts;
+  geoBar.update();
+  [['week','gbWeek'],['month','gbMonth']].forEach(function(p){
+    var b=document.getElementById(p[1]);
+    if(!b) return;
+    if(p[0]===r){ b.classList.remove('btn-ghost'); b.style.background='var(--navy)'; b.style.color='#fff'; b.style.border='none'; }
+    else { b.classList.add('btn-ghost'); b.style.background=''; b.style.color=''; b.style.border=''; }
+  });
+}
 </script>
 {% endblock %}
