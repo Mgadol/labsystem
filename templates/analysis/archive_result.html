@@ -84,7 +84,7 @@
       <th>Vad<br>[%]</th><th>Vdb<br>[%]</th><th>Vdaf<br>[%]</th><th>Var<br>[%]</th>
       <th>FCad<br>[%]</th>
       <th>Sad<br>[%]</th><th>Sdb<br>[%]</th>
-      <th>Qb,d<br>[Ккал/кг]</th><th>Qgr,ad<br>[Ккал/кг]</th><th>Qgr,ar<br>[Ккал/кг]</th><th>Qnet,ar<br>[Ккал/кг]</th>
+      <th>Qb,ad<br>[Ккал/кг]</th><th>Qgr,ad<br>[Ккал/кг]</th><th>Qgr,ar<br>[Ккал/кг]</th><th>Qnet,ar<br>[Ккал/кг]</th>
       <th>G<br>[1:5]</th>
       <th>CSN<br>[1-9]</th>
     </tr>
@@ -104,69 +104,69 @@
     <td class="val">{{ '%.3f'|format(e['mass_kg']) if e and e['mass_kg'] else '—' }}</td>
     {% if is_done %}
     <td class="val">
-      {{ '%.2f'|format(e['mt_result']) if e['mt_result'] else '—' }}
+      {{ '%.2f'|format(e['mt_result']) if e['mt_result'] is not none else '—' }}
     </td>
     <td class="val">
-      {{ '%.2f'|format(e['mad']) if e['mad'] else '—' }}
+      {{ '%.2f'|format(e['mad']) if e['mad'] is not none else '—' }}
     </td>
     <td class="val">
-      {{ '%.2f'|format(e['aad']) if e['aad'] else '—' }}
+      {{ '%.2f'|format(e['aad']) if e['aad'] is not none else '—' }}
     </td>
     <td class="val">
-      {% if e['aad'] and e['mad'] is not none and (100 - e['mad']) > 0 %}
+      {% if e['aad'] is not none and e['mad'] is not none and (100 - e['mad']) > 0 %}
         {{ '%.2f'|format(e['aad'] * 100 / (100 - e['mad'])) }}
       {% else %}—{% endif %}
     </td>
     <td class="val">
-      {% if e['aad'] and e['mad'] is not none and e['mt_result'] is not none and (100 - e['mad']) > 0 %}
+      {% if e['aad'] is not none and e['mad'] is not none and e['mt_result'] is not none and (100 - e['mad']) > 0 %}
         {{ '%.2f'|format(e['aad'] * (100 - e['mt_result']) / (100 - e['mad'])) }}
       {% else %}—{% endif %}
     </td>
     <td class="val">
-      {{ '%.2f'|format(e['vad']) if e['vad'] else '—' }}
+      {{ '%.2f'|format(e['vad']) if e['vad'] is not none else '—' }}
     </td>
     <td class="val">
-      {% if e['vad'] and e['mad'] is not none and (100 - e['mad']) > 0 %}
+      {% if e['vad'] is not none and e['mad'] is not none and (100 - e['mad']) > 0 %}
         {{ '%.2f'|format(e['vad'] * 100 / (100 - e['mad'])) }}
       {% else %}—{% endif %}
     </td>
     <td class="val">
-      {% if e['vad'] and e['mad'] is not none and e['aad'] is not none and (100 - e['mad'] - e['aad']) > 0 %}
+      {% if e['vad'] is not none and e['mad'] is not none and e['aad'] is not none and (100 - e['mad'] - e['aad']) > 0 %}
         {{ '%.2f'|format(e['vad'] * 100 / (100 - e['mad'] - e['aad'])) }}
       {% else %}—{% endif %}
     </td>
     <td class="val">
-      {% if e['vad'] and e['mad'] is not none and e['mt_result'] is not none and (100 - e['mad']) > 0 %}
+      {% if e['vad'] is not none and e['mad'] is not none and e['mt_result'] is not none and (100 - e['mad']) > 0 %}
         {{ '%.2f'|format(e['vad'] * (100 - e['mt_result']) / (100 - e['mad'])) }}
       {% else %}—{% endif %}
     </td>
     <td class="val">
-      {{ '%.2f'|format(e['fc']) if e['fc'] else '—' }}
+      {{ '%.2f'|format(e['fc']) if e['fc'] is not none else '—' }}
     </td>
     <td class="val">
-      {{ '%.2f'|format(e['sulfur']) if e['sulfur'] else '—' }}
+      {{ '%.2f'|format(e['sulfur']) if e['sulfur'] is not none else '—' }}
     </td>
     <td class="val">
-      {% if e['sulfur'] and e['mad'] is not none and (100 - e['mad']) > 0 %}
+      {% if e['sulfur'] is not none and e['mad'] is not none and (100 - e['mad']) > 0 %}
         {{ '%.2f'|format(e['sulfur'] * 100 / (100 - e['mad'])) }}
       {% else %}—{% endif %}
     </td>
     <td class="val">
-      {{ '%.2f'|format(e['cal_value'] / 4.1868) if e['cal_value'] else '—' }}
+      {{ '%.2f'|format(e['cal_value'] / 4.1868) if e['cal_value'] is not none else '—' }}
     </td>
     <td class="val">
-      {% if e['cal_value'] and e['sulfur'] is not none %}
+      {% if e['cal_value'] is not none and e['sulfur'] is not none %}
         {{ '%.2f'|format((e['cal_value'] - (e['sulfur'] * 94.1 + e['cal_value'] * 0.0016)) / 4.1868) }}
       {% else %}—{% endif %}
     </td>
     <td class="val">
-      {% set qgr_ad = (e['cal_value'] - (e['sulfur'] * 94.1 + e['cal_value'] * 0.0016)) / 4.1868 if e['cal_value'] and e['sulfur'] is not none else none %}
+      {% set qgr_ad = (e['cal_value'] - (e['sulfur'] * 94.1 + e['cal_value'] * 0.0016)) / 4.1868 if e['cal_value'] is not none and e['sulfur'] is not none else none %}
       {% if qgr_ad is not none and e['mt_result'] is not none and e['mad'] is not none and (100 - e['mad']) > 0 %}
         {{ '%.2f'|format(qgr_ad * (100 - e['mt_result']) / (100 - e['mad'])) }}
       {% else %}—{% endif %}
     </td>
     <td class="val">
-      {% if e['cal_value'] and e['sulfur'] is not none and e['mad'] is not none and e['aad'] is not none and e['vad'] is not none and e['mt_result'] is not none and (100 - e['mad']) > 0 %}
+      {% if e['cal_value'] is not none and e['sulfur'] is not none and e['mad'] is not none and e['aad'] is not none and e['vad'] is not none and e['mt_result'] is not none and (100 - e['mad']) > 0 %}
         {% set qgr_ad_jg = e['cal_value'] - (e['sulfur'] * 94.1 + e['cal_value'] * 0.0016) %}
         {% set adb = e['aad'] * 100 / (100 - e['mad']) %}
         {% set vdaf = e['vad'] * 100 / (100 - e['mad'] - e['aad']) if (100 - e['mad'] - e['aad']) > 0 else 0 %}
@@ -177,10 +177,10 @@
       {% else %}—{% endif %}
     </td>
     <td class="val">
-      {{ '%.0f'|format(e['g_val']) if e['g_val'] else '—' }}
+      {{ '%.0f'|format(e['g_val']) if e['g_val'] is not none else '—' }}
     </td>
     <td class="val">
-      {{ '%.2f'|format(e['fsi']) if e['fsi'] else '—' }}
+      {{ '%.2f'|format(e['fsi']) if e['fsi'] is not none else '—' }}
     </td>
     {% else %}
     <td colspan="18" class="val-empty" style="text-align:left;padding-left:8px">Өгөгдөл байхгүй</td>
@@ -192,6 +192,9 @@
       <span class="st-done">🟠 Урьдчилсан</span>
       {% elif e['row_status'] == 'approved' %}
       <span class="st-approved">🟢 Баталгаажсан</span>
+      {% else %}
+      {# Статус нь NULL/танихгүй — нүд хоосон үлдэхээс сэргийлнэ #}
+      <span style="color:#ccc;font-size:11px">—</span>
       {% endif %}
     </td>
   </tr>
@@ -199,17 +202,17 @@
   <tr style="background:#f0f6ff!important">
     <td style="color:#185fa5;font-size:10px">↳</td>
     <td style="color:#185fa5;font-size:10px;font-style:italic;text-align:left;padding-left:8px" colspan="2">зэрэгцээ</td>
-    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['mt_result']) if de['mt_result'] else '—' }}</td>
-    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['mad']) if de['mad'] else '—' }}</td>
-    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['aad']) if de['aad'] else '—' }}</td>
+    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['mt_result']) if de['mt_result'] is not none else '—' }}</td>
+    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['mad']) if de['mad'] is not none else '—' }}</td>
+    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['aad']) if de['aad'] is not none else '—' }}</td>
     <td class="val" style="color:#185fa5">—</td>
     <td class="val" style="color:#185fa5">—</td>
-    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['vad']) if de['vad'] else '—' }}</td>
+    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['vad']) if de['vad'] is not none else '—' }}</td>
     <td class="val" style="color:#185fa5">—</td>
     <td class="val" style="color:#185fa5">—</td>
     <td class="val" style="color:#185fa5">—</td>
-    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['fc']) if de['fc'] else '—' }}</td>
-    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['sulfur']) if de['sulfur'] else '—' }}</td>
+    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['fc']) if de['fc'] is not none else '—' }}</td>
+    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['sulfur']) if de['sulfur'] is not none else '—' }}</td>
     <td class="val" style="color:#185fa5">—</td>
     <td colspan="4"></td>
     <td></td><td></td>
@@ -229,7 +232,7 @@
   <div class="card" style="padding:14px">
     <div style="font-size:11px;font-weight:600;color:#1a2744;margin-bottom:8px;display:flex;align-items:center;gap:6px">
       <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#185fa5"></span>
-      Qb,d ~ Aad корреляц
+      Qb,ad ~ Aad корреляц
     </div>
     <div style="position:relative;height:200px"><canvas id="chartQA"></canvas></div>
   </div>
@@ -266,12 +269,25 @@
       </thead>
       <tbody>
         {% set e0 = entries|selectattr('is_duplicate','equalto',0)|first %}
+        {# CRM сертификат ХУУРАЙ сууринд (Adb/Vdb/Sdb/Qb,d) — хэмжсэн ad утгыг
+           k = 100/(100−Mad)-аар хуурай суурьт хөрвүүлж харьцуулна. #}
+        {% set _mad = e0['mad'] if e0 else none %}
+        {% set k = 100 / (100 - _mad) if (_mad is not none and (100 - _mad) > 0) else none %}
         {% set crm_rows = [
-          ('Adb — Үнслэг', crm_cert['crm_aad'], e0['aad'] if e0 else none, '%'),
-          ('Vdb — Дэгдэмхий бодис', crm_cert['crm_vad'], e0['vad'] if e0 else none, '%'),
-          ('Sdb — Нийт хүхэр', crm_cert['crm_sulfur'], e0['sulfur'] if e0 else none, '%'),
-          ('Qb,d — Илчлэг МЖ/кг', crm_cert['crm_cal'], (e0['cal_value']/1000)|round(3) if e0 and e0['cal_value'] else none, 'МЖ/кг'),
+          ('Adb — Үнслэг', crm_cert['crm_aad'],
+           (e0['aad'] * k) if (k and e0['aad'] is not none) else none, '%'),
+          ('Vdb — Дэгдэмхий бодис', crm_cert['crm_vad'],
+           (e0['vad'] * k) if (k and e0['vad'] is not none) else none, '%'),
+          ('Sdb — Нийт хүхэр', crm_cert['crm_sulfur'],
+           (e0['sulfur'] * k) if (k and e0['sulfur'] is not none) else none, '%'),
+          ('Qb,d — Илчлэг МЖ/кг', crm_cert['crm_cal'],
+           (e0['cal_value'] / 1000 * k) if (k and e0['cal_value'] is not none) else none, 'МЖ/кг'),
         ] %}
+        {% if e0 and k is none %}
+        <tr><td colspan="4" style="padding:7px 10px;border:1px solid #e5e4e0;color:#993c1d;font-size:11px">
+          ⚠️ Mad (дотоод чийг) хэмжигдээгүй тул хуурай суурьт хөрвүүлэх боломжгүй байна.
+        </td></tr>
+        {% endif %}
         {% for label, cert, meas, unit in crm_rows %}
         <tr>
           <td style="padding:7px 10px;border:1px solid #e5e4e0;font-weight:500">{{ label }}</td>
@@ -305,16 +321,16 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script>
 var CD=[{% for e in entries if e and e['is_duplicate']==0 and e['aad'] is not none %}{a:{{e['aad']}},q:{{(e['cal_value']/4.1868)|round(1) if e['cal_value'] else 'null'}},v:{{e['vad'] if e['vad'] is not none else 'null'}},s:{{e['sulfur'] if e['sulfur'] is not none else 'null'}},n:{{e['sample_name']|tojson}}},{% endfor %}];
-function lr(pts){var n=pts.length,sx=0,sy=0,sxy=0,sxx=0;pts.forEach(function(p){sx+=p.x;sy+=p.y;sxy+=p.x*p.y;sxx+=p.x*p.x;});var m=(n*sxy-sx*sy)/(n*sxx-sx*sx),b=(sy-m*sx)/n;return{m:m,b:b};}
+function lr(pts){var n=pts.length;if(n<2)return null;var sx=0,sy=0,sxy=0,sxx=0;pts.forEach(function(p){sx+=p.x;sy+=p.y;sxy+=p.x*p.y;sxx+=p.x*p.x;});var m=(n*sxy-sx*sy)/(n*sxx-sx*sx),b=(sy-m*sx)/n;return{m:m,b:b};}
 function mk(id,pts,xl,yl,clr){
   if(!pts.length)return;
   var r=lr(pts),xs=pts.map(function(p){return p.x;}),mn=Math.min.apply(null,xs),mx=Math.max.apply(null,xs);
-  new Chart(document.getElementById(id),{data:{datasets:[
-    {type:'scatter',data:pts,backgroundColor:clr,pointRadius:4},
-    {type:'line',data:[{x:mn,y:r.m*mn+r.b},{x:mx,y:r.m*mx+r.b}],borderColor:'#e05252',borderWidth:1,borderDash:[3,2],pointRadius:0,fill:false}
-  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.dataset.type==='line'?null:c.raw.n+' ('+c.raw.x.toFixed(2)+', '+c.raw.y.toFixed(0)+')';}}}},scales:{x:{title:{display:true,text:xl,font:{size:9}},ticks:{font:{size:8}}},y:{title:{display:true,text:yl,font:{size:9}},ticks:{font:{size:8}}}}}});
+  // Нэг цэг дээр регресс бодогдохгүй (0/0) — шугамгүйгээр зөвхөн цэгийг зурна
+  var ds=[{type:'scatter',data:pts,backgroundColor:clr,pointRadius:4}];
+  if(r) ds.push({type:'line',data:[{x:mn,y:r.m*mn+r.b},{x:mx,y:r.m*mx+r.b}],borderColor:'#e05252',borderWidth:1,borderDash:[3,2],pointRadius:0,fill:false});
+  new Chart(document.getElementById(id),{data:{datasets:ds},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.dataset.type==='line'?null:c.raw.n+' ('+c.raw.x.toFixed(2)+', '+c.raw.y.toFixed(0)+')';}}}},scales:{x:{title:{display:true,text:xl,font:{size:9}},ticks:{font:{size:8}}},y:{title:{display:true,text:yl,font:{size:9}},ticks:{font:{size:8}}}}}});
 }
-mk('chartQA',CD.filter(function(d){return d.q!==null;}).map(function(d){return{x:d.a,y:d.q,n:d.n};}), 'Aad [%]','Qb,d [ккал/кг]','rgba(24,95,165,0.7)');
+mk('chartQA',CD.filter(function(d){return d.q!==null;}).map(function(d){return{x:d.a,y:d.q,n:d.n};}), 'Aad [%]','Qb,ad [ккал/кг]','rgba(24,95,165,0.7)');
 mk('chartVA',CD.filter(function(d){return d.v!==null;}).map(function(d){return{x:d.a,y:d.v,n:d.n};}), 'Aad [%]','Vad [%]','rgba(15,110,86,0.7)');
 mk('chartSA',CD.filter(function(d){return d.s!==null;}).map(function(d){return{x:d.a,y:d.s,n:d.n};}), 'Aad [%]','Sad [%]','rgba(133,79,11,0.7)');
 </script>

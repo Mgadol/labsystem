@@ -1799,6 +1799,7 @@ def archive_result(receipt_id):
     for e in entries_raw:
         ed = dict(e)
         ed['mt_result'] = total_moisture(ed)
+        ed['g_val'] = lab_g_index(ed)   # гараар оруулаагүй бол жингээс бодно
         entries.append(ed)
     apply_final_results(entries)   # давталтаас эцсийн үр дүнг сонгоно
     qc = {r['parameter']: r for r in conn.execute("SELECT * FROM qc_settings").fetchall()}
@@ -4495,6 +4496,10 @@ def analysis_result(receipt_id):
     for e in entries:
         ed = dict(e)
         ed['mt_result'] = total_moisture(ed)
+        # G индекс: гараар оруулаагүй бол жингээс бодно. Урьд нь зөвхөн g_val-ыг
+        # уншдаг тул жингээр оруулсан дээж дэлгэц дээр "—" харагдаж, Excel-д
+        # тоо гарч зөрдөг байсан.
+        ed['g_val'] = lab_g_index(ed)
         rn = ed.get('row_num', 1)
         en = ed.get('sample_name') or ''
         if en and en != _sname:
