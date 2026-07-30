@@ -2355,6 +2355,32 @@ def ensure_tables():
                 'crm_vad_unc REAL','crm_sulfur_unc REAL','crm_cal_unc REAL','sample_range TEXT']:
         try: conn.execute(f"ALTER TABLE geo_samples ADD COLUMN {col}")
         except Exception: pass
+    # ── ОРЧНЫ ХЯНАЛТ: өрөө + өдөр бүрийн чийг/дулааны бүртгэл ──
+    conn.execute("""CREATE TABLE IF NOT EXISTS env_rooms (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        sort_order INTEGER DEFAULT 0,
+        is_active INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now','localtime'))
+    )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS env_readings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        room_id INTEGER NOT NULL REFERENCES env_rooms(id),
+        reading_date TEXT NOT NULL,
+        slot TEXT NOT NULL,               -- 'start' = шинжилгээ эхлэхэд, 'end' = төгсгөлд
+        temperature REAL,
+        humidity REAL,
+        recorded_by INTEGER REFERENCES users(id),
+        recorded_at TEXT,
+        notes TEXT,
+        UNIQUE(room_id, reading_date, slot)
+    )""")
+    # Анхны өрөөнүүд (зөвхөн хүснэгт хоосон үед)
+    if conn.execute("SELECT COUNT(*) FROM env_rooms").fetchone()[0] == 0:
+        for i, nm in enumerate(['Шинжилгээний өрөө №115', 'Шинжилгээний өрөө №116',
+                                'Шинжилгээний өрөө №117', 'Дээж бэлтгэлийн байр']):
+            conn.execute("INSERT INTO env_rooms(name, sort_order) VALUES(?,?)", (nm, i))
+
     # Бэлтгэгчийг хэрэглэгчийн ID-гаар бүртгэнэ (нэрээр тоолох найдваргүй)
     try: conn.execute("ALTER TABLE sample_receipt ADD COLUMN prep_by INTEGER REFERENCES users(id)")
     except Exception: pass
@@ -2676,7 +2702,9 @@ def reports():
         lab_records=lab_records,
         sample_types=[name for _, name in SAMPLE_TYPES_MAP],
         analysis_types=[name for _, name in ANALYSIS_FIELDS],
-        iqc_rows=iqc_rows)
+        iqc_rows=iqc_rows,
+        # Орчны хяналтын нэгтгэл (Тайлангийн 4 дэх таб)
+        **env_stats_data(request.args.get('env_period', 'month')))
 
 @app.route('/reports/chart-data')
 @perm_required('can_report')
@@ -4644,9 +4672,14 @@ def lab_settings():
     _crm_conn.commit()
     guest_tokens = _crm_conn.execute("SELECT * FROM guest_tokens ORDER BY created_at DESC").fetchall()
     _crm_conn.close()
+    _envconn = get_db()
+    env_rooms = _envconn.execute(
+        "SELECT * FROM env_rooms WHERE is_active=1 ORDER BY sort_order, name").fetchall()
+    _envconn.close()
     return render_template('admin/settings.html', s=s, qc_settings=qc_settings_list, lang=lang,
                            crm_materials=crm_materials, today=date.today().isoformat(),
-                           guest_tokens=guest_tokens, now=now)
+                           guest_tokens=guest_tokens, now=now,
+                           env_rooms=env_rooms, env_lim=env_limits())
 
 @app.route('/lab-settings/crm', methods=['POST'])
 @admin_required
@@ -4811,6 +4844,285 @@ def backup_create():
     bk_path = os.path.join(os.path.dirname(db_path), bk_name)
     shutil.copy2(db_path, bk_path)
     return jsonify({'ok': True, 'name': bk_name})
+
+# ── ОРЧНЫ ХЯНАЛТ (чийг / дулаан) ────────────────────────
+ENV_SLOTS = [('start', 'Шинжилгээ эхлэхэд'), ('end', 'Шинжилгээ төгсгөлд')]
+ENV_LIMIT_DEFAULTS = {'env_temp_min': 15.0, 'env_temp_max': 30.0,
+                      'env_hum_min': 20.0,  'env_hum_max': 80.0}
+
+
+def env_limits():
+    """Бүх өрөөнд нэг ижил зөвшөөрөгдөх хязгаар (тохиргооны файлд)"""
+    s = get_settings()
+    out = {}
+    for k, dflt in ENV_LIMIT_DEFAULTS.items():
+        try:
+            out[k] = float(s.get(k, dflt))
+        except (TypeError, ValueError):
+            out[k] = dflt
+    return out
+
+
+def env_check(temp, hum, lim):
+    """Хязгаараас гарсан үзүүлэлтийн жагсаалт"""
+    bad = []
+    if temp is not None and not (lim['env_temp_min'] <= temp <= lim['env_temp_max']):
+        bad.append('температур')
+    if hum is not None and not (lim['env_hum_min'] <= hum <= lim['env_hum_max']):
+        bad.append('чийг')
+    return bad
+
+
+@app.route('/env')
+@lab_required
+def env_page():
+    """Өдрийн орчны бүртгэл — өрөө тус бүрт эхлэл ба төгсгөл"""
+    lang = session.get('lang', 'mn')
+    day = request.args.get('date') or date.today().isoformat()
+    conn = get_db()
+    rooms = conn.execute(
+        "SELECT * FROM env_rooms WHERE is_active=1 ORDER BY sort_order, name").fetchall()
+    rows = conn.execute("""
+        SELECT r.*, u.name as by_name FROM env_readings r
+        LEFT JOIN users u ON u.id=r.recorded_by
+        WHERE r.reading_date=?
+    """, (day,)).fetchall()
+    conn.close()
+    readings = {(r['room_id'], r['slot']): dict(r) for r in rows}
+    lim = env_limits()
+    for key, r in readings.items():
+        r['bad'] = env_check(r['temperature'], r['humidity'], lim)
+    return render_template('device/env.html', rooms=rooms, readings=readings,
+                           day=day, slots=ENV_SLOTS, lim=lim, lang=lang,
+                           today=date.today().isoformat())
+
+
+@app.route('/env/save', methods=['POST'])
+@lab_required
+def env_save():
+    day = request.form.get('date') or date.today().isoformat()
+    room_id = request.form.get('room_id', type=int)
+    slot = request.form.get('slot')
+    if not room_id or slot not in ('start', 'end'):
+        flash('Буруу хүсэлт.', 'error')
+        return redirect(url_for('env_page', date=day))
+
+    def num(k):
+        v = (request.form.get(k) or '').strip()
+        try:
+            return float(v) if v != '' else None
+        except ValueError:
+            return None
+    temp, hum = num('temperature'), num('humidity')
+    notes = (request.form.get('notes') or '').strip()
+    lim = env_limits()
+    bad = env_check(temp, hum, lim)
+    if bad and not notes:
+        flash(f"{', '.join(bad).capitalize()} хязгаараас гарсан — тайлбар бичнэ үү.", 'error')
+        return redirect(url_for('env_page', date=day))
+
+    conn = get_db()
+    if temp is None and hum is None:
+        conn.execute("DELETE FROM env_readings WHERE room_id=? AND reading_date=? AND slot=?",
+                     (room_id, day, slot))
+        msg = 'Бүртгэл хоослов.'
+    else:
+        conn.execute("""
+            INSERT INTO env_readings(room_id, reading_date, slot, temperature, humidity,
+                                     recorded_by, recorded_at, notes)
+            VALUES(?,?,?,?,?,?,?,?)
+            ON CONFLICT(room_id, reading_date, slot) DO UPDATE SET
+                temperature=excluded.temperature, humidity=excluded.humidity,
+                recorded_by=excluded.recorded_by, recorded_at=excluded.recorded_at,
+                notes=excluded.notes
+        """, (room_id, day, slot, temp, hum, session.get('user_id'),
+              datetime.now().strftime('%H:%M'), notes))
+        msg = ('Хадгаллаа. ⚠️ ' + ', '.join(bad) + ' хязгаараас гарсан.') if bad else 'Хадгаллаа.'
+    conn.commit()
+    conn.close()
+    flash(msg, 'error' if bad else 'success')
+    return redirect(url_for('env_page', date=day))
+
+
+# Хугацааны нэгтгэл: SQLite-ийн илэрхийлэл + харагдах нэр
+ENV_PERIODS = {
+    'week':     ("strftime('%Y-W%W', reading_date)",  'Долоо хоног'),
+    'month':    ("strftime('%Y-%m', reading_date)",   'Сар'),
+    'halfyear': ("strftime('%Y', reading_date) || '-H' || "
+                 "(CASE WHEN CAST(strftime('%m', reading_date) AS INTEGER)<=6 "
+                 "THEN 1 ELSE 2 END)",                'Хагас жил'),
+    'year':     ("strftime('%Y', reading_date)",      'Жил'),
+}
+
+
+def env_stats_data(period='month'):
+    """Орчны хяналтын нэгтгэл — долоо хоног / сар / хагас жил / жил.
+
+    Тайлангийн хуудас болон бусад хуудсууд ижил функц ашиглана.
+    """
+    if period not in ENV_PERIODS:
+        period = 'month'
+    expr = ENV_PERIODS[period][0]
+    lim = env_limits()
+    conn = get_db()
+    rooms = conn.execute(
+        "SELECT * FROM env_rooms WHERE is_active=1 ORDER BY sort_order, name").fetchall()
+    # Өрөө × хугацаа тус бүрийн дундаж, хамгийн бага/их, хэтэрсэн тоо
+    agg = conn.execute(f"""
+        SELECT {expr} AS period, room_id,
+               COUNT(*) AS n,
+               ROUND(AVG(temperature),1) AS t_avg,
+               MIN(temperature) AS t_min, MAX(temperature) AS t_max,
+               ROUND(AVG(humidity),1)    AS h_avg,
+               MIN(humidity) AS h_min, MAX(humidity) AS h_max,
+               SUM(CASE WHEN temperature IS NOT NULL
+                         AND (temperature < ? OR temperature > ?) THEN 1 ELSE 0 END) AS t_bad,
+               SUM(CASE WHEN humidity IS NOT NULL
+                         AND (humidity < ? OR humidity > ?) THEN 1 ELSE 0 END) AS h_bad
+        FROM env_readings
+        WHERE temperature IS NOT NULL OR humidity IS NOT NULL
+        GROUP BY period, room_id
+        ORDER BY period DESC
+    """, (lim['env_temp_min'], lim['env_temp_max'],
+          lim['env_hum_min'], lim['env_hum_max'])).fetchall()
+    # Хугацаа тус бүрийн бүх өрөөний нийлбэр дүн
+    totals = conn.execute(f"""
+        SELECT {expr} AS period, COUNT(*) AS n,
+               ROUND(AVG(temperature),1) AS t_avg, ROUND(AVG(humidity),1) AS h_avg,
+               SUM(CASE WHEN (temperature IS NOT NULL AND (temperature < ? OR temperature > ?))
+                          OR (humidity IS NOT NULL AND (humidity < ? OR humidity > ?))
+                        THEN 1 ELSE 0 END) AS bad
+        FROM env_readings
+        WHERE temperature IS NOT NULL OR humidity IS NOT NULL
+        GROUP BY period ORDER BY period DESC LIMIT 24
+    """, (lim['env_temp_min'], lim['env_temp_max'],
+          lim['env_hum_min'], lim['env_hum_max'])).fetchall()
+    # Хамгийн сүүлийн бүртгэлүүд (жинхэнэ бүртгэлийн хуудас)
+    recent = conn.execute("""
+        SELECT r.*, u.name AS by_name, m.name AS room_name
+        FROM env_readings r
+        LEFT JOIN users u ON u.id=r.recorded_by
+        LEFT JOIN env_rooms m ON m.id=r.room_id
+        ORDER BY r.reading_date DESC, m.sort_order, r.slot LIMIT 120
+    """).fetchall()
+    conn.close()
+
+    by_period = {}
+    for a in agg:
+        by_period.setdefault(a['period'], {})[a['room_id']] = dict(a)
+    recent_list = []
+    for r in recent:
+        d = dict(r)
+        d['bad'] = env_check(d['temperature'], d['humidity'], lim)
+        recent_list.append(d)
+    return dict(env_rooms=rooms, env_by_period=by_period, env_totals=totals,
+                env_periods=[t['period'] for t in totals], env_recent=recent_list,
+                env_period=period, env_period_name=ENV_PERIODS[period][1],
+                env_period_opts=ENV_PERIODS, env_slots=dict(ENV_SLOTS), env_lim=lim)
+
+
+@app.route('/env/export')
+@lab_required
+def env_export():
+    """Сарын орчны бүртгэлийг Excel болгон татах"""
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill
+    month = request.args.get('month') or date.today().strftime('%Y-%m')
+    conn = get_db()
+    rooms = conn.execute(
+        "SELECT * FROM env_rooms WHERE is_active=1 ORDER BY sort_order, name").fetchall()
+    rows = conn.execute("""
+        SELECT r.*, u.name as by_name FROM env_readings r
+        LEFT JOIN users u ON u.id=r.recorded_by
+        WHERE substr(r.reading_date,1,7)=? ORDER BY r.reading_date
+    """, (month,)).fetchall()
+    conn.close()
+    lim = env_limits()
+    data = {(r['reading_date'], r['room_id'], r['slot']): r for r in rows}
+    days = sorted({r['reading_date'] for r in rows})
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Орчны хяналт'
+    ws['A1'] = f'ОРЧНЫ ХЯНАЛТЫН БҮРТГЭЛ — {month}'
+    ws['A1'].font = Font(bold=True, size=13)
+    ws['A2'] = (f"Зөвшөөрөгдөх хязгаар: температур {lim['env_temp_min']}–{lim['env_temp_max']}°C, "
+                f"чийг {lim['env_hum_min']}–{lim['env_hum_max']}%")
+    ws['A2'].font = Font(size=10, italic=True)
+
+    hdr = Font(bold=True, size=10)
+    ws.cell(4, 1, 'Огноо').font = hdr
+    col = 2
+    for room in rooms:
+        for _, slot_name in ENV_SLOTS:
+            c = ws.cell(4, col, f"{room['name']}\n{slot_name}")
+            c.font = hdr
+            c.alignment = Alignment(wrap_text=True, horizontal='center')
+            ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 22
+            col += 1
+    ws.column_dimensions['A'].width = 12
+    warn = PatternFill('solid', fgColor='FFF2CC')
+
+    r_i = 5
+    for day in days:
+        ws.cell(r_i, 1, day)
+        col = 2
+        for room in rooms:
+            for slot, _ in ENV_SLOTS:
+                rec = data.get((day, room['id'], slot))
+                if rec:
+                    t = rec['temperature']
+                    h = rec['humidity']
+                    txt = f"{t if t is not None else '—'}°C / {h if h is not None else '—'}%"
+                    if rec['by_name']:
+                        txt += f"\n{rec['by_name']}"
+                    cell = ws.cell(r_i, col, txt)
+                    cell.alignment = Alignment(wrap_text=True, horizontal='center')
+                    if env_check(t, h, lim):
+                        cell.fill = warn
+                col += 1
+        r_i += 1
+
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+    return send_file(out, as_attachment=True,
+                     download_name=f'orchin_{month}.xlsx',
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+
+@app.route('/lab-settings/env-rooms', methods=['POST'])
+@admin_required
+def env_rooms_save():
+    """Өрөө нэмэх / устгах + бүх өрөөнд хамаарах хязгаар"""
+    action = request.form.get('action')
+    conn = get_db()
+    if action == 'add':
+        nm = (request.form.get('name') or '').strip()
+        if nm:
+            n = conn.execute("SELECT COALESCE(MAX(sort_order),0)+1 FROM env_rooms").fetchone()[0]
+            conn.execute("INSERT INTO env_rooms(name, sort_order) VALUES(?,?)", (nm, n))
+            flash(f'"{nm}" өрөө нэмэгдлээ.', 'success')
+    elif action == 'remove':
+        rid = request.form.get('room_id', type=int)
+        # Бүртгэл байгаа өрөөг устгахгүй — түүх хадгална, зөвхөн нуана
+        conn.execute("UPDATE env_rooms SET is_active=0 WHERE id=?", (rid,))
+        flash('Өрөө хаагдлаа (бүртгэлийн түүх хадгалагдана).', 'success')
+    elif action == 'limits':
+        s = get_settings()
+        for k in ENV_LIMIT_DEFAULTS:
+            v = (request.form.get(k) or '').strip()
+            if v != '':
+                try:
+                    s[k] = float(v)
+                except ValueError:
+                    pass
+        save_settings(s)
+        flash('Орчны хязгаар хадгалагдлаа.', 'success')
+    conn.commit()
+    conn.close()
+    return redirect(url_for('lab_settings'))
+
 
 @app.route('/lab-settings/usage-clear', methods=['POST'])
 @admin_required

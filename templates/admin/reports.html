@@ -9,6 +9,7 @@
     <button class="tab-btn active" id="tab-device" onclick="switchTab('device')">🔧 Төхөөрөмжийн тайлан</button>
     <button class="tab-btn" id="tab-lab" onclick="switchTab('lab')">🧪 Лабораторийн тайлан</button>
     <button class="tab-btn" id="tab-iqc" onclick="switchTab('iqc')">🔁 Дотоод QC тайлан</button>
+    <button class="tab-btn" id="tab-env" onclick="switchTab('env')">🌡 Орчны хяналт</button>
   </div>
 
   <!-- ══════════════════════════════════════════
@@ -253,6 +254,123 @@
     {% endif %}
   </div>
 
+  <!-- ══════════════════════════════════════════
+       ТАБ 4: ОРЧНЫ ХЯНАЛТ (чийг / дулаан)
+  ══════════════════════════════════════════ -->
+  <div id="pane-env" style="display:none">
+    <div class="card" style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div>
+          <div class="section-title" style="margin:0">🌡 Орчны хяналтын нэгтгэл</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
+            Хязгаар: температур <b>{{ env_lim.env_temp_min }}–{{ env_lim.env_temp_max }}°C</b>,
+            чийг <b>{{ env_lim.env_hum_min }}–{{ env_lim.env_hum_max }}%</b>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          {% for key, opt in env_period_opts.items() %}
+          <a href="{{ url_for('reports', env_period=key) }}#env" class="btn btn-sm{{ '' if key==env_period else ' btn-ghost' }}"
+             style="font-size:11px;padding:3px 10px{% if key==env_period %};background:var(--navy);color:#fff;border:none{% endif %}">{{ opt[1] }}</a>
+          {% endfor %}
+          <a href="{{ url_for('env_export') }}" class="btn btn-teal btn-sm" style="font-size:11px">📥 Excel</a>
+          <a href="{{ url_for('env_page') }}" class="btn btn-ghost btn-sm" style="font-size:11px">✎ Бүртгэх</a>
+        </div>
+      </div>
+    </div>
+
+    {% if env_periods %}
+    <div class="card" style="margin-bottom:14px;overflow-x:auto">
+      <div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:10px">
+        {{ env_period_name }} тус бүрийн дундаж — өрөөгөөр
+      </div>
+      <table class="table" style="font-size:12px;white-space:nowrap">
+        <thead>
+          <tr>
+            <th rowspan="2" style="vertical-align:bottom">{{ env_period_name }}</th>
+            {% for room in env_rooms %}<th colspan="3" style="text-align:center;border-left:1px solid #e5e5e3">{{ room['name'] }}</th>{% endfor %}
+            <th colspan="3" style="text-align:center;border-left:2px solid var(--navy);background:#f4f6fa">БҮГД</th>
+          </tr>
+          <tr>
+            {% for room in env_rooms %}
+            <th style="border-left:1px solid #e5e5e3">t° дундаж</th><th>чийг дундаж</th><th>хэтэрсэн</th>
+            {% endfor %}
+            <th style="border-left:2px solid var(--navy);background:#f4f6fa">t° дундаж</th>
+            <th style="background:#f4f6fa">чийг дундаж</th><th style="background:#f4f6fa">хэтэрсэн</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for tot in env_totals %}
+        {% set p = tot['period'] %}
+        <tr>
+          <td style="font-weight:600;font-family:monospace">{{ p }}</td>
+          {% for room in env_rooms %}
+          {% set a = env_by_period.get(p, {}).get(room['id']) %}
+          <td style="border-left:1px solid #e5e5e3;text-align:right">
+            {% if a and a['t_avg'] is not none %}{{ '%.1f'|format(a['t_avg']) }}
+              <span style="color:var(--text-muted);font-size:10px">({{ a['t_min'] }}–{{ a['t_max'] }})</span>
+            {% else %}—{% endif %}
+          </td>
+          <td style="text-align:right">
+            {% if a and a['h_avg'] is not none %}{{ '%.1f'|format(a['h_avg']) }}
+              <span style="color:var(--text-muted);font-size:10px">({{ a['h_min'] }}–{{ a['h_max'] }})</span>
+            {% else %}—{% endif %}
+          </td>
+          <td style="text-align:center">
+            {% set nbad = ((a['t_bad'] or 0) + (a['h_bad'] or 0)) if a else 0 %}
+            {% if nbad %}<span style="color:#dc2626;font-weight:600">{{ nbad }}</span>
+            {% elif a %}<span style="color:#0f6e56">✓</span>{% else %}—{% endif %}
+          </td>
+          {% endfor %}
+          <td style="border-left:2px solid var(--navy);background:#f8f9fb;text-align:right;font-weight:600">
+            {{ '%.1f'|format(tot['t_avg']) if tot['t_avg'] is not none else '—' }}</td>
+          <td style="background:#f8f9fb;text-align:right;font-weight:600">
+            {{ '%.1f'|format(tot['h_avg']) if tot['h_avg'] is not none else '—' }}</td>
+          <td style="background:#f8f9fb;text-align:center;font-weight:600">
+            {% if tot['bad'] %}<span style="color:#dc2626">{{ tot['bad'] }}</span>
+            {% else %}<span style="color:#0f6e56">✓</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:8px">
+        Хаалтанд хамгийн бага–их утга. «хэтэрсэн» = хязгаараас гарсан хэмжилтийн тоо.
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:10px">
+        📋 Бүртгэлийн түүх <span style="font-weight:400;color:var(--text-muted)">(сүүлийн 120)</span>
+      </div>
+      <table class="table" style="font-size:12px">
+        <thead><tr><th>Огноо</th><th>Өрөө</th><th>Хэзээ</th><th>Цаг</th>
+                   <th style="text-align:right">t° C</th><th style="text-align:right">Чийг %</th>
+                   <th>Бүртгэсэн</th><th>Тайлбар</th></tr></thead>
+        <tbody>
+        {% for r in env_recent %}
+        <tr {% if r['bad'] %}style="background:#fdf4f1"{% endif %}>
+          <td style="font-family:monospace;white-space:nowrap">{{ r['reading_date'] }}</td>
+          <td>{{ r['room_name'] or '—' }}</td>
+          <td style="color:var(--text-muted)">{{ env_slots.get(r['slot'], r['slot']) }}</td>
+          <td style="color:var(--text-muted)">{{ r['recorded_at'] or '—' }}</td>
+          <td style="text-align:right{% if 'температур' in r['bad'] %};color:#dc2626;font-weight:600{% endif %}">
+            {{ r['temperature'] if r['temperature'] is not none else '—' }}</td>
+          <td style="text-align:right{% if 'чийг' in r['bad'] %};color:#dc2626;font-weight:600{% endif %}">
+            {{ r['humidity'] if r['humidity'] is not none else '—' }}</td>
+          <td>{{ r['by_name'] or '—' }}</td>
+          <td style="color:var(--text-muted)">{{ r['notes'] or '' }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="card" style="text-align:center;padding:40px;color:var(--text-muted)">
+      🌡 Орчны бүртгэл байхгүй байна.
+      <div style="margin-top:12px"><a href="{{ url_for('env_page') }}" class="btn btn-primary btn-sm">Бүртгэл хийх</a></div>
+    </div>
+    {% endif %}
+  </div>
+
 </div>
 {% endblock %}
 {% block scripts %}
@@ -262,14 +380,17 @@ var NAVY = '#1a2744';
 
 // ── Таб солих ──────────────────────────────────────────
 function switchTab(t) {
-  document.getElementById('pane-device').style.display = t==='device' ? 'block' : 'none';
-  document.getElementById('pane-lab').style.display    = t==='lab'    ? 'block' : 'none';
-  document.getElementById('pane-iqc').style.display    = t==='iqc'    ? 'block' : 'none';
-  document.getElementById('tab-device').classList.toggle('active', t==='device');
-  document.getElementById('tab-lab').classList.toggle('active', t==='lab');
-  document.getElementById('tab-iqc').classList.toggle('active', t==='iqc');
+  ['device','lab','iqc','env'].forEach(function(k){
+    var p = document.getElementById('pane-'+k);
+    if (p) p.style.display = (k===t) ? 'block' : 'none';
+    var b = document.getElementById('tab-'+k);
+    if (b) b.classList.toggle('active', k===t);
+  });
   if (t === 'lab') { sampleChart.resize(); analysisChart.resize(); fetchChartData(); }
+  if (t === 'env') { location.hash = 'env'; }
 }
+// Орчны табаас хугацаа сольсны дараа тухайн таб дээр эргэж ирнэ
+if (location.hash === '#env') switchTab('env');
 
 // ── Төхөөрөмжийн тайлан ──────────────────────────────
 var currentType = 'month';

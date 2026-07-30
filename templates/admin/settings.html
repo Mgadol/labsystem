@@ -18,6 +18,7 @@
     <button class="tab-btn" onclick="switchTab(this,'tab-device-map')">🔧 Тоног холбоос</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-profile')">👤 Профайл</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-chktpl')">📋 Шалгалтын загвар</button>
+    <button class="tab-btn" onclick="switchTab(this,'tab-env')">🌡 Орчны хяналт</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-backup')">💾 Нөөцлөлт</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-guest')">👁 Зочны код</button>
   </div>
@@ -471,6 +472,73 @@
       </div>
       <!-- Хадгалагдсан загварууд -->
       <div id="tplList"><div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Уншиж байна...</div></div>
+    </div>
+  </div>
+
+  <div id="tab-env" class="tab-pane">
+    <div class="card" style="margin-bottom:16px">
+      <div class="section-title">🌡 Зөвшөөрөгдөх орчны хязгаар</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:14px">
+        Бүх өрөөнд нэг ижил хязгаар хэрэглэгдэнэ. Эндээс гарсан хэмжилтийг
+        системд улаанаар тэмдэглэж, тайлбар бичихийг шаардана.
+      </div>
+      <form method="POST" action="{{ url_for('env_rooms_save') }}">
+        <input type="hidden" name="action" value="limits">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;max-width:640px">
+          <div class="form-group" style="margin:0">
+            <label class="form-label" style="font-size:11px">Температур доод °C</label>
+            <input type="number" step="0.1" name="env_temp_min" class="form-input" value="{{ env_lim.env_temp_min }}">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label" style="font-size:11px">Температур дээд °C</label>
+            <input type="number" step="0.1" name="env_temp_max" class="form-input" value="{{ env_lim.env_temp_max }}">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label" style="font-size:11px">Чийг доод %</label>
+            <input type="number" step="0.1" name="env_hum_min" class="form-input" value="{{ env_lim.env_hum_min }}">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label" style="font-size:11px">Чийг дээд %</label>
+            <input type="number" step="0.1" name="env_hum_max" class="form-input" value="{{ env_lim.env_hum_max }}">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="margin-top:14px">Хязгаар хадгалах</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="section-title">🚪 Хянах өрөөнүүд</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:14px">
+        Өдөр бүр өглөө/орой бүртгэл хийх өрөөнүүд. Өрөө хаахад бүртгэлийн түүх хадгалагдана.
+      </div>
+      <table class="table" style="font-size:13px;margin-bottom:14px">
+        <thead><tr><th>Өрөө</th><th style="width:100px"></th></tr></thead>
+        <tbody>
+        {% for r in env_rooms %}
+        <tr>
+          <td>{{ r['name'] }}</td>
+          <td>
+            <form method="POST" action="{{ url_for('env_rooms_save') }}"
+                  onsubmit="return confirm('{{ r['name'] }} өрөөг хаах уу? Хуучин бүртгэл хадгалагдана.')">
+              <input type="hidden" name="action" value="remove">
+              <input type="hidden" name="room_id" value="{{ r['id'] }}">
+              <button type="submit" class="btn btn-sm btn-ghost" style="color:#dc2626">Хаах</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="2" style="text-align:center;color:var(--text-muted);padding:20px">Өрөө байхгүй</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <form method="POST" action="{{ url_for('env_rooms_save') }}" style="display:flex;gap:8px;align-items:flex-end;max-width:460px">
+        <input type="hidden" name="action" value="add">
+        <div class="form-group" style="margin:0;flex:1">
+          <label class="form-label" style="font-size:11px">Шинэ өрөөний нэр</label>
+          <input type="text" name="name" class="form-input" placeholder="Шинжилгээний өрөө №118" required>
+        </div>
+        <button type="submit" class="btn btn-teal">+ Нэмэх</button>
+      </form>
     </div>
   </div>
 
