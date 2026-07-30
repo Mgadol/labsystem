@@ -117,7 +117,7 @@
       <th class="cg-st">Нийт хүхэр</th>
       <th colspan="2" class="cg-il">Илчлэгийн утга</th>
       <th class="cg-fsi">Чөлөөт<br>хөөлт</th>
-      <th colspan="8">Тооцоо</th>
+      <th colspan="9">Тооцоо</th>
     </tr>
     <tr class="h2">
       <th class="cg-ff gs">Дээжний масс<br>[гр]</th><th class="cg-ff ge">Хатаасан масс<br>[гр]</th>
@@ -129,7 +129,7 @@
       <th class="cg-st gs ge">Sad [%]</th>
       <th class="cg-il gs">Qb,ad [J/g]</th><th class="cg-il ge">Өрөө ⁰C</th>
       <th class="cg-fsi gs ge">CSN</th>
-      <th class="gs">TM%</th><th>Mad%</th><th>Aad%</th><th>Vad%</th><th>FCad%</th><th>G</th><th>Sad%</th><th>Qb,ad</th>
+      <th class="gs">TM%</th><th>Mad%</th><th>Aad%</th><th>Vad%</th><th>FCad%</th><th>G</th><th>Sad%</th><th>Qb,ad</th><th>CSN</th>
     </tr>
   </thead>
   <tbody id="tbody">
@@ -210,6 +210,7 @@
     <td class="calc-cell" id="r{{ uid }}_g">—</td>
     <td class="calc-cell" id="r{{ uid }}_sad">—</td>
     <td class="calc-cell" id="r{{ uid }}_qb">—</td>
+    <td class="calc-cell" id="r{{ uid }}_fsi">—</td>
   </tr>
   <!-- Зэрэгцээ мөр -->
   <tr class="dup-row" id="dr{{ uid }}">
@@ -250,6 +251,7 @@
     <td class="calc-cell" id="r{{ uid }}d_g">—</td>
     <td class="calc-cell" id="r{{ uid }}d_sad">—</td>
     <td class="calc-cell" id="r{{ uid }}d_qb">—</td>
+    <td class="calc-cell" id="r{{ uid }}d_fsi">—</td>
   </tr>
   {% endif %}
   {% endfor %}
@@ -282,7 +284,17 @@
 {% endblock %}
 {% block scripts %}
 <script>
-var QC = {mad:0.20, aad:0.30, vad:0.30};
+// QC хүлцэл нь тохиргооны хуудсаас (qc_settings). Урьд нь энд бэхлэгдсэн
+// байсан тул админы өөрчлөлт хүчин төгөлдөр болдоггүй байв.
+var QC = {
+  mad: {{ qc_map.get('Mad', 0.20) }},
+  aad: {{ qc_map.get('Aad', 0.30) }},
+  vad: {{ qc_map.get('Vad', 0.30) }},
+  sad: {{ qc_map.get('Stad', 0.03) }},
+  qb:  {{ qc_map.get('Qb_ad', 120) }},
+  g:   {{ qc_map.get('G_index', 3.0) }},
+  fsi: {{ qc_map.get('FSI', 0.5) }}
+};
 var rawVals = {};
 var deviceMap = {};
 var editMode = false;
@@ -471,11 +483,13 @@ function calc(uid,dup,rid,ri,save){
   // Sad, Qb (direct inputs → reflect to calc cells)
   var sad=gvr(rid,ri,dup,'sulfur');
   var qb=gvr(rid,ri,dup,'cal_value');
+  var fsi=gvr(rid,ri,dup,'fsi');
   setC('r'+id+'_tm',tm,1);
   setC('r'+id+'_mad',mad,2);setC('r'+id+'_aad',aad,2);
   setC('r'+id+'_vad',vad,2);setC('r'+id+'_fc',fc,2);
   setC('r'+id+'_g',g,0);setC('r'+id+'_sad',sad,2);setC('r'+id+'_qb',qb,1);
-  rawVals[uid+'_'+dup]={tm:tm,mad:mad,aad:aad,vad:vad,fc:fc,g:g,sad:sad,qb:qb};
+  setC('r'+id+'_fsi',fsi,1);
+  rawVals[uid+'_'+dup]={tm:tm,mad:mad,aad:aad,vad:vad,fc:fc,g:g,sad:sad,qb:qb,fsi:fsi};
   checkQC(uid,rid,ri);
   if(save!==false){
     // Засах горимд түүхий жинтэйгээ нэг зэрэг хадгалагдана (доор үзнэ үү)
@@ -510,11 +524,11 @@ function sendCalc(uid,dup,rid,ri){
 function setC(id,v,d){var e=document.getElementById(id);if(e){e.textContent=v!=null?v.toFixed(d):'—';e.className='calc-cell'+(id.includes('_tm')?' gs':'');}}
 function checkQC(uid,rid,ri){
   // Үндсэн мөрөнд албан ёсны үр дүн, бусад мөрөнд зөрүү эсвэл өөрийн утга
-  var qcMap={mad:QC.mad,aad:QC.aad,vad:QC.vad};
-  var decMap={tm:1,mad:2,aad:2,vad:2,fc:2,g:0,sad:2,qb:1};
+  var qcMap={mad:QC.mad,aad:QC.aad,vad:QC.vad,sad:QC.sad,qb:QC.qb,g:QC.g,fsi:QC.fsi};
+  var decMap={tm:1,mad:2,aad:2,vad:2,fc:2,g:0,sad:2,qb:1,fsi:1};
   var dups=dupsOf(uid);
   if(dups.length<2) return;
-  ['tm','mad','aad','vad','fc','g','sad','qb'].forEach(function(p){
+  ['tm','mad','aad','vad','fc','g','sad','qb','fsi'].forEach(function(p){
     var list=dups.map(function(dp){return {dup:dp,v:(rawVals[uid+'_'+dp]||{})[p]};});
     var res=closestPair(list);
     if(!res||res.picked.length<2) return;

@@ -5016,8 +5016,15 @@ def analysis_measure_multi():
 
     qc_receipt_ids = [str(k) for k in qc_row_map.keys()]
     qc_id = request.args.get('qc_id', type=int)
+    # QC хүлцэл — measure.html-тэй ижил эх сурвалжаас. Урьд нь энэ хуудсанд
+    # утга нь кодод бэхлэгдсэн байсан тул тохиргооны өөрчлөлт хүчин төгөлдөр
+    # болдоггүй, зөвхөн Mad/Aad/Vad шалгагддаг байв.
+    conn2 = get_db()
+    qc_map = {r['parameter']: r['tolerance']
+              for r in conn2.execute("SELECT parameter, tolerance FROM qc_settings")}
+    conn2.close()
     return render_template('analysis/measure_multi.html',
-        receipts=receipts, lang=lang,
+        receipts=receipts, lang=lang, qc_map=qc_map,
         ids=ids_str, qc_row_map=qc_row_map, qc_receipt_ids=qc_receipt_ids, qc_id=qc_id)
 
 # ── LAB SETTINGS ────────────────────────────────────────
