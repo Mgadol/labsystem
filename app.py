@@ -1,8 +1,20 @@
+# ── ЦАГИЙН БҮС ──────────────────────────────────────────
+# Сервер UTC-д ажилладаг тул системийн бүх цаг (шинжилгээ, бэлтгэл, орчны
+# бүртгэл, нөөцлөлт) 8 цагаар хоцордог байсан. Процессийн цагийн бүсийг
+# тохируулснаар datetime.now() болон SQLite-ийн 'localtime' хоёулаа
+# Улаанбаатарын цагаар явна. Шаардлагатай бол TZ хувьсагчаар дарж болно.
+import os, time as _time
+os.environ.setdefault('TZ', 'Asia/Ulaanbaatar')
+try:
+    _time.tzset()          # Unix; Windows дээр байхгүй
+except AttributeError:
+    pass
+
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash, send_file
 from models import get_db, init_db, hash_password, check_password
 from datetime import datetime, date
 from functools import wraps
-import os, uuid, io, secrets, time
+import uuid, io, secrets, time
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -3385,10 +3397,12 @@ def analysis_register():
                 to_n   = int(m.group(2))
                 quantity = to_n - from_n + 1
 
+        # created_at-ыг гараар бичнэ: SQLite-ийн CURRENT_TIMESTAMP үргэлж UTC
+        # буцаадаг тул статистик долоо хоног/сараар буруу хуваагдана
         conn.execute("""
             INSERT INTO geo_samples(sample_name,sample_type,location,collected_date,
-            quantity,notes,registered_by,status)
-            VALUES(?,?,?,?,?,?,?,'pending')
+            quantity,notes,registered_by,status,created_at)
+            VALUES(?,?,?,?,?,?,?,'pending',?)
         """, (
             sample_name,
             sample_type,
@@ -3396,7 +3410,8 @@ def analysis_register():
             request.form.get('collected_date'),
             quantity,
             request.form.get('notes'),
-            session['user_id']
+            session['user_id'],
+            datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         ))
         conn.commit(); conn.close()
         flash(f'Дээж бүртгэгдлээ! Нийт {quantity} дээж.', 'success')

@@ -1,4 +1,12 @@
-import sqlite3, os, sys
+import sqlite3, os, sys, time as _time
+# Сервер UTC-д ажилладаг тул цагийн бүсийг Улаанбаатар болгоно (app.py-тай ижил).
+# Тусад нь ажилладаг скриптүүд (reset_password.py г.м.) ч зөв цаг авна.
+os.environ.setdefault('TZ', 'Asia/Ulaanbaatar')
+try:
+    _time.tzset()
+except AttributeError:
+    pass
+
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 
