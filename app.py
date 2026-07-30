@@ -2330,13 +2330,20 @@ def mark_add():
 # ── DB MIGRATION (called once at startup) ───────────────
 def ensure_tables():
     conn = get_db()
+    # Багана нь models.py-ийн тодорхойлолттой ижил байх ёстой — DB-г models.py
+    # эхэлж үүсгэдэг тул зөрвөл энэ CREATE хүчингүй болж, INSERT нь уначихна.
     conn.execute("""CREATE TABLE IF NOT EXISTS lab_report_records (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        period_label TEXT, period_type TEXT, year INTEGER,
-        period_start TEXT, period_end TEXT, report_type TEXT, file_path TEXT,
+        period_type TEXT NOT NULL,
+        year INTEGER NOT NULL,
+        period_value INTEGER,
+        period_label TEXT NOT NULL,
+        file_path TEXT,
         generated_by INTEGER REFERENCES users(id),
-        generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        status TEXT DEFAULT 'active', archived_by INTEGER, archived_at TIMESTAMP
+        generated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        status TEXT DEFAULT 'active',
+        archived_by INTEGER REFERENCES users(id),
+        archived_at TEXT
     )""")
     conn.execute("""CREATE TABLE IF NOT EXISTS crm_materials (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2675,6 +2682,52 @@ def ensure_tables():
     conn.close()
 
 # ── REPORTS ─────────────────────────────────────────────
+# Дээжийн болон шинжилгээний төрлүүд — тайлангийн бүх хуудас нэг эх сурвалжаас
+# уншина (график ба Excel хоёр зөрөхөөс сэргийлнэ).
+SAMPLE_TYPES_MAP = [
+    ('PIT','Уурхай'),('STOCKPILE','Овоолго'),('EXPORT','Ачилт'),
+    ('CONTROL','Хяналт'),('DP','Баяжуулах'),('EQ_CONTROL','Гадаад хяналт'),
+]
+ANALYSIS_FIELDS = [
+    ('mt_dried','Нийт чийг'),('mad','Дотоод чийг'),('aad','Үнслэг'),('vad','Дэгдэмхий'),
+    ('sulfur','Хүхэр'),('cal_value','Илчлэг'),('g_coke','G индекс'),('fsi','Чөлөөт хөөлтийн зэрэг'),
+]
+# G индексийг гараар (g_val) эсвэл жингээр (g_coke) оруулж болно — хоёуланг тооцно
+ANALYSIS_COUNT_COL = {'g_coke': 'COALESCE(se.g_val, se.g_coke)'}
+
+
+def lab_period_range(rtype, year, month=1, week=1, half=1):
+    """Тайлангийн хугацааг (эхлэх огноо, дуусах огноо, гарчиг) болгож буцаана.
+
+    График ба Excel тайлан хоёр ижил хугацаа авахын тулд энэ функцээр дамжина.
+    """
+    import calendar as cal_mod
+    import datetime as dt_mod
+    if rtype == 'week':
+        d0 = dt_mod.datetime.fromisocalendar(year, week, 1).date()
+        d1 = dt_mod.datetime.fromisocalendar(year, week, 7).date()
+        return d0.isoformat(), d1.isoformat(), f"{year} оны {week}-р долоо хоног ({d0} – {d1})"
+    if rtype == 'month':
+        _, ld = cal_mod.monthrange(year, month)
+        return (f"{year}-{month:02d}-01", f"{year}-{month:02d}-{ld:02d}",
+                f"{year} оны {month}-р сар")
+    if rtype == 'half':
+        if half == 1:
+            return f"{year}-01-01", f"{year}-06-30", f"{year} оны эхний хагас жил"
+        return f"{year}-07-01", f"{year}-12-31", f"{year} оны хоёрдугаар хагас жил"
+    return f"{year}-01-01", f"{year}-12-31", f"{year} он"
+
+
+def _record_dl_query(rec):
+    """Хадгалсан тайлангийн бичлэгээс дахин татах query үүсгэнэ"""
+    t = rec['period_type'] or 'month'
+    q = f"type={t}&year={rec['year'] or datetime.now().year}"
+    v = rec['period_value']
+    if v and t in ('month', 'week', 'half'):
+        q += f"&{t}={v}"
+    return q
+
+
 @app.route('/reports')
 @perm_required('can_report')
 def reports():
@@ -2687,14 +2740,8 @@ def reports():
         ).fetchall()
     except Exception:
         lab_records = []
-    SAMPLE_TYPES_MAP = [
-        ('PIT','Уурхай'),('STOCKPILE','Овоолго'),('EXPORT','Ачилт'),
-        ('CONTROL','Хяналт'),('DP','Баяжуулах'),('EQ_CONTROL','Гадаад хяналт'),
-    ]
-    ANALYSIS_FIELDS = [
-        ('mt_dried','Нийт чийг'),('mad','Дотоод чийг'),('aad','Үнслэг'),('vad','Дэгдэмхий'),
-        ('sulfur','Хүхэр'),('cal_value','Илчлэг'),('g_coke','G индекс'),('fsi','Чөлөөт хөөлтийн зэрэг'),
-    ]
+    # Бичлэг бүрийг дахин татах холбоос
+    lab_records = [dict(r, dl_query=_record_dl_query(r)) for r in lab_records]
     iqc_rows = conn.execute("""
         SELECT iq.id, iq.triggered_date, iq.status,
             sr1.lab_number as lab1, g1.sample_name as sname1,
@@ -2721,37 +2768,13 @@ def reports():
 @app.route('/reports/chart-data')
 @perm_required('can_report')
 def reports_chart_data():
-    import calendar as cal_mod
     rtype  = request.args.get('type', 'month')
     year   = int(request.args.get('year', datetime.now().year))
     month  = int(request.args.get('month', datetime.now().month))
     week   = int(request.args.get('week', 1))
     half   = int(request.args.get('half', 1))
-    SAMPLE_TYPES_MAP = [
-        ('PIT','Уурхай'),('STOCKPILE','Овоолго'),('EXPORT','Ачилт'),
-        ('CONTROL','Хяналт'),('DP','Баяжуулах'),('EQ_CONTROL','Гадаад хяналт'),
-    ]
-    ANALYSIS_FIELDS = [
-        ('mt_dried','Нийт чийг'),('mad','Дотоод чийг'),('aad','Үнслэг'),('vad','Дэгдэмхий'),
-        ('sulfur','Хүхэр'),('cal_value','Илчлэг'),('g_coke','G индекс'),('fsi','Чөлөөт хөөлтийн зэрэг'),
-    ]
+    d0s, d1s, _ = lab_period_range(rtype, year, month, week, half)
     conn = get_db()
-    if rtype == 'week':
-        import datetime as dt_mod
-        d0 = dt_mod.datetime.fromisocalendar(year, week, 1).date()
-        d1 = dt_mod.datetime.fromisocalendar(year, week, 7).date()
-        d0s, d1s = d0.isoformat(), d1.isoformat()
-    elif rtype == 'month':
-        _, ld = cal_mod.monthrange(year, month)
-        d0s = f"{year}-{month:02d}-01"
-        d1s = f"{year}-{month:02d}-{ld:02d}"
-    elif rtype == 'half':
-        if half == 1:
-            d0s, d1s = f"{year}-01-01", f"{year}-06-30"
-        else:
-            d0s, d1s = f"{year}-07-01", f"{year}-12-31"
-    else:
-        d0s, d1s = f"{year}-01-01", f"{year}-12-31"
     # Дээжийн тоо — АЖЛААР биш ДЭЭЖЭЭР (нэг ажилд quantity дээж байна)
     sample_totals = []
     for code, name in SAMPLE_TYPES_MAP:
@@ -2764,11 +2787,9 @@ def reports_chart_data():
     # done_at нь isoformat ('2026-07-31T14:30') тул зайтай хязгаартай
     # харьцуулбал 'T' > ' ' болж СҮҮЛИЙН ӨДӨР бүхэлдээ хасагддаг.
     # Огноогоор шүүх нь тусгаарлагчаас хамаарахгүй.
-    # G индексийг гараар (g_val) эсвэл жингээр (g_coke) оруулж болно — хоёуланг тооцно
-    COUNT_COL = {'g_coke': 'COALESCE(se.g_val, se.g_coke)'}
     analysis_totals = []
     for field, name in ANALYSIS_FIELDS:
-        col = COUNT_COL.get(field, f'se.{field}')
+        col = ANALYSIS_COUNT_COL.get(field, f'se.{field}')
         v = conn.execute(
             f'''SELECT COUNT(*) FROM sample_entries se
                 WHERE {col} IS NOT NULL
@@ -3130,10 +3151,392 @@ def report_export():
 
     conn.close()
     buf=io.BytesIO(); wb.save(buf); buf.seek(0)
-    fname='Лаборатори_' + period_label.replace(' ','_') + '.xlsx'
+    fname='Тоног_төхөөрөмж_' + period_label.replace(' ','_') + '.xlsx'
     return send_file(buf,as_attachment=True,download_name=fname,
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
+
+# ── ЛАБОРАТОРИЙН ТАЙЛАН (Excel) ─────────────────────────
+SAMPLE_TYPE_LONG = {
+    'PIT': 'Уурхай (PIT)', 'STOCKPILE': 'Овоолго (Stockpile)',
+    'EXPORT': 'Ачилт (Export)', 'CONTROL': 'Хяналт (Control)',
+    'EQ_CONTROL': 'Гадаад хяналт (EQ Control)', 'DP': 'Баяжуулах (DP)',
+    'CRM': 'Стандарт материал (CRM)',
+}
+STATUS_LONG = {'pending': 'Хүлээгдэж байна', 'received': 'Хүлээн авсан',
+               'prepared': 'Бэлтгэсэн', 'analysing': 'Шинжилж байна',
+               'done': 'Дууссан'}
+ROLE_MN = {'admin': 'Админ', 'senior': 'Ахлах', 'staff': 'Химич',
+           'preparer': 'Дээж бэлтгэгч', 'geologist': 'Геологич',
+           'bayjuulach': 'Баяжуулах цех', 'guest': 'Зочин'}
+# Дэлгэрэнгүй хуудсанд гарах үзүүлэлтүүд: (гарчиг, талбар, формат)
+LAB_RESULT_COLS = [
+    ('Mt, %',      'mt_result', '0.00'),
+    ('Mad, %',     'mad',       '0.00'),
+    ('Aad, %',     'aad',       '0.00'),
+    ('Vad, %',     'vad',       '0.00'),
+    ('FCad, %',    'fc',        '0.00'),
+    ('Sad, %',     'sulfur',    '0.00'),
+    ('Qad, ккал',  'cal_kcal',  '0'),
+    ('GR.I',       'g_index',   '0'),
+    ('FSI',        'fsi',       '0.0'),
+]
+
+
+def lab_g_index(e):
+    """G индекс — гараар оруулсан утга, эсвэл жингээр бодно"""
+    try:
+        if e.get('g_val') is not None:
+            return float(e['g_val'])
+        gc, gt = e.get('g_coke'), e.get('g_tare')
+        s1, s2 = e.get('g_sieve1'), e.get('g_sieve2')
+        if None not in (gc, gt, s1, s2):
+            d = float(gc) - float(gt)
+            if d > 0:
+                return 10 + (30 * (float(s1) - float(gt)) + 70 * (float(s2) - float(gt))) / d
+    except (TypeError, ValueError):
+        pass
+    return None
+
+
+def lab_report_rows(conn, d0s, d1s):
+    """Хугацаанд хүлээн авсан дээж бүрийн ЭЦСИЙН үр дүн.
+
+    Давталттай мөрүүдээс хамгийн ойрхон хоёрын дундажийг сонгоно — үр дүнгийн
+    хуудас болон албан тайлантай ижил дүрэм.
+    """
+    receipts = conn.execute(
+        '''SELECT sr.id, sr.lab_number, sr.received_date, sr.mass_kg,
+                  g.sample_name, g.sample_type, g.status, g.quantity
+           FROM sample_receipt sr JOIN geo_samples g ON g.id=sr.geo_sample_id
+           WHERE sr.received_date BETWEEN ? AND ?
+           ORDER BY sr.received_date, sr.lab_serial''', (d0s, d1s)).fetchall()
+    out = []
+    for r in receipts:
+        entries = [dict(e) for e in conn.execute(
+            '''SELECT * FROM sample_entries WHERE receipt_id=?
+               ORDER BY row_num, is_duplicate''', (r['id'],)).fetchall()]
+        for e in entries:
+            e['mt_result'] = total_moisture(e)
+        apply_final_results(entries)
+        for e in entries:
+            if e.get('is_duplicate') != 0:
+                continue           # зэрэгцээ/давталт нь QC-д, тайланд үндсэн мөр гарна
+            e['g_index'] = lab_g_index(e)
+            e['cal_kcal'] = (e['cal_value'] / 4.1868) if e.get('cal_value') else None
+            e['_receipt'] = r
+            out.append(e)
+    return out
+
+
+@app.route('/reports/export/lab')
+@perm_required('can_report')
+def lab_report_export():
+    """Лабораторийн тайлан — дээж, шинжилгээ, ажилтны гүйцэтгэл (Excel).
+
+    Тоног төхөөрөмжийн тайлан (/reports/export) -аас тусдаа файл.
+    """
+    if session.get('role') == 'guest':
+        flash('Зочин горимд Excel татах боломжгүй.', 'error')
+        return redirect(url_for('reports'))
+    rtype = request.args.get('type', 'month')
+    year  = int(request.args.get('year', datetime.now().year))
+    month = int(request.args.get('month', datetime.now().month))
+    week  = int(request.args.get('week', datetime.now().isocalendar()[1]))
+    half  = int(request.args.get('half', 1))
+    d0s, d1s, period_label = lab_period_range(rtype, year, month, week, half)
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    NAVY='1A2744'; TEAL='0F6E56'; PURPLE='3C3489'; AMBER='8A5A00'
+    WHITE='FFFFFF'; GRAY='F7F7F5'; SUM_BG='D6F0E8'
+
+    def th():
+        s = Side(style='thin', color='CCCCCC')
+        return Border(left=s, right=s, top=s, bottom=s)
+    def hdr(ws, r, c, v, bg=NAVY):
+        cell = ws.cell(row=r, column=c, value=v)
+        cell.font = Font(name='Arial', bold=True, color=WHITE, size=10)
+        cell.fill = PatternFill('solid', fgColor=bg)
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        cell.border = th()
+    def dat(ws, r, c, v, fmt=None, bold=False, bg=None, left=False):
+        cell = ws.cell(row=r, column=c, value=v)
+        cell.font = Font(name='Arial', size=10, bold=bold)
+        cell.alignment = Alignment(horizontal='left' if left else 'center', vertical='center')
+        cell.border = th()
+        if fmt: cell.number_format = fmt
+        if bg: cell.fill = PatternFill('solid', fgColor=bg)
+    def title(ws, text, cols):
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=cols)
+        c = ws.cell(row=1, column=1, value=f"{text} — {period_label}")
+        c.font = Font(name='Arial', bold=True, size=13, color=WHITE)
+        c.fill = PatternFill('solid', fgColor=NAVY)
+        c.alignment = Alignment(horizontal='center', vertical='center')
+        ws.row_dimensions[1].height = 32
+        ws.row_dimensions[2].height = 26
+    def widths(ws, ws_widths):
+        for ci, w in enumerate(ws_widths, 1):
+            ws.column_dimensions[get_column_letter(ci)].width = w
+
+    conn = get_db()
+    rows = lab_report_rows(conn, d0s, d1s)
+    SW = "sr.received_date BETWEEN ? AND ?"          # дээж хүлээн авсан хугацаа
+    AW = "substr(se.done_at,1,10) BETWEEN ? AND ?"   # шинжилгээ хийсэн хугацаа
+    P = (d0s, d1s)
+
+    def one(sql, args=P):
+        return conn.execute(sql, args).fetchone()[0]
+
+    wb = Workbook()
+
+    # ── Хуудас 1: Нийт дүгнэлт ───────────────────────────
+    ws1 = wb.active; ws1.title = 'Нийт дүгнэлт'
+    ws1.sheet_view.showGridLines = False
+    title(ws1, 'ЛАБОРАТОРИЙН ТАЙЛАН', 3)
+    n_jobs = one(f'''SELECT COUNT(*) FROM sample_receipt sr WHERE {SW}''')
+    n_samples = one(f'''SELECT COALESCE(SUM(COALESCE(g.quantity,1)),0)
+        FROM sample_receipt sr JOIN geo_samples g ON g.id=sr.geo_sample_id WHERE {SW}''')
+    n_done = one(f'''SELECT COALESCE(SUM(COALESCE(g.quantity,1)),0)
+        FROM sample_receipt sr JOIN geo_samples g ON g.id=sr.geo_sample_id
+        WHERE {SW} AND g.status='done' ''')
+    n_mass = one(f'''SELECT COALESCE(SUM(sr.mass_kg),0) FROM sample_receipt sr WHERE {SW}''')
+    n_analysis = sum(
+        one(f'''SELECT COUNT(*) FROM sample_entries se
+                WHERE {ANALYSIS_COUNT_COL.get(f, f"se.{f}")} IS NOT NULL AND {AW}''')
+        for f, _ in ANALYSIS_FIELDS)
+    n_rows_done = one(f'''SELECT COUNT(*) FROM sample_entries se
+        WHERE se.is_duplicate=0 AND se.row_status IN ('done','approved') AND {AW}''')
+    n_rows_appr = one(f'''SELECT COUNT(*) FROM sample_entries se
+        WHERE se.is_duplicate=0 AND se.row_status='approved' AND {AW}''')
+    # Зэрэгцээ/давталтын мөрүүд өөрсдөө done_at-гүй байж болно тул дээжийн
+    # хүлээн авсан хугацаагаар шүүнэ
+    n_parallel = one(f'''SELECT COUNT(DISTINCT se.receipt_id||'-'||se.row_num)
+        FROM sample_entries se JOIN sample_receipt sr ON sr.id=se.receipt_id
+        WHERE se.is_duplicate=1 AND se.row_status!='empty' AND {SW}''')
+    n_repeat = one(f'''SELECT COUNT(DISTINCT se.receipt_id||'-'||se.row_num)
+        FROM sample_entries se JOIN sample_receipt sr ON sr.id=se.receipt_id
+        WHERE se.is_duplicate>=2 AND {SW}''')
+    _gen = get_user(session.get('user_id', 0))
+    _gen_by_name = (_gen['name'] if _gen else None) or '—'
+    summary = [
+        ('Хугацаа', period_label, None),
+        ('Тайлан гаргасан', datetime.now().strftime('%Y-%m-%d %H:%M'), None),
+        ('Гаргасан ажилтан', _gen_by_name, None),
+        None,
+        ('Хүлээн авсан ажил (бүртгэл)', n_jobs, '0'),
+        ('Нийт дээж', n_samples, '0'),
+        ('Дууссан дээж', n_done, '0'),
+        ('Хүлээгдэж байгаа дээж', max(n_samples - n_done, 0), '0'),
+        ('Нийт масс, кг', round(n_mass, 2), '0.00'),
+        None,
+        ('Хийсэн шинжилгээ (үзүүлэлтээр)', n_analysis, '0'),
+        ('Шинжилж дуусгасан мөр', n_rows_done, '0'),
+        ('Баталгаажуулсан мөр', n_rows_appr, '0'),
+        ('Зэрэгцээ шинжилгээтэй дээж', n_parallel, '0'),
+        ('Давталт хийсэн дээж', n_repeat, '0'),
+    ]
+    hdr(ws1, 2, 1, 'Үзүүлэлт'); hdr(ws1, 2, 2, 'Хэмжигдэхүүн'); hdr(ws1, 2, 3, '')
+    r = 3
+    for item in summary:
+        if item is None:
+            r += 1
+            continue
+        label, value, fmt = item
+        bg = WHITE if r % 2 == 0 else GRAY
+        dat(ws1, r, 1, label, bg=bg, left=True)
+        dat(ws1, r, 2, value, fmt=fmt, bg=bg, bold=True)
+        dat(ws1, r, 3, '', bg=bg)
+        r += 1
+    widths(ws1, [34, 20, 4])
+
+    # ── Хуудас 2: Дээжийн төрлөөр ────────────────────────
+    ws2 = wb.create_sheet('Дээжийн төрөл')
+    ws2.sheet_view.showGridLines = False
+    title(ws2, 'ДЭЭЖИЙН ТӨРЛӨӨР НЭГТГЭЛ', 6)
+    for ci, h in enumerate(['№','Дээжийн төрөл','Ажил','Дээж','Дууссан дээж','Масс, кг'], 1):
+        hdr(ws2, 2, ci, h, bg=TEAL)
+    t_rows = conn.execute(f'''
+        SELECT g.sample_type, COUNT(*) as jobs,
+               COALESCE(SUM(COALESCE(g.quantity,1)),0) as samples,
+               COALESCE(SUM(CASE WHEN g.status='done' THEN COALESCE(g.quantity,1) END),0) as done_n,
+               COALESCE(SUM(sr.mass_kg),0) as kg
+        FROM sample_receipt sr JOIN geo_samples g ON g.id=sr.geo_sample_id
+        WHERE {SW} GROUP BY g.sample_type ORDER BY samples DESC''', P).fetchall()
+    for ri, t in enumerate(t_rows, 3):
+        bg = WHITE if ri % 2 == 0 else GRAY
+        dat(ws2, ri, 1, ri - 2, bg=bg)
+        dat(ws2, ri, 2, SAMPLE_TYPE_LONG.get(t['sample_type'], t['sample_type'] or '—'), bg=bg, left=True)
+        dat(ws2, ri, 3, t['jobs'], bg=bg)
+        dat(ws2, ri, 4, t['samples'], bg=bg)
+        dat(ws2, ri, 5, t['done_n'], bg=bg)
+        dat(ws2, ri, 6, round(t['kg'], 2), fmt='0.00', bg=bg)
+    tr = 3 + len(t_rows)
+    dat(ws2, tr, 1, '', bg=SUM_BG); dat(ws2, tr, 2, 'НИЙТ', bold=True, bg=SUM_BG, left=True)
+    dat(ws2, tr, 3, sum(t['jobs'] for t in t_rows), bold=True, bg=SUM_BG)
+    dat(ws2, tr, 4, sum(t['samples'] for t in t_rows), bold=True, bg=SUM_BG)
+    dat(ws2, tr, 5, sum(t['done_n'] for t in t_rows), bold=True, bg=SUM_BG)
+    dat(ws2, tr, 6, round(sum(t['kg'] for t in t_rows), 2), fmt='0.00', bold=True, bg=SUM_BG)
+    widths(ws2, [5, 30, 12, 12, 16, 14])
+
+    # ── Хуудас 3: Шинжилгээний төрлөөр ───────────────────
+    ws3 = wb.create_sheet('Шинжилгээний төрөл')
+    ws3.sheet_view.showGridLines = False
+    title(ws3, 'ШИНЖИЛГЭЭНИЙ ТӨРЛӨӨР НЭГТГЭЛ', 6)
+    for ci, h in enumerate(['№','Үзүүлэлт','Хийсэн тоо','Дундаж','Хамгийн бага','Хамгийн их'], 1):
+        hdr(ws3, 2, ci, h, bg=PURPLE)
+    # Тоо — done_at-аар (хэдэн шинжилгээ хийсэн), дундаж/муж — эцсийн үр дүнгээр
+    STAT_FIELD = {'mt_dried': 'mt_result', 'g_coke': 'g_index'}
+    for ri, (field, name) in enumerate(ANALYSIS_FIELDS, 3):
+        bg = WHITE if ri % 2 == 0 else GRAY
+        cnt = one(f'''SELECT COUNT(*) FROM sample_entries se
+            WHERE {ANALYSIS_COUNT_COL.get(field, f"se.{field}")} IS NOT NULL AND {AW}''')
+        vals = [v for v in (e.get(STAT_FIELD.get(field, field)) for e in rows) if v is not None]
+        fmt = '0' if field in ('cal_value',) else '0.00'
+        dat(ws3, ri, 1, ri - 2, bg=bg)
+        dat(ws3, ri, 2, name, bg=bg, left=True)
+        dat(ws3, ri, 3, cnt, bg=bg)
+        # Утга бүрэн нарийвчлалтай хадгалагдаж, харагдац нь форматаар зохицуулагдана
+        dat(ws3, ri, 4, round(sum(vals) / len(vals), 4) if vals else '—', fmt=fmt if vals else None, bg=bg)
+        dat(ws3, ri, 5, round(min(vals), 4) if vals else '—', fmt=fmt if vals else None, bg=bg)
+        dat(ws3, ri, 6, round(max(vals), 4) if vals else '—', fmt=fmt if vals else None, bg=bg)
+    lr3 = 3 + len(ANALYSIS_FIELDS)
+    dat(ws3, lr3, 1, '', bg=SUM_BG); dat(ws3, lr3, 2, 'НИЙТ ШИНЖИЛГЭЭ', bold=True, bg=SUM_BG, left=True)
+    dat(ws3, lr3, 3, n_analysis, bold=True, bg=SUM_BG)
+    for ci in (4, 5, 6):
+        dat(ws3, lr3, ci, '', bg=SUM_BG)
+    widths(ws3, [5, 28, 14, 14, 16, 14])
+
+    # ── Хуудас 4: Ажилтны гүйцэтгэл ──────────────────────
+    ws4 = wb.create_sheet('Ажилтны гүйцэтгэл')
+    ws4.sheet_view.showGridLines = False
+    title(ws4, 'АЖИЛТНЫ ГҮЙЦЭТГЭЛ (ДЭЭЖИЙН ТООГООР)', 7)
+    for ci, h in enumerate(['№','Ажилтан','Албан тушаал','Бүртгэсэн','Бэлтгэсэн',
+                            'Шинжилсэн','Баталсан'], 1):
+        hdr(ws4, 2, ci, h, bg=AMBER)
+    staff = conn.execute(
+        "SELECT id, name, position, role FROM users ORDER BY name").fetchall()
+    perf = []
+    for u in staff:
+        reg = one(f'''SELECT COALESCE(SUM(COALESCE(g.quantity,1)),0)
+            FROM sample_receipt sr JOIN geo_samples g ON g.id=sr.geo_sample_id
+            WHERE {SW} AND g.registered_by=?''', P + (u['id'],))
+        prep = one(f'''SELECT COALESCE(SUM(COALESCE(g.quantity,1)),0)
+            FROM sample_receipt sr JOIN geo_samples g ON g.id=sr.geo_sample_id
+            WHERE {SW} AND sr.prep_done_at IS NOT NULL
+              AND (sr.prep_by=? OR (sr.prep_by IS NULL AND sr.prep_operator=?))''',
+            P + (u['id'], u['name']))
+        done = one(f'''SELECT COUNT(*) FROM sample_entries se
+            WHERE se.done_by=? AND se.row_status IN ('done','approved') AND {AW}''',
+            (u['id'],) + P)
+        appr = one(f'''SELECT COUNT(*) FROM sample_entries se
+            WHERE se.approved_by=? AND se.row_status='approved' AND {AW}''',
+            (u['id'],) + P)
+        if reg or prep or done or appr:
+            perf.append((u, reg, prep, done, appr))
+    perf.sort(key=lambda x: -(x[1] + x[2] + x[3]))
+    for ri, (u, reg, prep, done, appr) in enumerate(perf, 3):
+        bg = WHITE if ri % 2 == 0 else GRAY
+        dat(ws4, ri, 1, ri - 2, bg=bg)
+        dat(ws4, ri, 2, u['name'] or '—', bg=bg, left=True)
+        dat(ws4, ri, 3, u['position'] or ROLE_MN.get(u['role'], u['role'] or '—'), bg=bg, left=True)
+        dat(ws4, ri, 4, reg, bg=bg); dat(ws4, ri, 5, prep, bg=bg)
+        dat(ws4, ri, 6, done, bg=bg); dat(ws4, ri, 7, appr, bg=bg)
+    if not perf:
+        ws4.merge_cells(start_row=3, start_column=1, end_row=3, end_column=7)
+        dat(ws4, 3, 1, 'Энэ хугацаанд бүртгэл байхгүй', bg=GRAY, left=True)
+    else:
+        lr4 = 3 + len(perf)
+        dat(ws4, lr4, 1, '', bg=SUM_BG)
+        ws4.merge_cells(start_row=lr4, start_column=2, end_row=lr4, end_column=3)
+        dat(ws4, lr4, 2, 'НИЙТ', bold=True, bg=SUM_BG, left=True)
+        for ci, idx in ((4, 1), (5, 2), (6, 3), (7, 4)):
+            dat(ws4, lr4, ci, sum(p[idx] for p in perf), bold=True, bg=SUM_BG)
+    widths(ws4, [5, 24, 24, 13, 13, 13, 13])
+
+    # ── Хуудас 5: Хугацааны динамик ──────────────────────
+    ws5 = wb.create_sheet('Динамик')
+    ws5.sheet_view.showGridLines = False
+    by_day = rtype in ('week', 'month')
+    title(ws5, 'ӨДӨР ТУТМЫН ДИНАМИК' if by_day else 'САР ТУТМЫН ДИНАМИК', 4)
+    for ci, h in enumerate(['№', 'Өдөр' if by_day else 'Сар', 'Хүлээн авсан дээж',
+                            'Хийсэн шинжилгээ'], 1):
+        hdr(ws5, 2, ci, h, bg=TEAL)
+    cut = 10 if by_day else 7        # 'YYYY-MM-DD' эсвэл 'YYYY-MM'
+    smp = dict(conn.execute(f'''
+        SELECT substr(sr.received_date,1,{cut}) as p,
+               COALESCE(SUM(COALESCE(g.quantity,1)),0)
+        FROM sample_receipt sr JOIN geo_samples g ON g.id=sr.geo_sample_id
+        WHERE {SW} GROUP BY p''', P).fetchall())
+    ana = dict(conn.execute(f'''
+        SELECT substr(se.done_at,1,{cut}) as p, COUNT(*)
+        FROM sample_entries se
+        WHERE se.is_duplicate=0 AND se.row_status IN ('done','approved') AND {AW}
+        GROUP BY p''', P).fetchall())
+    buckets = sorted(set(smp) | set(ana))
+    for ri, b in enumerate(buckets, 3):
+        bg = WHITE if ri % 2 == 0 else GRAY
+        dat(ws5, ri, 1, ri - 2, bg=bg); dat(ws5, ri, 2, b, bg=bg)
+        dat(ws5, ri, 3, smp.get(b, 0), bg=bg); dat(ws5, ri, 4, ana.get(b, 0), bg=bg)
+    if buckets:
+        lr5 = 3 + len(buckets)
+        dat(ws5, lr5, 1, '', bg=SUM_BG); dat(ws5, lr5, 2, 'НИЙТ', bold=True, bg=SUM_BG, left=True)
+        dat(ws5, lr5, 3, sum(smp.values()), bold=True, bg=SUM_BG)
+        dat(ws5, lr5, 4, sum(ana.values()), bold=True, bg=SUM_BG)
+    else:
+        ws5.merge_cells(start_row=3, start_column=1, end_row=3, end_column=4)
+        dat(ws5, 3, 1, 'Энэ хугацаанд бүртгэл байхгүй', bg=GRAY, left=True)
+    widths(ws5, [5, 16, 20, 20])
+
+    # ── Хуудас 6: Дээжийн дэлгэрэнгүй ────────────────────
+    ws6 = wb.create_sheet('Дээжийн дэлгэрэнгүй')
+    ws6.sheet_view.showGridLines = False
+    heads6 = ['№','Лаб дугаар','Дээжийн нэр','Төрөл','Хүлээн авсан','Статус'] + \
+             [h for h, _, _ in LAB_RESULT_COLS]
+    title(ws6, 'ДЭЭЖ БҮРИЙН ҮР ДҮН', len(heads6))
+    for ci, h in enumerate(heads6, 1):
+        hdr(ws6, 2, ci, h)
+    for ri, e in enumerate(rows, 3):
+        bg = WHITE if ri % 2 == 0 else GRAY
+        rc = e['_receipt']
+        dat(ws6, ri, 1, ri - 2, bg=bg)
+        dat(ws6, ri, 2, rc['lab_number'] or '—', bg=bg)
+        dat(ws6, ri, 3, e.get('sample_name') or rc['sample_name'] or '—', bg=bg, left=True)
+        dat(ws6, ri, 4, SAMPLE_TYPE_LONG.get(rc['sample_type'], rc['sample_type'] or '—'), bg=bg, left=True)
+        dat(ws6, ri, 5, (rc['received_date'] or '')[:10], bg=bg)
+        dat(ws6, ri, 6, STATUS_LONG.get(rc['status'], rc['status'] or '—'), bg=bg)
+        for k, (h, field, fmt) in enumerate(LAB_RESULT_COLS):
+            v = e.get(field)
+            dat(ws6, ri, 7 + k, round(v, 4) if isinstance(v, (int, float)) else None,
+                fmt=fmt, bg=bg)
+    if not rows:
+        ws6.merge_cells(start_row=3, start_column=1, end_row=3, end_column=len(heads6))
+        dat(ws6, 3, 1, 'Энэ хугацаанд дээж хүлээн авсан бүртгэл байхгүй', bg=GRAY, left=True)
+    widths(ws6, [5, 18, 22, 24, 14, 16] + [10] * len(LAB_RESULT_COLS))
+
+    for ws in wb.worksheets:
+        ws.page_setup.orientation = 'landscape'
+        ws.page_setup.fitToPage = True
+        ws.page_setup.fitToWidth = 1
+        ws.freeze_panes = 'A3'
+
+    # Гаргасан тайланг бүртгэнэ — Тайлан хуудсын жагсаалтад харагдана
+    period_value = {'month': month, 'week': week, 'half': half}.get(rtype)
+    try:
+        conn.execute('''INSERT INTO lab_report_records
+            (period_type, year, period_value, period_label, generated_by)
+            VALUES(?,?,?,?,?)''',
+            (rtype, year, period_value, period_label, session.get('user_id')))
+        conn.commit()
+    except Exception:
+        app.logger.exception('lab_report_records бүртгэж чадсангүй')
+    conn.close()
+
+    buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+    fname = 'Лабораторийн_тайлан_' + period_label.split(' (')[0].replace(' ', '_') + '.xlsx'
+    return send_file(buf, as_attachment=True, download_name=fname,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 
 # ── ANALYSIS MODULE ──────────────────────────────────────
