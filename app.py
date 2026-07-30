@@ -2752,22 +2752,28 @@ def reports_chart_data():
             d0s, d1s = f"{year}-07-01", f"{year}-12-31"
     else:
         d0s, d1s = f"{year}-01-01", f"{year}-12-31"
+    # Дээжийн тоо — АЖЛААР биш ДЭЭЖЭЭР (нэг ажилд quantity дээж байна)
     sample_totals = []
     for code, name in SAMPLE_TYPES_MAP:
         v = conn.execute(
-            '''SELECT COUNT(*) FROM geo_samples g
+            '''SELECT COALESCE(SUM(COALESCE(g.quantity,1)),0) FROM geo_samples g
                JOIN sample_receipt sr ON sr.geo_sample_id=g.id
                WHERE g.sample_type=? AND sr.received_date BETWEEN ? AND ?''',
             (code, d0s, d1s)).fetchone()[0]
         sample_totals.append(v)
+    # done_at нь isoformat ('2026-07-31T14:30') тул зайтай хязгаартай
+    # харьцуулбал 'T' > ' ' болж СҮҮЛИЙН ӨДӨР бүхэлдээ хасагддаг.
+    # Огноогоор шүүх нь тусгаарлагчаас хамаарахгүй.
+    # G индексийг гараар (g_val) эсвэл жингээр (g_coke) оруулж болно — хоёуланг тооцно
+    COUNT_COL = {'g_coke': 'COALESCE(se.g_val, se.g_coke)'}
     analysis_totals = []
     for field, name in ANALYSIS_FIELDS:
+        col = COUNT_COL.get(field, f'se.{field}')
         v = conn.execute(
             f'''SELECT COUNT(*) FROM sample_entries se
-                JOIN sample_receipt sr ON sr.id=se.receipt_id
-                JOIN geo_samples g ON g.id=sr.geo_sample_id
-                WHERE se.{field} IS NOT NULL AND se.done_at BETWEEN ? AND ?''',
-            (d0s + ' 00:00:00', d1s + ' 23:59:59')).fetchone()[0]
+                WHERE {col} IS NOT NULL
+                  AND substr(se.done_at,1,10) BETWEEN ? AND ?''',
+            (d0s, d1s)).fetchone()[0]
         analysis_totals.append(v)
     conn.close()
     return jsonify({
