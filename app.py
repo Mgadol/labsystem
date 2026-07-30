@@ -4649,6 +4649,10 @@ def analysis_export(receipt_id):
     import io, os
     # Харилцагч эрх шалгах
     role = session.get('role')
+    if role == 'guest':
+        # Бусад экспортын маршруттай ижил — зочин файл татахгүй
+        flash('Зочин горимд Excel татах боломжгүй.', 'error')
+        return redirect(url_for('analysis_result', receipt_id=receipt_id))
     if role in ('geologist', 'bayjuulach'):
         conn_chk = get_db()
         u = conn_chk.execute("SELECT can_export FROM users WHERE id=?", (session['user_id'],)).fetchone()

@@ -39,7 +39,16 @@
     {% if qc_id and role in ('admin','senior') %}
     <a href="{{ url_for('internal_qc_approve', qc_id=qc_id) }}" onclick="return confirm('QC баталгаажуулах уу?')" style="background:#0d9488;border:1px solid #0f766e;border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;text-decoration:none;font-weight:600">✅ QC дуусгах</a>
     {% endif %}
-    <a href="javascript:history.back()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;text-decoration:none">✏️ Шинжилгээ</a>
+    {# Excel татах — албан тайлангийн файл. Зочин татахгүй, харилцагчид
+       can_export эрхтэй бол л харагдана (маршрут ч мөн шалгадаг). #}
+    {% if role != 'guest' and (role not in ('geologist','bayjuulach') or (current_user and current_user['can_export'])) %}
+    <a href="{{ url_for('analysis_export', receipt_id=receipt['id']) }}" style="background:#0f6e56;border:1px solid #0b5643;border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;text-decoration:none;font-weight:600">📥 Excel</a>
+    {% endif %}
+    {# Хэмжилтийн хуудас руу шууд холбоно. history.back() нь шууд хаягаар
+       эсвэл дахин ачаалж орсон үед хаашаа ч явдаггүй байсан. #}
+    {% if role in ('admin','senior','staff','preparer') %}
+    <a href="{{ url_for('analysis_measure', receipt_id=receipt['id']) }}" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;text-decoration:none">✏️ Шинжилгээ</a>
+    {% endif %}
     <a href="{{ url_for('analysis') }}" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;text-decoration:none">← Буцах</a>
   </div>
 </div>
@@ -130,7 +139,6 @@
   {% for i in range(total) %}
   {% set ri = (qc_row if qc_row else i+1) %}
   {% set e = entries|selectattr('row_num','equalto',ri)|selectattr('is_duplicate','equalto',0)|first %}
-  {% set de = entries|selectattr('row_num','equalto',ri)|selectattr('is_duplicate','equalto',1)|first %}
   {% set is_done = e and e['row_status'] in ('done','approved') %}
   {% set is_approved = e and e['row_status'] == 'approved' %}
   {% set is_pending_approve = e and e['row_status'] == 'done' %}
@@ -246,6 +254,14 @@
   {% endfor %}
   </tbody>
 </table>
+{% if entries|rejectattr('is_duplicate','equalto',0)|list %}
+{# Зэрэгцээ/давталтын түүхий хэмжилт нь ХЭМЖИЛТИЙН хуудсанд боловсруулагдана.
+   Энд зөвхөн албан ёсны эцсийн үр дүн харагдана. #}
+<p style="font-size:11px;color:#6b6b67;padding:6px 4px 0">
+  ℹ️ Зэрэгцээ/давталтын хэмжилт хийгдсэн дээж байна. Үр дүн нь хамгийн ойрхон
+  хоёр хэмжилтийн дундаж — түүхий хэмжилтүүдийг хэмжилтийн хуудаснаас харна.
+</p>
+{% endif %}
 </div>
 <!-- Корреляцын графикууд -->
 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px;padding-bottom:20px">

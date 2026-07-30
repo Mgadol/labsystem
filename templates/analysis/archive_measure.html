@@ -122,7 +122,7 @@
   {% for i in range(receipt['quantity'] or 1) %}
   {% set ri = i+1 %}
   {% set e = entries|selectattr('row_num','equalto',ri)|selectattr('is_duplicate','equalto',0)|first %}
-  {% set de = entries|selectattr('row_num','equalto',ri)|selectattr('is_duplicate','equalto',1)|first %}
+  {% set dups = entries|selectattr('row_num','equalto',ri)|rejectattr('is_duplicate','equalto',0)|list %}
   <tr class="main-row">
     <td class="f0" style="color:#666">{{ ri }}</td>
     <td class="f1" style="font-size:10px;font-weight:600;color:
@@ -174,12 +174,15 @@
     <td class="calc-cell">{{ '%.4f'|format(e['vad']) if e and e['vad'] else '—' }}</td>
     <td class="calc-cell">{{ '%.4f'|format(e['fc']) if e and e['fc'] else '—' }}</td>
   </tr>
-  {% if de and de['row_status'] in ('done','approved') %}
+  {# Зэрэгцээ БА давталтууд (is_duplicate 2,3…). Урьд нь зөвхөн зэрэгцээ
+     харагдаж, давталтын хэмжилтүүд архивт нуугдаж байсан. #}
+  {% for de in dups|sort(attribute='is_duplicate') %}
+  {% if de['row_status'] in ('done','approved') %}
   <tr class="dup-row">
     <td class="f0" style="color:#185fa5">↳</td>
     <td class="f1" style="background:#dbeafe"></td>
     <td class="f2" style="background:#dbeafe;font-family:monospace;font-size:10px;color:#888">{{ receipt['lab_number'] }}</td>
-    <td class="f3" style="background:#dbeafe;font-size:10px;color:#185fa5;font-style:italic;padding-left:6px">зэрэгцээ</td>
+    <td class="f3" style="background:#dbeafe;font-size:10px;color:#185fa5;font-style:italic;padding-left:6px">{{ 'зэрэгцээ' if de['is_duplicate'] == 1 else 'давталт ' ~ de['is_duplicate'] }}</td>
     <td class="f4" style="background:#dbeafe"></td>
     <!-- ЧЧ хоосон -->
     <td class="cg-ff gs" style="background:#eef5ff"></td><td class="cg-ff ge" style="background:#eef5ff"></td>
@@ -214,12 +217,13 @@
     <!-- FSI -->
     <td class="cg-fsi gs ge val">{{ de['fsi'] if de['fsi'] else '—' }}</td>
     <!-- Тооцоо -->
-    <td class="calc-cell gs" style="color:#185fa5">{{ '%.4f'|format(de['mad']) if de['mad'] else '—' }}</td>
-    <td class="calc-cell" style="color:#185fa5">{{ '%.4f'|format(de['aad']) if de['aad'] else '—' }}</td>
-    <td class="calc-cell" style="color:#185fa5">{{ '%.4f'|format(de['vad']) if de['vad'] else '—' }}</td>
-    <td class="calc-cell" style="color:#185fa5">{{ '%.4f'|format(de['fc']) if de['fc'] else '—' }}</td>
+    <td class="calc-cell gs" style="color:#185fa5">{{ '%.4f'|format(de['mad']) if de['mad'] is not none else '—' }}</td>
+    <td class="calc-cell" style="color:#185fa5">{{ '%.4f'|format(de['aad']) if de['aad'] is not none else '—' }}</td>
+    <td class="calc-cell" style="color:#185fa5">{{ '%.4f'|format(de['vad']) if de['vad'] is not none else '—' }}</td>
+    <td class="calc-cell" style="color:#185fa5">{{ '%.4f'|format(de['fc']) if de['fc'] is not none else '—' }}</td>
   </tr>
   {% endif %}
+  {% endfor %}
   {% endfor %}
   </tbody>
 </table>

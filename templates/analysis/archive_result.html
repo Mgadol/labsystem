@@ -38,6 +38,9 @@
       <button type="submit" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;cursor:pointer">↩️ Шинжилгээнд буцаах</button>
     </form>
     {% endif %}
+    {% if role != 'guest' and (role not in ('geologist','bayjuulach') or (current_user and current_user['can_export'])) %}
+    <a href="{{ url_for('analysis_export', receipt_id=receipt['id']) }}" style="background:#0f6e56;border:1px solid #0b5643;border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;text-decoration:none;font-weight:600">📥 Excel</a>
+    {% endif %}
     <a href="{{ url_for('archive_measure', receipt_id=receipt['id']) }}" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;text-decoration:none">📋 Хэмжилт харах</a>
     <a href="{{ url_for('archive') }}#tab-analysis" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:11px;padding:4px 10px;text-decoration:none">← Архив</a>
   </div>
@@ -93,7 +96,6 @@
   {% for i in range(total) %}
   {% set ri = i+1 %}
   {% set e = entries|selectattr('row_num','equalto',ri)|selectattr('is_duplicate','equalto',0)|first %}
-  {% set de = entries|selectattr('row_num','equalto',ri)|selectattr('is_duplicate','equalto',1)|first %}
   {% set is_done = e and e['row_status'] in ('done','approved') %}
   {% set is_approved = e and e['row_status'] == 'approved' %}
   <tr>
@@ -198,30 +200,9 @@
       {% endif %}
     </td>
   </tr>
-  {% if de and de['row_status'] in ('done','approved') %}
-  <tr style="background:#f0f6ff!important">
-    <td style="color:#185fa5;font-size:10px">↳</td>
-    <td style="color:#185fa5;font-size:10px;font-style:italic;text-align:left;padding-left:8px" colspan="2">зэрэгцээ</td>
-    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['mt_result']) if de['mt_result'] is not none else '—' }}</td>
-    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['mad']) if de['mad'] is not none else '—' }}</td>
-    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['aad']) if de['aad'] is not none else '—' }}</td>
-    <td class="val" style="color:#185fa5">—</td>
-    <td class="val" style="color:#185fa5">—</td>
-    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['vad']) if de['vad'] is not none else '—' }}</td>
-    <td class="val" style="color:#185fa5">—</td>
-    <td class="val" style="color:#185fa5">—</td>
-    <td class="val" style="color:#185fa5">—</td>
-    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['fc']) if de['fc'] is not none else '—' }}</td>
-    <td class="val" style="color:#185fa5">{{ '%.2f'|format(de['sulfur']) if de['sulfur'] is not none else '—' }}</td>
-    <td class="val" style="color:#185fa5">—</td>
-    <td colspan="4"></td>
-    <td></td><td></td>
-    <td>
-      {% if de['row_status']=='approved' %}<span class="st-approved">🟢 Баталгаажсан</span>
-      {% else %}<span class="st-done">🟠 Урьдчилсан</span>{% endif %}
-    </td>
-  </tr>
-  {% endif %}
+  {# Зэрэгцээ/давталтын түүхий хэмжилт нь ХЭМЖИЛТИЙН хуудсанд харагдана
+     ("📋 Хэмжилт харах"). Үр дүнгийн хуудсанд зөвхөн нэгтгэгдсэн албан ёсны
+     үр дүн гарна. #}
   {% endfor %}
   </tbody>
 </table>
