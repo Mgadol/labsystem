@@ -3,6 +3,9 @@
 {% block content %}
 <style>
 input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
+.ord-badge{display:none;margin-left:3px;min-width:15px;height:15px;line-height:15px;
+  border-radius:50%;background:#0f6e56;color:#fff;font-size:9px;font-weight:700;
+  text-align:center;vertical-align:middle}
 .tab-btn{padding:8px 18px;border:none;background:none;border-bottom:3px solid transparent;font-size:13px;font-weight:600;cursor:pointer;color:var(--text-muted);transition:.15s}
 .tab-btn.active{color:var(--navy);border-bottom-color:var(--navy)}
 </style>
@@ -36,6 +39,9 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
       <button onclick="startMulti()" class="btn btn-teal" id="multiBtn" disabled style="opacity:.4;cursor:not-allowed">
         🧪 Шинжилгээ эхлэх
       </button>
+      <span id="ordPreview" title="Хуудсанд орох дараалал — чагт дарсан дарааллаар"
+            style="display:none;font-size:12px;color:var(--text-muted);font-family:monospace;
+                   background:#eef5ff;border:1px solid #cfe0f5;border-radius:6px;padding:4px 9px"></span>
       {% endif %}
     </div>
   </div>
@@ -75,7 +81,7 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
       <tr class="sample-row" data-cat="anal" data-date="{{ qc['triggered_date'] }}" data-rid="">
         <td style="width:36px;text-align:center">
           {% if current_user['role'] in ('admin','senior','staff','preparer') %}
-          <input type="checkbox" class="lot-cb" value="{{ qc['receipt_id_1'] }}" data-qc-rows="{{ qc['receipt_id_1'] }}:{{ qc['row_num_1'] or 1 }}" data-qc-id="{{ qc['id'] }}" onchange="updateMultiBtn()" style="width:15px;height:15px;cursor:pointer">
+          <input type="checkbox" class="lot-cb" value="{{ qc['receipt_id_1'] }}" data-lab="QC {{ qc['lab1'] }}" data-qc-rows="{{ qc['receipt_id_1'] }}:{{ qc['row_num_1'] or 1 }}" data-qc-id="{{ qc['id'] }}" onchange="onLotToggle(this)" style="width:15px;height:15px;cursor:pointer">
           {% endif %}
         </td>
         <td>
@@ -105,7 +111,7 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
       <tr class="sample-row" data-status="{{ s['status'] }}" data-date="{{ s['collected_date'] or '' }}" data-rid="{{ s['receipt_id'] or '' }}" data-cat="{{ cat }}">
         <td style="width:36px;text-align:center">
           {% if cat == 'anal' and s['receipt_id'] and current_user['role'] in ('admin','senior','staff','preparer') %}
-          <input type="checkbox" class="lot-cb" value="{{ s['receipt_id'] }}" onchange="updateMultiBtn()" style="width:15px;height:15px;cursor:pointer">
+          <input type="checkbox" class="lot-cb" value="{{ s['receipt_id'] }}" data-lab="{{ s['lab_number'] or s['sample_name'] }}" onchange="onLotToggle(this)" style="width:15px;height:15px;cursor:pointer">
           {% endif %}
         </td>
         <td>
@@ -337,6 +343,41 @@ function updateCounts(){
   document.getElementById('cnt-anal').textContent = anal;
 }
 
+// Сонгосон ДАРААЛАЛ — чагт дарсан дарааллаар (хүснэгтийн дараалал биш).
+// Хэмжилтийн хуудас ids-ийн дарааллыг хэвээр хүндэтгэдэг тул энд л шийдэгдэнэ.
+var selOrder = [];
+
+function onLotToggle(cb){
+  var i = selOrder.indexOf(cb.value);
+  if(cb.checked){ if(i < 0) selOrder.push(cb.value); }
+  else if(i >= 0){ selOrder.splice(i, 1); }
+  updateMultiBtn();
+  renderOrder();
+}
+
+function renderOrder(){
+  document.querySelectorAll('.lot-cb').forEach(function(cb){
+    var b = cb.parentNode.querySelector('.ord-badge');
+    if(!b){
+      b = document.createElement('span');
+      b.className = 'ord-badge';
+      cb.parentNode.appendChild(b);
+    }
+    var i = selOrder.indexOf(cb.value);
+    var on = cb.checked && i >= 0 && selOrder.length > 1;
+    b.textContent = on ? (i + 1) : '';
+    b.style.display = on ? 'inline-block' : 'none';
+  });
+  var strip = document.getElementById('ordPreview');
+  if(!strip) return;
+  var labs = selOrder.map(function(v){
+    var cb = document.querySelector('.lot-cb[value="' + v + '"]');
+    return (cb && cb.dataset.lab) ? cb.dataset.lab : v;
+  });
+  strip.textContent = labs.length > 1 ? (labs.join('  →  ')) : '';
+  strip.style.display = labs.length > 1 ? 'inline-block' : 'none';
+}
+
 function updateMultiBtn(){
   var checked = document.querySelectorAll('.lot-cb:checked').length;
   var btn = document.getElementById('multiBtn');
@@ -355,15 +396,24 @@ function updateMultiBtn(){
 }
 
 function toggleAll(cb){
-  document.querySelectorAll('.lot-cb').forEach(function(c){ c.checked = cb.checked; });
+  selOrder = [];
+  document.querySelectorAll('.lot-cb').forEach(function(c){
+    c.checked = cb.checked;
+    if(cb.checked) selOrder.push(c.value);   // бүгд → хүснэгтийн дараалал
+  });
   updateMultiBtn();
+  renderOrder();
 }
 
 function startMulti(){
   var ids = [];
   var qcRows = [];
   var qcId = '';
-  document.querySelectorAll('.lot-cb:checked').forEach(function(cb){
+  // Чагт дарсан дарааллаар — querySelectorAll нь хүснэгтийн дарааллыг өгдөг тул
+  // ашиглахгүй. Ингэснээр химич 2004 → 1001 → 5004 гэж өөрөө эрэмбэлж чадна.
+  selOrder.forEach(function(v){
+    var cb = document.querySelector('.lot-cb[value="' + v + '"]');
+    if(!cb || !cb.checked) return;
     ids.push(cb.value);
     if(cb.dataset.qcRows) qcRows.push(cb.dataset.qcRows);
     if(cb.dataset.qcId) qcId = cb.dataset.qcId;
