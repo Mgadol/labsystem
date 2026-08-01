@@ -103,7 +103,7 @@
     <td style="text-align:left;font-weight:500;padding-left:8px">
       {{ e.sample_name if e and e.sample_name else '—' }}
     </td>
-    <td class="val">{{ '%.3f'|format(e['mass_kg']) if e and e['mass_kg'] else '—' }}</td>
+    <td class="val">{{ '%.1f'|format(e['mass_kg']) if e and e['mass_kg'] is not none else '—' }}</td>
     {% if is_done %}
     <td class="val">
       {{ '%.2f'|format(e['mt_result']) if e['mt_result'] is not none else '—' }}

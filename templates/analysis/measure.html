@@ -197,7 +197,7 @@
       {% elif stype=='EQ_CONTROL' %}#993c1d{% else %}#555{% endif %}">{{ stype }}</td>
     <td class="f2" style="font-family:monospace;font-size:10px;color:#555">{{ receipt['lab_number'] }}</td>
     <td class="f3"><div class="name-cell"><input class="name-inp" type="text" id="n{{ ri }}" data-field="sample_name" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></div></td>
-    <td class="f4"><input type="number" step="0.01" data-field="mass_kg" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></td>
+    <td class="f4"><input type="number" step="0.1" data-field="mass_kg" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></td>
     <td class="f5" style="padding:2px"><button class="done-btn" id="dnbtn{{ ri }}_0" onclick="markDone({{ ri }},0)" title="Дууслаа">○</button></td>
     <!-- ЧЧ -->
     <td class="cg-ff gs"><input type="number" step="0.0001" data-field="ff_sample" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
@@ -419,14 +419,21 @@ function setSave(st){
   dot.className='save-dot'+(st==='pending'?' pending':'');
   txt.textContent=st==='pending'?'Хадгалж байна...':st==='err'?'Алдаа':'Хадгалагдсан';
 }
+// Нүдний step-ээс хамааруулан харагдацыг жигдрүүлнэ:
+//   гр-ийн нүд (0.0001) → 4 орон  |  дээжийн масс кг (0.1) → 1 орон
+// Ингэснээр "1" гэж бичихэд "1.0", "1.5" нь "1.5" гэж жигд харагдана.
+function fmtStep(inp){
+  if(!inp || inp.value==='' || isNaN(parseFloat(inp.value))) return;
+  if(inp.step==='0.0001')     inp.value=parseFloat(inp.value).toFixed(4);
+  else if(inp.step==='0.1')   inp.value=parseFloat(inp.value).toFixed(1);
+}
 function autoSave(inp){
+  fmtStep(inp);
   if(editMode){
     var key = inp.dataset.field+'_'+inp.dataset.row+'_'+inp.dataset.dup;
     pendingChanges[key] = {receipt_id:RID,row_num:parseInt(inp.dataset.row),is_duplicate:parseInt(inp.dataset.dup),field:inp.dataset.field,value:inp.value===''?null:inp.value};
     return;
   }
-  // Гр-ийн нүд (step 0.0001) 4 орноор форматлана (1.000 → 1.0000)
-  if(inp.step==='0.0001'&&inp.value!==''&&!isNaN(parseFloat(inp.value))) inp.value=parseFloat(inp.value).toFixed(4);
   setSave('pending');
   // Утга орсон нүд түгжигдэнэ (санамсаргүй өөрчлөхөөс сэргийлнэ)
   if(inp.value!=='') inp.readOnly = true;
@@ -815,7 +822,7 @@ function loadData(){
       Object.keys(e).forEach(function(f){
         if(['id','receipt_id','row_num','is_duplicate','created_at','updated_at','updated_by'].includes(f)) return;
         var inp=document.querySelector('[data-row="'+row+'"][data-dup="'+dup+'"][data-field="'+f+'"]');
-        if(inp&&e[f]!=null) inp.value=(inp.step==='0.0001'&&!isNaN(parseFloat(e[f])))?parseFloat(e[f]).toFixed(4):e[f];
+        if(inp&&e[f]!=null){ inp.value=e[f]; fmtStep(inp); }
       });
       // Ачаалах үед DB-д БИЧИХГҮЙ (save=false) — зөвхөн дэлгэц дээр бодно
       calc(parseInt(row),parseInt(dup),false);
