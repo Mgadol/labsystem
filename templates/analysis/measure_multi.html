@@ -715,6 +715,19 @@ function syncCalcCols(){
       - document.querySelectorAll('thead tr.h2 [data-cg].hide').length;
   var th=document.getElementById('calcHead');
   if(th){ th.colSpan=n||1; th.style.display=n?'':'none'; }
+  syncLotLabels();
+}
+
+// Лотын заагч зурвас нь хүснэгтийн ХАРАГДАЖ буй багануудын хэрээр л сунана.
+// Урьд нь colspan нь тогтмол (41/42) байсан тул бүлэг нуухад хүснэгт хураагдаж,
+// зурвас нь хуучин өргөнөөрөө үлдэж баруун тийш цухуйдаг байв.
+function syncLotLabels(){
+  var mr=document.querySelector('#tbody tr.main-row');
+  if(!mr) return;
+  var vis=Array.prototype.filter.call(mr.children,function(c){
+    return c.offsetParent!==null;}).length;
+  if(!vis) return;
+  document.querySelectorAll('.lot-label td').forEach(function(td){ td.colSpan=vis; });
 }
 
 // Өгөгдөл ачаалах
