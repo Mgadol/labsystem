@@ -197,44 +197,44 @@
       {% elif stype=='EQ_CONTROL' %}#993c1d{% else %}#555{% endif %}">{{ stype }}</td>
     <td class="f2" style="font-family:monospace;font-size:10px;color:#555">{{ receipt['lab_number'] }}</td>
     <td class="f3"><div class="name-cell"><input class="name-inp" type="text" id="n{{ ri }}" data-field="sample_name" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></div></td>
-    <td class="f4"><input type="number" step="0.1" data-field="mass_kg" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></td>
+    <td class="f4"><input type="number" min="0" step="0.1" data-field="mass_kg" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></td>
     <td class="f5" style="padding:2px"><button class="done-btn" id="dnbtn{{ ri }}_0" onclick="markDone({{ ri }},0)" title="Дууслаа">○</button></td>
     <!-- ЧЧ -->
-    <td class="cg-ff gs"><input type="number" step="0.0001" data-field="ff_sample" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-ff ge"><input type="number" step="0.0001" data-field="ff_dried" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-ff gs"><input type="number" min="0" step="0.0001" data-field="ff_sample" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-ff ge"><input type="number" min="0" step="0.0001" data-field="ff_dried" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
     <!-- НЧ -->
     <td class="cg-mt gs"><input type="text" data-field="mt_bux" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></td>
-    <td class="cg-mt"><input type="number" step="0.0001" data-field="mt_tare" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-mt"><input type="number" step="0.0001" data-field="mt_sample" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-mt ge"><input type="number" step="0.0001" data-field="mt_dried" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-mt"><input type="number" min="0" step="0.0001" data-field="mt_tare" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-mt"><input type="number" min="0" step="0.0001" data-field="mt_sample" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-mt ge"><input type="number" min="0" step="0.0001" data-field="mt_dried" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
     <!-- ДЧ -->
     <td class="cg-dc gs"><input type="text" data-field="dc_bux" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></td>
-    <td class="cg-dc"><input type="number" step="0.0001" data-field="dc_tare" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-dc"><input type="number" step="0.0001" data-field="dc_sample" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-dc ge"><input type="number" step="0.0001" data-field="dc_dried" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-dc"><input type="number" min="0" step="0.0001" data-field="dc_tare" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-dc"><input type="number" min="0" step="0.0001" data-field="dc_sample" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-dc ge"><input type="number" min="0" step="0.0001" data-field="dc_dried" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
     <!-- Үнс -->
     <td class="cg-un gs"><input type="text" data-field="ash_tav" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></td>
-    <td class="cg-un"><input type="number" step="0.0001" data-field="ash_tare" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-un"><input type="number" step="0.0001" data-field="ash_sample" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-un ge"><input type="number" step="0.0001" data-field="ash_burned" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-un"><input type="number" min="0" step="0.0001" data-field="ash_tare" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-un"><input type="number" min="0" step="0.0001" data-field="ash_sample" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-un ge"><input type="number" min="0" step="0.0001" data-field="ash_burned" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
     <!-- ДБ -->
     <td class="cg-db gs"><input type="text" data-field="vol_tig" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></td>
-    <td class="cg-db"><input type="number" step="0.0001" data-field="vol_tare" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-db"><input type="number" step="0.0001" data-field="vol_sample" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-db ge"><input type="number" step="0.0001" data-field="vol_burned" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-db"><input type="number" min="0" step="0.0001" data-field="vol_tare" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-db"><input type="number" min="0" step="0.0001" data-field="vol_sample" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-db ge"><input type="number" min="0" step="0.0001" data-field="vol_burned" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
     <!-- G -->
     <td class="cg-gi gs"><input type="text" data-field="g_tig" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></td>
-    <td class="cg-gi"><input type="number" step="0.0001" data-field="g_tare" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-gi"><input type="number" step="0.0001" data-field="g_coke" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-gi"><input type="number" step="0.0001" data-field="g_sieve1" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
-    <td class="cg-gi ge"><input type="number" step="0.0001" data-field="g_sieve2" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-gi"><input type="number" min="0" step="0.0001" data-field="g_tare" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-gi"><input type="number" min="0" step="0.0001" data-field="g_coke" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-gi"><input type="number" min="0" step="0.0001" data-field="g_sieve1" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
+    <td class="cg-gi ge"><input type="number" min="0" step="0.0001" data-field="g_sieve2" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calc({{ ri }},0)"></td>
     <!-- St -->
-    <td class="cg-st gs ge"><input type="number" step="0.001" data-field="sulfur" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calcQC({{ ri }})"></td>
+    <td class="cg-st gs ge"><input type="number" min="0" step="0.001" data-field="sulfur" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calcQC({{ ri }})"></td>
     <!-- Илчлэг -->
-    <td class="cg-il gs"><input type="number" step="0.01" data-field="cal_value" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></td>
-    <td class="cg-il ge"><input type="number" step="0.1" data-field="cal_temp" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></td>
+    <td class="cg-il gs"><input type="number" min="0" step="0.01" data-field="cal_value" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></td>
+    <td class="cg-il ge"><input type="number" min="0" step="0.1" data-field="cal_temp" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)"></td>
     <!-- FSI -->
-    <td class="cg-fsi gs ge"><input type="number" step="0.5" data-field="fsi" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calcQC({{ ri }})"></td>
+    <td class="cg-fsi gs ge"><input type="number" min="0" step="0.5" data-field="fsi" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calcQC({{ ri }})"></td>
     <!-- Тооцоо -->
     <td class="calc-cell gs" id="r{{ ri }}_tm" data-cg="ff,mt">—</td>
     <td class="calc-cell" id="r{{ ri }}_mad" data-cg="dc">—</td>
@@ -260,32 +260,32 @@
     <td class="cg-mt gs" style="background:#eef5ff"></td><td class="cg-mt" style="background:#eef5ff"></td><td class="cg-mt" style="background:#eef5ff"></td><td class="cg-mt ge" style="background:#eef5ff"></td>
     <!-- ДЧ -->
     <td class="cg-dc gs"><input type="text" data-field="dc_bux" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)"></td>
-    <td class="cg-dc"><input type="number" step="0.0001" data-field="dc_tare" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
-    <td class="cg-dc"><input type="number" step="0.0001" data-field="dc_sample" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
-    <td class="cg-dc ge"><input type="number" step="0.0001" data-field="dc_dried" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
+    <td class="cg-dc"><input type="number" min="0" step="0.0001" data-field="dc_tare" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
+    <td class="cg-dc"><input type="number" min="0" step="0.0001" data-field="dc_sample" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
+    <td class="cg-dc ge"><input type="number" min="0" step="0.0001" data-field="dc_dried" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
     <!-- Үнс -->
     <td class="cg-un gs"><input type="text" data-field="ash_tav" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)"></td>
-    <td class="cg-un"><input type="number" step="0.0001" data-field="ash_tare" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
-    <td class="cg-un"><input type="number" step="0.0001" data-field="ash_sample" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
-    <td class="cg-un ge"><input type="number" step="0.0001" data-field="ash_burned" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
+    <td class="cg-un"><input type="number" min="0" step="0.0001" data-field="ash_tare" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
+    <td class="cg-un"><input type="number" min="0" step="0.0001" data-field="ash_sample" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
+    <td class="cg-un ge"><input type="number" min="0" step="0.0001" data-field="ash_burned" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
     <!-- ДБ -->
     <td class="cg-db gs"><input type="text" data-field="vol_tig" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)"></td>
-    <td class="cg-db"><input type="number" step="0.0001" data-field="vol_tare" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
-    <td class="cg-db"><input type="number" step="0.0001" data-field="vol_sample" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
-    <td class="cg-db ge"><input type="number" step="0.0001" data-field="vol_burned" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
+    <td class="cg-db"><input type="number" min="0" step="0.0001" data-field="vol_tare" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
+    <td class="cg-db"><input type="number" min="0" step="0.0001" data-field="vol_sample" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
+    <td class="cg-db ge"><input type="number" min="0" step="0.0001" data-field="vol_burned" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
     <!-- G -->
     <td class="cg-gi gs"><input type="text" data-field="g_tig" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)"></td>
-    <td class="cg-gi"><input type="number" step="0.0001" data-field="g_tare" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
-    <td class="cg-gi"><input type="number" step="0.0001" data-field="g_coke" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
-    <td class="cg-gi"><input type="number" step="0.0001" data-field="g_sieve1" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
-    <td class="cg-gi ge"><input type="number" step="0.0001" data-field="g_sieve2" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
+    <td class="cg-gi"><input type="number" min="0" step="0.0001" data-field="g_tare" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
+    <td class="cg-gi"><input type="number" min="0" step="0.0001" data-field="g_coke" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
+    <td class="cg-gi"><input type="number" min="0" step="0.0001" data-field="g_sieve1" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
+    <td class="cg-gi ge"><input type="number" min="0" step="0.0001" data-field="g_sieve2" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calc({{ ri }},1)"></td>
     <!-- St -->
-    <td class="cg-st gs ge"><input type="number" step="0.001" data-field="sulfur" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calcQC({{ ri }})"></td>
+    <td class="cg-st gs ge"><input type="number" min="0" step="0.001" data-field="sulfur" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calcQC({{ ri }})"></td>
     <!-- Илчлэг -->
-    <td class="cg-il gs"><input type="number" step="0.01" data-field="cal_value" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)"></td>
+    <td class="cg-il gs"><input type="number" min="0" step="0.01" data-field="cal_value" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)"></td>
     <td class="cg-il ge"></td>
     <!-- FSI -->
-    <td class="cg-fsi gs ge"><input type="number" step="0.5" data-field="fsi" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calcQC({{ ri }})"></td>
+    <td class="cg-fsi gs ge"><input type="number" min="0" step="0.5" data-field="fsi" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calcQC({{ ri }})"></td>
     <!-- Тооцоо -->
     <td class="calc-cell gs" id="r{{ ri }}d_tm" data-cg="ff,mt">—</td>
     <td class="calc-cell" id="r{{ ri }}d_mad" data-cg="dc">—</td>
@@ -899,6 +899,27 @@ document.querySelectorAll('.tbl input').forEach(function(i){
     }
   });
 });
+
+// ── Хулганы дугуй утга гүйлгэхээс сэргийлнэ ────────────────────────────
+// Chrome/Edge дээр type="number" нүд фокустай байхад дугуй эргүүлэхэд
+// утга нэмэгдэж/хасагдаж, 0-оос доош ороход хасах тоо үүсдэг.
+// Дугуйг зөвхөн хүснэгт гүйлгэхэд ашиглана — утга хэзээ ч өөрчлөгдөхгүй.
+document.addEventListener('wheel', function(e){
+  var inp = e.target;
+  if(!inp || inp.type !== 'number' || document.activeElement !== inp) return;
+  e.preventDefault();                       // утга нэмэгдэх/хасагдахыг таслана
+  var wrap = document.getElementById('sheetWrap');
+  // deltaMode: 0=пиксель, 1=мөр, 2=хуудас
+  var k  = e.deltaMode === 1 ? 16 : (e.deltaMode === 2 ? (wrap ? wrap.clientHeight : 400) : 1);
+  var dy = e.deltaY * k, dx = e.deltaX * k;
+  if(wrap){
+    var t0 = wrap.scrollTop;
+    wrap.scrollTop  += dy;
+    wrap.scrollLeft += dx;
+    dy -= (wrap.scrollTop - t0);            // хүснэгт дуусвал үлдсэнийг хуудсанд өгнө
+  }
+  if(dy) window.scrollBy(0, dy);
+}, {passive:false});
 
 function decreaseDecimal(){
   var inp=document.activeElement;
