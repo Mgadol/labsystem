@@ -68,6 +68,14 @@ def security_headers(resp):
     resp.headers['X-XSS-Protection']         = '1; mode=block'
     resp.headers['Referrer-Policy']          = 'strict-origin-when-cross-origin'
     resp.headers['Permissions-Policy']       = 'geolocation=(), microphone=(), camera=()'
+    # HTML хуудсыг хөтөч кэшлэхийг хориглоно. Кэшилсэн байвал серверт шинэ
+    # хувилбар татсан ч хэрэглэгч хуучин хуудас (хуучин JS) ажиллуулсаар
+    # байдаг тул засвар хэрэгжээгүй мэт харагддаг. static/ файлууд хэвээр
+    # кэшлэгдэнэ (зураг, лого).
+    if resp.mimetype == 'text/html':
+        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        resp.headers['Pragma']        = 'no-cache'
+        resp.headers['Expires']       = '0'
     return resp
 
 ALLOWED = {'png','jpg','jpeg','gif','webp','pdf','doc','docx'}
