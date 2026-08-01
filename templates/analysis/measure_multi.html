@@ -561,7 +561,12 @@ function checkQC(uid,rid,ri){
     var res=closestPair(list);
     if(!res||res.picked.length<2) return;
     var dec=decMap[p]!=null?decMap[p]:2, tol=qcMap[p];
-    var ok=(tol==null)||(res.diff<=tol);
+    // Харагдаж буй нарийвчлалаар харьцуулна. Хоёртын бутархайн алдаанаас болж
+    // 0.53−0.50 нь 0.030000000000000027 болдог тул хүлцэл 0.03-ыг "давсан" мэт
+    // улаан болж, 0.48−0.45 (0.029999999999999970) нь ногоон болдог байсан —
+    // дэлгэцэд адилхан 0.03 харагдаж байхад өнгө нь өөр гардаг байв.
+    var shown=Math.round(res.diff*Math.pow(10,dec))/Math.pow(10,dec);
+    var ok=(tol==null)||(shown<=tol+1e-9);
     var el=document.getElementById('r'+uid+'_'+p);
     if(el){
       el.textContent=res.mean.toFixed(dec);
@@ -580,7 +585,8 @@ function checkQC(uid,rid,ri){
       if(dups.length===2){
         el2.textContent=res.diff.toFixed(dec);
         qcClass(el2, ok ? null : 'qc-warn');
-        el2.style.color=''; el2.title='Зөрүү';
+        el2.style.color='';
+        el2.title='Зөрүү '+shown.toFixed(dec)+(tol!=null?('  /  хүлцэл '+tol):'');
       } else {
         var used=res.picked.indexOf(dp)>=0;
         el2.textContent=own.toFixed(dec);

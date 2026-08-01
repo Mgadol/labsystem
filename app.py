@@ -1695,7 +1695,9 @@ def internal_qc_done(qc_id):
                     diff = abs(o-r)
                     tol_key = db_to_tol.get(p, p.capitalize())
                     tol = conn.execute("SELECT tolerance FROM qc_settings WHERE parameter=?", (tol_key,)).fetchone()
-                    within = 1 if (tol and diff <= float(tol['tolerance'])) else 0
+                    # round(): хоёртын бутархайн алдаанаас сэргийлнэ
+                    # (0.53−0.50 = 0.030000000000000027 нь хүлцэл 0.03-ыг "давдаг")
+                    within = 1 if (tol and round(diff, 6) <= float(tol['tolerance']) + 1e-9) else 0
                     conn.execute("""INSERT INTO internal_qc_results (qc_id,receipt_id,parameter,original_value,repeat_value,difference,within_tolerance)
                         VALUES (?,?,?,?,?,?,?)""", (qc_id, int(receipt_id), p, o, r, diff, within))
                 except: pass
