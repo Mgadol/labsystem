@@ -40,6 +40,7 @@
 .save-dot.pending{background:#f59e0b;animation:blink 1s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 .cg-ff.hide,.cg-mt.hide,.cg-dc.hide,.cg-un.hide,.cg-db.hide,.cg-gi.hide,.cg-st.hide,.cg-il.hide,.cg-fsi.hide{display:none}
+.calc-col.hide,.calc-cell.hide{display:none}
 .col-bar{padding:5px 14px;background:#1a3a2a;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 .col-bar label{display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:#a8d4b8;user-select:none}
 </style>
@@ -117,7 +118,7 @@
       <th class="cg-st">Нийт хүхэр</th>
       <th colspan="2" class="cg-il">Илчлэгийн утга</th>
       <th class="cg-fsi">Чөлөөт<br>хөөлт</th>
-      <th colspan="9">Тооцоо</th>
+      <th colspan="9" id="calcHead">Тооцоо</th>
     </tr>
     <tr class="h2">
       <th class="cg-ff gs">Дээжний масс<br>[гр]</th><th class="cg-ff ge">Хатаасан масс<br>[гр]</th>
@@ -129,7 +130,7 @@
       <th class="cg-st gs ge">Sad [%]</th>
       <th class="cg-il gs">Qb,ad [J/g]</th><th class="cg-il ge">Өрөө ⁰C</th>
       <th class="cg-fsi gs ge">CSN</th>
-      <th class="gs">TM%</th><th>Mad%</th><th>Aad%</th><th>Vad%</th><th>FCad%</th><th>G</th><th>Sad%</th><th>Qb,ad</th><th>CSN</th>
+      <th class="gs calc-col" data-cg="ff,mt">TM%</th><th class="calc-col" data-cg="dc">Mad%</th><th class="calc-col" data-cg="un">Aad%</th><th class="calc-col" data-cg="db">Vad%</th><th class="calc-col" data-cg="dc,un,db">FCad%</th><th class="calc-col" data-cg="gi">G</th><th class="calc-col" data-cg="st">Sad%</th><th class="calc-col" data-cg="il">Qb,ad</th><th class="calc-col" data-cg="fsi">CSN</th>
     </tr>
   </thead>
   <tbody id="tbody">
@@ -150,8 +151,17 @@
   <!-- Lot ялгах label -->
   {% if not qc_row_map or rid not in qc_row_map %}
   <tr class="lot-label">
-    <td colspan="41" style="text-align:left;padding-left:10px;background:#1e3a5f;color:#4ade80;font-family:monospace;font-size:11px;height:20px;padding-top:2px;padding-bottom:2px">
-      📋 {{ receipt['lab_number'] }} — {{ receipt['sample_name'] }} &nbsp;·&nbsp; <span style="color:#fbbf24">{{ receipt['sample_type'] }}</span> &nbsp;·&nbsp; {{ receipt['quantity'] }} дээж
+    {# Дээжийн бүх нэрийг залгаж бичвэл (жишээ нь 33 дээж) мөр урт болж,
+       .tbl нь white-space:nowrap тул ХҮСНЭГТИЙГ БҮХЭЛД НЬ сунгаад Тооцоо
+       хэсэг дэлгэцийн ихэнхийг эзэлдэг байсан. Эхний/сүүлийн нэрийг л
+       харуулж, бүтнийг нь tooltip-д үлдээв. #}
+    {% set _names = receipt['sample_name'] or '' %}
+    {% set _parts = _names.split(';') if ';' in _names else [_names] %}
+    <td colspan="42" title="{{ _names }}" style="text-align:left;padding-left:10px;background:#1e3a5f;color:#4ade80;font-family:monospace;font-size:11px;height:20px;padding-top:2px;padding-bottom:2px">
+      📋 {{ receipt['lab_number'] }}
+      {%- if _parts|length > 2 %} — {{ _parts[0]|trim }} … {{ _parts[-1]|trim }}
+      {%- elif _names %} — {{ _names }}{% endif %}
+      &nbsp;·&nbsp; <span style="color:#fbbf24">{{ receipt['sample_type'] }}</span> &nbsp;·&nbsp; {{ receipt['quantity'] }} дээж
     </td>
   </tr>
   {% endif %}
@@ -202,15 +212,15 @@
     <td class="cg-il gs"><input type="number" step="0.01" data-field="cal_value" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
     <td class="cg-il ge"><input type="number" step="0.1" data-field="cal_temp" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
     <td class="cg-fsi gs ge"><input type="number" step="0.5" data-field="fsi" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
-    <td class="calc-cell gs" id="r{{ uid }}_tm">—</td>
-    <td class="calc-cell" id="r{{ uid }}_mad">—</td>
-    <td class="calc-cell" id="r{{ uid }}_aad">—</td>
-    <td class="calc-cell" id="r{{ uid }}_vad">—</td>
-    <td class="calc-cell" id="r{{ uid }}_fc">—</td>
-    <td class="calc-cell" id="r{{ uid }}_g">—</td>
-    <td class="calc-cell" id="r{{ uid }}_sad">—</td>
-    <td class="calc-cell" id="r{{ uid }}_qb">—</td>
-    <td class="calc-cell" id="r{{ uid }}_fsi">—</td>
+    <td class="calc-cell gs" id="r{{ uid }}_tm" data-cg="ff,mt">—</td>
+    <td class="calc-cell" id="r{{ uid }}_mad" data-cg="dc">—</td>
+    <td class="calc-cell" id="r{{ uid }}_aad" data-cg="un">—</td>
+    <td class="calc-cell" id="r{{ uid }}_vad" data-cg="db">—</td>
+    <td class="calc-cell" id="r{{ uid }}_fc" data-cg="dc,un,db">—</td>
+    <td class="calc-cell" id="r{{ uid }}_g" data-cg="gi">—</td>
+    <td class="calc-cell" id="r{{ uid }}_sad" data-cg="st">—</td>
+    <td class="calc-cell" id="r{{ uid }}_qb" data-cg="il">—</td>
+    <td class="calc-cell" id="r{{ uid }}_fsi" data-cg="fsi">—</td>
   </tr>
   <!-- Зэрэгцээ мөр -->
   <tr class="dup-row" id="dr{{ uid }}">
@@ -243,15 +253,15 @@
     <td class="cg-il gs"><input type="number" step="0.01" data-field="cal_value" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',1,'{{ rid }}','{{ ri }}')"></td>
     <td class="cg-il ge"></td>
     <td class="cg-fsi gs ge"><input type="number" step="0.5" data-field="fsi" data-row="{{ ri }}" data-dup="1" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
-    <td class="calc-cell gs" id="r{{ uid }}d_tm">—</td>
-    <td class="calc-cell" id="r{{ uid }}d_mad">—</td>
-    <td class="calc-cell" id="r{{ uid }}d_aad">—</td>
-    <td class="calc-cell" id="r{{ uid }}d_vad">—</td>
-    <td class="calc-cell" id="r{{ uid }}d_fc">—</td>
-    <td class="calc-cell" id="r{{ uid }}d_g">—</td>
-    <td class="calc-cell" id="r{{ uid }}d_sad">—</td>
-    <td class="calc-cell" id="r{{ uid }}d_qb">—</td>
-    <td class="calc-cell" id="r{{ uid }}d_fsi">—</td>
+    <td class="calc-cell gs" id="r{{ uid }}d_tm" data-cg="ff,mt">—</td>
+    <td class="calc-cell" id="r{{ uid }}d_mad" data-cg="dc">—</td>
+    <td class="calc-cell" id="r{{ uid }}d_aad" data-cg="un">—</td>
+    <td class="calc-cell" id="r{{ uid }}d_vad" data-cg="db">—</td>
+    <td class="calc-cell" id="r{{ uid }}d_fc" data-cg="dc,un,db">—</td>
+    <td class="calc-cell" id="r{{ uid }}d_g" data-cg="gi">—</td>
+    <td class="calc-cell" id="r{{ uid }}d_sad" data-cg="st">—</td>
+    <td class="calc-cell" id="r{{ uid }}d_qb" data-cg="il">—</td>
+    <td class="calc-cell" id="r{{ uid }}d_fsi" data-cg="fsi">—</td>
   </tr>
   {% endif %}
   {% endfor %}
@@ -674,6 +684,26 @@ function toggleG(cb,g){
     if(show) el.classList.remove('hide');
     else el.classList.add('hide');
   });
+  syncCalcCols();
+}
+
+// ── Тооцооны багана нь харуулж буй бүлэгтэй уялдана ─────────────────
+// Зөвхөн "G индекс" харуулахад Тооцоо хэсэг 9 баганаараа хэвээр гарч,
+// бүгд "—" болж дэлгэцийн ихэнхийг эзэлдэг байсан.
+function syncCalcCols(){
+  var vis={};
+  ['ff','mt','dc','un','db','gi','st','il','fsi'].forEach(function(g){
+    var el=document.querySelector('.cg-'+g);
+    vis[g]= el ? !el.classList.contains('hide') : true;
+  });
+  document.querySelectorAll('[data-cg]').forEach(function(el){
+    var on=el.getAttribute('data-cg').split(',').some(function(g){return vis[g];});
+    el.classList.toggle('hide',!on);
+  });
+  var n=document.querySelectorAll('thead tr.h2 [data-cg]').length
+      - document.querySelectorAll('thead tr.h2 [data-cg].hide').length;
+  var th=document.getElementById('calcHead');
+  if(th){ th.colSpan=n||1; th.style.display=n?'':'none'; }
 }
 
 // Өгөгдөл ачаалах
@@ -810,6 +840,7 @@ document.addEventListener('DOMContentLoaded',function(){
   ['gi','st','il','fsi'].forEach(function(g){
     document.querySelectorAll('.cg-'+g).forEach(function(el){el.classList.add('hide');});
   });
+  syncCalcCols();   // нуусан бүлгийн тооцооны багана мөн нуугдана
   loadAllData();
   // Анхдагчаар түгжээтэй — "Засах" дарж л засна
   setSheetReadonly(true);

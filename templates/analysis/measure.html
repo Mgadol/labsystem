@@ -66,6 +66,7 @@
 /* Нуугдах багана */
 .cg-ff.hide,.cg-mt.hide,.cg-dc.hide,.cg-un.hide,
 .cg-db.hide,.cg-gi.hide,.cg-st.hide,.cg-il.hide,.cg-fsi.hide{display:none}
+.calc-col.hide,.calc-cell.hide{display:none}
 </style>
 
 <!-- Мэдээллийн баар -->
@@ -161,7 +162,7 @@
       <th class="cg-st">Нийт хүхэр</th>
       <th colspan="2" class="cg-il">Илчлэгийн утга</th>
       <th class="cg-fsi">Чөлөөт<br>хөөлт</th>
-      <th colspan="9">Тооцоо</th>
+      <th colspan="9" id="calcHead">Тооцоо</th>
     </tr>
     <tr class="h2">
       <th class="cg-ff gs">Дээжний масс<br>[кг]</th><th class="cg-ff ge">Хатаасан масс<br>[кг]</th>
@@ -173,7 +174,7 @@
       <th class="cg-st gs ge">Sad [%]</th>
       <th class="cg-il gs">Qb,ad [J/g]</th><th class="cg-il ge">Өрөө ⁰C</th>
       <th class="cg-fsi gs ge">CSN</th>
-      <th class="gs">TM%</th><th>Mad%</th><th>Aad%</th><th>Vad%</th><th>FCad%</th><th>G</th><th>Sad%</th><th>Qb,ad</th><th>CSN</th>
+      <th class="gs calc-col" data-cg="ff,mt">TM%</th><th class="calc-col" data-cg="dc">Mad%</th><th class="calc-col" data-cg="un">Aad%</th><th class="calc-col" data-cg="db">Vad%</th><th class="calc-col" data-cg="dc,un,db">FCad%</th><th class="calc-col" data-cg="gi">G</th><th class="calc-col" data-cg="st">Sad%</th><th class="calc-col" data-cg="il">Qb,ad</th><th class="calc-col" data-cg="fsi">CSN</th>
     </tr>
   </thead>
   <tbody id="tbody">
@@ -232,15 +233,15 @@
     <!-- FSI -->
     <td class="cg-fsi gs ge"><input type="number" step="0.5" data-field="fsi" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calcQC({{ ri }})"></td>
     <!-- Тооцоо -->
-    <td class="calc-cell gs" id="r{{ ri }}_tm">—</td>
-    <td class="calc-cell" id="r{{ ri }}_mad">—</td>
-    <td class="calc-cell" id="r{{ ri }}_aad">—</td>
-    <td class="calc-cell" id="r{{ ri }}_vad">—</td>
-    <td class="calc-cell" id="r{{ ri }}_fc">—</td>
-    <td class="calc-cell" id="r{{ ri }}_g">—</td>
-    <td class="calc-cell" id="r{{ ri }}_sad">—</td>
-    <td class="calc-cell" id="r{{ ri }}_qb">—</td>
-    <td class="calc-cell" id="r{{ ri }}_fsi">—</td>
+    <td class="calc-cell gs" id="r{{ ri }}_tm" data-cg="ff,mt">—</td>
+    <td class="calc-cell" id="r{{ ri }}_mad" data-cg="dc">—</td>
+    <td class="calc-cell" id="r{{ ri }}_aad" data-cg="un">—</td>
+    <td class="calc-cell" id="r{{ ri }}_vad" data-cg="db">—</td>
+    <td class="calc-cell" id="r{{ ri }}_fc" data-cg="dc,un,db">—</td>
+    <td class="calc-cell" id="r{{ ri }}_g" data-cg="gi">—</td>
+    <td class="calc-cell" id="r{{ ri }}_sad" data-cg="st">—</td>
+    <td class="calc-cell" id="r{{ ri }}_qb" data-cg="il">—</td>
+    <td class="calc-cell" id="r{{ ri }}_fsi" data-cg="fsi">—</td>
   </tr>
   <!-- Зэрэгцээ мөр -->
   <tr class="dup-row" id="dr{{ ri }}">
@@ -283,15 +284,15 @@
     <!-- FSI -->
     <td class="cg-fsi gs ge"><input type="number" step="0.5" data-field="fsi" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calcQC({{ ri }})"></td>
     <!-- Тооцоо -->
-    <td class="calc-cell gs" id="r{{ ri }}d_tm">—</td>
-    <td class="calc-cell" id="r{{ ri }}d_mad">—</td>
-    <td class="calc-cell" id="r{{ ri }}d_aad">—</td>
-    <td class="calc-cell" id="r{{ ri }}d_vad">—</td>
-    <td class="calc-cell" id="r{{ ri }}d_fc">—</td>
-    <td class="calc-cell" id="r{{ ri }}d_g">—</td>
-    <td class="calc-cell" id="r{{ ri }}d_sad">—</td>
-    <td class="calc-cell" id="r{{ ri }}d_qb">—</td>
-    <td class="calc-cell" id="r{{ ri }}d_fsi">—</td>
+    <td class="calc-cell gs" id="r{{ ri }}d_tm" data-cg="ff,mt">—</td>
+    <td class="calc-cell" id="r{{ ri }}d_mad" data-cg="dc">—</td>
+    <td class="calc-cell" id="r{{ ri }}d_aad" data-cg="un">—</td>
+    <td class="calc-cell" id="r{{ ri }}d_vad" data-cg="db">—</td>
+    <td class="calc-cell" id="r{{ ri }}d_fc" data-cg="dc,un,db">—</td>
+    <td class="calc-cell" id="r{{ ri }}d_g" data-cg="gi">—</td>
+    <td class="calc-cell" id="r{{ ri }}d_sad" data-cg="st">—</td>
+    <td class="calc-cell" id="r{{ ri }}d_qb" data-cg="il">—</td>
+    <td class="calc-cell" id="r{{ ri }}d_fsi" data-cg="fsi">—</td>
   </tr>
   {% endfor %}
 
@@ -666,6 +667,26 @@ function toggleG(cb, g){
     if(show) el.classList.remove('hide');
     else el.classList.add('hide');
   });
+  syncCalcCols();
+}
+
+// ── Тооцооны багана нь харуулж буй бүлэгтэй уялдана ─────────────────
+// Зөвхөн "G индекс" харуулахад Тооцоо хэсэг 9 баганаараа хэвээр гарч,
+// бүгд "—" болж дэлгэцийн ихэнхийг эзэлдэг байсан.
+function syncCalcCols(){
+  var vis={};
+  ['ff','mt','dc','un','db','gi','st','il','fsi'].forEach(function(g){
+    var el=document.querySelector('.cg-'+g);
+    vis[g]= el ? !el.classList.contains('hide') : true;
+  });
+  document.querySelectorAll('[data-cg]').forEach(function(el){
+    var on=el.getAttribute('data-cg').split(',').some(function(g){return vis[g];});
+    el.classList.toggle('hide',!on);
+  });
+  var n=document.querySelectorAll('thead tr.h2 [data-cg]').length
+      - document.querySelectorAll('thead tr.h2 [data-cg].hide').length;
+  var th=document.getElementById('calcHead');
+  if(th){ th.colSpan=n||1; th.style.display=n?'':'none'; }
 }
 
 // Дууслаа товч
@@ -880,6 +901,7 @@ document.addEventListener('DOMContentLoaded',function(){
   ['gi','st','il','fsi'].forEach(function(g){
     document.querySelectorAll('.cg-'+g).forEach(function(el){el.classList.add('hide');});
   });
+  syncCalcCols();   // нуусан бүлгийн тооцооны багана мөн нуугдана
   loadData();
   // Анхдагчаар түгжээтэй — "Засах" дарж л засна
   setSheetReadonly(true);
