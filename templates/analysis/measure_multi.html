@@ -531,7 +531,18 @@ function sendCalc(uid,dup,rid,ri){
     });
   },350);
 }
-function setC(id,v,d){var e=document.getElementById(id);if(e){e.textContent=v!=null?v.toFixed(d):'—';e.className='calc-cell'+(id.includes('_tm')?' gs':'');}}
+// QC ангиллыг л солино — className-ийг бүхэлд нь дарж бичвэл багана нуух
+// 'hide' анги устаж, мөрийн нүд толгойноос олон болж БАГАНА ГУЛСДАГ.
+function qcClass(e,cls){
+  if(!e) return;
+  e.classList.remove('qc-warn','qc-ok');
+  if(cls) e.classList.add(cls);
+}
+function setC(id,v,d){var e=document.getElementById(id);
+  if(!e) return;
+  e.textContent=v!=null?v.toFixed(d):'—';
+  qcClass(e,null); e.style.color=''; e.style.fontStyle='';
+}
 function checkQC(uid,rid,ri){
   // Үндсэн мөрөнд албан ёсны үр дүн, бусад мөрөнд зөрүү эсвэл өөрийн утга
   var qcMap={mad:QC.mad,aad:QC.aad,vad:QC.vad,sad:QC.sad,qb:QC.qb,g:QC.g,fsi:QC.fsi};
@@ -547,7 +558,7 @@ function checkQC(uid,rid,ri){
     var el=document.getElementById('r'+uid+'_'+p);
     if(el){
       el.textContent=res.mean.toFixed(dec);
-      el.className='calc-cell'+(p==='tm'?' gs':'');
+      qcClass(el,null);
       el.style.color=(tol==null)?'':(ok?'#0a6e3f':'#b42318');
       el.title='Хэмжилт: '+res.all.map(function(x){return x.v.toFixed(dec);}).join(' / ')
               +'  →  сонгосон зөрүү '+res.diff.toFixed(dec)
@@ -558,15 +569,15 @@ function checkQC(uid,rid,ri){
       var el2=document.getElementById('r'+idFor(uid,dp)+'_'+p);
       if(!el2) return;
       var own=(rawVals[uid+'_'+dp]||{})[p];
-      if(own==null){el2.textContent='—';el2.className='calc-cell';el2.style.color='';el2.title='';return;}
+      if(own==null){el2.textContent='—';qcClass(el2,null);el2.style.color='';el2.title='';return;}
       if(dups.length===2){
         el2.textContent=res.diff.toFixed(dec);
-        el2.className='calc-cell'+(ok?'':' qc-warn');
+        qcClass(el2, ok ? null : 'qc-warn');
         el2.style.color=''; el2.title='Зөрүү';
       } else {
         var used=res.picked.indexOf(dp)>=0;
         el2.textContent=own.toFixed(dec);
-        el2.className='calc-cell';
+        qcClass(el2,null);
         el2.style.color=used?'#0a6e3f':'#9aa0a6';
         el2.title=used?'Үр дүнд сонгогдсон':'Сонгогдоогүй';
       }
@@ -574,7 +585,7 @@ function checkQC(uid,rid,ri){
   });
 }
 function getN(id){var e=document.getElementById(id);return e&&e.textContent!='—'?parseFloat(e.textContent):null;}
-function cqc(id,ok){var e=document.getElementById(id);if(e)e.className='calc-cell '+(ok?'qc-ok':'qc-warn');}
+function cqc(id,ok){qcClass(document.getElementById(id),ok?'qc-ok':'qc-warn');}
 
 // Зэрэгцээ мөр
 function toggleDup(uid){
