@@ -750,7 +750,9 @@ function loadAllData(){
         var inp=document.querySelector('[data-rid="{{ receipt["id"] }}"][data-row="'+row+'"][data-dup="'+dup+'"][data-field="'+f+'"]');
         if(inp&&e[f]!=null) inp.value=(inp.step==='0.0001'&&!isNaN(parseFloat(e[f])))?parseFloat(e[f]).toFixed(4):e[f];
       });
-      calc(uid,parseInt(dup),'{{ receipt["id"] }}',row);
+      // Ачаалах үед DB-д БИЧИХГҮЙ (save=false) — зөвхөн дэлгэц дээр бодно
+      calc(uid,parseInt(dup),'{{ receipt["id"] }}',row,false);
+      showStored(uid,parseInt(dup),e);
       if(e.row_status==='done'){var btn=document.getElementById('dnbtn'+uid+'_'+dup);if(btn){btn.classList.add('done');btn.textContent='✓';}}
       // Зэрэгцээ мөрийг бодит хэмжилтийн утгатай үед задлана
       if(dup==='1'){
