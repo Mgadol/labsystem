@@ -112,11 +112,11 @@
 <!-- Checkbox баар -->
 <div class="col-bar">
   <span style="font-size:11px;color:#6aaa82;font-weight:600">Харуулах:</span>
-  <label><input type="checkbox" class="ct" data-g="ff" checked onchange="toggleG(this,'ff')"> ЧЧ</label>
-  <label><input type="checkbox" class="ct" data-g="mt" checked onchange="toggleG(this,'mt')"> НЧ</label>
-  <label><input type="checkbox" class="ct" data-g="dc" checked onchange="toggleG(this,'dc')"> ДЧ</label>
-  <label><input type="checkbox" class="ct" data-g="un" checked onchange="toggleG(this,'un')"> Үнс</label>
-  <label><input type="checkbox" class="ct" data-g="db" checked onchange="toggleG(this,'db')"> ДБ</label>
+  <label><input type="checkbox" class="ct" data-g="ff" onchange="toggleG(this,'ff')"> ЧЧ</label>
+  <label><input type="checkbox" class="ct" data-g="mt" onchange="toggleG(this,'mt')"> НЧ</label>
+  <label><input type="checkbox" class="ct" data-g="dc" onchange="toggleG(this,'dc')"> ДЧ</label>
+  <label><input type="checkbox" class="ct" data-g="un" onchange="toggleG(this,'un')"> Үнс</label>
+  <label><input type="checkbox" class="ct" data-g="db" onchange="toggleG(this,'db')"> ДБ</label>
   <label><input type="checkbox" class="ct" data-g="gi" onchange="toggleG(this,'gi')"> G индекс</label>
   <label><input type="checkbox" class="ct" data-g="st" onchange="toggleG(this,'st')"> Нийт хүхэр</label>
   <label><input type="checkbox" class="ct" data-g="il" onchange="toggleG(this,'il')"> Илчлэг</label>
@@ -992,8 +992,9 @@ function increaseDecimal(){
 
 document.addEventListener('DOMContentLoaded',function(){
   autoNames();
-  // G, St, Q, FSI анхдагч нуух
-  ['gi','st','il','fsi'].forEach(function(g){
+  // Бүх шинжилгээ анхдагчаар нуугдана — химич "Харуулах"-аас
+  // өөрийн хийж буй шинжилгээгээ сонгоно (өмнө нь ЧЧ..ДБ нээлттэй байв)
+  ['ff','mt','dc','un','db','gi','st','il','fsi'].forEach(function(g){
     document.querySelectorAll('.cg-'+g).forEach(function(el){el.classList.add('hide');});
   });
   syncCalcCols();   // нуусан бүлгийн тооцооны багана мөн нуугдана
