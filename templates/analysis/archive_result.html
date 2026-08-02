@@ -72,10 +72,10 @@
       <th>Нийт чийг</th>
       <th>Дотоод чийг</th>
       <th colspan="3">Үнс</th>
-      <th colspan="4">Дэгдэмхий бодисын<br>гарц</th>
+      <th colspan="5">Дэгдэмхий бодисын<br>гарц</th>
       <th>Бэхэжсэн<br>нүүрстөрөгч</th>
       <th colspan="2">Нийт хүхэр</th>
-      <th colspan="4">Илчлэг</th>
+      <th colspan="5">Илчлэг</th>
       <th>G-индекс</th>
       <th>Чөлөөт хөөлтийн<br>зэрэг</th>
       <th rowspan="2">Статус</th>
@@ -245,6 +245,7 @@
           <th style="text-align:left;padding:7px 10px;font-weight:600;color:#7C3AED;border:1px solid #d8b4fe">Үзүүлэлт</th>
           <th style="padding:7px 10px;font-weight:600;color:#7C3AED;border:1px solid #d8b4fe;text-align:center">Батлагдсан утга</th>
           <th style="padding:7px 10px;font-weight:600;color:#7C3AED;border:1px solid #d8b4fe;text-align:center">Хэмжсэн утга</th>
+          <th style="padding:7px 10px;font-weight:600;color:#7C3AED;border:1px solid #d8b4fe;text-align:center">Зөрүү</th>
           <th style="padding:7px 10px;font-weight:600;color:#7C3AED;border:1px solid #d8b4fe;text-align:center">Зөрүү (%)</th>
         </tr>
       </thead>
@@ -252,6 +253,7 @@
         {% set e0 = entries|selectattr('is_duplicate','equalto',0)|first %}
         {# CRM сертификат ХУУРАЙ сууринд (Adb/Vdb/Sdb/Qb,d) — хэмжсэн ad утгыг
            k = 100/(100−Mad)-аар хуурай суурьт хөрвүүлж харьцуулна. #}
+        {% set C = crm_cert or {} %}
         {% set _mad = e0['mad'] if e0 else none %}
         {% set k = 100 / (100 - _mad) if (_mad is not none and (100 - _mad) > 0) else none %}
         {# Мөр бүрд харуулах бутархайн орон — зөрүү нь БҮТЭН нарийвчлалаар
@@ -259,15 +261,15 @@
            гараар шалгахад зөрүү таарахгүй мэт харагддаг байв.
            G индекс нь суурьаас хамаардаггүй тул k-гүйгээр шууд харьцуулагдана. #}
         {% set crm_rows = [
-          ('Adb — Үнслэг', (crm_cert or {})['crm_aad'],
+          ('Adb — Үнслэг', C['crm_aad'], C['crm_aad_unc'],
            (e0['aad'] * k) if (k and e0['aad'] is not none) else none, '%', 2),
-          ('Vdb — Дэгдэмхий бодис', (crm_cert or {})['crm_vad'],
+          ('Vdb — Дэгдэмхий бодис', C['crm_vad'], C['crm_vad_unc'],
            (e0['vad'] * k) if (k and e0['vad'] is not none) else none, '%', 2),
-          ('Sdb — Нийт хүхэр', (crm_cert or {})['crm_sulfur'],
+          ('Sdb — Нийт хүхэр', C['crm_sulfur'], C['crm_sulfur_unc'],
            (e0['sulfur'] * k) if (k and e0['sulfur'] is not none) else none, '%', 3),
-          ('Qb,d — Илчлэг МЖ/кг', (crm_cert or {})['crm_cal'],
+          ('Qb,d — Илчлэг МЖ/кг', C['crm_cal'], C['crm_cal_unc'],
            (e0['cal_value'] / 1000 * k) if (k and e0['cal_value'] is not none) else none, 'МЖ/кг', 3),
-          ('G — Наалдацын индекс', (crm_cert or {})['crm_g'] if 'crm_g' in (crm_cert or {}) else none,
+          ('G — Наалдацын индекс', C['crm_g'], C['crm_g_unc'],
            e0['g_val'] if (e0 and e0['g_val'] is not none) else none, '', 0),
         ] %}
         {# Зөвхөн хуурай суурьт хөрвүүлэх ШААРДЛАГАТАЙ утга хэмжсэн атлаа Mad
@@ -276,19 +278,24 @@
         {% set _needs_k = e0 and (e0['aad'] is not none or e0['vad'] is not none
                                   or e0['sulfur'] is not none or e0['cal_value'] is not none) %}
         {% if _needs_k and k is none %}
-        <tr><td colspan="4" style="padding:7px 10px;border:1px solid #e5e4e0;color:#993c1d;font-size:11px">
+        <tr><td colspan="5" style="padding:7px 10px;border:1px solid #e5e4e0;color:#993c1d;font-size:11px">
           ⚠️ Mad (дотоод чийг) хэмжигдээгүй тул хуурай суурьт хөрвүүлэх боломжгүй байна.
         </td></tr>
         {% endif %}
-        {% for label, cert, meas, unit, dp in crm_rows %}
+        {% for label, cert, unc, meas, unit, dp in crm_rows %}
         {% if cert is not none or meas is not none %}
         <tr>
           <td style="padding:7px 10px;border:1px solid #e5e4e0;font-weight:500">{{ label }}</td>
           <td style="padding:7px 10px;border:1px solid #e5e4e0;text-align:center;font-family:monospace">
-            {% if cert is not none %}{{ ('%.'+dp|string+'f')|format(cert) }} {{ unit }}{% else %}<span style="color:#ccc">—</span>{% endif %}
+            {% if cert is not none %}{{ ('%.'+dp|string+'f')|format(cert) }}{% if unc %} ± {{ ('%.'+dp|string+'f')|format(unc) }}{% endif %} {{ unit }}{% else %}<span style="color:#ccc">—</span>{% endif %}
           </td>
           <td style="padding:7px 10px;border:1px solid #e5e4e0;text-align:center;font-family:monospace;font-weight:600">
             {% if meas is not none %}{{ ('%.'+dp|string+'f')|format(meas) }} {{ unit }}{% else %}<span style="color:#ccc">—</span>{% endif %}
+          </td>
+          <td style="padding:7px 10px;border:1px solid #e5e4e0;text-align:center;font-family:monospace;font-weight:600">
+            {% if cert is not none and meas is not none %}
+              {{ ('%+.'+dp|string+'f')|format(meas - cert) }} {{ unit }}
+            {% else %}<span style="color:#ccc">—</span>{% endif %}
           </td>
           <td style="padding:7px 10px;border:1px solid #e5e4e0;text-align:center;font-weight:600">
             {% if cert is not none and meas is not none and cert != 0 %}
