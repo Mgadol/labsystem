@@ -62,9 +62,13 @@
 
       <!-- Stat cards -->
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
-        <div class="card" style="padding:14px;text-align:center">
-          <div style="font-size:28px;font-weight:700;color:var(--navy)">{{ total_done }}</div>
+        <div class="card" style="padding:14px;text-align:center"
+             title="Ямар нэг шинжилгээ хийсэн дээжийн тоо. Дуусгасан гэж тэмдэглэсэн: {{ total_done }}">
+          <div style="font-size:28px;font-weight:700;color:var(--navy)">{{ total_analyzed }}</div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Шинжилсэн дээж</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px">
+            дуусгасан {{ total_done }}
+          </div>
         </div>
         <div class="card" style="padding:14px;text-align:center">
           <div style="font-size:28px;font-weight:700;color:#854f0b">{{ total_prepared }}</div>
@@ -79,6 +83,27 @@
           <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Нийт цаг</div>
         </div>
       </div>
+
+      <!-- Шинжилгээний төрөл тус бүрээр -->
+      {% if by_analysis %}
+      <div class="card" style="padding:14px;margin-bottom:16px">
+        <div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:10px">
+          🔬 Шинжилгээний төрлөөр
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          {% for a in by_analysis %}
+          <div style="flex:1;min-width:104px;background:#f2fbf8;border:1px solid #cfeee2;
+                      border-radius:8px;padding:8px 10px;text-align:center">
+            <div style="font-size:19px;font-weight:700;color:#0a4f3c">{{ a['count'] }}</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:2px">{{ a['label'] }}</div>
+          </div>
+          {% endfor %}
+        </div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:8px">
+          Нэг дээж дээр хийсэн шинжилгээ бүр тусад нь тоологдоно
+        </div>
+      </div>
+      {% endif %}
 
       <!-- Графикууд -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">

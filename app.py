@@ -1471,6 +1471,24 @@ def staff_detail(uid):
         GROUP BY d.id ORDER BY total_min DESC
     """, (uid,)).fetchall()
     # Stats
+    # ── Шинжилсэн дээж — ШИНЖИЛГЭЭ ХИЙСНЭЭР тоолно ────────────────────
+    # Урьд нь зөвхөн "Дууслаа" ✓ товч дарсан мөрийг тоолдог байсан тул
+    # хэмжилт хийсэн ч ✓ дараагүй ажил тоологдохгүй байв.
+    _op_any = ' OR '.join(f'{op}=?' for op, _l, _f in ANALYSIS_OPS)
+    _op_args = tuple(uid for _ in ANALYSIS_OPS)
+    # Нийт оролцсон дээж — нэг дээж дээр хэдэн ч шинжилгээ хийсэн нэг л удаа
+    total_analyzed = conn.execute(
+        f"""SELECT COUNT(DISTINCT receipt_id || '-' || row_num)
+            FROM sample_entries WHERE {_op_any}""", _op_args).fetchone()[0]
+    # Шинжилгээний төрөл тус бүрээр
+    by_analysis = []
+    for op, lbl, _f in ANALYSIS_OPS:
+        n = conn.execute(
+            f"SELECT COUNT(DISTINCT receipt_id || '-' || row_num) "
+            f"FROM sample_entries WHERE {op}=?", (uid,)).fetchone()[0]
+        if n:
+            by_analysis.append({'label': lbl, 'count': n})
+    by_analysis.sort(key=lambda x: -x['count'])
     total_done     = conn.execute("SELECT COUNT(*) FROM sample_entries WHERE done_by=? AND row_status IN ('done','approved')", (uid,)).fetchone()[0]
     total_approved = conn.execute("SELECT COUNT(*) FROM sample_entries WHERE approved_by=? AND row_status='approved'", (uid,)).fetchone()[0]
     total_hours    = conn.execute("SELECT COALESCE(SUM(duration_hours),0) FROM usage_logs WHERE user_id=? AND end_time IS NOT NULL", (uid,)).fetchone()[0]
@@ -1529,6 +1547,7 @@ def staff_detail(uid):
     return render_template('staff/detail.html', target=target, logs=logs, my_devices=my_devs,
                            device_usage=device_usage, lang=lang,
                            total_done=total_done, total_approved=total_approved, total_hours=total_hours,
+                           total_analyzed=total_analyzed, by_analysis=by_analysis,
                            total_prepared=total_prepared,
                            qc_radar=qc_radar, monthly_6=monthly_6, monthly_12=monthly_12,
                            monthly_all=monthly_all, weekly_all=weekly_all,
@@ -2407,6 +2426,28 @@ def mark_add():
     conn.commit(); conn.close()
     return jsonify({'success': True, 'id': mid, 'name': name})
 
+# ── ШИНЖИЛГЭЭ ТУС БҮРИЙН ГҮЙЦЭТГЭГЧ ──────────────────────
+# Урьд нь sample_entries-д зөвхөн updated_by (хамгийн сүүлд бичсэн хүн) байсан
+# тул нэг дээж дээр хоёр химич өөр өөр шинжилгээ хийвэл зөвхөн сүүлчийнх нь
+# тоологддог байв. Одоо шинжилгээний төрөл бүрд гүйцэтгэгчийг тусад нь бичнэ.
+ANALYSIS_OPS = [
+    ('op_mt',  'Нийт чийг',   ['ff_sample', 'ff_dried',
+                               'mt_bux', 'mt_tare', 'mt_sample', 'mt_dried']),
+    ('op_mad', 'Дотоод чийг', ['dc_bux', 'dc_tare', 'dc_sample', 'dc_dried']),
+    ('op_aad', 'Үнслэг',      ['ash_tav', 'ash_tare', 'ash_sample', 'ash_burned']),
+    ('op_vad', 'Дэгдэмхий',   ['vol_tig', 'vol_tare', 'vol_sample', 'vol_burned']),
+    ('op_g',   'G индекс',    ['g_tig', 'g_tare', 'g_coke', 'g_sieve1', 'g_sieve2']),
+    ('op_st',  'Нийт хүхэр',  ['sulfur']),
+    ('op_q',   'Илчлэг',      ['cal_value', 'cal_temp']),
+    ('op_fsi', 'Чөлөөт хөөлт', ['fsi']),
+]
+# {талбарын нэр: гүйцэтгэгчийн багана}
+FIELD_OP = {f: op for op, _lbl, fields in ANALYSIS_OPS for f in fields}
+# Тухайн шинжилгээ хийгдсэн эсэхийг илтгэх нөхцөл (жин нь орсон эсэх)
+OP_HAS_VALUE = {op: ' OR '.join(f'{f} IS NOT NULL' for f in fields)
+                for op, _lbl, fields in ANALYSIS_OPS}
+
+
 # ── DB MIGRATION (called once at startup) ───────────────
 def ensure_tables():
     conn = get_db()
@@ -2488,6 +2529,20 @@ def ensure_tables():
             WHERE sample_type='CRM' AND crm_name IS NOT NULL""")
     except Exception:
         pass
+    # Шинжилгээ тус бүрийн гүйцэтгэгч
+    for op, _lbl, _f in ANALYSIS_OPS:
+        try: conn.execute(f'ALTER TABLE sample_entries ADD COLUMN {op} INTEGER REFERENCES users(id)')
+        except Exception: pass
+    # Хуучин бичлэгт гүйцэтгэгч тэмдэглэгдээгүй тул updated_by/done_by-гаар
+    # ойролцоогоор нөхнө. Тухайн шинжилгээний жин орсон мөрөнд л бичигдэнэ.
+    for op, _lbl, _f in ANALYSIS_OPS:
+        try:
+            conn.execute(f"""UPDATE sample_entries
+                SET {op} = COALESCE(updated_by, done_by)
+                WHERE {op} IS NULL AND COALESCE(updated_by, done_by) IS NOT NULL
+                  AND ({OP_HAS_VALUE[op]})""")
+        except Exception:
+            pass
     # ── ОРЧНЫ ХЯНАЛТ: өрөө + өдөр бүрийн чийг/дулааны бүртгэл ──
     conn.execute("""CREATE TABLE IF NOT EXISTS env_rooms (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -4316,15 +4371,27 @@ def analysis_autosave():
         if existing or not _empty:
             # Атомик UPSERT — тооцооллын хадгалалттай зэрэг ажиллахад UNIQUE
             # зөрчил үүсгэхгүй. Хоосон утгаар шинэ мөр үүсгэхгүй (дээрх нөхцөл).
+            # Тухайн талбар аль шинжилгээнийх вэ — гүйцэтгэгчийг нь тэмдэглэнэ.
+            # Утгыг ХООСРУУЛАХАД гүйцэтгэгч хэвээр үлдэнэ (буруу шивээд засах
+            # нь ажил хийгээгүй гэсэн үг биш).
+            _op = FIELD_OP.get(field) if not _empty else None
+            _op = _op if (_op and _op in _cols) else None
+            _extra_ins = f', {_op}' if _op else ''
+            _extra_val = ', ?' if _op else ''
+            _extra_upd = f', {_op}=excluded.{_op}' if _op else ''
+            _args = [rid, row, is_dup, value, session['user_id'],
+                     datetime.now().isoformat()]
+            if _op:
+                _args.append(session['user_id'])
             conn.execute(
                 f"""INSERT INTO sample_entries(receipt_id, row_num, is_duplicate,
-                        {field}, updated_by, updated_at)
-                    VALUES(?,?,?,?,?,?)
+                        {field}, updated_by, updated_at{_extra_ins})
+                    VALUES(?,?,?,?,?,?{_extra_val})
                     ON CONFLICT(receipt_id, row_num, is_duplicate) DO UPDATE SET
                         {field}=excluded.{field},
                         updated_by=excluded.updated_by,
-                        updated_at=excluded.updated_at""",
-                (rid, row, is_dup, value, session['user_id'], datetime.now().isoformat())
+                        updated_at=excluded.updated_at{_extra_upd}""",
+                _args
             )
         conn.commit()
         conn.close()
