@@ -49,11 +49,21 @@ def main():
         conn.close()
         return
 
+    # Дээжийн нэр ЗӨВХӨН үндсэн мөрөнд хадгалагддаг тул эхлээд мөрийн дугаарыг
+    # олж, дараа нь тухайн мөрийн бүх хэмжилтийг (зэрэгцээ, давталт) авна.
+    # Урьд нь нэрээр шүүж, зөвхөн үндсэн мөр олдоод "дундажлах юм алга" гэдэг байв.
     q = 'SELECT * FROM sample_entries WHERE receipt_id=?'
     args = [rec['id']]
     if name:
-        q += ' AND sample_name=?'
-        args.append(name)
+        nums = [r['row_num'] for r in conn.execute(
+            'SELECT DISTINCT row_num FROM sample_entries '
+            'WHERE receipt_id=? AND sample_name=?', (rec['id'], name))]
+        if not nums:
+            print(f'✗ {lab_number} дотор "{name}" нэртэй мөр олдсонгүй.')
+            conn.close()
+            return
+        q += ' AND row_num IN (%s)' % ','.join('?' * len(nums))
+        args += nums
     q += ' ORDER BY row_num, is_duplicate'
     rows = conn.execute(q, args).fetchall()
 
