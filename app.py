@@ -1813,9 +1813,16 @@ def archive_result(receipt_id):
         entries.append(ed)
     apply_final_results(entries, qc_tolerances(conn))   # давталтаас эцсийн үр дүнг сонгоно
     qc = {r['parameter']: r for r in conn.execute("SELECT * FROM qc_settings").fetchall()}
+    # Архивласан CRM дээж дээр ч сертификатын харьцуулалт гарна
+    crm_cert = None
+    if receipt and receipt['sample_type'] == 'CRM':
+        geo = conn.execute("""SELECT crm_mad, crm_aad, crm_vad, crm_sulfur, crm_cal, crm_g
+                              FROM geo_samples WHERE id=?""",
+                           (receipt['geo_sample_id'],)).fetchone()
+        crm_cert = dict(geo) if geo else None
     conn.close()
     return render_template('analysis/archive_result.html',
-        receipt=receipt, entries=entries, qc=qc, lang=lang, role=role)
+        receipt=receipt, entries=entries, qc=qc, lang=lang, role=role, crm_cert=crm_cert)
 
 @app.route('/archive/measure/<int:receipt_id>')
 @login_required
@@ -2446,11 +2453,30 @@ def ensure_tables():
                 'sulfur_cert REAL', 'sulfur_unc REAL', 'cal_cert REAL', 'cal_unc REAL']:
         try: conn.execute(f"ALTER TABLE crm_materials ADD COLUMN {col}")
         except Exception: pass
+    # crm_g — G индексийн батлагдсан утга. Урьд нь crm_materials-д g_cert байсан
+    # ч дээж бүртгэх үед хуулагддаггүй тул зөвхөн G хэмждэг CRM (ж: GBW12023c)
+    # дээр харьцуулах зүйлгүй болж, хүснэгт хоосон гардаг байв.
     for col in ['crm_name TEXT','crm_mad REAL','crm_aad REAL','crm_vad REAL',
-                'crm_sulfur REAL','crm_cal REAL','crm_mad_unc REAL','crm_aad_unc REAL',
+                'crm_sulfur REAL','crm_cal REAL','crm_g REAL','crm_g_unc REAL',
+                'crm_mad_unc REAL','crm_aad_unc REAL',
                 'crm_vad_unc REAL','crm_sulfur_unc REAL','crm_cal_unc REAL','sample_range TEXT']:
         try: conn.execute(f"ALTER TABLE geo_samples ADD COLUMN {col}")
         except Exception: pass
+    # Өмнө нь бүртгэгдсэн CRM дээжид G (ба Mad) батлагдсан утгыг нөхөж дүүргэнэ.
+    # Зөвхөн ХООСОН талбарыг дүүргэх тул гараар засварласан утга хөндөгдөхгүй.
+    try:
+        conn.execute("""
+            UPDATE geo_samples SET
+              crm_g     = COALESCE(crm_g,
+                          (SELECT g_cert   FROM crm_materials m WHERE m.crm_name=geo_samples.crm_name)),
+              crm_g_unc = COALESCE(crm_g_unc,
+                          (SELECT g_unc    FROM crm_materials m WHERE m.crm_name=geo_samples.crm_name)),
+              crm_mad   = COALESCE(crm_mad,
+                          (SELECT mad_cert FROM crm_materials m WHERE m.crm_name=geo_samples.crm_name))
+            WHERE sample_type='CRM' AND crm_name IS NOT NULL
+              AND (crm_g IS NULL OR crm_g_unc IS NULL OR crm_mad IS NULL)""")
+    except Exception:
+        pass
     # ── ОРЧНЫ ХЯНАЛТ: өрөө + өдөр бүрийн чийг/дулааны бүртгэл ──
     conn.execute("""CREATE TABLE IF NOT EXISTS env_rooms (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -3947,10 +3973,14 @@ def analysis_crm_register():
         try:
             cur = conn.execute("""
                 INSERT INTO geo_samples (sample_name, sample_type, location, collected_date, quantity, notes,
-                    registered_by, status, crm_name, crm_aad, crm_vad, crm_sulfur, crm_cal)
-                VALUES (?, 'CRM', 'CRM', ?, 1, ?, ?, 'received', ?, ?, ?, ?, ?)
+                    registered_by, status, crm_name, crm_aad, crm_vad, crm_sulfur, crm_cal,
+                    crm_g, crm_g_unc, crm_mad)
+                VALUES (?, 'CRM', 'CRM', ?, 1, ?, ?, 'received', ?, ?, ?, ?, ?, ?, ?, ?)
             """, (crm_name, collected_date, notes, session['user_id'],
-                  crm_name, mat['aad_cert'], mat['vad_cert'], mat['sulfur_cert'], mat['cal_cert']))
+                  crm_name, mat['aad_cert'], mat['vad_cert'], mat['sulfur_cert'], mat['cal_cert'],
+                  mat['g_cert'] if 'g_cert' in mat.keys() else None,
+                  mat['g_unc'] if 'g_unc' in mat.keys() else None,
+                  mat['mad_cert'] if 'mad_cert' in mat.keys() else None))
             geo_id = cur.lastrowid
 
             crm_lab_num = f"CRM {crm_name} {collected_date.replace('-','')}"
@@ -4732,7 +4762,7 @@ def analysis_result(receipt_id):
 
     crm_cert = None
     if receipt and receipt['sample_type'] == 'CRM':
-        geo = conn.execute('SELECT crm_mad, crm_aad, crm_vad, crm_sulfur, crm_cal FROM geo_samples WHERE id=?',
+        geo = conn.execute('SELECT crm_mad, crm_aad, crm_vad, crm_sulfur, crm_cal, crm_g FROM geo_samples WHERE id=?',
                            (receipt['geo_sample_id'],)).fetchone()
         crm_cert = dict(geo) if geo else None
 
