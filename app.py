@@ -4429,6 +4429,56 @@ def row_done():
     conn.close()
     return jsonify({'ok': True})
 
+@app.route('/analysis/row/delete', methods=['POST'])
+@lab_required
+def row_delete():
+    """Давталтын мөрийг устгана (андуурч нэмсэн эсвэл хуулагдсан үед).
+
+    Зөвхөн ДАВТАЛТ (is_duplicate>=2) устгагдана — үндсэн ба зэрэгцээ мөр нь
+    хүснэгтийн байнгын мөр тул устгахгүй, утгыг нь цэвэрлэж болно.
+    Баталгаажсан мөрийг зөвхөн ахлах/админ устгана.
+    """
+    data = request.get_json() or {}
+    rid = data.get('receipt_id')
+    row = data.get('row_num')
+    dup = data.get('is_duplicate')
+    try:
+        rid, row, dup = int(rid), int(row), int(dup)
+    except (TypeError, ValueError):
+        return jsonify({'ok': False, 'error': 'Буруу утга'}), 400
+    if dup < 2:
+        return jsonify({'ok': False,
+                        'error': 'Зөвхөн давталтын мөрийг устгана'}), 400
+
+    conn = get_db()
+    ent = conn.execute("""SELECT id, row_status FROM sample_entries
+                          WHERE receipt_id=? AND row_num=? AND is_duplicate=?""",
+                       (rid, row, dup)).fetchone()
+    if not ent:
+        conn.close()
+        return jsonify({'ok': False, 'error': 'Мөр олдсонгүй'}), 404
+    if ent['row_status'] == 'approved' and session.get('role') not in ('admin', 'senior'):
+        conn.close()
+        return jsonify({'ok': False,
+                        'error': 'Баталгаажсан мөрийг зөвхөн ахлах устгана'}), 403
+
+    conn.execute('DELETE FROM sample_entries WHERE id=?', (ent['id'],))
+    # Үлдсэн давталтуудыг залгуулж дугаарлана (давталт 1, 2… тасрахгүй байхын
+    # тулд). UNIQUE(receipt_id,row_num,is_duplicate)-тай мөргөлдөхгүйн тулд
+    # өсөх дарааллаар шилжүүлнэ — өмнөх дугаар нь тухай бүрдээ сул болно.
+    rest = [r['is_duplicate'] for r in conn.execute(
+        """SELECT is_duplicate FROM sample_entries
+           WHERE receipt_id=? AND row_num=? AND is_duplicate>? ORDER BY is_duplicate""",
+        (rid, row, dup))]
+    for d in rest:
+        conn.execute("""UPDATE sample_entries SET is_duplicate=?
+                        WHERE receipt_id=? AND row_num=? AND is_duplicate=?""",
+                     (d - 1, rid, row, d))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True, 'shifted': len(rest)})
+
+
 @app.route('/analysis/row/done-all', methods=['POST'])
 @lab_required
 def row_done_all():

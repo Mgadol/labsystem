@@ -53,6 +53,8 @@
 /* + товч */
 .dup-btn{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;background:#3b5ea6;border:none;border-radius:2px;color:#fff;font-size:10px;font-weight:700;cursor:pointer;margin-right:2px}
 .dup-btn:hover{background:#1a2744}
+.del-btn{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;background:#c53030;border:none;border-radius:2px;color:#fff;font-size:10px;font-weight:700;cursor:pointer;line-height:1}
+.del-btn:hover{background:#822727}
 .name-cell{display:flex;align-items:center;padding:0 3px}
 .name-inp{flex:1;text-align:left!important}
 
@@ -668,6 +670,22 @@ function toggleDup(ri){
 var MAX_DUP=6;   // үндсэн + зэрэгцээ + 5 давталт хүртэл
 function repeatRows(ri){ return document.querySelectorAll('tr[data-rep="'+ri+'"]'); }
 
+// Давталтын мөрийг устгана — андуурч нэмсэн эсвэл жин нь хуулагдсан үед.
+// Устгасны дараа үлдсэн давталтууд залгуулж дугаарлагдах тул хуудсыг сэргээнэ.
+function delRepeat(ri,dup){
+  if(editMode){ alert('Эхлээд 💾 Хадгалах товчийг дарна уу.'); return; }
+  if(!confirm('«давталт '+(dup-1)+'» мөрийг устгах уу?\n\n'
+             +'Тухайн мөрийн бүх хэмжилт устаж, дундаж дахин бодогдоно.')) return;
+  fetch('/analysis/row/delete',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({receipt_id:RID,row_num:ri,is_duplicate:dup})})
+   .then(function(r){ return r.json().then(function(d){ return {ok:r.ok&&d.ok,err:d.error}; }); })
+   .then(function(x){
+     if(!x.ok){ alert('Устгаж чадсангүй: '+(x.err||'алдаа')); return; }
+     location.reload();
+   })
+   .catch(function(){ alert('Сүлжээний алдаа — устгагдсангүй'); });
+}
+
 function addRepeat(ri,silent){
   var base=document.getElementById('dr'+ri);
   if(!base) return null;
@@ -690,6 +708,10 @@ function addRepeat(ri,silent){
   });
   var lbl=row.querySelector('.f3');
   if(lbl){ lbl.textContent='давталт '+(dup-1); }
+  // Эхний нүд — энэ давталтыг устгах товч
+  var first=row.querySelector('td');
+  if(first){ first.innerHTML='<button class="del-btn" title="Энэ давталтыг устгах" '
+                            +'onclick="delRepeat('+ri+','+dup+')">\u2715</button>'; }
   // Хамгийн сүүлийн давталтын (эсвэл зэрэгцээ мөрийн) ард байрлуулна
   var reps=repeatRows(ri);
   var after=reps.length?reps[reps.length-1]:base;
