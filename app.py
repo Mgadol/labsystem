@@ -1811,7 +1811,7 @@ def archive_result(receipt_id):
         ed['mt_result'] = total_moisture(ed)
         ed['g_val'] = lab_g_index(ed)   # гараар оруулаагүй бол жингээс бодно
         entries.append(ed)
-    apply_final_results(entries)   # давталтаас эцсийн үр дүнг сонгоно
+    apply_final_results(entries, qc_tolerances(conn))   # давталтаас эцсийн үр дүнг сонгоно
     qc = {r['parameter']: r for r in conn.execute("SELECT * FROM qc_settings").fetchall()}
     conn.close()
     return render_template('analysis/archive_result.html',
@@ -2146,24 +2146,75 @@ def total_moisture(d):
     return None
 
 
-def closest_pair_mean(values):
-    """Хамгийн ойрхон хоёр утгын дундаж (нэг л утга байвал өөрийг нь)"""
+# Үзүүлэлт бүрийн хүлцэл qc_settings-д ямар нэрээр хадгалагддаг вэ
+FINAL_TOL_PARAM = {'mad': 'Mad', 'aad': 'Aad', 'vad': 'Vad', 'sulfur': 'Stad',
+                   'cal_value': 'Qb_ad', 'g_val': 'G_index', 'fsi': 'FSI'}
+
+
+# Хэмжилтийн хуудасны загварт бичигдсэнтэй ИЖИЛ анхдагч хүлцэл. qc_settings-ээс
+# устгагдсан үзүүлэлт дээр хөтөч эдгээрийг ашигладаг тул сервер мөн адил байх ёстой
+# (эс бөгөөс Тооцоо ба Үр дүнгийн хуудас өөр дундаж гаргана).
+QC_DEFAULTS = {'Mad': 0.20, 'Aad': 0.30, 'Vad': 0.30, 'Stad': 0.03,
+               'Qb_ad': 120, 'G_index': 3.0, 'FSI': 0.5}
+
+
+def qc_tolerances(conn):
+    """qc_settings → {parameter: tolerance} (тохируулаагүйд анхдагч утга)"""
+    tols = dict(QC_DEFAULTS)
+    for r in conn.execute('SELECT parameter, tolerance FROM qc_settings'):
+        if r['tolerance'] is not None:
+            tols[r['parameter']] = r['tolerance']
+    return tols
+
+
+def best_set_mean(values, tol=None):
+    """Хүлцэлд багтах ХАМГИЙН ОЛОН хэмжилтийн дундаж.
+
+    Гурав (ба түүнээс дээш) хэмжилт бүгд хүлцэлд багтвал бүгдийн дундаж,
+    эс бөгөөс хамгийн ойрхон хоёрын дундаж. Хүлцэл өгөөгүй үзүүлэлт
+    (Mt, FC) дээр хамгийн ойрхон хоёроор бодно.
+
+    Буцаах утга: (дундаж, сонгогдсоны зөрүү, сонгогдсон утгын тоо)
+    """
     vals = sorted(v for v in values if v is not None)
     if not vals:
-        return None
+        return None, None, 0
     if len(vals) == 1:
-        return vals[0]
-    # Эрэмбэлсний дараа хамгийн ойрхон хос үргэлж зэргэлдээ байрлана
-    i = min(range(len(vals) - 1), key=lambda k: vals[k + 1] - vals[k])
-    return (vals[i] + vals[i + 1]) / 2
+        return vals[0], 0.0, 1
+    best = None
+    if tol is not None:
+        t = float(tol) + 1e-9
+        for i in range(len(vals)):
+            # i-ээс эхлэх хамгийн УРТ бүлгийг олно (эрэмбэлсэн тул j-ээс буцаж хайна)
+            for j in range(len(vals) - 1, i, -1):
+                if vals[j] - vals[i] <= t:
+                    cand = (j - i + 1, vals[j] - vals[i], i, j)
+                    if best is None or cand[0] > best[0] or \
+                       (cand[0] == best[0] and cand[1] < best[1]):
+                        best = cand
+                    break
+    if best is None:
+        # Хүлцэлд багтах хос алга — хамгийн ойрхон хоёроор (үр дүн нь QC-д унана)
+        i = min(range(len(vals) - 1), key=lambda k: vals[k + 1] - vals[k])
+        best = (2, vals[i + 1] - vals[i], i, i + 1)
+    sel = vals[best[2]:best[3] + 1]
+    return sum(sel) / len(sel), best[1], len(sel)
 
 
-def apply_final_results(entries):
+def closest_pair_mean(values):
+    """Хамгийн ойрхон хоёр утгын дундаж (нэг л утга байвал өөрийг нь)"""
+    return best_set_mean(values)[0]
+
+
+def apply_final_results(entries, tol_map=None):
     """Мөр бүрийн эцсийн үр дүнг үндсэн мөрөнд (is_duplicate=0) бичнэ.
 
     entries — dict-үүдийн жагсаалт. Үндсэн мөрийн утгууд албан ёсны үр дүн
     болж тайлан болон үр дүнгийн хуудсанд гардаг тул энд бичигдэнэ.
     Зэрэгцээ ба давталтын мөрүүд хэвээр үлдэж QC зөрүү харуулахад орно.
+
+    tol_map — qc_settings-ийн хүлцэл. Өгвөл хүлцэлд багтах бүх хэмжилтийг
+    дундажилна (хэмжилтийн хуудасны Тооцоо хэсэгтэй ижил дүрэм).
     """
     by_row = {}
     for e in entries:
@@ -2175,7 +2226,8 @@ def apply_final_results(entries):
         if not primary:
             continue
         for f in FINAL_RESULT_FIELDS:
-            v = closest_pair_mean([r.get(f) for r in rows])
+            tol = (tol_map or {}).get(FINAL_TOL_PARAM.get(f))
+            v, _, _ = best_set_mean([r.get(f) for r in rows], tol)
             if v is not None:
                 primary[f] = v
         # FC-г эцсийн Mad/Aad/Vad-аас гаргана (хоорондоо нийцтэй байхын тулд)
@@ -3222,6 +3274,7 @@ def lab_report_rows(conn, d0s, d1s):
            FROM sample_receipt sr JOIN geo_samples g ON g.id=sr.geo_sample_id
            WHERE sr.received_date BETWEEN ? AND ?
            ORDER BY sr.received_date, sr.lab_serial''', (d0s, d1s)).fetchall()
+    tols = qc_tolerances(conn)
     out = []
     for r in receipts:
         entries = [dict(e) for e in conn.execute(
@@ -3229,7 +3282,7 @@ def lab_report_rows(conn, d0s, d1s):
                ORDER BY row_num, is_duplicate''', (r['id'],)).fetchall()]
         for e in entries:
             e['mt_result'] = total_moisture(e)
-        apply_final_results(entries)
+        apply_final_results(entries, tols)
         for e in entries:
             if e.get('is_duplicate') != 0:
                 continue           # зэрэгцээ/давталт нь QC-д, тайланд үндсэн мөр гарна
@@ -4504,6 +4557,7 @@ def analysis_result(receipt_id):
                            (receipt['geo_sample_id'],)).fetchone()
         crm_cert = dict(geo) if geo else None
 
+    qc_tols = qc_tolerances(conn)   # холболт хаагдахаас өмнө уншина
     conn.close()
 
     # mt_result тооцоолох + display_name үүсгэх
@@ -4533,7 +4587,7 @@ def analysis_result(receipt_id):
         else:
             ed['display_name'] = _sname
         entries_list.append(ed)
-    apply_final_results(entries_list)   # давталтаас эцсийн үр дүнг сонгоно
+    apply_final_results(entries_list, qc_tols)   # давталтаас эцсийн үр дүнг сонгоно
     # Мөр бүрийн нэр (entry байхгүй мөрөнд fallback болгон ашиглана)
     _qty = (receipt['quantity'] or 1) if receipt else 1
     row_names = []
@@ -4705,6 +4759,7 @@ def analysis_export(receipt_id):
     approver_names = [r['name'] for r in conn.execute("""
         SELECT DISTINCT u.name FROM sample_entries se JOIN users u ON u.id=se.approved_by
         WHERE se.receipt_id=? AND se.approved_by IS NOT NULL ORDER BY u.name""", (receipt_id,)).fetchall()]
+    qc_tols = qc_tolerances(conn)   # холболт хаагдахаас өмнө уншина
     conn.close()
 
     # Template ачаалах
@@ -4785,7 +4840,7 @@ def analysis_export(receipt_id):
     # (хамгийн ойрхон хоёрын дундаж). Mt-г энэ файлын өөрийн томьёогоор бодно.
     for _r in _rows:
         _r['mt_result'] = calc_mt(_r)
-    apply_final_results(_rows)
+    apply_final_results(_rows, qc_tols)
 
     # Тоон формат — албан тайлангийн жишиг файлтай ижил (утга бүрэн нарийвчлалтай
     # хадгалагдаж, харагдац нь форматаар зохицуулагдана)

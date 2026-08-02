@@ -31,9 +31,13 @@
 
 /* Тооцоо */
 .calc-cell{font-weight:600;font-family:monospace;color:#1a2744;background:#e8faf4!important}
+/* Дундаж (үндсэн мөр) / зөрүү (зэрэгцээ мөр) харуулах багана */
+.cmid{background:#cfeee2!important;color:#0a4f3c}
 .qc-avg-ok{color:#0a6e3f!important}
 .qc-ok{background:#bbf7d0!important;color:#065f46}
 .qc-warn{background:#fecaca!important;color:#7f1d1d}
+/* Дундажид орсон хэмжилтийг шараар тэмдэглэнэ (2 эсвэл 3-уулаа) */
+.qc-used{background:#fde68a!important;color:#713f12}
 
 /* Input */
 .tbl input{width:100%;height:100%;border:none;background:transparent;font-size:11px;text-align:center;font-family:monospace;padding:0;outline:none}
@@ -146,7 +150,7 @@
     <!-- FSI -->
     <col class="cg-fsi" style="width:40px">
     <!-- Тооцоо -->
-    <col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:55px">
+    <col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px">
   </colgroup>
   <thead>
     <tr class="h1">
@@ -165,7 +169,7 @@
       <th class="cg-st">Нийт хүхэр</th>
       <th colspan="2" class="cg-il">Илчлэгийн утга</th>
       <th class="cg-fsi">Чөлөөт<br>хөөлт</th>
-      <th colspan="9" id="calcHead">Тооцоо</th>
+      <th colspan="18" id="calcHead">Тооцоо</th>
     </tr>
     <tr class="h2">
       <th class="cg-ff gs">Дээжний масс<br>[кг]</th><th class="cg-ff ge">Хатаасан масс<br>[кг]</th>
@@ -177,7 +181,7 @@
       <th class="cg-st gs ge">Sad [%]</th>
       <th class="cg-il gs">Qb,ad [J/g]</th><th class="cg-il ge">Өрөө ⁰C</th>
       <th class="cg-fsi gs ge">CSN</th>
-      <th class="gs calc-col" data-cg="ff,mt">TM%</th><th class="calc-col" data-cg="dc">Mad%</th><th class="calc-col" data-cg="un">Aad%</th><th class="calc-col" data-cg="db">Vad%</th><th class="calc-col" data-cg="dc,un,db">FCad%</th><th class="calc-col" data-cg="gi">G</th><th class="calc-col" data-cg="st">Sad%</th><th class="calc-col" data-cg="il">Qb,ad</th><th class="calc-col" data-cg="fsi">CSN</th>
+      <th class="gs calc-col" data-cg="ff,mt">TM%</th><th class="calc-col" data-cg="ff,mt" title="Дундаж — үндсэн мөрөнд. Зэрэгцээ мөрөнд дундажид орсон утгуудын зөрүү (Δ) гарна.">Дундаж</th><th class="calc-col" data-cg="dc">Mad%</th><th class="calc-col" data-cg="dc" title="Дундаж — үндсэн мөрөнд. Зэрэгцээ мөрөнд дундажид орсон утгуудын зөрүү (Δ) гарна.">Дундаж</th><th class="calc-col" data-cg="un">Aad%</th><th class="calc-col" data-cg="un" title="Дундаж — үндсэн мөрөнд. Зэрэгцээ мөрөнд дундажид орсон утгуудын зөрүү (Δ) гарна.">Дундаж</th><th class="calc-col" data-cg="db">Vad%</th><th class="calc-col" data-cg="db" title="Дундаж — үндсэн мөрөнд. Зэрэгцээ мөрөнд дундажид орсон утгуудын зөрүү (Δ) гарна.">Дундаж</th><th class="calc-col" data-cg="dc,un,db">FCad%</th><th class="calc-col" data-cg="dc,un,db" title="Дундаж — үндсэн мөрөнд. Зэрэгцээ мөрөнд дундажид орсон утгуудын зөрүү (Δ) гарна.">Дундаж</th><th class="calc-col" data-cg="gi">G</th><th class="calc-col" data-cg="gi" title="Дундаж — үндсэн мөрөнд. Зэрэгцээ мөрөнд дундажид орсон утгуудын зөрүү (Δ) гарна.">Дундаж</th><th class="calc-col" data-cg="st">Sad%</th><th class="calc-col" data-cg="st" title="Дундаж — үндсэн мөрөнд. Зэрэгцээ мөрөнд дундажид орсон утгуудын зөрүү (Δ) гарна.">Дундаж</th><th class="calc-col" data-cg="il">Qb,ad</th><th class="calc-col" data-cg="il" title="Дундаж — үндсэн мөрөнд. Зэрэгцээ мөрөнд дундажид орсон утгуудын зөрүү (Δ) гарна.">Дундаж</th><th class="calc-col" data-cg="fsi">CSN</th><th class="calc-col" data-cg="fsi" title="Дундаж — үндсэн мөрөнд. Зэрэгцээ мөрөнд дундажид орсон утгуудын зөрүү (Δ) гарна.">Дундаж</th>
     </tr>
   </thead>
   <tbody id="tbody">
@@ -236,15 +240,15 @@
     <!-- FSI -->
     <td class="cg-fsi gs ge"><input type="number" min="0" step="0.5" data-field="fsi" data-row="{{ ri }}" data-dup="0" onblur="autoSave(this)" oninput="calcQC({{ ri }})"></td>
     <!-- Тооцоо -->
-    <td class="calc-cell gs" id="r{{ ri }}_tm" data-cg="ff,mt">—</td>
-    <td class="calc-cell" id="r{{ ri }}_mad" data-cg="dc">—</td>
-    <td class="calc-cell" id="r{{ ri }}_aad" data-cg="un">—</td>
-    <td class="calc-cell" id="r{{ ri }}_vad" data-cg="db">—</td>
-    <td class="calc-cell" id="r{{ ri }}_fc" data-cg="dc,un,db">—</td>
-    <td class="calc-cell" id="r{{ ri }}_g" data-cg="gi">—</td>
-    <td class="calc-cell" id="r{{ ri }}_sad" data-cg="st">—</td>
-    <td class="calc-cell" id="r{{ ri }}_qb" data-cg="il">—</td>
-    <td class="calc-cell" id="r{{ ri }}_fsi" data-cg="fsi">—</td>
+    <td class="calc-cell gs" id="r{{ ri }}_tm" data-cg="ff,mt">—</td><td class="calc-cell cmid" id="r{{ ri }}_tmm" data-cg="ff,mt">—</td>
+    <td class="calc-cell" id="r{{ ri }}_mad" data-cg="dc">—</td><td class="calc-cell cmid" id="r{{ ri }}_madm" data-cg="dc">—</td>
+    <td class="calc-cell" id="r{{ ri }}_aad" data-cg="un">—</td><td class="calc-cell cmid" id="r{{ ri }}_aadm" data-cg="un">—</td>
+    <td class="calc-cell" id="r{{ ri }}_vad" data-cg="db">—</td><td class="calc-cell cmid" id="r{{ ri }}_vadm" data-cg="db">—</td>
+    <td class="calc-cell" id="r{{ ri }}_fc" data-cg="dc,un,db">—</td><td class="calc-cell cmid" id="r{{ ri }}_fcm" data-cg="dc,un,db">—</td>
+    <td class="calc-cell" id="r{{ ri }}_g" data-cg="gi">—</td><td class="calc-cell cmid" id="r{{ ri }}_gm" data-cg="gi">—</td>
+    <td class="calc-cell" id="r{{ ri }}_sad" data-cg="st">—</td><td class="calc-cell cmid" id="r{{ ri }}_sadm" data-cg="st">—</td>
+    <td class="calc-cell" id="r{{ ri }}_qb" data-cg="il">—</td><td class="calc-cell cmid" id="r{{ ri }}_qbm" data-cg="il">—</td>
+    <td class="calc-cell" id="r{{ ri }}_fsi" data-cg="fsi">—</td><td class="calc-cell cmid" id="r{{ ri }}_fsim" data-cg="fsi">—</td>
   </tr>
   <!-- Зэрэгцээ мөр -->
   <tr class="dup-row" id="dr{{ ri }}">
@@ -287,15 +291,15 @@
     <!-- FSI -->
     <td class="cg-fsi gs ge"><input type="number" min="0" step="0.5" data-field="fsi" data-row="{{ ri }}" data-dup="1" onblur="autoSave(this)" oninput="calcQC({{ ri }})"></td>
     <!-- Тооцоо -->
-    <td class="calc-cell gs" id="r{{ ri }}d_tm" data-cg="ff,mt">—</td>
-    <td class="calc-cell" id="r{{ ri }}d_mad" data-cg="dc">—</td>
-    <td class="calc-cell" id="r{{ ri }}d_aad" data-cg="un">—</td>
-    <td class="calc-cell" id="r{{ ri }}d_vad" data-cg="db">—</td>
-    <td class="calc-cell" id="r{{ ri }}d_fc" data-cg="dc,un,db">—</td>
-    <td class="calc-cell" id="r{{ ri }}d_g" data-cg="gi">—</td>
-    <td class="calc-cell" id="r{{ ri }}d_sad" data-cg="st">—</td>
-    <td class="calc-cell" id="r{{ ri }}d_qb" data-cg="il">—</td>
-    <td class="calc-cell" id="r{{ ri }}d_fsi" data-cg="fsi">—</td>
+    <td class="calc-cell gs" id="r{{ ri }}d_tm" data-cg="ff,mt">—</td><td class="calc-cell cmid" id="r{{ ri }}d_tmm" data-cg="ff,mt">—</td>
+    <td class="calc-cell" id="r{{ ri }}d_mad" data-cg="dc">—</td><td class="calc-cell cmid" id="r{{ ri }}d_madm" data-cg="dc">—</td>
+    <td class="calc-cell" id="r{{ ri }}d_aad" data-cg="un">—</td><td class="calc-cell cmid" id="r{{ ri }}d_aadm" data-cg="un">—</td>
+    <td class="calc-cell" id="r{{ ri }}d_vad" data-cg="db">—</td><td class="calc-cell cmid" id="r{{ ri }}d_vadm" data-cg="db">—</td>
+    <td class="calc-cell" id="r{{ ri }}d_fc" data-cg="dc,un,db">—</td><td class="calc-cell cmid" id="r{{ ri }}d_fcm" data-cg="dc,un,db">—</td>
+    <td class="calc-cell" id="r{{ ri }}d_g" data-cg="gi">—</td><td class="calc-cell cmid" id="r{{ ri }}d_gm" data-cg="gi">—</td>
+    <td class="calc-cell" id="r{{ ri }}d_sad" data-cg="st">—</td><td class="calc-cell cmid" id="r{{ ri }}d_sadm" data-cg="st">—</td>
+    <td class="calc-cell" id="r{{ ri }}d_qb" data-cg="il">—</td><td class="calc-cell cmid" id="r{{ ri }}d_qbm" data-cg="il">—</td>
+    <td class="calc-cell" id="r{{ ri }}d_fsi" data-cg="fsi">—</td><td class="calc-cell cmid" id="r{{ ri }}d_fsim" data-cg="fsi">—</td>
   </tr>
   {% endfor %}
 
@@ -459,18 +463,37 @@ function dupsOf(ri){
   });
   return out.sort(function(a,b){return a-b;});
 }
-// Хамгийн ойрхон хоёрын дундаж — албан ёсны үр дүн болно (сервертэй ижил дүрэм)
-function closestPair(list){
+// Хүлцэлд багтах ХАМГИЙН ОЛОН хэмжилтийг дундажилна (сервертэй ижил дүрэм).
+// Гурав бүгд хүлцэлд багтвал гурвуулангийн дундаж, эс бөгөөс ойрхон хоёрын.
+function bestSet(list,tol){
   var a=list.filter(function(x){return x.v!=null&&!isNaN(x.v);})
             .sort(function(x,y){return x.v-y.v;});
   if(!a.length) return null;
-  if(a.length===1) return {mean:a[0].v,diff:0,picked:[a[0].dup],all:a};
-  var bi=0,bd=Math.abs(a[1].v-a[0].v);
-  for(var i=1;i<a.length-1;i++){
-    var d=Math.abs(a[i+1].v-a[i].v);
-    if(d<bd){bd=d;bi=i;}
+  if(a.length===1) return {mean:a[0].v,diff:0,picked:[a[0].dup],all:a,n:1};
+  var best=null;
+  if(tol!=null){
+    var t=tol+1e-9;
+    for(var i=0;i<a.length;i++){
+      // i-ээс эхлэх хамгийн УРТ бүлэг (эрэмбэлсэн тул ард талаас нь буцаж хайна)
+      for(var j=a.length-1;j>i;j--){
+        if(a[j].v-a[i].v<=t){
+          var cnt=j-i+1, sp=a[j].v-a[i].v;
+          if(!best||cnt>best.cnt||(cnt===best.cnt&&sp<best.sp)) best={cnt:cnt,sp:sp,i:i,j:j};
+          break;
+        }
+      }
+    }
   }
-  return {mean:(a[bi].v+a[bi+1].v)/2,diff:bd,picked:[a[bi].dup,a[bi+1].dup],all:a};
+  if(!best){
+    // Хүлцэлд багтах хос алга — хамгийн ойрхон хоёроор (үр дүн нь QC-д унана)
+    var bi=0,bd=a[1].v-a[0].v;
+    for(var k=1;k<a.length-1;k++){var dd=a[k+1].v-a[k].v; if(dd<bd){bd=dd;bi=k;}}
+    best={cnt:2,sp:bd,i:bi,j:bi+1};
+  }
+  var sel=a.slice(best.i,best.j+1),sum=0;
+  sel.forEach(function(x){sum+=x.v;});
+  return {mean:sum/sel.length,diff:best.sp,
+          picked:sel.map(function(x){return x.dup;}),all:a,n:sel.length};
 }
 
 // save===false: зөвхөн дэлгэц дээр бодно, DB-д БИЧИХГҮЙ (хуудас ачаалах үед).
@@ -553,7 +576,7 @@ function sendCalc(ri,dup){
 // 'hide' анги устаж, мөрийн нүд толгойноос олон болж БАГАНА ГУЛСДАГ.
 function qcClass(e,cls){
   if(!e) return;
-  e.classList.remove('qc-warn','qc-ok');
+  e.classList.remove('qc-warn','qc-ok','qc-used');
   if(cls) e.classList.add(cls);
 }
 function setC(id,v,d){var e=document.getElementById(id);
@@ -576,48 +599,51 @@ function checkQC(ri){
   var dups=dupsOf(ri);
   if(dups.length<2) return;
   ['tm','mad','aad','vad','fc','g','sad','qb','fsi'].forEach(function(p){
+    var tol=qcMap[p], d=decMap[p]!=null?decMap[p]:2;
     var list=dups.map(function(dp){return {dup:dp,v:(rawVals[ri+'_'+dp]||{})[p]};});
-    var res=closestPair(list);
-    if(!res||res.picked.length<2) return;
-    var d=decMap[p]!=null?decMap[p]:2, tol=qcMap[p];
-    // Харагдаж буй нарийвчлалаар харьцуулна. Хоёртын бутархайн алдаанаас болж
-    // 0.53−0.50 нь 0.030000000000000027 болдог тул хүлцэл 0.03-ыг "давсан" мэт
-    // улаан болж, 0.48−0.45 (0.029999999999999970) нь ногоон болдог байсан —
-    // дэлгэцэд адилхан 0.03 харагдаж байхад өнгө нь өөр гардаг байв.
+    var res=bestSet(list,tol);
+    // Дундаж/зөрүүний нүдийг цэвэрлэх туслах
+    function clr(dp){
+      var e=document.getElementById('r'+idFor(ri,dp)+'_'+p+'m');
+      if(e){e.textContent='—';qcClass(e,null);e.style.color='';e.title='';}
+    }
+    if(!res||res.n<2){ dups.forEach(clr); clr(1); return; }
+    // Харагдаж буй нарийвчлалаар харьцуулна (хоёртын бутархайн алдаанаас сэргийлнэ)
     var shown=Math.round(res.diff*Math.pow(10,d))/Math.pow(10,d);
     var ok=(tol==null)||(shown<=tol+1e-9);
-    // ── Үндсэн нүд: албан ёсны үр дүн (хамгийн ойрхон хоёрын дундаж) ──
-    var el=document.getElementById('r'+ri+'_'+p);
-    if(el){
-      el.textContent=res.mean.toFixed(d);
-      qcClass(el,null);
-      el.style.color=(tol==null)?'':(ok?'#0a6e3f':'#b42318');
-      el.title='Хэмжилт: '+res.all.map(function(x){return x.v.toFixed(d);}).join(' / ')
-              +'  →  сонгосон зөрүү '+res.diff.toFixed(d)
-              +(tol!=null?(' (хүлцэл '+tol+')'):'');
-    }
-    // ── Бусад мөр ──
+
+    // ── Мөр бүр ӨӨРИЙН утгаа харуулна, дундажид орсон нь шар ──
     dups.forEach(function(dp){
-      if(dp===0) return;
-      var el2=document.getElementById('r'+idFor(ri,dp)+'_'+p);
-      if(!el2) return;
+      var el=document.getElementById('r'+idFor(ri,dp)+'_'+p);
+      if(!el) return;
       var own=(rawVals[ri+'_'+dp]||{})[p];
-      if(own==null){el2.textContent='—';qcClass(el2,null);el2.style.color='';el2.title='';return;}
-      if(dups.length===2){
-        // Хоёрхон хэмжилт — өмнөх шигээ зөрүүг харуулна
-        el2.textContent=res.diff.toFixed(d);
-        qcClass(el2, ok ? null : 'qc-warn');
-        el2.style.color='';
-        el2.title='Зөрүү '+shown.toFixed(d)+(tol!=null?('  /  хүлцэл '+tol):'');
-      } else {
-        // Давталттай — мөр бүр өөрийн утгаа, сонгогдсон хоёр нь ногооноор
-        var used=res.picked.indexOf(dp)>=0;
-        el2.textContent=own.toFixed(d);
-        qcClass(el2,null);
-        el2.style.color=used?'#0a6e3f':'#9aa0a6';
-        el2.title=used?'Үр дүнд сонгогдсон':'Сонгогдоогүй';
-      }
+      var used=(own!=null)&&res.picked.indexOf(dp)>=0;
+      el.textContent=own!=null?own.toFixed(d):'—';
+      qcClass(el,used?'qc-used':null);
+      el.style.color='';
+      el.title=own==null?'':(used?'Дундажид орсон':'Дундажид ороогүй');
     });
+
+    // ── Дундаж — ҮНДСЭН мөрөнд (зэрэгцээг хаасан ч харагдана) ──
+    var mel=document.getElementById('r'+ri+'_'+p+'m');
+    if(mel){
+      mel.textContent=res.mean.toFixed(d);
+      qcClass(mel,null);
+      mel.style.color=(tol==null)?'':(ok?'#0a6e3f':'#b42318');
+      mel.title=res.n+' хэмжилтийн дундаж — '
+               +res.all.map(function(x){return x.v.toFixed(d);}).join(' / ')
+               +'  →  зөрүү '+shown.toFixed(d)+(tol!=null?('  /  хүлцэл '+tol):'');
+    }
+    // ── Зөрүү — ЗЭРЭГЦЭЭ мөрөнд ──
+    var del=document.getElementById('r'+idFor(ri,1)+'_'+p+'m');
+    if(del){
+      del.textContent='Δ '+shown.toFixed(d);
+      qcClass(del,ok?null:'qc-warn');
+      del.style.color='';
+      del.title='Дундажид орсон утгуудын зөрүү'+(tol!=null?('  /  хүлцэл '+tol):'');
+    }
+    // ── Давталтын мөрийн дундаж/зөрүүний нүд хоосон ──
+    dups.forEach(function(dp){ if(dp>=2) clr(dp); });
   });
 }
 function getN(id){var e=document.getElementById(id);return e&&e.textContent!='—'?parseFloat(e.textContent):null;}
