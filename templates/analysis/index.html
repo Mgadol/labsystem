@@ -46,6 +46,32 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
     </div>
   </div>
 
+  <!-- Идэвхтэй ажлын багц — нэгтгэсэн ажил хаяган дээр биш, бүртгэлд үлдэнэ -->
+  {% if batches %}
+  <div class="card" style="margin-bottom:16px;border-left:4px solid var(--teal)">
+    <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px">
+      🧪 Миний идэвхтэй ажил
+    </div>
+    {% for b in batches %}
+    <div style="display:flex;align-items:center;gap:12px;padding:9px 12px;background:#f2fbf8;
+                border:1px solid #cfeee2;border-radius:8px;margin-bottom:6px;flex-wrap:wrap">
+      <div style="flex:1;min-width:220px">
+        <div style="font-family:monospace;font-size:13px;font-weight:700;color:var(--navy)">
+          {{ b['labs']|join(' → ') }}
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px">
+          {{ b['n_samples'] }} дээж
+          {% if b['created_at'] %} · {{ b['created_at'][11:16] }}-д эхэлсэн{% endif %}
+        </div>
+      </div>
+      <a href="{{ b['url'] }}" class="btn btn-teal btn-sm">Үргэлжлүүлэх →</a>
+      <button class="btn btn-ghost btn-sm" title="Багцыг хаах"
+              onclick="closeBatch({{ b['id'] }})">✕</button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   <!-- Таб -->
   {% set prep_samples = samples|selectattr('prep_status','ne','ready')|selectattr('prep_status','ne','done')|selectattr('status','ne','analysing')|list %}
   {% set prep_count = prep_samples|length %}
@@ -59,6 +85,13 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
       🔬 Шинжилгээ
       <span style="background:#ffe4e4;color:#993c1d;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px" id="cnt-anal">{{ anal_count }}</span>
     </button>
+  </div>
+
+  <!-- Шинжилгээ табын дэд шүүлтүүр: юун дээр зогссоноо шууд харна -->
+  <div id="subFilter" style="display:none;gap:6px;margin-bottom:12px">
+    <button class="btn btn-sm" id="sub-all"     onclick="switchSub('all')">Бүгд</button>
+    <button class="btn btn-sm" id="sub-active"  onclick="switchSub('active')">Хийгдэж байгаа <span id="cnt-active"></span></button>
+    <button class="btn btn-sm" id="sub-waiting" onclick="switchSub('waiting')">Хүлээгдэж байгаа <span id="cnt-waiting"></span></button>
   </div>
 
   <div class="card">
@@ -108,7 +141,8 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
       {% set st2 = s['status'] or '' %}
       {% set is_ready = ps2=='ready' or st2=='ready' %}
       {% set cat = 'anal' if (ps2 in ('ready','done') or st2 == 'analysing') else 'prep' %}
-      <tr class="sample-row" data-status="{{ s['status'] }}" data-date="{{ s['collected_date'] or '' }}" data-rid="{{ s['receipt_id'] or '' }}" data-cat="{{ cat }}">
+      {% set sub = 'active' if (s['receipt_id'] and active_ids and s['receipt_id'] in active_ids) else 'waiting' %}
+      <tr class="sample-row" data-status="{{ s['status'] }}" data-date="{{ s['collected_date'] or '' }}" data-rid="{{ s['receipt_id'] or '' }}" data-cat="{{ cat }}" data-sub="{{ sub }}">
         <td style="width:36px;text-align:center">
           {% if cat == 'anal' and s['receipt_id'] and current_user['role'] in ('admin','senior','staff','preparer') %}
           <input type="checkbox" class="lot-cb" value="{{ s['receipt_id'] }}" data-lab="{{ s['lab_number'] or s['sample_name'] }}" onchange="onLotToggle(this)" style="width:15px;height:15px;cursor:pointer">
@@ -300,10 +334,22 @@ function showDoneModal(rid){
 </script>
 <script>
 var curTab = 'prep';
+var curSub = 'all';
 function switchTab(tab){
   curTab = tab;
   document.getElementById('tab-prep').classList.toggle('active', tab==='prep');
   document.getElementById('tab-anal').classList.toggle('active', tab==='anal');
+  // Дэд шүүлтүүр зөвхөн Шинжилгээ табд утгатай
+  document.getElementById('subFilter').style.display = (tab==='anal') ? 'flex' : 'none';
+  applyFilters();
+}
+function switchSub(sub){
+  curSub = sub;
+  ['all','active','waiting'].forEach(function(k){
+    var b = document.getElementById('sub-'+k);
+    b.classList.toggle('btn-teal', k===sub);
+    b.classList.toggle('btn-ghost', k!==sub);
+  });
   applyFilters();
 }
 function openSampleEdit(geoId, btn){
@@ -323,13 +369,14 @@ function applyFilters(){
     var catOk = r.dataset.cat === curTab;
     // Огнооны шүүлтүүр зөвхөн "Бэлтгэл" табд хэрэгжинэ; Шинжилгээ табд бүх бэлэн дээж харагдана
     var dateOk = (curTab !== 'prep') || !d || r.dataset.date === d;
-    r.style.display = (catOk && dateOk) ? '' : 'none';
+    var subOk = (curTab !== 'anal') || curSub === 'all' || r.dataset.sub === curSub;
+    r.style.display = (catOk && dateOk && subOk) ? '' : 'none';
   });
   updateCounts();
 }
 function updateCounts(){
   var d = document.getElementById('filter-date').value;
-  var prep=0, anal=0;
+  var prep=0, anal=0, act=0, wait=0;
   document.querySelectorAll('.sample-row').forEach(function(r){
     if(r.dataset.cat==='prep'){
       // Бэлтгэлийг огноогоор шүүж тоолно
@@ -337,10 +384,22 @@ function updateCounts(){
     } else {
       // Шинжилгээг огноогоор шүүхгүй, бүгдийг тоолно
       anal++;
+      if(r.dataset.sub === 'active') act++; else wait++;
     }
   });
   document.getElementById('cnt-prep').textContent = prep;
   document.getElementById('cnt-anal').textContent = anal;
+  document.getElementById('cnt-active').textContent  = '(' + act + ')';
+  document.getElementById('cnt-waiting').textContent = '(' + wait + ')';
+}
+
+// Багцыг хаах — ажил дуусаагүй ч жагсаалтаас авах үед
+function closeBatch(id){
+  if(!confirm('Энэ багцыг хаах уу?\n\nАжлууд нь Шинжилгээ жагсаалтад хэвээр үлдэнэ.')) return;
+  fetch('/analysis/batch/close/' + id, {method:'POST'})
+   .then(function(r){ return r.json(); })
+   .then(function(d){ if(d.ok) location.reload(); else alert(d.error||'Алдаа'); })
+   .catch(function(){ alert('Сүлжээний алдаа'); });
 }
 
 // Сонгосон ДАРААЛАЛ — чагт дарсан дарааллаар (хүснэгтийн дараалал биш).
@@ -423,7 +482,13 @@ function startMulti(){
   var url = '/analysis/measure/multi?ids=' + allIds;
   if(qcRows.length) url += '&qc_rows=' + qcRows.join(',');
   if(qcId) url += '&qc_id=' + qcId;
-  window.location.href = url;
+  // Нэгтгэлийг бүртгэнэ — буцаж ирэхэд "Үргэлжлүүлэх" дарахад л хангалттай
+  // болно (урьд нь хаяг алдагдмагц дахин сонгож эрэмбэлэх шаардлагатай байв).
+  // Бүртгэл амжилтгүй болсон ч хэмжилтийн хуудас руу шилжинэ.
+  fetch('/analysis/batch/start',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ids:ids, qc_rows:qcRows.join(',')||null, qc_id:qcId||null})})
+   .catch(function(){})
+   .then(function(){ window.location.href = url; });
 }
 // Анхдагч таб харуулах — функцүүд тодорхойлогдсоны дараа дуудна
 applyFilters();

@@ -2408,6 +2408,20 @@ def ensure_tables():
         archived_by INTEGER REFERENCES users(id),
         archived_at TEXT
     )""")
+    # Химичийн нэгтгэсэн ажлын багц. Урьд нь нэгтгэл зөвхөн хаяган дээр
+    # (?ids=2004,1001,5004) байсан тул хуудсаас гармагц алга болж, буцаж
+    # ирэх бүрд дахин сонгож эрэмбэлэх шаардлагатай болдог байв.
+    # receipt_ids — таслалаар тусгаарлагдсан, ДАРААЛАЛ нь утгатай.
+    conn.execute("""CREATE TABLE IF NOT EXISTS work_batch (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER REFERENCES users(id),
+        receipt_ids TEXT NOT NULL,
+        qc_rows TEXT,
+        qc_id INTEGER,
+        status TEXT DEFAULT 'open',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        closed_at TEXT
+    )""")
     conn.execute("""CREATE TABLE IF NOT EXISTS crm_materials (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         crm_name TEXT NOT NULL,
@@ -3832,10 +3846,23 @@ def analysis():
         WHERE iq.status='pending'
         ORDER BY iq.created_at DESC
     """).fetchall()
+    # ── Идэвхтэй ажлын багц + "хийгдэж байгаа / хүлээгдэж байгаа" ялгалт ──
+    batches = open_batches(conn, uid)
+    in_batch = {r for b in batches for r in batch_receipt_ids(b)}
+    # Утга орсон эсэх: autosave үед л мөр үүсдэг тул мөрийн оршихуй нь дохио.
+    # CRM дээж хүлээн авахдаа хоосон мөр үүсгэдэг тул статус/утгыг мөн шалгана.
+    started = {r['receipt_id'] for r in conn.execute("""
+        SELECT DISTINCT receipt_id FROM sample_entries
+        WHERE (row_status IS NOT NULL AND row_status<>'empty')
+           OR mass_kg IS NOT NULL OR dc_tare IS NOT NULL OR ash_tare IS NOT NULL
+           OR vol_tare IS NOT NULL OR g_tare IS NOT NULL OR mt_tare IS NOT NULL
+           OR ff_sample IS NOT NULL OR sulfur IS NOT NULL OR cal_value IS NOT NULL
+           OR fsi IS NOT NULL""")}
+    active_ids = in_batch | started
     conn.close()
     return render_template('analysis/index.html', samples=samples, lang=lang,
         today=datetime.now().strftime('%Y-%m-%d'), prep_devices=prep_devices,
-        pending_qc=pending_qc)
+        pending_qc=pending_qc, batches=batches, active_ids=active_ids)
 
 @app.route('/analysis/register', methods=['GET','POST'])
 @login_required
@@ -4428,6 +4455,108 @@ def row_done():
     conn.commit()
     conn.close()
     return jsonify({'ok': True})
+
+# ── АЖЛЫН БАГЦ ──────────────────────────────────────────
+# Химич хэд хэдэн ажлыг нэг хуудсанд нэгтгэхэд тэр нэгтгэл бүртгэгдэнэ.
+# Ингэснээр төхөөрөмж рүү ороод, refresh хийгээд буцаж ирэхэд дахин сонгож
+# эрэмбэлэх шаардлагагүй — "Үргэлжлүүлэх" дарахад яг тэр дарааллаараа нээгдэнэ.
+
+def batch_url(b):
+    """Багцыг нээх хаяг — үүсгэсэн үеийн дараалал, QC параметр хэвээрээ"""
+    url = url_for('analysis_measure_multi') + '?ids=' + b['receipt_ids']
+    if b['qc_rows']:
+        url += '&qc_rows=' + b['qc_rows']
+    if b['qc_id']:
+        url += '&qc_id=' + str(b['qc_id'])
+    return url
+
+
+def batch_receipt_ids(b):
+    return [int(i) for i in (b['receipt_ids'] or '').split(',') if i.strip().isdigit()]
+
+
+def open_batches(conn, uid):
+    """Хэрэглэгчийн идэвхтэй багцууд. Бүх мөр баталгаажсаныг өөрөө хаана."""
+    rows = conn.execute("""SELECT * FROM work_batch
+                           WHERE user_id=? AND status='open'
+                           ORDER BY created_at DESC""", (uid,)).fetchall()
+    out = []
+    for b in rows:
+        rids = batch_receipt_ids(b)
+        if not rids:
+            continue
+        q = ','.join('?' * len(rids))
+        # Дуусаагүй мөр үлдсэн эсэх — үлдээгүй бол багц дуусжээ
+        left = conn.execute(
+            f"""SELECT COUNT(*) c FROM sample_entries
+                WHERE receipt_id IN ({q}) AND is_duplicate=0
+                  AND (row_status IS NULL OR row_status<>'approved')""", rids).fetchone()['c']
+        total = conn.execute(
+            f'SELECT COUNT(*) c FROM sample_entries WHERE receipt_id IN ({q})', rids
+        ).fetchone()['c']
+        if total and not left:
+            conn.execute("UPDATE work_batch SET status='closed', closed_at=? WHERE id=?",
+                         (datetime.now().isoformat(), b['id']))
+            continue
+        d = dict(b)
+        d['labs'] = [r['lab_number'] for r in conn.execute(
+            f'SELECT id, lab_number FROM sample_receipt WHERE id IN ({q})', rids)]
+        # Хэрэглэгчийн сонгосон дарааллаар эрэмбэлнэ
+        by_id = {r['id']: r['lab_number'] for r in conn.execute(
+            f'SELECT id, lab_number FROM sample_receipt WHERE id IN ({q})', rids)}
+        d['labs'] = [by_id[i] for i in rids if i in by_id]
+        d['n_samples'] = conn.execute(
+            f"""SELECT COALESCE(SUM(g.quantity),0) c FROM sample_receipt sr
+                JOIN geo_samples g ON g.id=sr.geo_sample_id
+                WHERE sr.id IN ({q})""", rids).fetchone()['c']
+        d['url'] = batch_url(b)
+        out.append(d)
+    conn.commit()
+    return out
+
+
+@app.route('/analysis/batch/start', methods=['POST'])
+@lab_required
+def batch_start():
+    """Нэгтгэл үүсгээд хэмжилтийн хуудас руу шилжинэ"""
+    data = request.get_json() or {}
+    ids = [str(int(i)) for i in (data.get('ids') or []) if str(i).strip().isdigit()]
+    if not ids:
+        return jsonify({'ok': False, 'error': 'Ажил сонгоогүй байна'}), 400
+    uid = session.get('user_id')
+    conn = get_db()
+    # Ижил бүрэлдэхүүнтэй багц аль хэдийн нээлттэй бол давхардуулахгүй
+    same = conn.execute("""SELECT id FROM work_batch
+                           WHERE user_id=? AND status='open' AND receipt_ids=?""",
+                        (uid, ','.join(ids))).fetchone()
+    if not same:
+        conn.execute("""INSERT INTO work_batch(user_id,receipt_ids,qc_rows,qc_id,created_at)
+                        VALUES(?,?,?,?,?)""",
+                     (uid, ','.join(ids), data.get('qc_rows') or None,
+                      data.get('qc_id') or None, datetime.now().isoformat()))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+
+@app.route('/analysis/batch/close/<int:bid>', methods=['POST'])
+@lab_required
+def batch_close(bid):
+    """Багцыг хаана — өөрийн багцыг л хаана (ахлах бүгдийг)"""
+    conn = get_db()
+    b = conn.execute('SELECT * FROM work_batch WHERE id=?', (bid,)).fetchone()
+    if not b:
+        conn.close()
+        return jsonify({'ok': False, 'error': 'Багц олдсонгүй'}), 404
+    if b['user_id'] != session.get('user_id') and session.get('role') not in ('admin', 'senior'):
+        conn.close()
+        return jsonify({'ok': False, 'error': 'Өөрийн багцыг л хаана'}), 403
+    conn.execute("UPDATE work_batch SET status='closed', closed_at=? WHERE id=?",
+                 (datetime.now().isoformat(), bid))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
 
 @app.route('/analysis/row/delete', methods=['POST'])
 @lab_required
