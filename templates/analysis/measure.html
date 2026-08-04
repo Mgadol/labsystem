@@ -559,6 +559,21 @@ function calc(ri,dup,save){
 // Товч дарах бүрт шууд илгээвэл зэрэгцээ хүсэлтүүд сервер дээр буруу
 // дарааллаар буун, хуучин утга шинийг дарж бичих эрсдэлтэй.
 var calcTimers={},calcChain={};
+// Ачаалахад: жингээс бодогдсон утга байгаа ч DB-д хоосон бол НӨХӨЖ хадгална.
+// Зөвхөн ХООСОН талбарыг л нөхнө — байгаа утгыг хэзээ ч дарж бичихгүй (rawVals
+// нь showStored-оор хадгалагдсан утгыг аль хэдийн агуулсан байдаг).
+// Ингэснээр хэмжилтийн хуудсанд харагдаж байгаа атлаа үр дүнгийн хуудсанд
+// гардаггүй байдал давтагдахгүй.
+function healCalc(ri,dup,e){
+  if(editMode) return;
+  var v = rawVals[ri+'_'+dup] || {};
+  var pairs = [['mad','mad'],['aad','aad'],['vad','vad'],['fc','fc'],['g','g_val']];
+  var need = pairs.some(function(p){
+    return v[p[0]] != null && (e[p[1]] === null || e[p[1]] === undefined);
+  });
+  if(need) sendCalc(ri,dup);
+}
+
 function sendCalc(ri,dup){
   var k=ri+'_'+dup;
   clearTimeout(calcTimers[k]);
@@ -880,6 +895,7 @@ function loadData(){
       // Ачаалах үед DB-д БИЧИХГҮЙ (save=false) — зөвхөн дэлгэц дээр бодно
       calc(parseInt(row),parseInt(dup),false);
       showStored(parseInt(row),parseInt(dup),e);
+      healCalc(parseInt(row),parseInt(dup),e);
       if(e.row_status==='done'){var btn=document.getElementById('dnbtn'+row+'_'+dup);if(btn){btn.classList.add('done');btn.textContent='✓';}}
       // Зэрэгцээ мөрийг зөвхөн БОДИТ хэмжилтийн утгатай үед л задлана (хоосон бичлэгээр задлахгүй)
       if(dup==='1'){
