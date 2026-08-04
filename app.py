@@ -2947,6 +2947,18 @@ ANALYSIS_COUNT_COL = {'g_coke': 'COALESCE(se.g_val, se.g_coke)'}
 # шалгана (огнооны суурь өөр эсвэл давхар хэмжилт орсон эсэх).
 ANALYSIS_COUNT_EXPR = "COUNT(*)"
 
+# ── "Дээж бэлтгэл" тоог тодорхойлох нөхцөл ба огноо ──────────────────────
+# prep_done_at нь ЗӨВХӨН бэлтгэгч "Дээж бэлтгэж дууслаа" товч дарахад
+# бичигддэг. Тэр алхмыг алгасаад шууд хэмжилт рүү орсон, эсвэл системд
+# шилжихээс өмнөх ажилд NULL үлддэг — ийм ажил графикт хэзээ ч тоологдохгүй.
+# Дээж дээр хэмжилт хийгдсэн бол тэр дээж бодитоор бэлтгэгдсэн нь тодорхой
+# тул огноог prep_started_at → received_date-аар нөхөж тооцно.
+PREP_DATE_EXPR = "COALESCE(sr.prep_done_at, sr.prep_started_at, sr.received_date)"
+PREP_DONE_COND = """(sr.prep_done_at IS NOT NULL
+                     OR sr.prep_status IN ('ready', 'done')
+                     OR EXISTS (SELECT 1 FROM sample_entries se2
+                                WHERE se2.receipt_id = sr.id))"""
+
 
 def lab_period_range(rtype, year, month=1, week=1, half=1):
     """Тайлангийн хугацааг (эхлэх огноо, дуусах огноо, гарчиг) болгож буцаана.
@@ -3052,10 +3064,10 @@ def reports_chart_data():
     # Урьд нь график дээр хүлээн авсан дээжийн нийлбэрийг "Дээж бэлтгэл"
     # гэж харуулдаг байсан тул бэлтгэгдээгүй дээж ч тоологддог байв.
     prep_total = conn.execute(
-        '''SELECT COALESCE(SUM(COALESCE(g.quantity,1)),0)
-           FROM sample_receipt sr JOIN geo_samples g ON g.id=sr.geo_sample_id
-           WHERE sr.prep_done_at IS NOT NULL
-             AND substr(sr.prep_done_at,1,10) BETWEEN ? AND ?''',
+        f'''SELECT COALESCE(SUM(COALESCE(g.quantity,1)),0)
+            FROM sample_receipt sr JOIN geo_samples g ON g.id=sr.geo_sample_id
+            WHERE {PREP_DONE_COND}
+              AND substr({PREP_DATE_EXPR},1,10) BETWEEN ? AND ?''',
         (d0s, d1s)).fetchone()[0]
     conn.close()
     return jsonify({

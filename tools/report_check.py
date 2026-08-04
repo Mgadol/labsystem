@@ -31,18 +31,36 @@ def main():
     conn.row_factory = sqlite3.Row
     print(f'══ {d0} … {d1} ══\n')
 
-    # ── Бэлтгэсэн дээж ──
-    prep = conn.execute(
-        """SELECT sr.id rid, sr.lab_number, COALESCE(g.quantity,1) qty,
-                  substr(sr.prep_done_at,1,10) d
+    # app.py-тай ижил логик: prep_done_at байхгүй бол огноог нөхнө
+    PREP_DATE = "COALESCE(sr.prep_done_at, sr.prep_started_at, sr.received_date)"
+    PREP_COND = """(sr.prep_done_at IS NOT NULL
+                    OR sr.prep_status IN ('ready','done')
+                    OR EXISTS (SELECT 1 FROM sample_entries se2
+                               WHERE se2.receipt_id = sr.id))"""
+
+    # ── Бэлтгэсэн дээж — хуучин (зөвхөн prep_done_at) ба шинэ (нөхөлттэй) ──
+    old = conn.execute(
+        """SELECT COALESCE(SUM(COALESCE(g.quantity,1)),0) n
            FROM sample_receipt sr JOIN geo_samples g ON g.id=sr.geo_sample_id
            WHERE sr.prep_done_at IS NOT NULL
-             AND substr(sr.prep_done_at,1,10) BETWEEN ? AND ?
-           ORDER BY sr.lab_serial""", (d0, d1)).fetchall()
+             AND substr(sr.prep_done_at,1,10) BETWEEN ? AND ?""",
+        (d0, d1)).fetchone()['n']
+    prep = conn.execute(
+        f"""SELECT sr.id rid, sr.lab_number, COALESCE(g.quantity,1) qty,
+                   substr({PREP_DATE},1,10) d,
+                   sr.prep_done_at IS NULL nofin
+            FROM sample_receipt sr JOIN geo_samples g ON g.id=sr.geo_sample_id
+            WHERE {PREP_COND}
+              AND substr({PREP_DATE},1,10) BETWEEN ? AND ?
+            ORDER BY sr.lab_serial""", (d0, d1)).fetchall()
     n_prep = sum(r['qty'] for r in prep)
     print(f'Бэлтгэсэн дээж : {n_prep}   ({len(prep)} ажил)')
+    print(f'  үүнээс "дууслаа" товч дарагдсан : {old}')
+    if n_prep != old:
+        print(f'  огноо нөхөж тооцсон             : {n_prep - old}   ← өмнө нь алга байсан')
     for r in prep:
-        print(f'    {r["lab_number"]:22} {r["qty"]:>4} дээж   бэлтгэсэн {r["d"]}')
+        mark = '  ⚠ огноо нөхсөн' if r['nofin'] else ''
+        print(f'    {r["lab_number"]:22} {r["qty"]:>4} дээж   бэлтгэсэн {r["d"]}{mark}')
 
     # ── Нийт чийг хэмжсэн дээж — done_at-аар (график ингэж тоолдог) ──
     by_done = conn.execute(
@@ -98,26 +116,40 @@ def main():
         print(f'  → График {tot} гэж харуулна ({by_done} дээж дээр хийгдсэн). '
               f'Нийт чийгийг давтаж хэмжсэн бол ийм зөрүү гарна.')
 
-    # ── Хугацаанаас гадуур ороогүй/орсон ──
-    out = conn.execute(
-        """SELECT COUNT(DISTINCT se.receipt_id || '-' || se.row_num) n
-           FROM sample_entries se JOIN sample_receipt sr ON sr.id=se.receipt_id
-           WHERE se.mt_dried IS NOT NULL
-             AND substr(se.done_at,1,10) BETWEEN ? AND ?
-             AND (sr.prep_done_at IS NULL
-                  OR substr(sr.prep_done_at,1,10) NOT BETWEEN ? AND ?)""",
-        (d0, d1, d0, d1)).fetchone()['n']
-    if out:
-        print(f'\n⚠ {out} дээж энэ хугацаанд ШИНЖЛЭГДСЭН ч бэлтгэл нь өөр '
-              f'хугацаанд хийгдсэн\n  (эсвэл бэлтгэлийн огноо бүртгэгдээгүй) '
-              f'— тиймээс хоёр тоо зөрнө.')
+    # ── Энэ хугацаанд шинжлэгдсэн ч бэлтгэл нь тохирохгүй дээжийг ЯЛГАНА ──
+    print('\nЭнэ хугацаанд Mt хэмжигдсэн дээжийн бэлтгэл хаана тоологдсон бэ:')
+    cats = conn.execute(
+        f"""SELECT CASE
+                     WHEN substr({PREP_DATE},1,10) BETWEEN ? AND ? THEN 'in'
+                     WHEN {PREP_DATE} IS NOT NULL                  THEN 'other'
+                     ELSE 'none' END k,
+                   COUNT(DISTINCT se.receipt_id || '-' || se.row_num) n
+            FROM sample_entries se JOIN sample_receipt sr ON sr.id=se.receipt_id
+            WHERE se.mt_dried IS NOT NULL
+              AND substr(se.done_at,1,10) BETWEEN ? AND ?
+            GROUP BY k""", (d0, d1, d0, d1)).fetchall()
+    lbl = {'in': 'мөн энэ хугацаанд бэлтгэгдсэн',
+           'other': 'ӨӨР хугацаанд бэлтгэгдсэн  (огнооны зөрүү)',
+           'none': 'бэлтгэлийн огноо огт алга    (нөхөх боломжгүй)'}
+    for r in cats:
+        print(f'    {lbl[r["k"]]:44} {r["n"]:>5}')
 
-    no_prep = conn.execute(
-        """SELECT COUNT(*) n FROM sample_receipt WHERE prep_done_at IS NULL""").fetchone()['n']
-    if no_prep:
-        print(f'\n⚠ Нийт {no_prep} ажилд бэлтгэл дууссан огноо (prep_done_at) '
-              f'огт бүртгэгдээгүй байна.\n  Эдгээр нь "Дээж бэлтгэл" тоонд '
-              f'хэзээ ч орохгүй.')
+    # ── Огноо нөхөх боломжтой байсан ажлууд ──
+    fixed = conn.execute(
+        f"""SELECT sr.lab_number, substr({PREP_DATE},1,10) d, sr.prep_status,
+                   COALESCE(g.quantity,1) qty
+            FROM sample_receipt sr JOIN geo_samples g ON g.id=sr.geo_sample_id
+            WHERE sr.prep_done_at IS NULL AND {PREP_COND}
+            ORDER BY sr.lab_serial""").fetchall()
+    if fixed:
+        print(f'\n⚠ "Дээж бэлтгэж дууслаа" товч дарагдаагүй {len(fixed)} ажил '
+              f'({sum(r["qty"] for r in fixed)} дээж):')
+        for r in fixed:
+            print(f'    {r["lab_number"]:22} {r["qty"]:>4} дээж   '
+                  f'нөхсөн огноо {r["d"]}   ({r["prep_status"]})')
+        print('  Эдгээр нь өмнө нь графикт ОГТ тоологдохгүй байсан.')
+        print('  Цаашид бэлтгэгч "Дээж бэлтгэж дууслаа" товчийг заавал дарах ёстой —')
+        print('  тэгвэл бэлтгэлийн жинхэнэ огноо, хийсэн хүн, тоног төхөөрөмж бүртгэгдэнэ.')
     conn.close()
 
 
