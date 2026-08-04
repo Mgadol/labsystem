@@ -1875,7 +1875,8 @@ def archive_measure(receipt_id):
     """, (receipt_id,)).fetchall()
     conn.close()
     return render_template('analysis/archive_measure.html',
-        receipt=receipt, entries=entries, lang=lang)
+        receipt=receipt, entries=entries, lang=lang,
+        data_groups=measured_groups(entries))
 
 @app.route('/analysis/find-receipt')
 @admin_required
@@ -2434,6 +2435,32 @@ def mark_add():
     name = f"{request.form['manufacturer']} {request.form['model']}"
     conn.commit(); conn.close()
     return jsonify({'success': True, 'id': mid, 'name': name})
+
+# Хэмжилтийн хуудасны багана бүлэг → тухайн бүлгийн талбарууд.
+# Архивт ХЭМЖСЭН шинжилгээг л харуулахад ашиглагдана.
+COLUMN_GROUPS = {
+    'ff':  ['ff_sample', 'ff_dried'],
+    'mt':  ['mt_bux', 'mt_tare', 'mt_sample', 'mt_dried'],
+    'dc':  ['dc_bux', 'dc_tare', 'dc_sample', 'dc_dried'],
+    'un':  ['ash_tav', 'ash_tare', 'ash_sample', 'ash_burned'],
+    'db':  ['vol_tig', 'vol_tare', 'vol_sample', 'vol_burned'],
+    'gi':  ['g_tig', 'g_tare', 'g_coke', 'g_sieve1', 'g_sieve2', 'g_val'],
+    'st':  ['sulfur'],
+    'il':  ['cal_value', 'cal_temp'],
+    'fsi': ['fsi'],
+}
+
+
+def measured_groups(entries):
+    """Аль шинжилгээнд утга орсоныг тогтооно (хоосныг нь харуулахгүй)"""
+    out = []
+    keys = set(entries[0].keys()) if entries else set()
+    for g, fields in COLUMN_GROUPS.items():
+        cols = [f for f in fields if f in keys]
+        if any(e[f] is not None and e[f] != '' for e in entries for f in cols):
+            out.append(g)
+    return out
+
 
 # ── ШИНЖИЛГЭЭ ТУС БҮРИЙН ГҮЙЦЭТГЭГЧ ──────────────────────
 # Урьд нь sample_entries-д зөвхөн updated_by (хамгийн сүүлд бичсэн хүн) байсан

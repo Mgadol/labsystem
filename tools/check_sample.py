@@ -92,6 +92,32 @@ def main():
             if f in have and r[f]:
                 print(f'      {f}: {r[f]}')
 
+    # ── Хэмжсэн атлаа тооцоо нь хоосон байгаа эсэх ──
+    # "Үр дүнгийн хуудсанд утга алга" гэдгийг DB-ээс шууд шалгана.
+    PAIRS = [('Дотоод чийг', ['dc_tare', 'dc_sample', 'dc_dried'], 'mad'),
+             ('Үнслэг',      ['ash_tare', 'ash_sample', 'ash_burned'], 'aad'),
+             ('Дэгдэмхий',   ['vol_tare', 'vol_sample', 'vol_burned'], 'vad'),
+             ('G индекс',    ['g_tare', 'g_coke', 'g_sieve1', 'g_sieve2'], 'g_val')]
+    print('\n── Хэмжсэн ч тооцоо нь хоосон байгаа эсэх ──')
+    holes = 0
+    for r in rows:
+        if r['is_duplicate'] != 0:
+            continue
+        miss = []
+        for lbl, raw, calc in PAIRS:
+            cols = [c for c in raw if c in have]
+            if calc not in have or not cols:
+                continue
+            if all(r[c] is not None for c in cols) and r[calc] is None:
+                miss.append(lbl)
+        if miss:
+            holes += 1
+            print(f'  мөр {r["row_num"]} «{r["sample_name"] or ""}»: '
+                  f'{", ".join(miss)} — жин орсон ч үр дүн NULL')
+    print('  ✓ ийм зөрчил алга' if not holes else
+          f'  ⚠ {holes} мөрөнд жин байгаа ч тооцоо хоосон байна.\n'
+          '     Хэмжилтийн хуудсыг нээж "Засах" → "Хадгалах" дарвал дахин бодогдоно.')
+
     # Дүгнэлт: G-г дундажлах боломжтой эсэх
     print()
     cur = None
