@@ -3871,7 +3871,10 @@ def analysis():
     uid = session.get('user_id', 0)
 
     if role == 'bayjuulach':
-        # Баяжуулагч зөвхөн 6000-6999 серийн дүүрсэн ажлыг харна
+        # Баяжуулагч зөвхөн 6000-6999 серийн ЯВЖ БУЙ ажлыг харна.
+        # Урьд нь эсрэгээрээ (status='done') шүүдэг байсан тул дууссан ажил
+        # Шинжилгээ хуудсанд үлддэг байв — бусад үүрэгтэй нийцэхгүй.
+        # Дууссан ажил "Нэгдсэн архив"-т үр дүнтэйгээ хамт харагдана.
         u = conn.execute("SELECT can_view_result FROM users WHERE id=?", (uid,)).fetchone()
         if not u or not u['can_view_result']:
             conn.close()
@@ -3883,7 +3886,7 @@ def analysis():
             FROM geo_samples g
             LEFT JOIN users u ON u.id=g.registered_by
             LEFT JOIN sample_receipt sr ON sr.geo_sample_id=g.id
-            WHERE g.status='done' AND sr.lab_serial BETWEEN 6000 AND 6999
+            WHERE g.status != 'done' AND sr.lab_serial BETWEEN 6000 AND 6999
             ORDER BY sr.lab_serial DESC LIMIT 100
         """).fetchall()
         conn.close()
