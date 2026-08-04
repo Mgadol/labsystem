@@ -2940,6 +2940,10 @@ ANALYSIS_FIELDS = [
 ]
 # G индексийг гараар (g_val) эсвэл жингээр (g_coke) оруулж болно — хоёуланг тооцно
 ANALYSIS_COUNT_COL = {'g_coke': 'COALESCE(se.g_val, se.g_coke)'}
+# Шинжилгээг ДЭЭЖИЙН тоогоор тоолно — нэг дээжийн зэрэгцээ, давталтын хэмжилт
+# тусдаа тоологдвол тоо олон дахин үрждэг (ж: нийт чийг 19 дээж дээр хийгдсэн
+# атлаа 103 гэж гарах). Дээж бэлтгэлийн тоотой харьцуулж болдог байх ёстой.
+ANALYSIS_COUNT_EXPR = "COUNT(DISTINCT se.receipt_id || '-' || se.row_num)"
 
 
 def lab_period_range(rtype, year, month=1, week=1, half=1):
@@ -3037,7 +3041,7 @@ def reports_chart_data():
     for field, name in ANALYSIS_FIELDS:
         col = ANALYSIS_COUNT_COL.get(field, f'se.{field}')
         v = conn.execute(
-            f'''SELECT COUNT(*) FROM sample_entries se
+            f'''SELECT {ANALYSIS_COUNT_EXPR} FROM sample_entries se
                 WHERE {col} IS NOT NULL
                   AND substr(se.done_at,1,10) BETWEEN ? AND ?''',
             (d0s, d1s)).fetchone()[0]
@@ -3560,7 +3564,7 @@ def lab_report_export():
         WHERE {SW} AND g.status='done' ''')
     n_mass = one(f'''SELECT COALESCE(SUM(sr.mass_kg),0) FROM sample_receipt sr WHERE {SW}''')
     n_analysis = sum(
-        one(f'''SELECT COUNT(*) FROM sample_entries se
+        one(f'''SELECT {ANALYSIS_COUNT_EXPR} FROM sample_entries se
                 WHERE {ANALYSIS_COUNT_COL.get(f, f"se.{f}")} IS NOT NULL AND {AW}''')
         for f, _ in ANALYSIS_FIELDS)
     n_rows_done = one(f'''SELECT COUNT(*) FROM sample_entries se
@@ -3647,7 +3651,7 @@ def lab_report_export():
     STAT_FIELD = {'mt_dried': 'mt_result', 'g_coke': 'g_index'}
     for ri, (field, name) in enumerate(ANALYSIS_FIELDS, 3):
         bg = WHITE if ri % 2 == 0 else GRAY
-        cnt = one(f'''SELECT COUNT(*) FROM sample_entries se
+        cnt = one(f'''SELECT {ANALYSIS_COUNT_EXPR} FROM sample_entries se
             WHERE {ANALYSIS_COUNT_COL.get(field, f"se.{field}")} IS NOT NULL AND {AW}''')
         vals = [v for v in (e.get(STAT_FIELD.get(field, field)) for e in rows) if v is not None]
         fmt = '0' if field in ('cal_value',) else '0.00'
