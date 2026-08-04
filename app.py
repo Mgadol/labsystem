@@ -1801,6 +1801,15 @@ def archive_result(receipt_id):
     lang = session.get('lang','mn')
     role = session.get('role','')
     conn = get_db()
+    _deny = result_access_denied(conn, receipt_id)
+    if _deny:
+        conn.close()
+        flash(_deny[0], 'error')
+        return redirect(_deny[1])
+    if role in ('bayjuulach', 'geologist'):
+        conn.execute('INSERT INTO result_view_log(user_id, receipt_id) VALUES(?,?)',
+                     (session['user_id'], receipt_id))
+        conn.commit()
     receipt = conn.execute("""
         SELECT sr.*, g.sample_name, g.sample_type, g.location,
                g.collected_date, g.quantity,
@@ -3879,7 +3888,8 @@ def analysis():
         """).fetchall()
         conn.close()
         return render_template('analysis/index.html', samples=samples, lang=session.get('lang','mn'),
-            today=datetime.now().strftime('%Y-%m-%d'), prep_devices=[], pending_qc=[])
+            today=datetime.now().strftime('%Y-%m-%d'), prep_devices=[], pending_qc=[],
+            batches=[], active_ids=set())
     if role == 'geologist':
         # Геологч зөвшөөрөгдсөн ажлын дугаарын мужийн дээжийг л харна (view_ranges).
         # view_ranges NULL бол бүгдийг харна (default).
@@ -4783,6 +4793,36 @@ def row_approve():
     conn.close()
     return jsonify({'ok': True, 'all_approved': all_approved})
 
+def result_access_denied(conn, receipt_id):
+    """Үр дүн харах эрхийг шалгана. Эрхгүй бол (мессеж, хаяг) буцаана.
+
+    Баяжуулагч зөвхөн 6000-6999 муж + can_view_result, геологч нь өөрийн
+    view_ranges мужийг л харна. Үр дүнгийн ба АРХИВЫН хуудас хоёуланд
+    хэрэглэгдэнэ — урьд нь архивын хуудсанд шалгалт огт байхгүй тул эрхгүй
+    хэрэглэгч /archive/result/<id>-ээр дамжин үр дүнг харж чаддаг байв.
+    """
+    role = session.get('role')
+    uid = session.get('user_id')
+    if role == 'bayjuulach':
+        u = conn.execute('SELECT can_view_result FROM users WHERE id=?', (uid,)).fetchone()
+        if not u or not u['can_view_result']:
+            return 'Үр дүн харах эрх байхгүй байна', url_for('dashboard')
+        sr = conn.execute('SELECT lab_serial FROM sample_receipt WHERE id=?',
+                          (receipt_id,)).fetchone()
+        if not sr or not (6000 <= (sr['lab_serial'] or 0) <= 6999):
+            return 'Энэ ажлыг харах эрх байхгүй байна', url_for('dashboard')
+    elif role == 'geologist':
+        _u = conn.execute('SELECT view_ranges FROM users WHERE id=?', (uid,)).fetchone()
+        _vr = _u['view_ranges'] if _u else None
+        if _vr is not None:
+            _th = [int(x) for x in _vr.split(',') if x.strip().isdigit()]
+            _sr = conn.execute('SELECT lab_serial FROM sample_receipt WHERE id=?',
+                               (receipt_id,)).fetchone()
+            if ((_sr['lab_serial'] or 0) if _sr else 0) // 1000 not in _th:
+                return 'Энэ ажлыг харах эрх байхгүй байна', url_for('analysis')
+    return None
+
+
 @app.route('/analysis/result/<int:receipt_id>')
 @login_required
 def analysis_result(receipt_id):
@@ -4790,34 +4830,13 @@ def analysis_result(receipt_id):
     lang = session.get('lang','mn')
     role = session.get('role')
     conn = get_db()
-    # Баяжуулах эрхтэй: зөвхөн 6000-6999 + can_view_result=1 байвал харна
-    if role == 'bayjuulach':
-        u = conn.execute("SELECT can_view_result FROM users WHERE id=?", (session['user_id'],)).fetchone()
-        if not u or not u['can_view_result']:
-            conn.close()
-            flash('Үр дүн харах эрх байхгүй байна', 'error')
-            return redirect(url_for('dashboard'))
-        sr = conn.execute("SELECT lab_serial FROM sample_receipt WHERE id=?", (receipt_id,)).fetchone()
-        if not sr or not (6000 <= (sr['lab_serial'] or 0) <= 6999):
-            conn.close()
-            flash('Энэ ажлыг харах эрх байхгүй байна', 'error')
-            return redirect(url_for('dashboard'))
-        conn.execute("INSERT INTO result_view_log(user_id, receipt_id) VALUES(?,?)",
-                     (session['user_id'], receipt_id))
-        conn.commit()
-    elif role == 'geologist':
-        # Зөвшөөрөгдсөн мужийн дээж эсэхийг шалгана (view_ranges)
-        _u = conn.execute("SELECT view_ranges FROM users WHERE id=?", (session['user_id'],)).fetchone()
-        _vr = _u['view_ranges'] if _u else None
-        if _vr is not None:
-            _thousands = [int(x) for x in _vr.split(',') if x.strip().isdigit()]
-            _sr = conn.execute("SELECT lab_serial FROM sample_receipt WHERE id=?", (receipt_id,)).fetchone()
-            _ser = (_sr['lab_serial'] or 0) if _sr else 0
-            if (_ser // 1000) not in _thousands:
-                conn.close()
-                flash('Энэ ажлыг харах эрх байхгүй байна', 'error')
-                return redirect(url_for('analysis'))
-        conn.execute("INSERT INTO result_view_log(user_id, receipt_id) VALUES(?,?)",
+    _deny = result_access_denied(conn, receipt_id)
+    if _deny:
+        conn.close()
+        flash(_deny[0], 'error')
+        return redirect(_deny[1])
+    if role in ('bayjuulach', 'geologist'):
+        conn.execute('INSERT INTO result_view_log(user_id, receipt_id) VALUES(?,?)',
                      (session['user_id'], receipt_id))
         conn.commit()
     receipt = conn.execute("""

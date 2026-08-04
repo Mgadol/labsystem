@@ -141,7 +141,12 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
       {% set st2 = s['status'] or '' %}
       {% set is_ready = ps2=='ready' or st2=='ready' %}
       {% set cat = 'anal' if (ps2 in ('ready','done') or st2 == 'analysing') else 'prep' %}
-      {% set sub = 'active' if (s['receipt_id'] and active_ids and s['receipt_id'] in active_ids) else 'waiting' %}
+      {# Дууссан ажил хийгдэж/хүлээгдэж байгаагийн аль нь ч биш — архивт орсон.
+         Урьд нь баяжуулагчийн жагсаалт (зөвхөн дууссан ажил) бүхэлдээ
+         "Хүлээгдэж байгаа" гэж харагддаг байв. #}
+      {% set sub = 'done' if st2 == 'done'
+                   else ('active' if (s['receipt_id'] and active_ids and s['receipt_id'] in active_ids)
+                         else 'waiting') %}
       <tr class="sample-row" data-status="{{ s['status'] }}" data-date="{{ s['collected_date'] or '' }}" data-rid="{{ s['receipt_id'] or '' }}" data-cat="{{ cat }}" data-sub="{{ sub }}">
         <td style="width:36px;text-align:center">
           {% if cat == 'anal' and s['receipt_id'] and current_user['role'] in ('admin','senior','staff','preparer') %}
@@ -175,7 +180,11 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
         <td>
           {% set ps = s['prep_status'] or '' %}
           {% set st = s['status'] or '' %}
-          {% if st == 'pending' %}
+          {# Дууссаныг эхэлж шалгана — prep_status='done' нь "Шинжилгээнд" салааг
+             барьж авдаг тул архивт орсон ажил улаанаар харагддаг байв. #}
+          {% if st == 'done' %}
+            <span class="badge badge-active">🟢 Дууссан</span>
+          {% elif st == 'pending' %}
             <span class="badge" style="background:#faeeda;color:#854f0b">🟡 Хүлээгдэж байна</span>
           {% elif ps == 'ready' %}
             <span class="badge" style="background:#f0e6ff;color:#6020a0">🟣 Шинжилгээнд бэлэн</span>
@@ -183,8 +192,6 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
             <span class="badge badge-repair">🔴 Шинжилгээнд</span>
           {% elif st == 'received' or st == 'prepared' %}
             <span class="badge" style="background:#e6f1fb;color:#185fa5">🔵 Хүлээн авсан</span>
-          {% elif st == 'done' %}
-            <span class="badge badge-active">🟢 Дууссан</span>
           {% endif %}
         </td>
         <td>
@@ -384,13 +391,18 @@ function updateCounts(){
     } else {
       // Шинжилгээг огноогоор шүүхгүй, бүгдийг тоолно
       anal++;
-      if(r.dataset.sub === 'active') act++; else wait++;
+      // Дууссан (архивт орсон) ажил аль бүлэгт ч тоологдохгүй
+      if(r.dataset.sub === 'active') act++;
+      else if(r.dataset.sub === 'waiting') wait++;
     }
   });
   document.getElementById('cnt-prep').textContent = prep;
   document.getElementById('cnt-anal').textContent = anal;
   document.getElementById('cnt-active').textContent  = '(' + act + ')';
   document.getElementById('cnt-waiting').textContent = '(' + wait + ')';
+  // Бүх ажил дууссан бол (ж: баяжуулагчийн жагсаалт) шүүлтүүр утгагүй
+  var sf = document.getElementById('subFilter');
+  if(sf && curTab === 'anal') sf.style.display = (act + wait) ? 'flex' : 'none';
 }
 
 // Багцыг хаах — ажил дуусаагүй ч жагсаалтаас авах үед
