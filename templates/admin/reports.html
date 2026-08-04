@@ -525,7 +525,7 @@ var analysisChart = new Chart(document.getElementById('chartAnalysis'), {
       },
       {
         type: 'line',
-        label: 'Дээж бэлтгэл',
+        label: 'Шинжилгээ дууссан дээж',
         data: analysisTypes.map(function(){ return 0; }),
         borderColor: '#ED7D31',
         backgroundColor: 'transparent',
@@ -588,7 +588,8 @@ function fetchChartData() {
       if(noAnalysisEl) noAnalysisEl.remove();
     }
     analysisChart.data.datasets[0].data = d.analysis_data;
-    // "Дээж бэлтгэл" шугам — БЭЛТГЭГДСЭН дээжийн тоо (хүлээн авсных биш)
+    // Жишиг шугам — шинжилгээ нь БҮРЭН ДУУССАН дээжийн тоо (бэлтгэлийнх биш).
+    // Үзүүлэлт бүртэй нэг сууриар харьцуулагдана.
     var pTotal = (d.prep_total != null) ? d.prep_total : 0;
     analysisChart.data.datasets[1].data = d.analysis_labels.map(function(){ return pTotal; });
     analysisChart.update();

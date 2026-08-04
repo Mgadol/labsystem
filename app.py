@@ -2947,17 +2947,18 @@ ANALYSIS_COUNT_COL = {'g_coke': 'COALESCE(se.g_val, se.g_coke)'}
 # шалгана (огнооны суурь өөр эсвэл давхар хэмжилт орсон эсэх).
 ANALYSIS_COUNT_EXPR = "COUNT(*)"
 
-# ── "Дээж бэлтгэл" тоог тодорхойлох нөхцөл ба огноо ──────────────────────
-# prep_done_at нь ЗӨВХӨН бэлтгэгч "Дээж бэлтгэж дууслаа" товч дарахад
-# бичигддэг. Тэр алхмыг алгасаад шууд хэмжилт рүү орсон, эсвэл системд
-# шилжихээс өмнөх ажилд NULL үлддэг — ийм ажил графикт хэзээ ч тоологдохгүй.
-# Дээж дээр хэмжилт хийгдсэн бол тэр дээж бодитоор бэлтгэгдсэн нь тодорхой
-# тул огноог prep_started_at → received_date-аар нөхөж тооцно.
-PREP_DATE_EXPR = "COALESCE(sr.prep_done_at, sr.prep_started_at, sr.received_date)"
-PREP_DONE_COND = """(sr.prep_done_at IS NOT NULL
-                     OR sr.prep_status IN ('ready', 'done')
-                     OR EXISTS (SELECT 1 FROM sample_entries se2
-                                WHERE se2.receipt_id = sr.id))"""
+# ── Графикийн "Дээж" шугам — ШИНЖИЛГЭЭ БҮРЭН ДУУССАН дээжийн тоо ─────────
+# Тулгуур огноо нь бэлтгэлийн огноо БИШ, мөр бүрийн шинжилгээ дууссан огноо
+# (se.done_at). Ж: 100 дээжтэй ажлын бэлтгэл өмнөх долоо хоногт хийгдсэн ч
+# тэр долоо хоногт зөвхөн 40 дээжийн шинжилгээ бүрэн дууссан бол 40 гэж
+# тоологдоно; үлдсэн 60 нь дуусах долоо хоногтоо очно. Ингэснээр үзүүлэлт
+# бүрийн тоо энэ шугамтай нэг сууриар харьцуулагдана.
+# is_duplicate=0 — зэрэгцээ, давталт нь тусдаа дээж биш, нэг мөрийн давтан
+# хэмжилт тул энд тоологдохгүй (үзүүлэлтийн баганад л нэмэгдэнэ).
+SAMPLE_DONE_SQL = '''SELECT COUNT(*) FROM sample_entries se
+                     WHERE se.is_duplicate = 0
+                       AND se.row_status IN ('done', 'approved')
+                       AND substr(se.done_at, 1, 10) BETWEEN ? AND ?'''
 
 
 def lab_period_range(rtype, year, month=1, week=1, half=1):
@@ -3060,15 +3061,10 @@ def reports_chart_data():
                   AND substr(se.done_at,1,10) BETWEEN ? AND ?''',
             (d0s, d1s)).fetchone()[0]
         analysis_totals.append(v)
-    # Бэлтгэсэн дээжийн тоо — БЭЛТГЭЛ ДУУССАН огноогоор, дээжийн тоогоор.
-    # Урьд нь график дээр хүлээн авсан дээжийн нийлбэрийг "Дээж бэлтгэл"
-    # гэж харуулдаг байсан тул бэлтгэгдээгүй дээж ч тоологддог байв.
-    prep_total = conn.execute(
-        f'''SELECT COALESCE(SUM(COALESCE(g.quantity,1)),0)
-            FROM sample_receipt sr JOIN geo_samples g ON g.id=sr.geo_sample_id
-            WHERE {PREP_DONE_COND}
-              AND substr({PREP_DATE_EXPR},1,10) BETWEEN ? AND ?''',
-        (d0s, d1s)).fetchone()[0]
+    # Жишиг шугам — энэ хугацаанд ШИНЖИЛГЭЭ НЬ БҮРЭН ДУУССАН дээжийн тоо.
+    # Урьд нь хүлээн авсан, дараа нь бэлтгэл дууссан огноогоор тоолдог байсан
+    # тул үзүүлэлтийн тоотой өөр сууриар харьцуулагдаж зөрдөг байв.
+    prep_total = conn.execute(SAMPLE_DONE_SQL, (d0s, d1s)).fetchone()[0]
     conn.close()
     return jsonify({
         'sample_labels': [n for _, n in SAMPLE_TYPES_MAP],
