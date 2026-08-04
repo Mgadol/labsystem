@@ -101,7 +101,7 @@
   <tr>
     <td style="color:#666;font-size:11px">{{ ri }}</td>
     <td style="text-align:left;font-weight:500;padding-left:8px">
-      {{ e.sample_name if e and e.sample_name else '—' }}
+      {{ e['display_name'] if e and e['display_name'] else (row_names[ri-1] if row_names and row_names|length >= ri else '—') }}
     </td>
     <td class="val">{{ '%.1f'|format(e['mass_kg']) if e and e['mass_kg'] is not none else '—' }}</td>
     {% if is_done %}

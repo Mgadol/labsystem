@@ -1833,11 +1833,14 @@ def archive_result(receipt_id):
         ORDER BY se.row_num, se.is_duplicate
     """, (receipt_id,)).fetchall()
     # mt_result (Нийт чийг) тооцоолол — template энэ талбарыг ашигладаг
+    row_names, _name_of, _sname = sample_names_for(receipt)
     entries = []
     for e in entries_raw:
         ed = dict(e)
         ed['mt_result'] = total_moisture(ed)
         ed['g_val'] = lab_g_index(ed)   # гараар оруулаагүй бол жингээс бодно
+        _en = ed.get('sample_name') or ''
+        ed['display_name'] = _en if (_en and _en != _sname) else _name_of(ed.get('row_num', 1))
         entries.append(ed)
     apply_final_results(entries, qc_tolerances(conn))   # давталтаас эцсийн үр дүнг сонгоно
     qc = {r['parameter']: r for r in conn.execute("SELECT * FROM qc_settings").fetchall()}
@@ -1852,17 +1855,26 @@ def archive_result(receipt_id):
         crm_cert = dict(geo) if geo else None
     conn.close()
     return render_template('analysis/archive_result.html',
-        receipt=receipt, entries=entries, qc=qc, lang=lang, role=role, crm_cert=crm_cert)
+        receipt=receipt, entries=entries, qc=qc, lang=lang, role=role, crm_cert=crm_cert,
+        row_names=row_names)
 
 @app.route('/archive/measure/<int:receipt_id>')
 @login_required
 def archive_measure(receipt_id):
     lang = session.get('lang','mn')
     conn = get_db()
+    # Геологич/бэлтгэгчийн нэр — үр дүнгийн хуудастай ижил холболт.
+    # Урьд нь эдгээр JOIN байхгүй тул архивын хэмжилтэд "—" гардаг байв.
     receipt = conn.execute("""
-        SELECT sr.*, g.sample_name, g.sample_type, g.location, g.quantity
+        SELECT sr.*, g.sample_name, g.sample_type, g.location, g.quantity,
+               g.collected_date,
+               ug.name as geo_name,
+               COALESCE(upb.name, up.name, sr.prep_operator) as prep_name
         FROM sample_receipt sr
         JOIN geo_samples g ON g.id=sr.geo_sample_id
+        LEFT JOIN users ug  ON ug.id=g.registered_by
+        LEFT JOIN users up  ON up.id=sr.received_by
+        LEFT JOIN users upb ON upb.id=sr.prep_by
         WHERE sr.id=?
     """, (receipt_id,)).fetchone()
     if not receipt:
@@ -1874,9 +1886,10 @@ def archive_measure(receipt_id):
         ORDER BY row_num, is_duplicate
     """, (receipt_id,)).fetchall()
     conn.close()
+    row_names, _n, _sn = sample_names_for(receipt)
     return render_template('analysis/archive_measure.html',
         receipt=receipt, entries=entries, lang=lang,
-        data_groups=measured_groups(entries))
+        data_groups=measured_groups(entries), row_names=row_names)
 
 @app.route('/analysis/find-receipt')
 @admin_required
@@ -2449,6 +2462,34 @@ COLUMN_GROUPS = {
     'il':  ['cal_value', 'cal_temp'],
     'fsi': ['fsi'],
 }
+
+
+def sample_names_for(receipt):
+    """Ажлын дээж бүрийн нэрийг гаргана — (нэрсийн жагсаалт, нэр авах функц).
+
+    sample_entries.sample_name нь autosave-аар л хадгалагддаг тул химич
+    нэрийн нүдийг хөндөөгүй бол NULL үлддэг. Тэр үед geo_samples-ийн
+    "A;B;C" жагсаалт эсвэл "ROCK-1 - ROCK-30" мужаас нэрийг сэргээнэ.
+    Урьд нь үр дүнгийн хуудсанд л ажилладаг, архивын хуудсанд байхгүй тул
+    архивлагдсан ажлын дээжийн нэр "—" болж алга болдог байв.
+    """
+    import re as _re
+    sname = (receipt['sample_name'] or '') if receipt else ''
+    parts = [x.strip() for x in sname.split(';')] if ';' in sname else None
+    m1 = _re.match(r'^(.*?)(\d+)\s*[-–]\s*(\d+)\s*$', sname)
+    m2 = _re.match(r'^(.*?)(\d+)$', sname) if not m1 else None
+
+    def name_of(rn):
+        if parts and len(parts) >= rn:
+            return parts[rn - 1]
+        if m1:
+            return m1.group(1) + str(int(m1.group(2)) + rn - 1)
+        if m2:
+            return m2.group(1) + str(int(m2.group(2)) + rn - 1)
+        return sname
+
+    qty = (receipt['quantity'] or 1) if receipt else 1
+    return [name_of(i) for i in range(1, qty + 1)], name_of, sname
 
 
 def measured_groups(entries):

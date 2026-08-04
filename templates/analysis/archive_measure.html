@@ -130,7 +130,7 @@
       {% elif stype=='EXPORT' %}#3c3489{% elif stype=='CONTROL' %}#854f0b
       {% elif stype=='EQ_CONTROL' %}#993c1d{% else %}#555{% endif %}">{{ stype }}</td>
     <td class="f2" style="font-family:monospace;font-size:10px;color:#555">{{ receipt['lab_number'] }}</td>
-    <td class="f3" style="text-align:left;padding-left:6px">{{ e['sample_name'] if e and e['sample_name'] is not none else '—' }}</td>
+    <td class="f3" style="text-align:left;padding-left:6px">{{ e['sample_name'] if e and e['sample_name'] else (row_names[ri-1] if row_names and row_names|length >= ri else '—') }}</td>
     <td class="f4">{{ '%.1f'|format(e['mass_kg']) if e and e['mass_kg'] is not none else '—' }}</td>
     <!-- ЧЧ -->
     <td class="cg-ff gs val">{{ e['ff_sample'] if e and e['ff_sample'] is not none else '—' }}</td>
