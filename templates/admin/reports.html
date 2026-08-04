@@ -588,7 +588,9 @@ function fetchChartData() {
       if(noAnalysisEl) noAnalysisEl.remove();
     }
     analysisChart.data.datasets[0].data = d.analysis_data;
-    analysisChart.data.datasets[1].data = d.analysis_labels.map(function(){ return sTotal; });
+    // "Дээж бэлтгэл" шугам — БЭЛТГЭГДСЭН дээжийн тоо (хүлээн авсных биш)
+    var pTotal = (d.prep_total != null) ? d.prep_total : 0;
+    analysisChart.data.datasets[1].data = d.analysis_labels.map(function(){ return pTotal; });
     analysisChart.update();
   });
 }

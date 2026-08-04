@@ -3042,12 +3042,22 @@ def reports_chart_data():
                   AND substr(se.done_at,1,10) BETWEEN ? AND ?''',
             (d0s, d1s)).fetchone()[0]
         analysis_totals.append(v)
+    # Бэлтгэсэн дээжийн тоо — БЭЛТГЭЛ ДУУССАН огноогоор, дээжийн тоогоор.
+    # Урьд нь график дээр хүлээн авсан дээжийн нийлбэрийг "Дээж бэлтгэл"
+    # гэж харуулдаг байсан тул бэлтгэгдээгүй дээж ч тоологддог байв.
+    prep_total = conn.execute(
+        '''SELECT COALESCE(SUM(COALESCE(g.quantity,1)),0)
+           FROM sample_receipt sr JOIN geo_samples g ON g.id=sr.geo_sample_id
+           WHERE sr.prep_done_at IS NOT NULL
+             AND substr(sr.prep_done_at,1,10) BETWEEN ? AND ?''',
+        (d0s, d1s)).fetchone()[0]
     conn.close()
     return jsonify({
         'sample_labels': [n for _, n in SAMPLE_TYPES_MAP],
         'sample_data': sample_totals,
         'analysis_labels': [n for _, n in ANALYSIS_FIELDS],
         'analysis_data': analysis_totals,
+        'prep_total': prep_total,
     })
 
 @app.route('/reports/export')
