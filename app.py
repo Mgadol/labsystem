@@ -5176,8 +5176,10 @@ def analysis_export(receipt_id):
     # Лого дахин нэмэх (template доторх wmf лого openpyxl-д хасагддаг тул)
     try:
         from openpyxl.drawing.image import Image as _XLImage
-        _logo_path = os.path.join(os.path.dirname(__file__), 'static', 'logo.png')
-        if os.path.exists(_logo_path):
+        # Тохиргооны логыг ашиглана — урьд нь logo.png шууд бичигдсэн байсан тул
+        # өөр лаборатори өөрийн логог ачаалсан ч Excel дээр хуучин лого гардаг байв.
+        _logo_path = logo_path()
+        if _logo_path:
             _img = _XLImage(_logo_path)
             _img.width = 80
             _img.height = 115
@@ -5507,7 +5509,21 @@ def get_settings():
     if os.path.exists(SETTINGS_FILE):
         with open(SETTINGS_FILE, encoding='utf-8') as f:
             return _json.load(f)
-    return {'lab_name':'Лабораторийн нэр','lab_name_en':'Laboratory','lab_subtitle':'Лабораторийн удирдлагын систем','logo':'logo.jpg'}
+    # Шинэ суулгацын анхдагч — саармаг лого. Байгаа суулгацууд settings.json
+    # дотроо өөрийн логог зааж өгсөн байдаг тул энэ нь тэдэнд нөлөөлөхгүй.
+    return {'lab_name':'Лабораторийн нэр','lab_name_en':'Laboratory',
+            'lab_subtitle':'Лабораторийн удирдлагын систем','logo':'logo-default.png'}
+
+
+def logo_path():
+    """Тохиргоонд заасан логоны файлын бүтэн зам (Excel тайланд хэрэглэнэ)."""
+    base = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
+    for name in (get_settings().get('logo'), 'logo-default.png'):
+        if name:
+            p = os.path.join(base, name)
+            if os.path.exists(p):
+                return p
+    return None
 
 def save_settings(data):
     os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
@@ -5537,8 +5553,14 @@ def lab_settings():
             if logo and logo.filename:
                 ext = logo.filename.rsplit('.',1)[-1].lower()
                 if ext in ('png','jpg','jpeg','webp'):
-                    logo.save(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', f'logo.{ext}'))
-                    s['logo'] = f'logo.{ext}'
+                    # Гит-д бүртгэлтэй static/logo.* файлыг дарж бичихгүй —
+                    # эс бөгөөс тухайн сервер дээр git pull "local changes
+                    # would be overwritten" гэж зогсдог. uploads нь gitignore-т.
+                    updir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                         'static', 'uploads')
+                    os.makedirs(updir, exist_ok=True)
+                    logo.save(os.path.join(updir, f'logo.{ext}'))
+                    s['logo'] = f'uploads/logo.{ext}'
             save_settings(s)
             flash('Лабораторийн мэдээлэл хадгалагдлаа!', 'success')
 

@@ -4,3 +4,4 @@ __pycache__/
 *.pyo
 *.db
 .claude/worktrees/
+static/uploads/
