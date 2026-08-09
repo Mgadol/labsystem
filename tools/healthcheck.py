@@ -138,10 +138,13 @@ else:
 lp = A.logo_path()
 ok(f'Лого: {os.path.basename(lp)}' if lp else 'Лого олдсонгүй')
 
-if getattr(A, 'WEAK_ADMIN_PASSWORD', False):
-    bad('Админы нууц үг анхдагч admin123 хэвээр байна — ЗААВАЛ солино уу')
+weak = getattr(A, 'WEAK_PASSWORD_USERS', [])
+if weak:
+    bad(f'{len(weak)} хэрэглэгч анхдагч admin123 нууц үгтэй — ЗААВАЛ солино уу:')
+    for u in weak:
+        print(f'      • {u}')
 else:
-    ok('Админы нууц үг анхдагчаас өөр')
+    ok('Анхдагч admin123 нууц үгтэй хэрэглэгч алга')
 
 if os.path.exists(os.path.join(ROOT, 'instance', 'ADMIN_PASSWORD.txt')):
     warn('instance/ADMIN_PASSWORD.txt үлдсэн байна — нууц үгээ сольсон бол устгана уу')

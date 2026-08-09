@@ -5595,25 +5595,35 @@ def save_settings(data):
 @app.context_processor
 def inject_settings():
     return dict(settings=get_settings(), weak_admin=WEAK_ADMIN_PASSWORD,
-                app_version=VERSION)
+                weak_users=WEAK_PASSWORD_USERS, app_version=VERSION)
 
 
 # Хуучин суулгацуудад анхдагч 'admin123' хэвээр үлдсэн байж болно.
 # Эхлэхэд нэг удаа шалгаад, админд анхааруулга харуулна.
 WEAK_ADMIN_PASSWORD = False
+WEAK_PASSWORD_USERS = []          # ['Нэр (АЖИЛТНЫ ДУГААР)', ...]
 
 
 def _check_weak_admin():
-    global WEAK_ADMIN_PASSWORD
+    """Анхдагч admin123 нууц үгтэй ИДЭВХТЭЙ хэрэглэгчдийг олно.
+
+    Урьд нь зөвхөн admin дүртэй хүнийг шалгаж, хэн болохыг нь хэлдэггүй
+    байсан тул "сольсон боловч анхааруулга арилахгүй" гэсэн байдалд
+    ордог байв — үнэндээ өөр хэрэглэгч дээр үлдсэн байдаг.
+    """
+    global WEAK_ADMIN_PASSWORD, WEAK_PASSWORD_USERS
     try:
         conn = get_db()
-        rows = conn.execute(
-            "SELECT password_hash FROM users WHERE role='admin' AND is_active=1").fetchall()
+        rows = conn.execute("""SELECT employee_id, name, role, password_hash
+                               FROM users WHERE is_active=1""").fetchall()
         conn.close()
-        WEAK_ADMIN_PASSWORD = any(
-            check_password(r['password_hash'], 'admin123') for r in rows)
+        WEAK_PASSWORD_USERS = [
+            f"{r['name']} ({r['employee_id']})" for r in rows
+            if r['password_hash'] and check_password(r['password_hash'], 'admin123')]
+        WEAK_ADMIN_PASSWORD = bool(WEAK_PASSWORD_USERS)
         if WEAK_ADMIN_PASSWORD:
-            app.logger.warning('Админы нууц үг анхдагч admin123 хэвээр байна!')
+            app.logger.warning('Анхдагч admin123 нууц үгтэй хэрэглэгч: %s',
+                               ', '.join(WEAK_PASSWORD_USERS))
     except Exception:
         app.logger.exception('Нууц үгийн шалгалт амжилтгүй')
 

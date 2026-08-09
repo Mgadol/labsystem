@@ -161,9 +161,10 @@ textarea.form-input{resize:vertical;min-height:80px}
 {% if weak_admin and session.get('role') == 'admin' %}
 <div style="max-width:1200px;margin:12px auto 0;padding:0 16px">
   <div class="alert alert-error">
-    <b>Аюулгүй байдал:</b> админы нууц үг анхдагч <code>admin123</code> хэвээр байна.
-    Энэ нууц үг олон нийтэд мэдэгдсэн тул хэн ч системд нэвтрэх боломжтой.
-    <a href="{{ url_for('lab_settings') }}?tab=profile" style="font-weight:600">Одоо солих</a>
+    <b>Аюулгүй байдал:</b> дараах хэрэглэгч анхдагч <code>admin123</code> нууц үгтэй хэвээр байна —
+    <b>{{ weak_users|join(', ') }}</b>.
+    Энэ нууц үг олон нийтэд мэдэгдсэн тул хэн ч тэдгээрийн эрхээр нэвтэрч болно.
+    <a href="{{ url_for('staff_list') }}" style="font-weight:600">Ажилтан хуудсаас солих</a>
   </div>
 </div>
 {% endif %}
