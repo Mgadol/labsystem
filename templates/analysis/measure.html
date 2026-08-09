@@ -990,6 +990,20 @@ document.addEventListener('wheel', function(e){
   if(dy) window.scrollBy(0, dy);
 }, {passive:false});
 
+// ── Нүдний утгыг чирж зөөхөөс сэргийлнэ ────────────────────────────────
+// Нүдэнд фокус орохад агуулга нь бүхэлдээ СОНГОГДДОГ. Сонгогдсон текст
+// дээрээс хулганы товчийг дараад хөдөлгөвөл хөтөч түүнийг чирж ЗӨӨДӨГ
+// (drag-and-drop): эх нүд хоосорч, утга нь чирж очсон нүдэнд орж тэндхийн
+// ЗӨВ утгыг дарж бичнэ. Товч дарах шаардлагагүй — зүгээр чирэхэд л болно.
+// "Хааяа нэг ганц нэг масс алга болоод байна" гэсэн алдааны шалтгаан яг энэ.
+// Хүснэгтийн дотор чирж зөөх, гаднаас текст буулгахыг бүрэн хаана.
+['dragstart', 'drop'].forEach(function(ev){
+  document.addEventListener(ev, function(e){
+    var t = e.target;
+    if(t && t.closest && t.closest('.tbl')) e.preventDefault();
+  }, true);
+});
+
 function decreaseDecimal(){
   var inp=document.activeElement;
   if(!inp||!inp.matches('.tbl input')) return;
