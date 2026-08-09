@@ -45,7 +45,10 @@ venv/bin/python3 app.py
 
 - `instance/lab.db` — хоосон мэдээллийн сан, бүх хүснэгттэй
 - `instance/secret_key` — тухайн суулгацын өөрийн нууц түлхүүр
-- Админ хэрэглэгч: **ADMIN / admin123**
+- Админ хэрэглэгч **ADMIN**, түүнд зориулсан **санамсаргүй нууц үг**
+
+Нууц үг консол дээр тодоор хэвлэгдэнэ. Мөн `instance/ADMIN_PASSWORD.txt`
+дотор үлдэнэ — эхний нэвтрэлтийн дараа нууц үгээ солиод **тэр файлыг устгана**.
 
 > Өмнөх лабораторийн ямар ч өгөгдөл дагаж ирэхгүй. `instance/` болон
 > `static/uploads/` нь gitignore-т орсон.
@@ -53,6 +56,9 @@ venv/bin/python3 app.py
 Хөтчөөр `http://<сервер>:5000` хаягаар нэвтэрч шалгана.
 
 ## 4. Systemd үйлчилгээ болгох
+
+`HTTPS_ENABLED` — доорх «HTTPS» хэсгийг үзнэ үү. Дотоод сүлжээнд л
+ажиллах бол `false` үлдээж болно.
 
 ```bash
 sudo tee /etc/systemd/system/labsystem.service > /dev/null <<'EOF'
@@ -63,6 +69,7 @@ After=network.target
 [Service]
 WorkingDirectory=/opt/labsystem
 ExecStart=/opt/labsystem/venv/bin/python3 /opt/labsystem/app.py
+Environment=HTTPS_ENABLED=false
 Restart=always
 RestartSec=3
 
@@ -75,11 +82,49 @@ sudo systemctl enable --now labsystem
 sudo systemctl status labsystem
 ```
 
+## 4a. HTTPS — интернэтэд гаргах бол ЗААВАЛ
+
+Систем нь HTTPS-ийг өөрөө хийхгүй. Домэйнээр интернэтээс хандах бол
+урд нь nginx тавьж, гэрчилгээ авна:
+
+```bash
+sudo apt install -y nginx certbot python3-certbot-nginx
+sudo tee /etc/nginx/sites-available/labsystem > /dev/null <<'EOF'
+server {
+    server_name lab.example.mn;
+    client_max_body_size 20M;
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+EOF
+sudo ln -sf /etc/nginx/sites-available/labsystem /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d lab.example.mn
+```
+
+Дараа нь **заавал** systemd дотор асаана:
+
+```bash
+sudo sed -i 's/HTTPS_ENABLED=false/HTTPS_ENABLED=true/' \
+  /etc/systemd/system/labsystem.service
+sudo systemctl daemon-reload && sudo systemctl restart labsystem
+```
+
+> **Яагаад чухал вэ:** `HTTPS_ENABLED=true` үед сешн күүки `Secure`
+> тэмдэгтэй явна. Тавихгүй бол күүки шифрлэгдээгүй холболтоор дамжиж,
+> нэг сүлжээнд байгаа хүн түүнийг хулгайлж хэн нэгний эрхээр нэвтрэх
+> боломжтой. `tools/healthcheck.py` энэ тохиргоог шалгаж сануулна.
+
 ## 5. Заавал хийх тохиргоо
 
 Админаар нэвтэрсний дараа:
 
-1. **Нууц үг солих** — `admin123` анхдагчийг заавал өөрчилнө
+1. **Нууц үг солих**, дараа нь `instance/ADMIN_PASSWORD.txt`-ийг устгах
 2. **Тохиргоо → Лабораторийн мэдээлэл** — лабораторийн нэр (монгол, англи), лого
 3. **Тохиргоо → Дээжийн төрөл** — тухайн лабораторийн төрлүүд ба ажлын дугаарын муж
 4. **Тохиргоо → QC** — үзүүлэлт тус бүрийн зөвшөөрөгдөх зөрүү, мөрдөх стандарт
@@ -102,10 +147,16 @@ sudo systemctl status labsystem
 
 ```bash
 cd /opt/labsystem && git pull && sudo systemctl restart labsystem
+/opt/labsystem/venv/bin/python3 tools/healthcheck.py
 ```
 
 Мэдээллийн сангийн шинэ хүснэгт, багана **автоматаар нэмэгдэнэ**
 (`ensure_tables()` эхлэхэд ажиллана). Гараар юу ч хийх шаардлагагүй.
+
+`healthcheck.py` нь шинэчлэлт бүрэн буусныг батална: хувилбар, гит дэх
+байрлал, шилжилт эцэс хүртэл ажилласан эсэх, дутуу хүснэгт/багана,
+мэдээллийн сангийн бүрэн бүтэн байдал, нөөцлөлт, аюулгүй байдлын
+тохиргоо. Асуудал илэрвэл гарах код **1** буцаана.
 
 > **Чухал:** засварыг сервер дээр шууд хийж болохгүй. Дараагийн `git pull`
 > тэр өөрчлөлтийг дарж устгана, мөн бусад лабораторид хүрэхгүй. Оношилгоог
