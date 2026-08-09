@@ -5705,13 +5705,78 @@ def crm_edit(mid):
     conn.close()
     return render_template('admin/crm_edit.html', mat=mat, today=date.today().isoformat())
 
+# ── НӨӨЦЛӨЛТ ────────────────────────────────────────────
+# WAL горимд shutil.copy2 нь АЮУЛТАЙ: хуулах агшинд WAL дотор байгаа
+# гүйлгээ хуулбарт ороогүй үлдэж, эвдэрсэн сан үүсэж болно. SQLite-ийн
+# online backup API нь ажиллаж байгаа сан дээр аюулгүй ажиллана.
+INSTANCE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance')
+BACKUP_KEEP_DAYS = 14
+
+
+def make_backup():
+    """Аюулгүй хуулбар үүсгээд замыг нь буцаана."""
+    import sqlite3 as _sq
+    src_path = os.path.join(INSTANCE_DIR, 'lab.db')
+    if not os.path.exists(src_path):
+        return None
+    os.makedirs(INSTANCE_DIR, exist_ok=True)
+    dest = os.path.join(INSTANCE_DIR,
+                        f"lab_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db")
+    src = _sq.connect(src_path, timeout=30)
+    try:
+        dst = _sq.connect(dest)
+        try:
+            src.backup(dst)
+        finally:
+            dst.close()
+    finally:
+        src.close()
+    return dest
+
+
+def prune_backups(keep_days=BACKUP_KEEP_DAYS):
+    """Хуучирсан хуулбарыг цэвэрлэнэ — диск дүүрэхээс сэргийлнэ."""
+    import glob as _glob
+    cutoff, removed = _time.time() - keep_days * 86400, 0
+    for f in _glob.glob(os.path.join(INSTANCE_DIR, 'lab_backup_*.db')):
+        try:
+            if os.path.getmtime(f) < cutoff:
+                os.remove(f)
+                removed += 1
+        except OSError:
+            pass
+    return removed
+
+
+def _backup_daily_loop():
+    """Өдөрт нэг удаа автомат нөөцлөлт.
+
+    Урьд нь хуулбарыг ЗӨВХӨН процесс эхлэхэд авдаг байсан тул сервер
+    сар турш restart хийлгүй ажиллавал ганцхан хуулбар үүсдэг байв.
+    """
+    import glob as _glob
+    while True:
+        try:
+            today = datetime.now().strftime('%Y%m%d')
+            if not _glob.glob(os.path.join(INSTANCE_DIR, f'lab_backup_{today}_*.db')):
+                path = make_backup()
+                if path:
+                    app.logger.info('Автомат нөөцлөлт: %s', os.path.basename(path))
+                    prune_backups()
+        except Exception:
+            app.logger.exception('Автомат нөөцлөлт амжилтгүй боллоо')
+        _time.sleep(3600)          # цаг тутам шалгана
+
+
 @app.route('/backup')
 @admin_required
 def backup_db():
-    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'lab.db')
-    from datetime import datetime as dt
-    fname = f"lab_backup_{dt.now().strftime('%Y%m%d_%H%M%S')}.db"
-    return send_file(db_path, as_attachment=True, download_name=fname)
+    """Одоогийн байдлаар аюулгүй хуулбар үүсгэж татуулна."""
+    path = make_backup()
+    if not path:
+        flash('Мэдээллийн сан олдсонгүй', 'error')
+        return redirect(url_for('lab_settings'))
+    return send_file(path, as_attachment=True, download_name=os.path.basename(path))
 
 # ── ШАЛГАЛТЫН ЗАГВАР (check templates) ──────────────────
 @app.route('/check-templates')
@@ -5780,13 +5845,11 @@ def backup_download(filename):
 @app.route('/backup/create', methods=['POST'])
 @admin_required
 def backup_create():
-    import shutil
-    from datetime import datetime as dt
-    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'lab.db')
-    bk_name = f"lab_backup_{dt.now().strftime('%Y%m%d_%H%M%S')}.db"
-    bk_path = os.path.join(os.path.dirname(db_path), bk_name)
-    shutil.copy2(db_path, bk_path)
-    return jsonify({'ok': True, 'name': bk_name})
+    path = make_backup()
+    if not path:
+        return jsonify({'ok': False, 'error': 'Мэдээллийн сан олдсонгүй'}), 404
+    prune_backups()
+    return jsonify({'ok': True, 'name': os.path.basename(path)})
 
 # ── ОРЧНЫ ХЯНАЛТ (чийг / дулаан) ────────────────────────
 ENV_SLOTS = [('start', 'Шинжилгээ эхлэхэд'), ('end', 'Шинжилгээ төгсгөлд')]
@@ -6076,13 +6139,11 @@ def usage_clear():
     байгаа (дуусаагүй) бүртгэл ч цэвэрлэгдэх тул түгжигдсэн тоног
     төхөөрөмж чөлөөлөгдөнө.
     """
-    import shutil
-    from datetime import datetime as dt
-    inst = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance')
-    bk_name = f"lab_backup_{dt.now().strftime('%Y%m%d_%H%M%S')}.db"
     try:
-        shutil.copy2(os.path.join(inst, 'lab.db'), os.path.join(inst, bk_name))
+        _p = make_backup()
+        bk_name = os.path.basename(_p) if _p else None
     except Exception:
+        app.logger.exception('Устгахын өмнөх нөөцлөлт амжилтгүй')
         bk_name = None
 
     conn = get_db()
@@ -6122,17 +6183,14 @@ def _startup():
     from models import init_analysis_db
     init_analysis_db()
     ensure_tables()
+    # Өдөр тутмын автомат нөөцлөлт — процессын хажуугаар байнга ажиллана
+    import threading
+    threading.Thread(target=_backup_daily_loop, daemon=True,
+                     name='backup-daily').start()
 
 _startup()
 
 if __name__ == '__main__':
-    # Автомат backup
-    import shutil
-    _db = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'lab.db')
-    _bk = _db.replace('lab.db', f'lab_backup_{datetime.now().strftime("%Y%m%d")}.db')
-    if os.path.exists(_db) and not os.path.exists(_bk):
-        shutil.copy2(_db, _bk)
-        print(f'Backup: {_bk}')
     print('Систем эхэллээ!')
     print('Браузерт нэвтрэх: http://localhost:5000')
     try:
