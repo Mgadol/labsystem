@@ -40,7 +40,7 @@ body{font-family:'Inter',sans-serif;background:#f0ede8;min-height:100vh;display:
   <div class="card">
     <div class="card-logo">
       <img src="/static/{{ settings.logo }}" style="width:150px;height:auto;max-height:180px;object-fit:contain;margin-bottom:8px">
-      <div class="card-title">{{ settings.lab_name if session.get('lang','mn')=='mn' else settings.lab_name_en }}</div>
+      <div class="card-title">{{ settings.lab_name_en if (session.get('lang','mn') != 'mn' and settings.lab_name_en) else settings.lab_name }}</div>
       <div class="card-sub" style="font-size:12px">Лабораторийн удирдлагын систем</div>
     </div>
     {% if error %}

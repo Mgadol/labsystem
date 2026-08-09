@@ -104,7 +104,8 @@ textarea.form-input{resize:vertical;min-height:80px}
     <a href="{{ url_for('dashboard') }}" class="topbar-logo">
       <img src="{{ url_for('static', filename=settings.logo) }}" width="42" height="64" style="width:42px;height:64px;object-fit:contain;flex-shrink:0">
       <span style="display:flex;flex-direction:column;line-height:1.3">
-        <span style="font-size:13px;font-weight:600;color:#fff;white-space:nowrap">{{ settings.lab_name if session.get('lang','mn')=='mn' else settings.lab_name_en }}</span>
+        {# Англи нэр тохируулаагүй бол монгол нэрээр орлуулна — эс бөгөөс хоосон гарна #}
+        <span style="font-size:13px;font-weight:600;color:#fff;white-space:nowrap">{{ settings.lab_name_en if (session.get('lang','mn') != 'mn' and settings.lab_name_en) else settings.lab_name }}</span>
         <span style="font-size:10px;color:#93a8d4;font-weight:400;text-align:center">{{ settings.lab_subtitle }}</span>
       </span>
     </a>
