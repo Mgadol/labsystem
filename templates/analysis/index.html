@@ -50,7 +50,10 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
   {% if batches %}
   <div class="card" style="margin-bottom:16px;border-left:4px solid var(--teal)">
     <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px">
-      🧪 Миний идэвхтэй ажил
+      🧪 Идэвхтэй ажил
+      <span style="font-weight:400;color:var(--text-muted);font-size:11px">
+        — лабораторид нээлттэй байгаа багцууд, аль нэгийг нь үргэлжлүүлнэ
+      </span>
     </div>
     {% for b in batches %}
     <div style="display:flex;align-items:center;gap:12px;padding:9px 12px;background:#f2fbf8;
@@ -61,6 +64,7 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
         </div>
         <div style="font-size:11px;color:var(--text-muted);margin-top:2px">
           {{ b['n_samples'] }} дээж
+          {% if b['owner_name'] %} · {{ b['owner_name'] }}{% endif %}
           {% if b['created_at'] %} · {{ b['created_at'][11:16] }}-д эхэлсэн{% endif %}
         </div>
       </div>

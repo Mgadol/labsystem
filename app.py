@@ -4741,11 +4741,18 @@ def batch_receipt_ids(b):
     return [int(i) for i in (b['receipt_ids'] or '').split(',') if i.strip().isdigit()]
 
 
-def open_batches(conn, uid):
-    """Хэрэглэгчийн идэвхтэй багцууд. Бүх мөр баталгаажсаныг өөрөө хаана."""
-    rows = conn.execute("""SELECT * FROM work_batch
-                           WHERE user_id=? AND status='open'
-                           ORDER BY created_at DESC""", (uid,)).fetchall()
+def open_batches(conn, uid=None):
+    """Лабораторийн БҮХ идэвхтэй багц. Бүх мөр баталгаажсаныг өөрөө хаана.
+
+    Урьд нь зөвхөн үүсгэсэн хүнд харагддаг байсан тул химич бүр ижил
+    ажлууд дээр өөр өөрийн багц үүсгэдэг байв. Одоо нэг хүн (ихэвчлэн
+    ахлах химич) үүсгэхэд бусад нь түүнийг хараад үргэлжлүүлнэ.
+    """
+    rows = conn.execute("""SELECT wb.*, u.name AS owner_name
+                           FROM work_batch wb
+                           LEFT JOIN users u ON u.id = wb.user_id
+                           WHERE wb.status='open'
+                           ORDER BY wb.created_at DESC""").fetchall()
     out = []
     for b in rows:
         rids = batch_receipt_ids(b)
@@ -4791,10 +4798,12 @@ def batch_start():
         return jsonify({'ok': False, 'error': 'Ажил сонгоогүй байна'}), 400
     uid = session.get('user_id')
     conn = get_db()
-    # Ижил бүрэлдэхүүнтэй багц аль хэдийн нээлттэй бол давхардуулахгүй
+    # Ижил бүрэлдэхүүнтэй багц аль хэдийн нээлттэй бол давхардуулахгүй.
+    # Багц нь бүх хүнд харагддаг тул ӨӨР хүний үүсгэсэн багцыг ч
+    # дахин үүсгэхгүй — хоёр химич нэг ажлыг тусад нь эхлүүлэхээс сэргийлнэ.
     same = conn.execute("""SELECT id FROM work_batch
-                           WHERE user_id=? AND status='open' AND receipt_ids=?""",
-                        (uid, ','.join(ids))).fetchone()
+                           WHERE status='open' AND receipt_ids=?""",
+                        (','.join(ids),)).fetchone()
     if not same:
         conn.execute("""INSERT INTO work_batch(user_id,receipt_ids,qc_rows,qc_id,created_at)
                         VALUES(?,?,?,?,?)""",
@@ -4808,15 +4817,17 @@ def batch_start():
 @app.route('/analysis/batch/close/<int:bid>', methods=['POST'])
 @lab_required
 def batch_close(bid):
-    """Багцыг хаана — өөрийн багцыг л хаана (ахлах бүгдийг)"""
+    """Багцыг хаана.
+
+    Багц нь хамтын ажил тул лабораторийн хэн ч хааж болно — үүсгэсэн
+    химич ээлжээ дуусгаад явсан бол багц өлгөөтэй үлдэхгүй. Хаах нь
+    зөвхөн товчлолыг арилгана, өгөгдөлд огт нөлөөлөхгүй.
+    """
     conn = get_db()
     b = conn.execute('SELECT * FROM work_batch WHERE id=?', (bid,)).fetchone()
     if not b:
         conn.close()
         return jsonify({'ok': False, 'error': 'Багц олдсонгүй'}), 404
-    if b['user_id'] != session.get('user_id') and session.get('role') not in ('admin', 'senior'):
-        conn.close()
-        return jsonify({'ok': False, 'error': 'Өөрийн багцыг л хаана'}), 403
     conn.execute("UPDATE work_batch SET status='closed', closed_at=? WHERE id=?",
                  (datetime.now().isoformat(), bid))
     conn.commit()
