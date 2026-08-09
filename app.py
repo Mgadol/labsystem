@@ -25,6 +25,11 @@ app = Flask(__name__)
 # буусан эсэхийг батлах боломжтой болгоно.
 VERSION = '1.0.0'
 
+# ── ХЭЛ ───────────────────────────────────────────────────────
+# Одоогоор зөвхөн монгол. Кодод англи орчуулга үлдсэн тул хожим
+# (жишээ нь гадаад түншид зориулж) энэ тугийг True болгоход л сэргэнэ.
+LANGUAGES_ENABLED = False
+
 # ── SECRET KEY: instance/-д хадгалагдана, автоматаар үүснэ ────
 _KEY_FILE = os.path.join(os.path.dirname(__file__), 'instance', 'secret_key')
 os.makedirs(os.path.dirname(_KEY_FILE), exist_ok=True)
@@ -372,9 +377,23 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
+@app.before_request
+def _force_language():
+    """Хэл идэвхгүй үед бүх сешнийг монгол руу буцаана.
+
+    Урьд нь англи болгосон сешн үлдсэн байвал хэрэглэгч гацахгүй —
+    товч байхгүй тул буцаах арга ч байхгүй болно.
+    """
+    if not LANGUAGES_ENABLED and session.get('lang', 'mn') != 'mn':
+        session['lang'] = 'mn'
+
+
 @app.route('/lang/<lang>')
 def set_lang(lang):
-    session['lang'] = lang if lang in ('mn','en') else 'mn'
+    if LANGUAGES_ENABLED and lang in ('mn', 'en'):
+        session['lang'] = lang
+    else:
+        session['lang'] = 'mn'
     ref = request.referrer
     return redirect(ref if ref else url_for('dashboard'))
 
