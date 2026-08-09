@@ -342,9 +342,12 @@
     </div>
 
     <div class="card">
-      <div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:10px">
-        📋 Бүртгэлийн түүх <span style="font-weight:400;color:var(--text-muted)">(сүүлийн 120)</span>
-      </div>
+      <details class="fold"{% if env_recent|length <= 8 %} open{% endif %}>
+      <summary style="font-size:12px;font-weight:600;color:var(--navy)">
+        📋 Бүртгэлийн түүх
+        <span class="fold-n">сүүлийн {{ env_recent|length }}</span>
+      </summary>
+      <div class="fold-body">
       <table class="table" style="font-size:12px">
         <thead><tr><th>Огноо</th><th>Өрөө</th><th>Хэзээ</th><th>Цаг</th>
                    <th style="text-align:right">t° C</th><th style="text-align:right">Чийг %</th>
@@ -366,6 +369,8 @@
         {% endfor %}
         </tbody>
       </table>
+      </div>
+      </details>
     </div>
     {% else %}
     <div class="card" style="text-align:center;padding:40px;color:var(--text-muted)">

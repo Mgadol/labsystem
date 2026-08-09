@@ -93,10 +93,12 @@
 
       <!-- Үр дүн харсан лог -->
       <div class="card" style="margin-bottom:16px">
-        <div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+        <details class="fold"{% if view_log|length <= 8 %} open{% endif %}>
+        <summary style="font-size:12px;font-weight:600;color:var(--navy)">
           📋 Үр дүн харсан түүх
-          <span style="font-size:11px;font-weight:400;color:var(--text-muted)">Нийт {{ view_total }} удаа</span>
-        </div>
+          <span class="fold-n">Нийт {{ view_total }} удаа</span>
+        </summary>
+        <div class="fold-body">
         {% if view_log %}
         <table class="table" style="font-size:12px">
           <thead><tr><th>Огноо / Цаг</th><th>Ажлын дугаар</th><th>Дээжний нэр</th></tr></thead>
@@ -113,6 +115,8 @@
         {% else %}
         <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px">Үр дүн харсан бүртгэл байхгүй</div>
         {% endif %}
+        </div>
+        </details>
       </div>
 
       <!-- Сүүлд бүртгэсэн дээжүүд -->

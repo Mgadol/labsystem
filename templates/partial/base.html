@@ -84,6 +84,17 @@ textarea.form-input{resize:vertical;min-height:80px}
 .tab-nav{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px}
 .tab-btn{padding:9px 16px;font-size:13px;font-weight:500;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;transition:.15s;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit}
 .tab-btn.active{color:var(--navy);border-bottom-color:var(--navy)}
+/* Хураах блок — урт түүхийн жагсаалт хуудсыг доошоо сунгахгүй.
+   Нээсэн ч дотроо гүйдэг тул хуудасны урт тогтвортой байна. */
+details.fold>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;margin:0}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::after{content:'⌄';font-size:15px;line-height:1;color:var(--text-muted);transition:transform .15s}
+details.fold[open]>summary::after{transform:rotate(180deg)}
+details.fold>summary:hover{color:var(--navy)}
+.fold-n{font-weight:400;font-size:11px;color:var(--text-muted);background:var(--gray);
+        border:1px solid var(--border);border-radius:20px;padding:1px 8px;margin-left:auto;
+        letter-spacing:0;text-transform:none}
+.fold-body{margin-top:12px;max-height:420px;overflow:auto}
 
 @media(max-width:640px){
   .topbar-nav{display:none}
