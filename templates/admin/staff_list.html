@@ -63,10 +63,12 @@
         </span>
         {% if current_user['role'] in ('admin','senior') %}
         <span style="display:flex;gap:6px">
-          <form method="POST" action="{{ url_for('staff_shift_bulk', shift=shift_code, action='rest') }}" onsubmit="return confirm('{{ shift_name }}-ийн бүх хүнийг амраах (идэвхгүй болгох) уу?')">
+          <form method="POST" action="{{ url_for('staff_shift_bulk', shift=shift_code, action='rest') }}" onsubmit="return confirm('{{ shift_name }}-ийн ЛАБОРАТОРИЙН хүмүүсийг амраах уу? (геологич, баяжуулагч хөндөгдөхгүй)')">
+            <input type="hidden" name="group" value="lab">
             <button type="submit" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">😴 Амраах</button>
           </form>
-          <form method="POST" action="{{ url_for('staff_shift_bulk', shift=shift_code, action='work') }}" onsubmit="return confirm('{{ shift_name }}-ийн бүх хүнийг ажиллуулах (идэвхжүүлэх) үү?')">
+          <form method="POST" action="{{ url_for('staff_shift_bulk', shift=shift_code, action='work') }}" onsubmit="return confirm('{{ shift_name }}-ийн ЛАБОРАТОРИЙН хүмүүсийг ажиллуулах уу?')">
+            <input type="hidden" name="group" value="lab">
             <button type="submit" class="btn btn-sm" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">▶ Ажиллуулах</button>
           </form>
         </span>
@@ -215,10 +217,12 @@
         <span>{{ sn }} <span style="font-weight:400;font-size:11px;margin-left:8px">{{ active_cnt }} идэвхтэй / {{ grp|length }} нийт</span></span>
         {% if sc in ('A','B') and current_user['role'] in ('admin','senior') %}
         <span style="display:flex;gap:6px">
-          <form method="POST" action="{{ url_for('staff_shift_bulk', shift=sc, action='rest') }}" onsubmit="return confirm('{{ sn }}-ийн бүх хүнийг амраах уу?')">
+          <form method="POST" action="{{ url_for('staff_shift_bulk', shift=sc, action='rest') }}" onsubmit="return confirm('{{ sn }}-ийн БАЯЖУУЛАХЫН хүмүүсийг амраах уу? (бусад бүлэг хөндөгдөхгүй)')">
+            <input type="hidden" name="group" value="dp">
             <button type="submit" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">😴 Амраах</button>
           </form>
-          <form method="POST" action="{{ url_for('staff_shift_bulk', shift=sc, action='work') }}" onsubmit="return confirm('{{ sn }}-ийн бүх хүнийг ажиллуулах уу?')">
+          <form method="POST" action="{{ url_for('staff_shift_bulk', shift=sc, action='work') }}" onsubmit="return confirm('{{ sn }}-ийн БАЯЖУУЛАХЫН хүмүүсийг ажиллуулах уу?')">
+            <input type="hidden" name="group" value="dp">
             <button type="submit" class="btn btn-sm" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">▶ Ажиллуулах</button>
           </form>
         </span>
@@ -293,10 +297,12 @@
         <span>{{ sn }} <span style="font-weight:400;font-size:11px;margin-left:8px">{{ active_cnt }} идэвхтэй / {{ grp|length }} нийт</span></span>
         {% if sc in ('A','B') and current_user['role'] in ('admin','senior') %}
         <span style="display:flex;gap:6px">
-          <form method="POST" action="{{ url_for('staff_shift_bulk', shift=sc, action='rest') }}" onsubmit="return confirm('{{ sn }}-ийн бүх хүнийг амраах уу?')">
+          <form method="POST" action="{{ url_for('staff_shift_bulk', shift=sc, action='rest') }}" onsubmit="return confirm('{{ sn }}-ийн ГЕОЛОГИЙН хүмүүсийг амраах уу? (бусад бүлэг хөндөгдөхгүй)')">
+            <input type="hidden" name="group" value="geo">
             <button type="submit" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">😴 Амраах</button>
           </form>
-          <form method="POST" action="{{ url_for('staff_shift_bulk', shift=sc, action='work') }}" onsubmit="return confirm('{{ sn }}-ийн бүх хүнийг ажиллуулах уу?')">
+          <form method="POST" action="{{ url_for('staff_shift_bulk', shift=sc, action='work') }}" onsubmit="return confirm('{{ sn }}-ийн ГЕОЛОГИЙН хүмүүсийг ажиллуулах уу?')">
+            <input type="hidden" name="group" value="geo">
             <button type="submit" class="btn btn-sm" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">▶ Ажиллуулах</button>
           </form>
         </span>

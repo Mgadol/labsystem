@@ -2159,27 +2159,46 @@ def staff_deactivate(uid):
 @app.route('/staff/shift/<shift>/<action>', methods=['POST'])
 @senior_required
 def staff_shift_bulk(shift, action):
-    """Ээлжээр бөөнөөр идэвхгүй (амраах) / идэвхтэй (ажиллуулах) болгоно"""
-    lang = session.get('lang','mn')
-    if shift not in ('A','B') or action not in ('rest','work'):
+    """Ээлжээр бөөнөөр идэвхгүй (амраах) / идэвхтэй (ажиллуулах) болгоно.
+
+    Бүлэг тус бүрээр ажиллана: лабораторийн ээлжийг амраахад геологич,
+    баяжуулагч нар хөндөгдөхгүй. Урьд нь ээлж бүхэлдээ хамрагддаг байсан
+    тул нэг табаас "Амраах" дархад бусад бүлгийн тэр ээлжийнхэн ч
+    амардаг байв.
+    """
+    if shift not in ('A', 'B') or action not in ('rest', 'work'):
         flash('Буруу хүсэлт.', 'error')
         return redirect(url_for('staff_list'))
+
+    group = (request.form.get('group') or 'all').lower()
+    GROUPS = {
+        'lab': ("role NOT IN ('geologist','bayjuulach')", 'лабораторийн'),
+        'geo': ("role = 'geologist'", 'геологийн'),
+        'dp':  ("role = 'bayjuulach'", 'баяжуулахын'),
+        'all': ('1=1', ''),
+    }
+    if group not in GROUPS:
+        group = 'all'
+    where_role, label = GROUPS[group]
+
     new_active = 0 if action == 'rest' else 1
     conn = get_db()
     # Өөрийгөө, админ болон ажлаас гарсан хүнийг хөндөхгүй.
     # Амраах нь is_dismissed-д хүрэхгүй тул архивт ОРОХГҮЙ — зөвхөн
     # ажилтны хуудсанд идэвхгүй болж харагдана.
     me = session.get('user_id', 0)
-    conn.execute(
-        """UPDATE users SET is_active=? WHERE shift=? AND role != 'admin'
-           AND id != ? AND is_dismissed=0""",
+    cur = conn.execute(
+        f"""UPDATE users SET is_active=? WHERE shift=? AND role != 'admin'
+            AND id != ? AND is_dismissed=0 AND {where_role}""",
         (new_active, shift, me))
+    n = cur.rowcount
     conn.commit()
     conn.close()
+    who = f'{shift} ээлжийн {label}'.strip()
     if action == 'rest':
-        flash(f'{shift} ээлж амрав (идэвхгүй болголоо).', 'success')
+        flash(f'{who} {n} хүн амрав (идэвхгүй болголоо).', 'success')
     else:
-        flash(f'{shift} ээлж ажилд орлоо (идэвхжүүлэв).', 'success')
+        flash(f'{who} {n} хүн ажилд орлоо (идэвхжүүлэв).', 'success')
     return redirect(url_for('staff_list'))
 
 @app.route('/staff/<int:uid>/activate', methods=['POST'])
