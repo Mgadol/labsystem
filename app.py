@@ -19,6 +19,12 @@ from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
+# ── ХУВИЛБАР ──────────────────────────────────────────────────
+# Тохиргоо хуудсанд харагдана. Өөр лабораторид алдаа гарахад "ямар
+# хувилбар ажиллаж байна вэ" гэдгийг хариулах, шинэчлэлт үнэхээр
+# буусан эсэхийг батлах боломжтой болгоно.
+VERSION = '1.0.0'
+
 # ── SECRET KEY: instance/-д хадгалагдана, автоматаар үүснэ ────
 _KEY_FILE = os.path.join(os.path.dirname(__file__), 'instance', 'secret_key')
 os.makedirs(os.path.dirname(_KEY_FILE), exist_ok=True)
@@ -5558,7 +5564,8 @@ def save_settings(data):
 
 @app.context_processor
 def inject_settings():
-    return dict(settings=get_settings(), weak_admin=WEAK_ADMIN_PASSWORD)
+    return dict(settings=get_settings(), weak_admin=WEAK_ADMIN_PASSWORD,
+                app_version=VERSION)
 
 
 # Хуучин суулгацуудад анхдагч 'admin123' хэвээр үлдсэн байж болно.
