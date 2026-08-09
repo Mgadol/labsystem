@@ -2528,6 +2528,25 @@ OP_HAS_VALUE = {op: ' OR '.join(f'{f} IS NOT NULL' for f in fields)
 
 
 # ── DB MIGRATION (called once at startup) ───────────────
+# ── Шилжилтийн алдааны бүртгэл ──────────────────────────────────────────
+# ensure_tables доторх ALTER TABLE / CREATE TABLE нь хоёр дахь удаагаа
+# ажиллахад "duplicate column name" гэж унах нь ХЭВИЙН — тэр нь багана
+# аль хэдийн нэмэгдсэн гэсэн үг. Харин бусад алдаа нь шинэчлэлт дутуу
+# хэрэгжсэн гэсэн үг: програм асна, гэхдээ хэдэн өдрийн дараа тэр багана
+# хэрэгтэй болоход л алдаа гарна. Тиймээс чимээгүй өнгөрөх ёсгүй.
+MIGRATION_WARNINGS = []
+MIGRATIONS_COMPLETED = False
+_MIG_EXPECTED = ('duplicate column name', 'already exists')
+
+
+def _mig_warn(exc):
+    msg = str(exc)
+    if any(t in msg.lower() for t in _MIG_EXPECTED):
+        return                      # хэвийн — багана/хүснэгт аль хэдийн байна
+    MIGRATION_WARNINGS.append(msg)
+    app.logger.warning('Шилжилт амжилтгүй: %s', msg)
+
+
 def ensure_tables():
     conn = get_db()
     # Багана нь models.py-ийн тодорхойлолттой ижил байх ёстой — DB-г models.py
@@ -2582,7 +2601,7 @@ def ensure_tables():
                 'aad_cert REAL', 'aad_unc REAL', 'vad_cert REAL', 'vad_unc REAL',
                 'sulfur_cert REAL', 'sulfur_unc REAL', 'cal_cert REAL', 'cal_unc REAL']:
         try: conn.execute(f"ALTER TABLE crm_materials ADD COLUMN {col}")
-        except Exception: pass
+        except Exception as _e: _mig_warn(_e)
     # crm_g — G индексийн батлагдсан утга. Урьд нь crm_materials-д g_cert байсан
     # ч дээж бүртгэх үед хуулагддаггүй тул зөвхөн G хэмждэг CRM (ж: GBW12023c)
     # дээр харьцуулах зүйлгүй болж, хүснэгт хоосон гардаг байв.
@@ -2591,7 +2610,7 @@ def ensure_tables():
                 'crm_mad_unc REAL','crm_aad_unc REAL',
                 'crm_vad_unc REAL','crm_sulfur_unc REAL','crm_cal_unc REAL','sample_range TEXT']:
         try: conn.execute(f"ALTER TABLE geo_samples ADD COLUMN {col}")
-        except Exception: pass
+        except Exception as _e: _mig_warn(_e)
     # Өмнө нь бүртгэгдсэн CRM дээжид G (ба Mad) батлагдсан утгыг нөхөж дүүргэнэ.
     # Зөвхөн ХООСОН талбарыг дүүргэх тул гараар засварласан утга хөндөгдөхгүй.
     try:
@@ -2611,7 +2630,7 @@ def ensure_tables():
     # Шинжилгээ тус бүрийн гүйцэтгэгч
     for op, _lbl, _f in ANALYSIS_OPS:
         try: conn.execute(f'ALTER TABLE sample_entries ADD COLUMN {op} INTEGER REFERENCES users(id)')
-        except Exception: pass
+        except Exception as _e: _mig_warn(_e)
     # Хуучин бичлэгт гүйцэтгэгч тэмдэглэгдээгүй тул updated_by/done_by-гаар
     # ойролцоогоор нөхнө. Тухайн шинжилгээний жин орсон мөрөнд л бичигдэнэ.
     for op, _lbl, _f in ANALYSIS_OPS:
@@ -2650,10 +2669,10 @@ def ensure_tables():
 
     # Бэлтгэгчийг хэрэглэгчийн ID-гаар бүртгэнэ (нэрээр тоолох найдваргүй)
     try: conn.execute("ALTER TABLE sample_receipt ADD COLUMN prep_by INTEGER REFERENCES users(id)")
-    except Exception: pass
+    except Exception as _e: _mig_warn(_e)
     for col in ['prep_operator TEXT', 'prep_position TEXT', 'prep_devices TEXT']:
         try: conn.execute(f"ALTER TABLE sample_receipt ADD COLUMN {col}")
-        except Exception: pass
+        except Exception as _e: _mig_warn(_e)
     # Төхөөрөмжийн дэлгэрэнгүй паспорт талбарууд
     for col in ['web_link TEXT','method TEXT','max_temp TEXT','particular TEXT',
                 'measuring_time TEXT','measuring_limit TEXT','dimension TEXT','capacity TEXT',
@@ -2663,7 +2682,7 @@ def ensure_tables():
                 'check_enabled INTEGER DEFAULT 1','stage TEXT DEFAULT \'both\'',
                 'check_freq TEXT DEFAULT \'daily\'']:
         try: conn.execute(f"ALTER TABLE devices ADD COLUMN {col}")
-        except Exception: pass
+        except Exception as _e: _mig_warn(_e)
     # Дотоод өдөр тутмын шалгалт (жин г.м.)
     conn.execute("""CREATE TABLE IF NOT EXISTS device_checks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2681,46 +2700,46 @@ def ensure_tables():
     for col in ['calibration_adjusted INTEGER DEFAULT 0',
                 'measured_value2 TEXT', 'standard_value2 TEXT', 'tolerance2 TEXT']:
         try: conn.execute(f"ALTER TABLE device_checks ADD COLUMN {col}")
-        except Exception: pass
+        except Exception as _e: _mig_warn(_e)
     for col in ['check_standard2 TEXT', 'check_tolerance2 TEXT',
                 'check_param1 TEXT', 'check_param2 TEXT',
                 'check_param3 TEXT', 'check_standard3 TEXT', 'check_tolerance3 TEXT',
                 'check_param4 TEXT', 'check_standard4 TEXT', 'check_tolerance4 TEXT',
                 'check_param5 TEXT', 'check_standard5 TEXT', 'check_tolerance5 TEXT']:
         try: conn.execute(f"ALTER TABLE devices ADD COLUMN {col}")
-        except Exception: pass
+        except Exception as _e: _mig_warn(_e)
     for col in ['check_group1 TEXT', 'check_group2 TEXT', 'check_group3 TEXT',
                 'check_group1_cols INTEGER', 'check_group2_cols INTEGER', 'check_group3_cols INTEGER',
                 'check_photo1 TEXT', 'check_photo2 TEXT', 'check_photo3 TEXT', 'check_photo4 TEXT', 'check_photo5 TEXT']:
         try: conn.execute(f"ALTER TABLE devices ADD COLUMN {col}")
-        except Exception: pass
+        except Exception as _e: _mig_warn(_e)
     for col in ['measured_value3 TEXT', 'standard_value3 TEXT', 'tolerance3 TEXT',
                 'measured_value4 TEXT', 'standard_value4 TEXT', 'tolerance4 TEXT',
                 'measured_value5 TEXT', 'standard_value5 TEXT', 'tolerance5 TEXT']:
         try: conn.execute(f"ALTER TABLE device_checks ADD COLUMN {col}")
-        except Exception: pass
+        except Exception as _e: _mig_warn(_e)
     try: conn.execute("ALTER TABLE device_checks ADD COLUMN photo TEXT")
-    except Exception: pass
+    except Exception as _e: _mig_warn(_e)
     try: conn.execute("ALTER TABLE users ADD COLUMN shift TEXT")
-    except Exception: pass
+    except Exception as _e: _mig_warn(_e)
     try: conn.execute("ALTER TABLE users ADD COLUMN can_register INTEGER DEFAULT 0")
-    except Exception: pass
+    except Exception as _e: _mig_warn(_e)
     try: conn.execute("ALTER TABLE users ADD COLUMN can_view_result INTEGER DEFAULT 0")
-    except Exception: pass
+    except Exception as _e: _mig_warn(_e)
     try: conn.execute("ALTER TABLE users ADD COLUMN can_export INTEGER DEFAULT 0")
-    except Exception: pass
+    except Exception as _e: _mig_warn(_e)
     try: conn.execute("ALTER TABLE users ADD COLUMN can_approve INTEGER DEFAULT 0")
-    except Exception: pass
+    except Exception as _e: _mig_warn(_e)
     try: conn.execute("ALTER TABLE users ADD COLUMN can_report INTEGER DEFAULT 0")
-    except Exception: pass
+    except Exception as _e: _mig_warn(_e)
     try: conn.execute("ALTER TABLE users ADD COLUMN can_reopen INTEGER DEFAULT 0")
-    except Exception: pass
+    except Exception as _e: _mig_warn(_e)
     # Устгагдсан ажилтан: бүх жагсаалтаас алга болно, гэхдээ нэр нь хуучин
     # шинжилгээ/тайланд хадгалагдаж үлдэнэ (мөшгих чадвар алдагдахгүй)
     try: conn.execute("ALTER TABLE users ADD COLUMN is_deleted INTEGER DEFAULT 0")
-    except Exception: pass
+    except Exception as _e: _mig_warn(_e)
     try: conn.execute("ALTER TABLE users ADD COLUMN deleted_at TEXT")
-    except Exception: pass
+    except Exception as _e: _mig_warn(_e)
     # Ажлаас гарсан (Гаргах) ба түр амарсан (Амраах) хоёрыг ялгана.
     # Өмнө нь хоёул is_active=0 тавьдаг байсан тул амарсан ажилтан архивт
     # ажлаас гарсантай хамт орж, ажилтны хуудаснаас алга болдог байсан.
@@ -2728,7 +2747,7 @@ def ensure_tables():
     try:
         conn.execute("ALTER TABLE users ADD COLUMN is_dismissed INTEGER DEFAULT 0")
         _new_dismissed = True
-    except Exception: pass
+    except Exception as _e: _mig_warn(_e)
     if _new_dismissed:
         # Хуучин өгөгдлийг ялгах: ээлжгүй + идэвхгүй = ажлаас гарсан,
         # ээлжтэй + идэвхгүй = зүгээр амарсан (ажилтны хуудсанд үлдэнэ)
@@ -2736,7 +2755,7 @@ def ensure_tables():
                         WHERE is_active=0 AND (shift IS NULL OR shift='')""")
     # Геологчийн харах эрхтэй ажлын дугаарын муж (мянгатаар: "1,2,6"). NULL = бүгдийг харах
     try: conn.execute("ALTER TABLE users ADD COLUMN view_ranges TEXT")
-    except Exception: pass
+    except Exception as _e: _mig_warn(_e)
     try: conn.execute("""
         CREATE TABLE IF NOT EXISTS result_view_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2745,7 +2764,7 @@ def ensure_tables():
             viewed_at TEXT DEFAULT (datetime('now','localtime'))
         )
     """)
-    except Exception: pass
+    except Exception as _e: _mig_warn(_e)
     try: conn.execute("""
         CREATE TABLE IF NOT EXISTS check_templates (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2758,7 +2777,7 @@ def ensure_tables():
             created_at TEXT DEFAULT (datetime('now','localtime'))
         )
     """)
-    except Exception: pass
+    except Exception as _e: _mig_warn(_e)
     try: conn.execute("""
         CREATE TABLE IF NOT EXISTS device_calib_checks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2778,7 +2797,7 @@ def ensure_tables():
             created_at TEXT DEFAULT (datetime('now','localtime'))
         )
     """)
-    except Exception: pass
+    except Exception as _e: _mig_warn(_e)
     # ── Төхөөрөмжийн автомат тохиргоо — ЗӨВХӨН НЭГ УДАА ажиллана ──
     # (PRAGMA user_version=1 болсон бол дахин ажиллахгүй — user/гар тохиргоог хадгална)
     if conn.execute("PRAGMA user_version").fetchone()[0] < 1:
@@ -2910,11 +2929,11 @@ def ensure_tables():
     )""")
     # Хуучин мэдээллийн санг шинэчлэх (аль хэдийн байвал алдаа өгөхгүй)
     try: conn.execute("ALTER TABLE internal_qc ADD COLUMN qc_number TEXT")
-    except Exception: pass
+    except Exception as _e: _mig_warn(_e)
     try: conn.execute("ALTER TABLE internal_qc ADD COLUMN row_num_1 INTEGER")
-    except Exception: pass
+    except Exception as _e: _mig_warn(_e)
     try: conn.execute("ALTER TABLE internal_qc ADD COLUMN row_num_2 INTEGER")
-    except Exception: pass
+    except Exception as _e: _mig_warn(_e)
     conn.execute("""CREATE TABLE IF NOT EXISTS internal_qc_results (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         qc_id INTEGER REFERENCES internal_qc(id),
@@ -2928,6 +2947,11 @@ def ensure_tables():
     )""")
     conn.commit()
     conn.close()
+    # Бүх шилжилт эцэс хүртэл ажилласны тэмдэг. ensure_tables доторх зарим
+    # үйлдэл try/except-гүй тул дунд нь унавал үлдсэн нь огт ажиллахгүй —
+    # healthcheck энэ тугаар дутуу шинэчлэлтийг илрүүлнэ.
+    global MIGRATIONS_COMPLETED
+    MIGRATIONS_COMPLETED = True
 
 # ── REPORTS ─────────────────────────────────────────────
 # Дээжийн болон шинжилгээний төрлүүд — тайлангийн бүх хуудас нэг эх сурвалжаас
