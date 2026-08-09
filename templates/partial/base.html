@@ -160,6 +160,15 @@ textarea.form-input{resize:vertical;min-height:80px}
 </div>
 {% endif %}
 <main>
+{% if weak_admin and session.get('role') == 'admin' %}
+<div style="max-width:1200px;margin:12px auto 0;padding:0 16px">
+  <div class="alert alert-error">
+    <b>Аюулгүй байдал:</b> админы нууц үг анхдагч <code>admin123</code> хэвээр байна.
+    Энэ нууц үг олон нийтэд мэдэгдсэн тул хэн ч системд нэвтрэх боломжтой.
+    <a href="{{ url_for('lab_settings') }}?tab=profile" style="font-weight:600">Одоо солих</a>
+  </div>
+</div>
+{% endif %}
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% for cat, msg in messages %}
   <div style="max-width:1200px;margin:12px auto 0;padding:0 16px">

@@ -104,13 +104,32 @@ def init_db():
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
     ''')
-    # Default admin
+    # Анхны админ — суулгац бүрт САНАМСАРГҮЙ нууц үг.
+    # Урьд нь бүх суулгацад ижил 'admin123' байсан тул нэгийг нь мэдсэн
+    # хүн бусад бүх лабораторийн системд нэвтрэх боломжтой байв.
     cur = conn.execute("SELECT id FROM users WHERE employee_id='ADMIN'")
     if not cur.fetchone():
-        pw = generate_password_hash('admin123')
-        conn.execute("INSERT INTO users(employee_id,name,role,password_hash) VALUES('ADMIN','Систем Админ','admin',?)",(pw,))
+        import secrets, string
+        alphabet = string.ascii_letters + string.digits
+        plain = ''.join(secrets.choice(alphabet) for _ in range(14))
+        conn.execute("INSERT INTO users(employee_id,name,role,password_hash) VALUES('ADMIN','Систем Админ','admin',?)",
+                     (generate_password_hash(plain),))
         conn.execute("INSERT INTO device_marks(manufacturer,model,category) VALUES('Shimadzu','AUW220D','Жин хэмжих')")
-        print("✓ DB initialized — ADMIN / admin123")
+        # Консол дээр хэвлээд, файлд бас үлдээнэ (instance/ нь gitignore-т).
+        pw_file = os.path.join(os.path.dirname(DB_PATH), 'ADMIN_PASSWORD.txt')
+        try:
+            with open(pw_file, 'w', encoding='utf-8') as f:
+                f.write(f'ADMIN / {plain}\n\nЭхний нэвтрэлтийн дараа нууц үгээ '
+                        f'солиод энэ файлыг устгана уу.\n')
+        except OSError:
+            pw_file = '(файл бичиж чадсангүй)'
+        print('=' * 62)
+        print('  ✓ Мэдээллийн сан үүслээ')
+        print(f'  Нэвтрэх нэр : ADMIN')
+        print(f'  Нууц үг     : {plain}')
+        print(f'  Мөн эндээс  : {pw_file}')
+        print('  Эхний нэвтрэлтийн дараа нууц үгээ ЗААВАЛ солино уу.')
+        print('=' * 62)
     conn.commit()
     conn.close()
 

@@ -2059,6 +2059,7 @@ def staff_edit(uid):
             else:
                 conn.execute("UPDATE users SET password_hash=? WHERE id=?", (hash_password(new_pw), uid))
                 conn.commit()
+                _check_weak_admin()
                 flash('Нууц үг шинэчлэгдлээ!' if lang=='mn' else 'Password reset!', 'success')
         conn.close()
         return redirect(url_for('staff_edit', uid=uid))
@@ -2104,6 +2105,7 @@ def profile():
                 conn.execute("UPDATE users SET password_hash=? WHERE id=?",
                            (hash_password(new_pw), uid))
                 conn.commit()
+                _check_weak_admin()
                 flash('Нууц үг амжилттай солигдлоо!' if lang=='mn' else 'Password changed!', 'success')
         conn.close()
         return redirect(url_for('profile'))
@@ -5532,7 +5534,27 @@ def save_settings(data):
 
 @app.context_processor
 def inject_settings():
-    return dict(settings=get_settings())
+    return dict(settings=get_settings(), weak_admin=WEAK_ADMIN_PASSWORD)
+
+
+# Хуучин суулгацуудад анхдагч 'admin123' хэвээр үлдсэн байж болно.
+# Эхлэхэд нэг удаа шалгаад, админд анхааруулга харуулна.
+WEAK_ADMIN_PASSWORD = False
+
+
+def _check_weak_admin():
+    global WEAK_ADMIN_PASSWORD
+    try:
+        conn = get_db()
+        rows = conn.execute(
+            "SELECT password_hash FROM users WHERE role='admin' AND is_active=1").fetchall()
+        conn.close()
+        WEAK_ADMIN_PASSWORD = any(
+            check_password(r['password_hash'], 'admin123') for r in rows)
+        if WEAK_ADMIN_PASSWORD:
+            app.logger.warning('Админы нууц үг анхдагч admin123 хэвээр байна!')
+    except Exception:
+        app.logger.exception('Нууц үгийн шалгалт амжилтгүй')
 
 @app.route('/lab-settings', methods=['GET','POST'])
 @admin_required
@@ -5602,6 +5624,7 @@ def lab_settings():
                 conn.execute("UPDATE users SET password_hash=? WHERE id=?",
                            (hash_password(new_pw), session['user_id']))
                 conn.commit()
+                _check_weak_admin()
                 flash('Нууц үг амжилттай солигдлоо!', 'success')
 
         conn.close()
@@ -6183,6 +6206,7 @@ def _startup():
     from models import init_analysis_db
     init_analysis_db()
     ensure_tables()
+    _check_weak_admin()
     # Өдөр тутмын автомат нөөцлөлт — процессын хажуугаар байнга ажиллана
     import threading
     threading.Thread(target=_backup_daily_loop, daemon=True,
