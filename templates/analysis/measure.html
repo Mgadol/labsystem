@@ -31,6 +31,10 @@
 
 /* Тооцоо */
 .calc-cell{font-weight:600;font-family:monospace;color:#1a2744;background:#e8faf4!important}
+/* Хасах тооцоо — чийг, үнслэг, дэгдэмхий, ТН зэрэг хувь хэмжигдэхүүн 0-ээс
+   бага гарах боломжгүй. Гарсан бол жин буруу орсон тул улаанаар анхааруулна.
+   QC-ийн шар/ногоон/улаан өнгө болон inline өнгийг дарахын тулд !important. */
+.calc-cell.neg{color:#dc2626!important}
 /* Дундаж (үндсэн мөр) / зөрүү (зэрэгцээ мөр) харуулах багана */
 .cmid{background:#cfeee2!important;color:#0a4f3c}
 .qc-avg-ok{color:#0a6e3f!important}
@@ -600,6 +604,17 @@ function setC(id,v,d){var e=document.getElementById(id);
   if(!e) return;
   e.textContent=v!=null?v.toFixed(d):'—';
   qcClass(e,null); e.style.color=''; e.style.fontStyle='';
+  markNeg(e);
+}
+// Тооцоо хасах гарвал улаанаар тэмдэглэнэ. Эдгээр үзүүлэлт хувиар илэрхийлэгдэх
+// тул 0-ээс бага байх боломжгүй — гарлаа гэдэг нь жин буруу/дутуу гэсэн үг.
+function markNeg(e){
+  if(!e) return;
+  var v=parseFloat(e.textContent);
+  var bad=!isNaN(v)&&v<0;
+  e.classList.toggle('neg',bad);
+  if(bad) e.title='Хасах утга — энэ үзүүлэлт 0-ээс бага байх боломжгүй. '
+                 +'Хэмжилтийн жинг шалгана уу.';
 }
 function calcQC(ri){
   calc(ri,0);
@@ -622,7 +637,7 @@ function checkQC(ri){
     // Дундаж/зөрүүний нүдийг цэвэрлэх туслах
     function clr(dp){
       var e=document.getElementById('r'+idFor(ri,dp)+'_'+p+'m');
-      if(e){e.textContent='—';qcClass(e,null);e.style.color='';e.title='';}
+      if(e){e.textContent='—';qcClass(e,null);e.style.color='';e.title='';markNeg(e);}
     }
     if(!res||res.n<2){ dups.forEach(clr); clr(1); return; }
     // Харагдаж буй нарийвчлалаар харьцуулна (хоёртын бутархайн алдаанаас сэргийлнэ)
@@ -639,6 +654,7 @@ function checkQC(ri){
       qcClass(el,used?'qc-used':null);
       el.style.color='';
       el.title=own==null?'':(used?'Дундажид орсон':'Дундажид ороогүй');
+      markNeg(el);
     });
 
     // ── Дундаж — ҮНДСЭН мөрөнд (зэрэгцээг хаасан ч харагдана) ──
@@ -650,6 +666,7 @@ function checkQC(ri){
       mel.title=res.n+' хэмжилтийн дундаж — '
                +res.all.map(function(x){return x.v.toFixed(d);}).join(' / ')
                +'  →  зөрүү '+shown.toFixed(d)+(tol!=null?('  /  хүлцэл '+tol):'');
+      markNeg(mel);
     }
     // ── Зөрүү — ЗЭРЭГЦЭЭ мөрөнд ──
     var del=document.getElementById('r'+idFor(ri,1)+'_'+p+'m');

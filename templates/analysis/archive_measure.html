@@ -17,6 +17,9 @@
 .gs{border-left:2.5px double #888!important}
 .ge{border-right:2.5px double #888!important}
 .calc-cell{font-weight:600;font-family:monospace;color:#0a6e3f;background:#e8faf4!important}
+/* Хасах тооцоо — хувь хэмжигдэхүүн 0-ээс бага гарах боломжгүй тул улаанаар
+   анхааруулна (мөрийн inline өнгийг дарахын тулд !important). */
+.calc-cell.neg{color:#dc2626!important}
 .val{font-family:monospace;font-size:11px}
 .cg-ff.hide,.cg-mt.hide,.cg-dc.hide,.cg-un.hide,
 .cg-db.hide,.cg-gi.hide,.cg-st.hide,.cg-il.hide,.cg-fsi.hide{display:none}
@@ -237,6 +240,16 @@
 {% endblock %}
 {% block scripts %}
 <script>
+// Хасах тооцоо гарсан бол улаанаар тэмдэглэнэ — Mad, Aad, Vad, ТН зэрэг
+// хувь хэмжигдэхүүн 0-ээс бага байх боломжгүй тул жин буруу орсон гэсэн үг.
+document.querySelectorAll('td.calc-cell').forEach(function(td){
+  var v = parseFloat((td.textContent || '').trim());
+  if(!isNaN(v) && v < 0){
+    td.classList.add('neg');
+    td.title = 'Хасах утга — энэ үзүүлэлт 0-ээс бага байх боломжгүй. '
+             + 'Хэмжилтийн жинг шалгана уу.';
+  }
+});
 function toggleG(cb, g){
   document.querySelectorAll('.cg-'+g).forEach(function(el){
     if(cb.checked) el.classList.remove('hide');

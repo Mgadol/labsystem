@@ -12,6 +12,9 @@
 .result-table tbody tr:hover td{background:#eef3ff!important}
 .val{font-family:monospace;font-weight:600;color:#1a2744}
 .val-empty{color:#ccc;font-style:italic;font-size:11px}
+/* Хасах утга — Mad, Aad, Vad, FC зэрэг хувь хэмжигдэхүүн 0-оос бага гарах
+   боломжгүй. Гарсан бол жин буруу орсон гэсэн үг тул улаанаар анхааруулна. */
+.val.neg{color:#dc2626;background:#fdf4f1;border-radius:3px}
 .val-prelim{color:#854f0b;font-family:monospace;font-weight:600}
 .st-empty{color:#ccc;font-size:11px}
 .st-progress{color:#185fa5;font-size:11px}
@@ -378,6 +381,22 @@
 {% endif %}
 {% endblock %}
 {% block scripts %}
+<script>
+// Үр дүн дээр ХАСАХ утга гарвал улаанаар тэмдэглэнэ. Чийг, үнслэг,
+// дэгдэмхий, тогтмол нүүрстөрөгч бол хувь тул сөрөг байх боломжгүй —
+// гарсан бол жин буруу орсон эсвэл дутуу гэсэн үг.
+// CRM хүснэгтийн "зөрүү" багана .val анги хэрэглэдэггүй тул хөндөгдөхгүй
+// (тэнд хасах утга хэвийн).
+document.querySelectorAll('td.val').forEach(function(td){
+  var v = parseFloat((td.textContent || '').trim());
+  if(!isNaN(v) && v < 0){
+    td.classList.add('neg');
+    td.title = 'Хасах утга — энэ үзүүлэлт 0-ээс бага байх боломжгүй. '
+             + 'Хэмжилтийн жинг шалгана уу.';
+  }
+});
+</script>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script>
 var CD=[{% for e in entries if e and e['is_duplicate']==0 and e['aad'] is not none %}{a:{{e['aad']}},q:{{(e['cal_value']/4.1868)|round(1) if e['cal_value'] else 'null'}},v:{{e['vad'] if e['vad'] is not none else 'null'}},s:{{e['sulfur'] if e['sulfur'] is not none else 'null'}},n:{{e['sample_name']|tojson}}},{% endfor %}];

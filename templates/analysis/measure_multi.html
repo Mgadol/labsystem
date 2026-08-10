@@ -21,6 +21,10 @@
 .gs{border-left:2.5px double #888!important}
 .ge{border-right:2.5px double #888!important}
 .calc-cell{font-weight:600;font-family:monospace;color:#0a6e3f;background:#e8faf4!important}
+/* Хасах тооцоо — чийг, үнслэг, дэгдэмхий, ТН зэрэг хувь хэмжигдэхүүн 0-ээс
+   бага гарах боломжгүй. Гарсан бол жин буруу орсон тул улаанаар анхааруулна.
+   QC-ийн шар/ногоон/улаан өнгө болон inline өнгийг дарахын тулд !important. */
+.calc-cell.neg{color:#dc2626!important}
 /* Дундаж (үндсэн мөр) / зөрүү (зэрэгцээ мөр) харуулах багана */
 .cmid{background:#cfeee2!important;color:#0a4f3c}
 .qc-ok{background:#bbf7d0!important;color:#065f46}
@@ -589,6 +593,17 @@ function setC(id,v,d){var e=document.getElementById(id);
   if(!e) return;
   e.textContent=v!=null?v.toFixed(d):'—';
   qcClass(e,null); e.style.color=''; e.style.fontStyle='';
+  markNeg(e);
+}
+// Тооцоо хасах гарвал улаанаар тэмдэглэнэ. Эдгээр үзүүлэлт хувиар илэрхийлэгдэх
+// тул 0-ээс бага байх боломжгүй — гарлаа гэдэг нь жин буруу/дутуу гэсэн үг.
+function markNeg(e){
+  if(!e) return;
+  var v=parseFloat(e.textContent);
+  var bad=!isNaN(v)&&v<0;
+  e.classList.toggle('neg',bad);
+  if(bad) e.title='Хасах утга — энэ үзүүлэлт 0-ээс бага байх боломжгүй. '
+                 +'Хэмжилтийн жинг шалгана уу.';
 }
 function checkQC(uid,rid,ri){
   var qcMap={mad:QC.mad,aad:QC.aad,vad:QC.vad,sad:QC.sad,qb:QC.qb,g:QC.g,fsi:QC.fsi};
@@ -602,7 +617,7 @@ function checkQC(uid,rid,ri){
     // Дундаж/зөрүүний нүдийг цэвэрлэх туслах
     function clr(dp){
       var e=document.getElementById('r'+idFor(uid,dp)+'_'+p+'m');
-      if(e){e.textContent='—';qcClass(e,null);e.style.color='';e.title='';}
+      if(e){e.textContent='—';qcClass(e,null);e.style.color='';e.title='';markNeg(e);}
     }
     if(!res||res.n<2){ dups.forEach(clr); clr(1); return; }
     // Харагдаж буй нарийвчлалаар харьцуулна (хоёртын бутархайн алдаанаас сэргийлнэ)
@@ -619,6 +634,7 @@ function checkQC(uid,rid,ri){
       qcClass(el,used?'qc-used':null);
       el.style.color='';
       el.title=own==null?'':(used?'Дундажид орсон':'Дундажид ороогүй');
+      markNeg(el);
     });
 
     // ── Дундаж — ҮНДСЭН мөрөнд (зэрэгцээг хаасан ч харагдана) ──
@@ -630,6 +646,7 @@ function checkQC(uid,rid,ri){
       mel.title=res.n+' хэмжилтийн дундаж — '
                +res.all.map(function(x){return x.v.toFixed(d);}).join(' / ')
                +'  →  зөрүү '+shown.toFixed(d)+(tol!=null?('  /  хүлцэл '+tol):'');
+      markNeg(mel);
     }
     // ── Зөрүү — ЗЭРЭГЦЭЭ мөрөнд ──
     var del=document.getElementById('r'+idFor(uid,1)+'_'+p+'m');
