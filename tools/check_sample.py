@@ -16,6 +16,16 @@ DB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
 G_COLS = ['g_tig', 'g_tare', 'g_coke', 'g_sieve1', 'g_sieve2', 'g_val']
 CALC = ['mad', 'aad', 'vad', 'fc']
 
+# Шинжилгээний бүлэг тус бүрийн түүхий жин — аль нүд хоосон байгааг харуулна
+GROUPS = [
+    ('Чөлөөт чийг', ['ff_sample', 'ff_dried']),
+    ('Нийт чийг',   ['mt_bux', 'mt_tare', 'mt_sample', 'mt_dried']),
+    ('Дотоод чийг', ['dc_bux', 'dc_tare', 'dc_sample', 'dc_dried']),
+    ('Үнслэг',      ['ash_tav', 'ash_tare', 'ash_sample', 'ash_burned']),
+    ('Дэгдэмхий',   ['vol_tig', 'vol_tare', 'vol_sample', 'vol_burned']),
+    ('Бусад',       ['sulfur', 'cal_value', 'cal_temp', 'fsi']),
+]
+
 
 def g_from_weights(r):
     """G = 10 + (30×(m3−m1) + 70×(m4−m1)) / (m2−m1)"""
@@ -30,6 +40,40 @@ def g_from_weights(r):
 
 def label(d):
     return 'үндсэн' if d == 0 else 'зэрэгцээ' if d == 1 else f'давталт {d}'
+
+
+def names_to_rows(conn, rec, name):
+    """Дээжийн нэрээс мөрийн дугаарыг олно — geo_samples-ийн нэрээр.
+
+    sample_entries.sample_name олонтаа хоосон байдаг тул зөвхөн түүгээр
+    хайвал олдохгүй. Программ нь дэлгэцэнд нэрийг geo_samples.sample_name-ээс
+    гаргадаг: ";"-ээр тусгаарласан жагсаалт, эсвэл "ROCK-1 - ROCK-30" муж.
+    """
+    import re
+    g = conn.execute('SELECT sample_name, quantity FROM geo_samples WHERE id=?',
+                     (rec['geo_sample_id'],)).fetchone()
+    if not g or not g['sample_name']:
+        return []
+    raw = g['sample_name'].strip()
+    qty = g['quantity'] or 0
+    target = name.strip().lower()
+
+    if ';' in raw:
+        parts = [p.strip() for p in raw.split(';') if p.strip()]
+        return [i + 1 for i, p in enumerate(parts) if p.lower() == target]
+
+    m = re.match(r'^(.*?)(\d+)\s*[-–]\s*(\d+)\s*$', raw)      # "ROCK-1 - ROCK-30"
+    if m:
+        pre, a = m.group(1), int(m.group(2))
+        return [i + 1 for i in range(qty) if f'{pre}{a + i}'.lower() == target]
+
+    m = re.match(r'^(.*?)(\d+)$', raw)                        # "ROCK-1" → 1,2,3…
+    if m:
+        pre, a = m.group(1), int(m.group(2))
+        return [i + 1 for i in range(qty) if f'{pre}{a + i}'.lower() == target]
+
+    return [i + 1 for i in range(qty)
+            if (raw if qty <= 1 else f'{raw}-{i + 1}').lower() == target]
 
 
 def main():
@@ -59,7 +103,14 @@ def main():
             'SELECT DISTINCT row_num FROM sample_entries '
             'WHERE receipt_id=? AND sample_name=?', (rec['id'], name))]
         if not nums:
+            # sample_entries.sample_name олон бичлэгт хоосон байдаг — дэлгэц дээрх
+            # нэр нь geo_samples.sample_name дахь ";"-ээр тусгаарласан жагсаалт
+            # эсвэл "ROCK-1 - ROCK-30" мужаас гардаг. Программтай ижил аргаар нөхнө.
+            nums = names_to_rows(conn, rec, name)
+        if not nums:
             print(f'✗ {lab_number} дотор "{name}" нэртэй мөр олдсонгүй.')
+            print('  Бүх мөрийг харах бол нэргүйгээр ажиллуулна уу:')
+            print(f'    {sys.argv[0]} {lab_number}')
             conn.close()
             return
         q += ' AND row_num IN (%s)' % ','.join('?' * len(nums))
@@ -81,6 +132,15 @@ def main():
         gw = g_from_weights(r)
         gv = r['g_val'] if 'g_val' in have else None
         print(f'  ── {label(r["is_duplicate"])}  [{r["row_status"]}]')
+        # Бүх шинжилгээний түүхий жин — аль нүд хоосон байгааг шууд харуулна
+        for lbl, cols in GROUPS:
+            cols = [c for c in cols if c in have]
+            if not cols or all(r[c] is None for c in cols):
+                continue
+            gaps = [c for c in cols if r[c] is None]
+            line = '  '.join(f'{c}={"—" if r[c] is None else r[c]}' for c in cols)
+            mark = f'   ⚠ дутуу: {", ".join(gaps)}' if gaps else ''
+            print(f'      {lbl:12}: {line}{mark}')
         print('      G жин  : ' + '  '.join(
             f'{c}={r[c]}' for c in G_COLS if c in have and c != 'g_val'))
         print(f'      G жингээс бодогдох : '
