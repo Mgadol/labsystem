@@ -331,8 +331,10 @@ document.querySelectorAll('td.val').forEach(function(td){
   var v = parseFloat((td.textContent || '').trim());
   if(!isNaN(v) && v < 0){
     td.classList.add('neg');
-    td.title = 'Хасах утга — энэ үзүүлэлт 0-ээс бага байх боломжгүй. '
-             + 'Хэмжилтийн жинг шалгана уу.';
+    // Илчлэгийн нүд гэх мэт өмнөх тайлбартай нүдийг дарахгүй, доор нь нэмнэ
+    var w = '⚠ Хасах утга — энэ үзүүлэлт 0-ээс бага байх боломжгүй. '
+          + 'Хэмжилтийн жинг шалгана уу.';
+    td.title = td.title ? td.title + '\n' + w : w;
   }
 });
 </script>

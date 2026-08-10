@@ -608,13 +608,17 @@ function setC(id,v,d){var e=document.getElementById(id);
 }
 // Тооцоо хасах гарвал улаанаар тэмдэглэнэ. Эдгээр үзүүлэлт хувиар илэрхийлэгдэх
 // тул 0-ээс бага байх боломжгүй — гарлаа гэдэг нь жин буруу/дутуу гэсэн үг.
+// QC-ийн тайлбарыг (дундажид орсон эсэх, хүлцэл г.м) ДАРАХГҮЙ — доор нь
+// нэмж бичнэ. Дахин дуудагдахад давхарлахгүйн тулд эхлээд өөрийн мөрөө хасна.
+var NEG_MSG='⚠ Хасах утга — энэ үзүүлэлт 0-ээс бага байх боломжгүй. '
+           +'Хэмжилтийн жинг шалгана уу.';
 function markNeg(e){
   if(!e) return;
   var v=parseFloat(e.textContent);
   var bad=!isNaN(v)&&v<0;
   e.classList.toggle('neg',bad);
-  if(bad) e.title='Хасах утга — энэ үзүүлэлт 0-ээс бага байх боломжгүй. '
-                 +'Хэмжилтийн жинг шалгана уу.';
+  var t=(e.title||'').split(NEG_MSG).join('').trim();
+  e.title=bad?(t?t+'\n'+NEG_MSG:NEG_MSG):t;
 }
 function calcQC(ri){
   calc(ri,0);
