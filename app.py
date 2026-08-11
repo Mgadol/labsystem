@@ -1893,6 +1893,7 @@ def archive_measure(receipt_id):
     receipt = conn.execute("""
         SELECT sr.*, g.sample_name, g.sample_type, g.location, g.quantity,
                g.collected_date,
+               g.notes as geo_notes,
                ug.name as geo_name,
                COALESCE(upb.name, up.name, sr.prep_operator) as prep_name
         FROM sample_receipt sr
@@ -4403,6 +4404,7 @@ def analysis_measure(receipt_id):
     receipt = conn.execute("""
         SELECT sr.*, g.sample_name, g.sample_type, g.location,
                g.collected_date, g.quantity,
+               g.notes as geo_notes,
                ug.name as geo_name,
                up.name as prep_name
         FROM sample_receipt sr
@@ -5554,6 +5556,7 @@ def analysis_measure_multi():
         r = conn.execute("""
             SELECT sr.*, g.sample_name, g.sample_type, g.location,
                    g.collected_date, g.quantity,
+                   g.notes as geo_notes,
                    ug.name as geo_name, up.name as prep_name
             FROM sample_receipt sr
             JOIN geo_samples g ON g.id=sr.geo_sample_id

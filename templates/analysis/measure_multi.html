@@ -51,6 +51,16 @@
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 .cg-ff.hide,.cg-mt.hide,.cg-dc.hide,.cg-un.hide,.cg-db.hide,.cg-gi.hide,.cg-st.hide,.cg-il.hide,.cg-fsi.hide{display:none}
 .calc-col.hide,.calc-cell.hide{display:none}
+/* Тэмдэглэлийн зурвас — геологич/хүлээн авагч/бэлтгэгчийн бичсэн тэмдэглэл.
+   Хар хөх мэдээллийн баарын дор шар зурвасаар гарч, анхаарал татна. */
+.note-bar{padding:6px 14px;background:#fef3c7;border-bottom:1px solid #fcd34d;
+          display:flex;flex-direction:column;gap:3px}
+.note-line{display:flex;gap:8px;align-items:baseline;font-size:12px;color:#713f12;
+           white-space:normal}
+.note-tag{flex:0 0 auto;font-weight:600;color:#92400e;font-size:11px}
+.note-txt{flex:1 1 auto;word-break:break-word}
+.note-job{font-family:monospace;font-weight:700;font-size:11px;color:#92400e;
+         letter-spacing:.02em}
 .col-bar{padding:5px 14px;background:#1a3a2a;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 .col-bar label{display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:#a8d4b8;user-select:none}
 </style>
@@ -84,6 +94,8 @@
     <span id="saveStatus" style="font-size:11px;color:#93a8d4">Хадгалагдсан</span>
   </div>
 </div>
+
+{% for r in receipts %}{% with receipt=r, note_job=r['lab_number'] %}{% include 'partial/notes_bar.html' %}{% endwith %}{% endfor %}
 
 <!-- Checkbox баар -->
 <div class="col-bar">

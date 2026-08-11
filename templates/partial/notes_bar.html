@@ -1,0 +1,30 @@
+{# Тэмдэглэлийн зурвас — геологич, хүлээн авагч, дээж бэлтгэгчийн бичсэн тэмдэглэл.
+
+   Эдгээр нь DB-д хадгалагддаг ч урьд нь ямар ч хуудсанд гардаггүй байв.
+   Тэмдэглэл гэдэг ажил хийхээс ӨМНӨ хүрч байж утгатай тул хэмжилтийн
+   хуудасны дээд талд, хүснэгтийн яг дээр гаргана.
+
+   Хэрэглээ: контекстэд "receipt" байвал шууд include хийнэ. Олон ажилтай
+   хуудсанд "with receipt=r, note_job=r.lab_number" гэж дамжуулна
+   (note_job өгвөл мөр бүрд ажлын дугаар нь хамт гарна).
+   ! Jinja-гийн тайлбар үүрлэдэггүй тул энэ тайлбар дотор өөр тайлбарын
+     хаалт бичиж болохгүй — эрт тасарч, доорх код нь ил гарна.
+
+   Нэг ч тэмдэглэл байхгүй бол юу ч харагдахгүй.
+   geo_notes багана байхгүй хуучин DB дээр Jinja нь Undefined буцаах тул
+   алдаа өгөхгүй, зүгээр л харагдахгүй. #}
+{% set _n = [] %}
+{% if receipt['geo_notes'] %}{% set _ = _n.append(('Геологич' ~ (' · ' ~ receipt['geo_name'] if receipt['geo_name'] else ''), receipt['geo_notes'])) %}{% endif %}
+{% if receipt['notes'] %}{% set _ = _n.append(('Хүлээн авахад', receipt['notes'])) %}{% endif %}
+{% if receipt['prep_notes'] %}{% set _ = _n.append(('Дээж бэлтгэл', receipt['prep_notes'])) %}{% endif %}
+{% if _n %}
+<div class="note-bar">
+  {% if note_job %}<div class="note-job">{{ note_job }}</div>{% endif %}
+  {% for who, txt in _n %}
+  <div class="note-line">
+    <span class="note-tag">📝 {{ who }}</span>
+    <span class="note-txt">{{ txt }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
