@@ -247,9 +247,13 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
               class="btn btn-ghost btn-sm" title="Нэр/дугаар засах" style="padding:3px 8px">✏️</button>
             {# Буруу бүртгэсэн ажлыг жагсаалтаас шууд устгах. Хэмжилтийн утга
                орсон бол сервер зөвшөөрөхгүй — санамсаргүй устгалаас сэргийлнэ. #}
+            {# Нэрийг data- атрибутаар дамжуулна. |tojson нь давхар хашилттай
+               гарч, onclick="..." атрибутыг дундуур нь таслаад товчийг
+               ажиллахгүй болгодог (openSampleEdit-тэй ижил арга). #}
             <button type="button" class="btn btn-ghost btn-sm" title="Бүртгэлийг устгах"
               style="padding:3px 8px;color:#993c1d"
-              onclick="delSample({{ s['id'] }}, {{ s['sample_name']|tojson }}, {{ (s['lab_number'] or '')|tojson }})">🗑</button>
+              data-name="{{ s['sample_name']|e }}" data-lab="{{ s['lab_number'] or '' }}"
+              onclick="delSample({{ s['id'] }}, this)">🗑</button>
             {% endif %}
             {% set role = current_user['role'] %}
 
@@ -421,7 +425,9 @@ function openSampleEdit(geoId, btn){
 function closeSampleEdit(){ document.getElementById('sampleEditModal').style.display='none'; }
 // Буруу бүртгэсэн ажлыг устгана. Устгахын өмнө сервер нөөц авах ба хэмжилтийн
 // утга орсон байвал зөвшөөрөхгүй тул энд зөвхөн батламж асууна.
-function delSample(geoId, name, lab){
+function delSample(geoId, btn){
+  var name = btn.dataset.name || '';
+  var lab  = btn.dataset.lab || '';
   var what = '«' + name + '»' + (lab ? ' (' + lab + ')' : '');
   if(!confirm('Дараах бүртгэлийг УСТГАХ уу?\n\n' + what
      + '\n\nБуцаах боломжгүй. Хэмжилтийн утга орсон бол устгахгүй.')) return;

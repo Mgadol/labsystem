@@ -471,9 +471,21 @@ def dashboard():
                 range_label = ', '.join(f'{t}000 {names.get(t, "")}'.strip() for t in sorted(thousands))
             else:
                 range_label = 'муж тохируулаагүй'
+            # ── Миний бүртгэсэн, хараахан дуусаагүй дээж ──
+            # Дээрх жагсаалт нь ЗӨВХӨН дууссан ажлыг харуулдаг тул дөнгөж
+            # бүртгэсэн дээж нүүр хуудсанд огт гардаггүй байв: геологич
+            # өөрийн бичсэн нэрээ шалгах, засах газаргүй байсан.
+            mine = conn.execute("""
+                SELECT g.*, sr.id AS receipt_id, sr.lab_number, sr.received_date
+                  FROM geo_samples g
+                  LEFT JOIN sample_receipt sr ON sr.geo_sample_id = g.id
+                 WHERE g.registered_by = ? AND COALESCE(g.status,'pending') <> 'done'
+                 ORDER BY g.created_at DESC, g.id DESC LIMIT 50
+            """, (uid,)).fetchall()
             conn.close()
             return render_template('staff/dashboard_client.html',
                 user=user, samples=samples, lang=lang, range_label=range_label,
+                mine=mine,
                 role_label=('Баяжуулах цех' if role == 'bayjuulach' else 'Геологи'))
         my_devices = conn.execute("""
             SELECT d.*, dm.manufacturer, dm.model FROM devices d
