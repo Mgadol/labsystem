@@ -244,6 +244,7 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
             <button type="button"
               onclick="openSampleEdit({{ s['id'] }}, this)"
               data-name="{{ s['sample_name']|e }}" data-serial="{{ s['lab_serial'] or '' }}"
+              data-qty="{{ s['quantity'] or 1 }}"
               class="btn btn-ghost btn-sm" title="Нэр/дугаар засах" style="padding:3px 8px">✏️</button>
             {# Буруу бүртгэсэн ажлыг жагсаалтаас шууд устгах. Хэмжилтийн утга
                орсон бол сервер зөвшөөрөхгүй — санамсаргүй устгалаас сэргийлнэ. #}
@@ -321,6 +322,16 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
       <div class="form-group" style="margin-bottom:12px">
         <label class="form-label">Дээжийн нэр</label>
         <input type="text" name="sample_name" id="seName" class="form-input" placeholder="Ж: 1-10 эсвэл a;b;c">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">
+          "a;b;c" эсвэл "1-10" гэж бичвэл дээжийн тоо автоматаар бодогдоно.
+        </div>
+      </div>
+      {# Нэрнээс тоо гарахгүй тохиолдолд (ганц нэр дээр олон дээж) гараар
+         өөрчилнө. Урьд нь тоог засах газар огт байгаагүй тул мартсан дээжээ
+         нэмэх боломжгүй байв. #}
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">Дээжийн тоо</label>
+        <input type="number" min="1" name="quantity" id="seQty" class="form-input">
       </div>
       <div class="form-group" style="margin-bottom:6px">
         <label class="form-label">Ажлын дугаар (serial)</label>
@@ -420,6 +431,7 @@ function openSampleEdit(geoId, btn){
   f.action = '/analysis/sample/' + geoId + '/edit';
   document.getElementById('seName').value = btn.dataset.name || '';
   document.getElementById('seSerial').value = btn.dataset.serial || '';
+  document.getElementById('seQty').value = btn.dataset.qty || '';
   document.getElementById('sampleEditModal').style.display = 'flex';
 }
 function closeSampleEdit(){ document.getElementById('sampleEditModal').style.display='none'; }

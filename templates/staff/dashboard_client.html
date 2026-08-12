@@ -54,6 +54,7 @@
           {% if can_edit_sample(s, s['receipt_id']) %}
           <button type="button" class="btn btn-ghost btn-sm" style="padding:3px 8px"
             title="Нэрийг засах" data-name="{{ s['sample_name']|e }}"
+            data-qty="{{ s['quantity'] or 1 }}"
             onclick="cliEdit({{ s['id'] }}, this)">✏️</button>
           <button type="button" class="btn btn-ghost btn-sm" style="padding:3px 8px;color:#993c1d"
             title="Бүртгэлийг устгах" data-name="{{ s['sample_name']|e }}"
@@ -111,19 +112,33 @@
 // лаборатори хүлээн авсны дараа хүсэлт татгалзана.
 function cliEdit(geoId, btn){
   var cur = btn.dataset.name || '';
+  var curQty = btn.dataset.qty || '1';
   var name = prompt('Дээжийн нэр:\n\n'
     + 'Олон дээж бол цэг таслалаар: a1; a2; a3\n'
     + 'Уурхайн дээж бол мужаар: 1-30', cur);
   if(name === null) return;
   name = name.trim();
   if(!name){ alert('Нэр хоосон байж болохгүй.'); return; }
-  if(name === cur) return;
+  // Нэрнээс дээжийн тоо гарахгүй бол (ганц нэр дээр олон дээж) тусад нь асууна
+  var qty = curQty;
+  if(name.indexOf(';') < 0 && !/^\d+\s*-\s*\d+$/.test(name)){
+    var a = prompt('Энэ бүртгэлд хэдэн дээж байгаа вэ?', curQty);
+    if(a === null) return;
+    a = a.trim();
+    if(!/^\d+$/.test(a) || parseInt(a, 10) < 1){
+      alert('Дээжийн тоо бүхэл эерэг тоо байх ёстой.'); return;
+    }
+    qty = a;
+  }
+  if(name === cur && qty === curQty) return;
   var f = document.createElement('form');
   f.method = 'POST';
   f.action = '/analysis/sample/' + geoId + '/edit';
-  var i = document.createElement('input');
-  i.name = 'sample_name'; i.value = name;
-  f.appendChild(i);
+  [['sample_name', name], ['quantity', qty]].forEach(function(p){
+    var i = document.createElement('input');
+    i.name = p[0]; i.value = p[1];
+    f.appendChild(i);
+  });
   document.body.appendChild(f);
   f.submit();
 }

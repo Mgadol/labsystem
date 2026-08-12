@@ -4399,7 +4399,11 @@ def sample_edit(geo_id):
     # дээж хүснэгтэд огт гарахгүй байв.
     if new_name:
         cur_qty = geo['quantity'] or 1
-        new_qty = parse_quantity(geo['sample_type'], new_name, cur_qty)
+        # Нэрнээс тоо гарахгүй бол (ганц нэр дээр олон дээж) маягтад гараар
+        # бичсэн тоог ашиглана. Хоёулаа байхгүй бол хуучин тоо хэвээр.
+        _q = request.form.get('quantity', '').strip()
+        want = int(_q) if _q.isdigit() and int(_q) >= 1 else cur_qty
+        new_qty = parse_quantity(geo['sample_type'], new_name, want)
         if new_qty < cur_qty:
             # Багасгах үед хасагдах мөрөнд утга орсон эсэхийг шалгана —
             # хэмжсэн үр дүнг чимээгүй устгаж болохгүй.
