@@ -449,8 +449,24 @@ function fmtStep(inp){
   if(inp.step==='0.0001')     inp.value=parseFloat(inp.value).toFixed(4);
   else if(inp.step==='0.1')   inp.value=parseFloat(inp.value).toFixed(1);
 }
+// ── ӨӨРЧЛӨГДӨӨГҮЙ НҮДИЙГ ХАДГАЛАХГҮЙ ───────────────────────────────────
+// Урьд нь blur болгонд autoSave илгээгддэг байсан тул нүдэнд ГАР ХҮРЭЭГҮЙ
+// байж зөвхөн дайран өнгөрөхөд ч утга нь дахин бичигддэг байв. Хэрэв хуудас
+// ачаалахад алдаа гарч (сервер дахин асаах, сүлжээ тасрах) хүснэгт ХООСОН
+// харагдвал тэр хоосон утга нь DB рүү бичигдэж, БОДИТ ЖИН УСТДАГ.
+// Тооцоо нь тусад нь хадгалагддаг тул "хариу байгаа, масс алга" болдог.
+var loadFailed = false;
+function markPrev(inp){ if(inp) inp.dataset.prev = inp.value; }
+function changed(inp){ return inp.dataset.prev === undefined || inp.dataset.prev !== inp.value; }
+
 function autoSave(inp){
   fmtStep(inp);
+  // Ачаалалт амжилтгүй болсон бол ЮУ Ч бичихгүй — дэлгэц дээрх хоосон нүд
+  // бодит өгөгдлийг илэрхийлэхгүй.
+  if(loadFailed) return;
+  // Хэрэглэгч утгыг өөрчлөөгүй бол хадгалахгүй
+  if(!changed(inp)) return;
+  markPrev(inp);
   if(editMode){
     var key = inp.dataset.field+'_'+inp.dataset.row+'_'+inp.dataset.dup;
     pendingChanges[key] = {receipt_id:RID,row_num:parseInt(inp.dataset.row),is_duplicate:parseInt(inp.dataset.dup),field:inp.dataset.field,value:inp.value===''?null:inp.value};
@@ -915,8 +931,32 @@ function showStored(ri,dup,e){
   if(dupsOf(ri).length>1) checkQC(ri);
 }
 
+
+// ── Ачаалалт амжилтгүй бол хүснэгтийг ТҮГЖИНЭ ─────────────────────────
+// Сервер дахин асаах, сүлжээ тасрах үед өгөгдөл ирэхгүй бөгөөд хүснэгт
+// ХООСОН харагдана. Тэр байдалд ажиллуулбал хоосон утга нь бодит жинг
+// дарж бичих эрсдэлтэй тул бүх нүдийг түгжиж, тод анхааруулга гаргана.
+function loadFailedNotice(err){
+  loadFailed = true;
+  document.querySelectorAll('.tbl input').forEach(function(i){ i.readOnly = true; });
+  setSave('err');
+  if(document.getElementById('loadErrBar')) return;
+  var d = document.createElement('div');
+  d.id = 'loadErrBar';
+  d.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:9999;background:#b42318;'
+    + 'color:#fff;padding:10px 16px;font-size:13px;font-weight:600;text-align:center';
+  d.innerHTML = '⚠ Өгөгдөл ачаалагдсангүй — хүснэгт түгжигдлээ. '
+    + 'Утга оруулж БОЛОХГҮЙ. Хуудсыг дахин ачаална уу '
+    + '<button onclick="location.reload()" style="margin-left:10px;padding:3px 12px;'
+    + 'border-radius:6px;border:1px solid #fff;background:transparent;color:#fff;'
+    + 'cursor:pointer;font-weight:600">↻ Дахин ачаалах</button>';
+  document.body.appendChild(d);
+  if(err) console.error('loadData алдаа:', err);
+}
 function loadData(){
-  fetch('/analysis/load/'+RID).then(r=>r.json()).then(function(data){
+  fetch('/analysis/load/'+RID)
+   .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+   .then(function(data){
     Object.keys(data).forEach(function(key){
       var p=key.split('_'),row=p[0],dup=p[1],e=data[key];
       if(+dup>=2) ensureRepeat(+row,+dup);   // давталтын мөрийг сэргээнэ
@@ -939,7 +979,7 @@ function loadData(){
     });
     setSave('ok');
     if(!editMode) setSheetReadonly(true);
-  });
+  }).catch(loadFailedNotice);
   var saved=localStorage.getItem('dmap_'+RID);
   if(saved){try{deviceMap=JSON.parse(saved);}catch(e){}}
 }
@@ -993,7 +1033,7 @@ document.addEventListener('keydown',function(e){
 });
 
 document.querySelectorAll('.tbl input').forEach(function(i){
-  i.addEventListener('focus',function(){this.select();});
+  i.addEventListener('focus',function(){this.select();markPrev(this);});
   i.addEventListener('mousemove', function(e){
     if(e.buttons === 1){
       this.focus();
