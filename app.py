@@ -4171,6 +4171,44 @@ def analysis():
         today=datetime.now().strftime('%Y-%m-%d'), prep_devices=prep_devices,
         pending_qc=pending_qc, batches=batches, active_ids=active_ids)
 
+def parse_quantity(sample_type, sample_name, fallback=1):
+    """Дээжийн нэрнээс дээжийн тоог тооцно.
+
+    Бүртгэл ба ЗАСВАР хоёр ИЖИЛ дүрмээр ажиллах ёстой. Урьд нь энэ логик
+    зөвхөн бүртгэлд байсан тул засварлаж нэр нэмэхэд тоо нь хэвээр үлдэж,
+    нэмсэн дээж хүснэгтэд гардаггүй байв.
+
+      "a1; a2; b3"  → 3   (цэг таслалаар тусгаарласан нэрс)
+      "1-100"       → 100 (зөвхөн PIT — мужаар)
+      бусад         → fallback
+    """
+    import re as _re
+    name = (sample_name or '').strip()
+    if ';' in name:
+        parts = [p.strip() for p in name.split(';') if p.strip()]
+        if parts:
+            return len(parts)
+    if sample_type == 'PIT':
+        m = _re.match(r'^([0-9]+)-([0-9]+)$', name)
+        if m:
+            a, b = int(m.group(1)), int(m.group(2))
+            if b >= a:
+                return b - a + 1
+    return fallback
+
+
+# Мөрөнд ямар нэг хэмжилт/төлөв орсон эсэх — дээжийн тоог багасгахаас өмнө
+# шалгана (утга орсон мөрийг чимээгүй устгаж болохгүй).
+# sample_entries нь "se" алиастай байх ёстой: mass_kg, sample_name зэрэг багана
+# sample_receipt/geo_samples дээр ч байдаг тул тодотголгүй бол SQL нь
+# "ambiguous column name" гэж унана.
+ROW_HAS_DATA = """((se.row_status IS NOT NULL AND se.row_status<>'empty')
+    OR se.mass_kg IS NOT NULL OR se.sample_name IS NOT NULL
+    OR se.dc_tare IS NOT NULL OR se.ash_tare IS NOT NULL OR se.vol_tare IS NOT NULL
+    OR se.g_tare IS NOT NULL OR se.mt_tare IS NOT NULL OR se.ff_sample IS NOT NULL
+    OR se.sulfur IS NOT NULL OR se.cal_value IS NOT NULL OR se.fsi IS NOT NULL)"""
+
+
 @app.route('/analysis/register', methods=['GET','POST'])
 @login_required
 def analysis_register():
@@ -4192,17 +4230,8 @@ def analysis_register():
         sample_name = request.form['sample_name']
         quantity    = int(request.form.get('quantity', 1))
 
-        # Цэг таслалаар тусгаарласан нэрс: "a1; a2; b3" → тоог автоматаар тооцно
-        if ';' in sample_name:
-            parts = [p.strip() for p in sample_name.split(';') if p.strip()]
-            quantity = len(parts)
-        # PIT бол "1-100" хэлбэрийг задлах
-        elif sample_type == 'PIT':
-            import re as _re; m = _re.match(r'^([0-9]+)-([0-9]+)$', sample_name.strip())
-            if m:
-                from_n = int(m.group(1))
-                to_n   = int(m.group(2))
-                quantity = to_n - from_n + 1
+        # Нэрнээс тоог тооцно — засварт мөн ижил функц ашиглагдана
+        quantity = parse_quantity(sample_type, sample_name, quantity)
 
         # created_at-ыг гараар бичнэ: SQLite-ийн CURRENT_TIMESTAMP үргэлж UTC
         # буцаадаг тул статистик долоо хоног/сараар буруу хуваагдана
@@ -4313,9 +4342,32 @@ def sample_edit(geo_id):
         conn.close()
         flash('Дээж олдсонгүй.', 'error')
         return redirect(url_for('analysis'))
-    # Нэр засах
+    # ── Нэр засах — дээжийн ТООГ мөн дагуулж шинэчилнэ ──
+    # Урьд нь зөвхөн нэр шинэчлэгддэг байсан тул "4 дээж бүртгэх байснаа 3
+    # бүртгээд" дараа нь дутуу нэрээ нэмэхэд тоо нь 3 хэвээр үлдэж, нэмсэн
+    # дээж хүснэгтэд огт гарахгүй байв.
     if new_name:
-        conn.execute("UPDATE geo_samples SET sample_name=? WHERE id=?", (new_name, geo_id))
+        cur_qty = geo['quantity'] or 1
+        new_qty = parse_quantity(geo['sample_type'], new_name, cur_qty)
+        if new_qty < cur_qty:
+            # Багасгах үед хасагдах мөрөнд утга орсон эсэхийг шалгана —
+            # хэмжсэн үр дүнг чимээгүй устгаж болохгүй.
+            used = conn.execute(f"""
+                SELECT COUNT(*) c FROM sample_entries se
+                  JOIN sample_receipt sr ON sr.id = se.receipt_id
+                 WHERE sr.geo_sample_id = ? AND se.row_num > ? AND {ROW_HAS_DATA}
+            """, (geo_id, new_qty)).fetchone()['c']
+            if used:
+                conn.close()
+                flash(f'Дээжийн тоо {cur_qty} → {new_qty} болж багасах ба хасагдах '
+                      f'мөрөнд хэмжилтийн утга орсон байна. Эхлээд тэр мөрүүдийн '
+                      f'утгыг цэвэрлэнэ үү.', 'error')
+                return redirect(request.referrer or url_for('analysis'))
+            conn.execute("""DELETE FROM sample_entries WHERE row_num > ? AND receipt_id IN
+                            (SELECT id FROM sample_receipt WHERE geo_sample_id=?)""",
+                         (new_qty, geo_id))
+        conn.execute("UPDATE geo_samples SET sample_name=?, quantity=? WHERE id=?",
+                     (new_name, new_qty, geo_id))
     # Ажлын дугаар засах (receipt байвал)
     if new_serial and new_serial.isdigit():
         new_serial = int(new_serial)
@@ -4335,7 +4387,11 @@ def sample_edit(geo_id):
                          (new_serial, new_labnum, receipt['id']))
     conn.commit()
     conn.close()
-    flash('Дээжийн мэдээлэл засагдлаа.', 'success')
+    if new_name and new_qty != cur_qty:
+        flash(f'Дээжийн мэдээлэл засагдлаа. Дээжийн тоо {cur_qty} → {new_qty} боллоо.',
+              'success')
+    else:
+        flash('Дээжийн мэдээлэл засагдлаа.', 'success')
     return redirect(request.referrer or url_for('analysis'))
 
 @app.route('/analysis/crm/chart')

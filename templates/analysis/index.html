@@ -262,6 +262,12 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
               </button>
               {% endif %}
 
+            {# Ажлын дугаар (receipt) байхгүй дээж дээр url_for нь алдаа өгч,
+               ХУУДАС БҮХЭЛДЭЭ 500 болдог байв. Ийм дээжийг гацаахгүйгээр
+               тэмдэглэж харуулна. #}
+            {% elif not rid %}
+              <span style="font-size:11px;color:#993c1d" title="Лабораторид хүлээн авалт бүртгэгдээгүй">⚠ хүлээн авалтгүй</span>
+
             {% elif ps == 'ready' or st == 'analysing' %}
               {% if role in ('admin','senior','staff','preparer') %}
               <a href="{{ url_for('analysis_measure', receipt_id=rid) }}"
