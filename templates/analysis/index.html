@@ -8,6 +8,9 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
   text-align:center;vertical-align:middle}
 .tab-btn{padding:8px 18px;border:none;background:none;border-bottom:3px solid transparent;font-size:13px;font-weight:600;cursor:pointer;color:var(--text-muted);transition:.15s}
 .tab-btn.active{color:var(--navy);border-bottom-color:var(--navy)}
+/* "Идэвхтэй ажил" толгойн тайлбар — утсан дээр гарчгийг хоёр мөр болгож
+   шахдаг тул нарийн дэлгэцэнд нуугдана (тоо ба ⌄ сум нь үлдэнэ). */
+@media (max-width:600px){.fold-hint{display:none}}
 </style>
 <div class="page">
   <div class="flex justify-between gap-12" style="margin-bottom:20px;flex-wrap:wrap">
@@ -49,12 +52,18 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
   <!-- Идэвхтэй ажлын багц — нэгтгэсэн ажил хаяган дээр биш, бүртгэлд үлдэнэ -->
   {% if batches %}
   <div class="card" style="margin-bottom:16px;border-left:4px solid var(--teal)">
-    <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px">
+    {# Багц олон байхад бүтэн жагсаалт нь хуудсыг доошоо сунгаж, доорх табууд
+       (Дээж бэлтгэл / Шинжилгээ) утсан дээр харагдахаа больдог байв. Тоог нь
+       толгойд гаргаж, нэгээс олон бол хумиад тавина. #}
+    <details class="fold"{% if batches|length <= 1 %} open{% endif %}>
+    <summary style="font-size:13px;font-weight:700;color:var(--navy)">
       🧪 Идэвхтэй ажил
-      <span style="font-weight:400;color:var(--text-muted);font-size:11px">
+      <span class="fold-hint" style="font-weight:400;color:var(--text-muted);font-size:11px">
         — лабораторид нээлттэй байгаа багцууд, аль нэгийг нь үргэлжлүүлнэ
       </span>
-    </div>
+      <span class="fold-n">{{ batches|length }}</span>
+    </summary>
+    <div class="fold-body">
     {% for b in batches %}
     <div style="display:flex;align-items:center;gap:12px;padding:9px 12px;background:#f2fbf8;
                 border:1px solid #cfeee2;border-radius:8px;margin-bottom:6px;flex-wrap:wrap">
@@ -73,6 +82,8 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
               onclick="closeBatch({{ b['id'] }})">✕</button>
     </div>
     {% endfor %}
+    </div>
+    </details>
   </div>
   {% endif %}
 
