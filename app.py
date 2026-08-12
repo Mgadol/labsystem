@@ -2635,6 +2635,24 @@ def ensure_tables():
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         closed_at TEXT
     )""")
+    # Хэмжилтийн утга ӨӨРЧЛӨГДӨХ/АРИЛАХ бүрийн бүртгэл. "Хариу нь байгаа
+    # хэрнээ масс нь алга болчиж" гэдэг гомдол давтагдаж байсан ч шалтгааныг
+    # нь мөшгих ул мөр байгаагүй. Одоо хуучин утга нь хадгалагдана —
+    # tools/check_audit.py-аар харна, шаардлагатай бол сэргээнэ.
+    conn.execute("""CREATE TABLE IF NOT EXISTS value_audit (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        receipt_id INTEGER,
+        row_num INTEGER,
+        is_duplicate INTEGER,
+        field TEXT,
+        old_value TEXT,
+        new_value TEXT,
+        user_id INTEGER,
+        at TEXT,
+        source TEXT
+    )""")
+    conn.execute("""CREATE INDEX IF NOT EXISTS idx_value_audit_at
+                    ON value_audit(at)""")
     conn.execute("""CREATE TABLE IF NOT EXISTS crm_materials (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         crm_name TEXT NOT NULL,
@@ -4785,6 +4803,28 @@ def analysis_autosave():
         ).fetchone()
 
         _empty = (value is None or value == '')
+        # ── Утга арилах/дарагдахыг БҮРТГЭНЭ ──────────────────────────────
+        # "Хариу нь байгаа хэрнээ масс нь алга болчиж" гэдэг гомдол давтагдаж
+        # байгаа тул урьд нь утгатай байсан талбар өөрчлөгдөх бүрд хуучин
+        # утгыг нь хадгална. Ингэснээр (а) яг хэн, хэзээ, хаанаас хийснийг
+        # мэдэх, (б) шаардлагатай бол утгыг нь буцааж сэргээх боломжтой.
+        if existing:
+            try:
+                _old = conn.execute(
+                    f'SELECT {field} AS v FROM sample_entries WHERE id=?',
+                    (existing['id'],)).fetchone()['v']
+                _new = None if _empty else value
+                if _old is not None and str(_old) != str(_new):
+                    conn.execute("""
+                        INSERT INTO value_audit(receipt_id, row_num, is_duplicate,
+                            field, old_value, new_value, user_id, at, source)
+                        VALUES(?,?,?,?,?,?,?,?,?)""",
+                        (rid, row, is_dup, field, str(_old),
+                         None if _new is None else str(_new),
+                         session.get('user_id'), datetime.now().isoformat(),
+                         (request.referrer or '')[-120:]))
+            except Exception as _e:
+                app.logger.warning('value_audit бичигдсэнгүй: %s', _e)
         if existing or not _empty:
             # Атомик UPSERT — тооцооллын хадгалалттай зэрэг ажиллахад UNIQUE
             # зөрчил үүсгэхгүй. Хоосон утгаар шинэ мөр үүсгэхгүй (дээрх нөхцөл).
@@ -4796,8 +4836,10 @@ def analysis_autosave():
             _extra_ins = f', {_op}' if _op else ''
             _extra_val = ', ?' if _op else ''
             _extra_upd = f', {_op}=excluded.{_op}' if _op else ''
-            _args = [rid, row, is_dup, value, session['user_id'],
-                     datetime.now().isoformat()]
+            # Хоосныг NULL болгож бичнэ. Урьд нь '' гэсэн хоосон мөр
+            # хадгалагдаж, "утга байгаа" (IS NOT NULL) мэт тоологдож байв.
+            _args = [rid, row, is_dup, None if _empty else value,
+                     session['user_id'], datetime.now().isoformat()]
             if _op:
                 _args.append(session['user_id'])
             conn.execute(
