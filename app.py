@@ -4804,6 +4804,31 @@ def open_batches(conn, uid=None):
                 JOIN geo_samples g ON g.id=sr.geo_sample_id
                 WHERE sr.id IN ({q})""", rids).fetchone()['c']
         d['url'] = batch_url(b)
+        # Тэмдэглэл — геологич, хүлээн авагч, дээж бэлтгэгчийн бичсэн.
+        # Химич багцаа үргэлжлүүлэхээсээ өмнө шинжилгээний хуудсан дээрээ
+        # шууд уншина (урьд нь эдгээр хаана ч харагддаггүй байв).
+        nrows = {r['id']: r for r in conn.execute(
+            f"""SELECT sr.id, sr.lab_number, sr.notes, sr.prep_notes,
+                       g.notes AS geo_notes, ug.name AS geo_name
+                  FROM sample_receipt sr
+                  JOIN geo_samples g ON g.id = sr.geo_sample_id
+                  LEFT JOIN users ug ON ug.id = g.registered_by
+                 WHERE sr.id IN ({q})""", rids)}
+        notes = []
+        for rid in rids:                       # багцын дараалал хэвээр
+            r = nrows.get(rid)
+            if not r:
+                continue
+            who_geo = 'Геологич'
+            if r['geo_name']:
+                who_geo += ' · ' + r['geo_name']
+            for col, who in (('geo_notes', who_geo),
+                             ('notes', 'Хүлээн авахад'),
+                             ('prep_notes', 'Дээж бэлтгэл')):
+                if r[col] and r[col].strip():
+                    notes.append({'lab': r['lab_number'], 'who': who,
+                                  'txt': r[col].strip()})
+        d['notes'] = notes
         out.append(d)
     conn.commit()
     return out
