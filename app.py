@@ -4394,6 +4394,89 @@ def sample_edit(geo_id):
         flash('Дээжийн мэдээлэл засагдлаа.', 'success')
     return redirect(request.referrer or url_for('analysis'))
 
+@app.route('/analysis/sample/<int:geo_id>/delete', methods=['POST'])
+@senior_required
+def sample_delete(geo_id):
+    """Буруу бүртгэсэн дээжийг жагсаалтаас бүрмөсөн устгана (Админ/Ахлах).
+
+    Хэмжилтийн утга орсон бол устгахгүй — тэр тохиолдолд Архивын устгалыг
+    (админ) ашиглана. Буцаах боломжгүй тул устгахын өмнө нөөцөлнө.
+    """
+    conn = get_db()
+    geo = conn.execute('SELECT * FROM geo_samples WHERE id=?', (geo_id,)).fetchone()
+    if not geo:
+        conn.close()
+        flash('Дээж олдсонгүй.', 'error')
+        return redirect(url_for('analysis'))
+
+    rec = conn.execute('SELECT id, lab_number FROM sample_receipt WHERE geo_sample_id=?',
+                       (geo_id,)).fetchone()
+    rid = rec['id'] if rec else None
+
+    if rid:
+        # 1. Хэмжилт орсон эсэх — орсон бол устгахгүй
+        used = conn.execute(
+            f'SELECT COUNT(*) c FROM sample_entries se WHERE se.receipt_id=? '
+            f'AND {ROW_HAS_DATA}', (rid,)).fetchone()['c']
+        if used:
+            conn.close()
+            flash(f'«{geo["sample_name"]}» дээр {used} мөрөнд хэмжилтийн утга орсон '
+                  f'байна — устгах боломжгүй. Шаардлагатай бол админ Архиваас устгана.',
+                  'error')
+            return redirect(request.referrer or url_for('analysis'))
+        # 2. Дотоод QC-тэй холбоотой эсэх
+        qc = conn.execute('SELECT COUNT(*) c FROM internal_qc '
+                          'WHERE receipt_id_1=? OR receipt_id_2=?',
+                          (rid, rid)).fetchone()['c']
+        if qc:
+            conn.close()
+            flash(f'Энэ дээжтэй {qc} дотоод QC бүртгэл холбоотой байна. '
+                  f'Эхлээд QC-г устгана уу.', 'error')
+            return redirect(request.referrer or url_for('analysis'))
+
+    try:
+        _p = make_backup()
+        bk = os.path.basename(_p) if _p else None
+    except Exception:
+        app.logger.exception('Дээж устгахын өмнөх нөөцлөлт амжилтгүй')
+        bk = None
+
+    try:
+        if rid:
+            # Нээлттэй багцад орсон бол багцаас нь салгана (үлдвэл "Үргэлжлүүлэх"
+            # нь байхгүй ажил руу заана)
+            for b in conn.execute("SELECT id, receipt_ids FROM work_batch "
+                                  "WHERE status='open'").fetchall():
+                ids = [i for i in (b['receipt_ids'] or '').split(',') if i.strip()]
+                if str(rid) not in ids:
+                    continue
+                left = [i for i in ids if i != str(rid)]
+                if left:
+                    conn.execute('UPDATE work_batch SET receipt_ids=? WHERE id=?',
+                                 (','.join(left), b['id']))
+                else:
+                    conn.execute("UPDATE work_batch SET status='closed', closed_at=? "
+                                 "WHERE id=?", (datetime.now().isoformat(), b['id']))
+            conn.execute('DELETE FROM result_view_log  WHERE receipt_id=?', (rid,))
+            conn.execute('DELETE FROM device_usage_log WHERE receipt_id=?', (rid,))
+            conn.execute('DELETE FROM sample_entries   WHERE receipt_id=?', (rid,))
+            conn.execute('DELETE FROM sample_receipt   WHERE id=?', (rid,))
+        conn.execute('DELETE FROM geo_samples WHERE id=?', (geo_id,))
+        conn.commit()
+        msg = f'«{geo["sample_name"]}» устгагдлаа.'
+        if rec and rec['lab_number']:
+            msg = f'«{geo["sample_name"]}» ({rec["lab_number"]}) устгагдлаа.'
+        if bk:
+            msg += f' Устгахын өмнө нөөц авсан: {bk}'
+        flash(msg, 'success')
+    except Exception as e:
+        conn.rollback()
+        flash(f'Устгахад алдаа гарлаа: {e}', 'error')
+    finally:
+        conn.close()
+    return redirect(request.referrer or url_for('analysis'))
+
+
 @app.route('/analysis/crm/chart')
 @login_required
 def crm_control_chart():

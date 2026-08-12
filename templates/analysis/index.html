@@ -243,6 +243,11 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
               onclick="openSampleEdit({{ s['id'] }}, this)"
               data-name="{{ s['sample_name']|e }}" data-serial="{{ s['lab_serial'] or '' }}"
               class="btn btn-ghost btn-sm" title="Нэр/дугаар засах" style="padding:3px 8px">✏️</button>
+            {# Буруу бүртгэсэн ажлыг жагсаалтаас шууд устгах. Хэмжилтийн утга
+               орсон бол сервер зөвшөөрөхгүй — санамсаргүй устгалаас сэргийлнэ. #}
+            <button type="button" class="btn btn-ghost btn-sm" title="Бүртгэлийг устгах"
+              style="padding:3px 8px;color:#993c1d"
+              onclick="delSample({{ s['id'] }}, {{ s['sample_name']|tojson }}, {{ (s['lab_number'] or '')|tojson }})">🗑</button>
             {% endif %}
             {% set role = current_user['role'] %}
 
@@ -412,6 +417,18 @@ function openSampleEdit(geoId, btn){
   document.getElementById('sampleEditModal').style.display = 'flex';
 }
 function closeSampleEdit(){ document.getElementById('sampleEditModal').style.display='none'; }
+// Буруу бүртгэсэн ажлыг устгана. Устгахын өмнө сервер нөөц авах ба хэмжилтийн
+// утга орсон байвал зөвшөөрөхгүй тул энд зөвхөн батламж асууна.
+function delSample(geoId, name, lab){
+  var what = '«' + name + '»' + (lab ? ' (' + lab + ')' : '');
+  if(!confirm('Дараах бүртгэлийг УСТГАХ уу?\n\n' + what
+     + '\n\nБуцаах боломжгүй. Хэмжилтийн утга орсон бол устгахгүй.')) return;
+  var f = document.createElement('form');
+  f.method = 'POST';
+  f.action = '/analysis/sample/' + geoId + '/delete';
+  document.body.appendChild(f);
+  f.submit();
+}
 function filterDate(){
   applyFilters();
 }
