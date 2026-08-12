@@ -3027,6 +3027,9 @@ ANALYSIS_COUNT_SQL = '''SELECT COUNT(*) FROM sample_entries se
     WHERE {col} IS NOT NULL
       AND p.row_status IN ('done','approved')
       AND substr(p.done_at,1,10) BETWEEN ? AND ?'''
+# Анхаар: CRM-ийн хэмжилт ЭНД тоологдоно. CRM бол чанарын хяналтын ажил
+# бөгөөд лаборатори үнэхээр хэмжилт хийсэн тул үзүүлэлтийн тоонд орно.
+# Харин ДЭЭЖИЙН тоонд (жишиг шугам) ордоггүй — доорх SAMPLE_DONE_SQL үзнэ үү.
 
 
 def analysis_count_sql(field):
@@ -3041,8 +3044,18 @@ def analysis_count_sql(field):
 # бүрийн тоо энэ шугамтай нэг сууриар харьцуулагдана.
 # is_duplicate=0 — зэрэгцээ, давталт нь тусдаа дээж биш, нэг мөрийн давтан
 # хэмжилт тул энд тоологдохгүй (үзүүлэлтийн баганад л нэмэгдэнэ).
+#
+# CRM (баталгаажсан стандарт дээж) нь ҮЙЛДВЭРЛЭЛИЙН дээж биш, чанарын
+# хяналтын материал бөгөөд бүх үзүүлэлтийг үзүүлдэггүй (ж: нийт чийг).
+# Дээжийн тоонд оруулбал жишиг шугам хиймлээр өсч, багана нь түүнээс
+# доогуур унасан мэт харагддаг тул ЭНД хасагдана.
+# Харин CRM дээр хийсэн ХЭМЖИЛТ нь үзүүлэлтийн тоонд хэвээр орно —
+# лаборатори тэр ажлыг үнэхээр хийсэн (ANALYSIS_COUNT_SQL үзнэ үү).
 SAMPLE_DONE_SQL = '''SELECT COUNT(*) FROM sample_entries se
+                     JOIN sample_receipt sr ON sr.id = se.receipt_id
+                     JOIN geo_samples   g  ON g.id  = sr.geo_sample_id
                      WHERE se.is_duplicate = 0
+                       AND g.sample_type <> 'CRM'
                        AND se.row_status IN ('done', 'approved')
                        AND substr(se.done_at, 1, 10) BETWEEN ? AND ?'''
 
@@ -3139,9 +3152,28 @@ def reports_chart_data():
     # харьцуулбал 'T' > ' ' болж СҮҮЛИЙН ӨДӨР бүхэлдээ хасагддаг.
     # Огноогоор шүүх нь тусгаарлагчаас хамаарахгүй.
     analysis_totals = []
+    # Багана нь жишиг шугамаас доогуур байвал ЯАГААД болохыг тайлбарлана:
+    # тухайн үзүүлэлт хэдэн дууссан дээж дээр огт хэмжигдээгүй, тэдгээр нь
+    # ямар төрлийн дээж вэ. Урьд нь консол дээр tools/report_check.py
+    # ажиллуулж байж мэддэг байсныг графикийн зөвлөмжинд шууд гаргана.
+    analysis_missing = []
     for field, name in ANALYSIS_FIELDS:
         v = conn.execute(analysis_count_sql(field), (d0s, d1s)).fetchone()[0]
         analysis_totals.append(v)
+        col = ANALYSIS_COUNT_COL.get(field, f'se.{field}')
+        types = conn.execute(
+            f"""SELECT g.sample_type t, COUNT(*) n
+                  FROM sample_entries se
+                  JOIN sample_receipt sr ON sr.id = se.receipt_id
+                  JOIN geo_samples g ON g.id = sr.geo_sample_id
+                 WHERE se.is_duplicate = 0
+                   AND g.sample_type <> 'CRM'
+                   AND se.row_status IN ('done','approved')
+                   AND substr(se.done_at,1,10) BETWEEN ? AND ?
+                   AND {col} IS NULL
+                 GROUP BY g.sample_type ORDER BY n DESC""", (d0s, d1s)).fetchall()
+        analysis_missing.append({'n': sum(r['n'] for r in types),
+                                 'by_type': [[r['t'] or '—', r['n']] for r in types[:4]]})
     # Жишиг шугам — энэ хугацаанд ШИНЖИЛГЭЭ НЬ БҮРЭН ДУУССАН дээжийн тоо.
     # Урьд нь хүлээн авсан, дараа нь бэлтгэл дууссан огноогоор тоолдог байсан
     # тул үзүүлэлтийн тоотой өөр сууриар харьцуулагдаж зөрдөг байв.
@@ -3152,6 +3184,7 @@ def reports_chart_data():
         'sample_data': sample_totals,
         'analysis_labels': [n for _, n in ANALYSIS_FIELDS],
         'analysis_data': analysis_totals,
+        'analysis_missing': analysis_missing,
         'prep_total': prep_total,
     })
 

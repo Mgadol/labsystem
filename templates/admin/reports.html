@@ -514,6 +514,9 @@ var sampleChart = new Chart(document.getElementById('chartSample'), {
   }
 });
 
+// Үзүүлэлт бүр дээр шинжилгээ нь ХИЙГДЭЭГҮЙ дууссан дээжийн тоо ба төрөл.
+// fetchChartData() шинэчилнэ, зөвлөмж (tooltip) уншина.
+var ANALYSIS_MISS = [];
 var analysisChart = new Chart(document.getElementById('chartAnalysis'), {
   type: 'bar',
   data: {
@@ -546,7 +549,19 @@ var analysisChart = new Chart(document.getElementById('chartAnalysis'), {
   },
   options: { responsive:true, maintainAspectRatio:false,
     plugins:{ legend:{ position:'bottom', labels:{ font:{size:11}, boxWidth:12, usePointStyle:true }},
-              tooltip:{ mode:'index', intersect:false }},
+              // Багана шугамаас доогуур байвал ЯАГААД болохыг зөвлөмжинд бичнэ.
+              // Үзүүлэлт нь зэрэгцээ, давталттайгаа тоологддог тул ердийн үед
+              // шугамтай тэнцүү буюу түүнээс өндөр байх ёстой; доогуур байвал
+              // тухайн шинжилгээ зарим дээж дээр огт хийгдээгүй гэсэн үг.
+              tooltip:{ mode:'index', intersect:false, callbacks:{
+                afterBody: function(items){
+                  if(!ANALYSIS_MISS.length || !items.length) return '';
+                  var m = ANALYSIS_MISS[items[0].dataIndex];
+                  if(!m || !m.n) return '';
+                  var by = m.by_type.map(function(t){ return t[0]+' '+t[1]; }).join(', ');
+                  return ['', m.n + ' дээж дээр энэ шинжилгээ хийгдээгүй',
+                          by ? '(' + by + ')' : ''];
+                }}}},
     scales:{ x:{ grid:{display:false}, ticks:{font:{size:10}} }, y:{ beginAtZero:true }}}
 });
 
@@ -593,6 +608,7 @@ function fetchChartData() {
       if(noAnalysisEl) noAnalysisEl.remove();
     }
     analysisChart.data.datasets[0].data = d.analysis_data;
+    ANALYSIS_MISS = d.analysis_missing || [];
     // Жишиг шугам — шинжилгээ нь БҮРЭН ДУУССАН дээжийн тоо (бэлтгэлийнх биш).
     // Үзүүлэлт бүртэй нэг сууриар харьцуулагдана.
     var pTotal = (d.prep_total != null) ? d.prep_total : 0;

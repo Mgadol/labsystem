@@ -32,14 +32,20 @@ def main():
     print(f'══ {d0} … {d1} ══\n')
 
     # ── Жишиг шугам: шинжилгээ нь БҮРЭН ДУУССАН дээж (app.py-тай ижил) ──
-    DONE_W = """se.is_duplicate=0 AND se.row_status IN ('done','approved')
+    # CRM бол үйлдвэрлэлийн дээж биш, чанарын хяналтын материал бөгөөд бүх
+    # үзүүлэлтийг үзүүлдэггүй тул тоонд оруулахгүй (app.py-тай ижил дүрэм).
+    NOCRM = """JOIN sample_receipt sr0 ON sr0.id=se.receipt_id
+                JOIN geo_samples g0 ON g0.id=sr0.geo_sample_id"""
+    DONE_W = """se.is_duplicate=0 AND g0.sample_type<>'CRM'
+                AND se.row_status IN ('done','approved')
                 AND substr(se.done_at,1,10) BETWEEN ? AND ?"""
-    base = conn.execute(f'SELECT COUNT(*) n FROM sample_entries se WHERE {DONE_W}',
-                        (d0, d1)).fetchone()['n']
+    base = conn.execute(
+        f'SELECT COUNT(*) n FROM sample_entries se {NOCRM} WHERE {DONE_W}',
+        (d0, d1)).fetchone()['n']
     print(f'Шинжилгээ дууссан дээж (жишиг шугам) : {base}')
     for r in conn.execute(
             f"""SELECT sr.lab_number, COUNT(*) n, COALESCE(g.quantity,1) qty
-                FROM sample_entries se
+                FROM sample_entries se {NOCRM}
                 JOIN sample_receipt sr ON sr.id=se.receipt_id
                 JOIN geo_samples g ON g.id=sr.geo_sample_id
                 WHERE {DONE_W} GROUP BY sr.id ORDER BY sr.lab_serial""", (d0, d1)):
@@ -54,6 +60,8 @@ def main():
     # "Дууслаа" товч байдаггүй тул тэдгээрийн done_at үргэлж хоосон
     # (app.py-гийн ANALYSIS_COUNT_SQL-тэй ижил дүрэм).
     print('\nҮзүүлэлт бүрийн тоо (үндсэн + зэрэгцээ + давталт):')
+    # CRM-ийн ХЭМЖИЛТ энд тоологдоно (лаборатори тэр ажлыг хийсэн);
+    # зөвхөн ДЭЭЖИЙН тооноос хасагддаг.
     JOIN_P = """JOIN sample_entries p ON p.receipt_id=se.receipt_id
                                      AND p.row_num=se.row_num
                                      AND p.is_duplicate=0
@@ -84,7 +92,7 @@ def main():
         for col, name in FIELDS:
             c = col if '(' in col else f'se.{col}'
             have = conn.execute(
-                f'SELECT COUNT(*) n FROM sample_entries se '
+                f'SELECT COUNT(*) n FROM sample_entries se {NOCRM} '
                 f'WHERE {DONE_W} AND {c} IS NOT NULL', (d0, d1)).fetchone()['n']
             miss = base - have
             print(f'    {name:16} {have:>5} / {base}'
@@ -92,7 +100,7 @@ def main():
             if miss:
                 for r in conn.execute(
                         f"""SELECT sr.lab_number, g.sample_type, COUNT(*) n
-                              FROM sample_entries se
+                              FROM sample_entries se {NOCRM}
                               JOIN sample_receipt sr ON sr.id=se.receipt_id
                               JOIN geo_samples g ON g.id=sr.geo_sample_id
                              WHERE {DONE_W} AND {c} IS NULL
