@@ -3013,10 +3013,25 @@ ANALYSIS_FIELDS = [
 ANALYSIS_COUNT_COL = {'g_coke': 'COALESCE(se.g_val, se.g_coke)'}
 # Шинжилгээг ХЭМЖИЛТ бүрээр тоолно — зэрэгцээ, давталт нь тус тусдаа хийгдсэн
 # ажил тул тухайн үзүүлэлтийн тоонд нэмэгдэнэ.
-# Нийт чийгийг дээж бүр дээр дан ганц удаа хэмждэг тул түүний тоо бэлтгэсэн
-# дээжийн тоотой ойролцоо байх ёстой; хэрэв зөрвөл tools/report_check.py-аар
-# шалгана (огнооны суурь өөр эсвэл давхар хэмжилт орсон эсэх).
-ANALYSIS_COUNT_EXPR = "COUNT(*)"
+#
+# Огноог мөрийнхөө ҮНДСЭН хэмжилтээс (is_duplicate=0) авна. Учир нь зэрэгцээ,
+# давталтын мөрөнд "Дууслаа" товч байдаггүй тул тэдгээрийн done_at ҮРГЭЛЖ
+# хоосон байдаг. Урьд нь шууд se.done_at-аар шүүдэг байсан тул давхар хэмжилт
+# бүр тоонд ОРОЛГҮЙ унаж, 100 дээж дуусахад үзүүлэлт 120-130 байх ёстой атал
+# жишиг шугамаас доогуур гардаг байв.
+# row_status нөхцөл нь жишиг шугамтай ЯГ ижил дээжийн багцыг сонгоно.
+ANALYSIS_COUNT_SQL = '''SELECT COUNT(*) FROM sample_entries se
+    JOIN sample_entries p ON p.receipt_id    = se.receipt_id
+                         AND p.row_num       = se.row_num
+                         AND p.is_duplicate  = 0
+    WHERE {col} IS NOT NULL
+      AND p.row_status IN ('done','approved')
+      AND substr(p.done_at,1,10) BETWEEN ? AND ?'''
+
+
+def analysis_count_sql(field):
+    """Тухайн үзүүлэлтийн хэмжилтийн тоог гаргах SQL"""
+    return ANALYSIS_COUNT_SQL.format(col=ANALYSIS_COUNT_COL.get(field, f'se.{field}'))
 
 # ── Графикийн "Дээж" шугам — ШИНЖИЛГЭЭ БҮРЭН ДУУССАН дээжийн тоо ─────────
 # Тулгуур огноо нь бэлтгэлийн огноо БИШ, мөр бүрийн шинжилгээ дууссан огноо
@@ -3125,12 +3140,7 @@ def reports_chart_data():
     # Огноогоор шүүх нь тусгаарлагчаас хамаарахгүй.
     analysis_totals = []
     for field, name in ANALYSIS_FIELDS:
-        col = ANALYSIS_COUNT_COL.get(field, f'se.{field}')
-        v = conn.execute(
-            f'''SELECT {ANALYSIS_COUNT_EXPR} FROM sample_entries se
-                WHERE {col} IS NOT NULL
-                  AND substr(se.done_at,1,10) BETWEEN ? AND ?''',
-            (d0s, d1s)).fetchone()[0]
+        v = conn.execute(analysis_count_sql(field), (d0s, d1s)).fetchone()[0]
         analysis_totals.append(v)
     # Жишиг шугам — энэ хугацаанд ШИНЖИЛГЭЭ НЬ БҮРЭН ДУУССАН дээжийн тоо.
     # Урьд нь хүлээн авсан, дараа нь бэлтгэл дууссан огноогоор тоолдог байсан
@@ -3644,10 +3654,7 @@ def lab_report_export():
         FROM sample_receipt sr JOIN geo_samples g ON g.id=sr.geo_sample_id
         WHERE {SW} AND g.status='done' ''')
     n_mass = one(f'''SELECT COALESCE(SUM(sr.mass_kg),0) FROM sample_receipt sr WHERE {SW}''')
-    n_analysis = sum(
-        one(f'''SELECT {ANALYSIS_COUNT_EXPR} FROM sample_entries se
-                WHERE {ANALYSIS_COUNT_COL.get(f, f"se.{f}")} IS NOT NULL AND {AW}''')
-        for f, _ in ANALYSIS_FIELDS)
+    n_analysis = sum(one(analysis_count_sql(f)) for f, _ in ANALYSIS_FIELDS)
     n_rows_done = one(f'''SELECT COUNT(*) FROM sample_entries se
         WHERE se.is_duplicate=0 AND se.row_status IN ('done','approved') AND {AW}''')
     n_rows_appr = one(f'''SELECT COUNT(*) FROM sample_entries se
@@ -3732,8 +3739,7 @@ def lab_report_export():
     STAT_FIELD = {'mt_dried': 'mt_result', 'g_coke': 'g_index'}
     for ri, (field, name) in enumerate(ANALYSIS_FIELDS, 3):
         bg = WHITE if ri % 2 == 0 else GRAY
-        cnt = one(f'''SELECT {ANALYSIS_COUNT_EXPR} FROM sample_entries se
-            WHERE {ANALYSIS_COUNT_COL.get(field, f"se.{field}")} IS NOT NULL AND {AW}''')
+        cnt = one(analysis_count_sql(field))
         vals = [v for v in (e.get(STAT_FIELD.get(field, field)) for e in rows) if v is not None]
         fmt = '0' if field in ('cal_value',) else '0.00'
         dat(ws3, ri, 1, ri - 2, bg=bg)

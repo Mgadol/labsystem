@@ -50,18 +50,24 @@ def main():
     FIELDS = [('mt_dried', 'Нийт чийг'), ('mad', 'Дотоод чийг'), ('aad', 'Үнслэг'),
               ('vad', 'Дэгдэмхий'), ('sulfur', 'Хүхэр'), ('cal_value', 'Илчлэг'),
               ('COALESCE(se.g_val, se.g_coke)', 'G индекс'), ('fsi', 'ЧХЗ')]
+    # Огноог мөрийнхөө ҮНДСЭН хэмжилтээс авна — зэрэгцээ, давталтын мөрөнд
+    # "Дууслаа" товч байдаггүй тул тэдгээрийн done_at үргэлж хоосон
+    # (app.py-гийн ANALYSIS_COUNT_SQL-тэй ижил дүрэм).
     print('\nҮзүүлэлт бүрийн тоо (үндсэн + зэрэгцээ + давталт):')
+    JOIN_P = """JOIN sample_entries p ON p.receipt_id=se.receipt_id
+                                     AND p.row_num=se.row_num
+                                     AND p.is_duplicate=0
+                WHERE p.row_status IN ('done','approved')
+                  AND substr(p.done_at,1,10) BETWEEN ? AND ?"""
     for col, name in FIELDS:
         c = col if '(' in col else f'se.{col}'
-        tot = conn.execute(
-            f"""SELECT COUNT(*) n FROM sample_entries se WHERE {c} IS NOT NULL
-                AND substr(se.done_at,1,10) BETWEEN ? AND ?""", (d0, d1)).fetchone()['n']
+        tot = conn.execute(f"""SELECT COUNT(*) n FROM sample_entries se {JOIN_P}
+                               AND {c} IS NOT NULL""", (d0, d1)).fetchone()['n']
         if not tot:
             continue
-        pri = conn.execute(
-            f"""SELECT COUNT(*) n FROM sample_entries se WHERE {c} IS NOT NULL
-                AND se.is_duplicate=0
-                AND substr(se.done_at,1,10) BETWEEN ? AND ?""", (d0, d1)).fetchone()['n']
+        pri = conn.execute(f"""SELECT COUNT(*) n FROM sample_entries se {JOIN_P}
+                               AND {c} IS NOT NULL AND se.is_duplicate=0""",
+                           (d0, d1)).fetchone()['n']
         extra = f'  (үндсэн {pri} + давхар {tot - pri})' if tot != pri else ''
         flag = ''
         if pri > base:
