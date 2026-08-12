@@ -4329,10 +4329,42 @@ def analysis_crm_register():
     return render_template('analysis/crm_register.html', today=datetime.now().strftime('%Y-%m-%d'),
                            crm_materials=crm_materials)
 
+def can_edit_sample(geo, receipt_exists=None):
+    """Тухайн хэрэглэгч энэ дээжийн бүртгэлийг засах/устгах эрхтэй эсэх.
+
+    - Админ, ахлах химич: үргэлж
+    - Бүртгэсэн хүн өөрөө (геологич, баяжуулах): ЗӨВХӨН лаб хүлээж авахаас
+      өмнө. Хүлээн авалт бүртгэгдмэгц ажлын дугаар олгогдож, лаборатори
+      ажлаа эхэлсэн байдаг тул тэр цэгээс хойш зөвхөн ахлах засна.
+
+    Ингэснээр геологич өөрийн бичсэн алдаагаа шууд засах боловч
+    лабораторийн бүртгэлийг сүүлээр өөрчлөх боломжгүй болно.
+    """
+    role = session.get('role')
+    if role in ('admin', 'senior'):
+        return True
+    if role == 'guest' or not geo:
+        return False
+    if geo['registered_by'] != session.get('user_id'):
+        return False
+    if receipt_exists:
+        return False
+    return (geo['status'] or 'pending') == 'pending'
+
+
+@app.context_processor
+def inject_sample_perm():
+    """Загварт can_edit_sample-ийг ашиглах боломжтой болгоно"""
+    return {'can_edit_sample': can_edit_sample}
+
+
 @app.route('/analysis/sample/<int:geo_id>/edit', methods=['POST'])
-@senior_required
+@login_required
 def sample_edit(geo_id):
-    """Бүртгэсэн дээжийн нэр болон ажлын дугаарыг засах (Админ/Дэд админ)"""
+    """Бүртгэсэн дээжийн нэр болон ажлын дугаарыг засах.
+
+    Админ/ахлах, эсвэл бүртгэсэн хүн өөрөө (лаб хүлээж авахаас өмнө).
+    """
     lang = session.get('lang','mn')
     new_name   = (request.form.get('sample_name') or '').strip()
     new_serial = request.form.get('lab_serial','').strip()
@@ -4342,6 +4374,13 @@ def sample_edit(geo_id):
         conn.close()
         flash('Дээж олдсонгүй.', 'error')
         return redirect(url_for('analysis'))
+    has_rec = conn.execute('SELECT 1 FROM sample_receipt WHERE geo_sample_id=?',
+                           (geo_id,)).fetchone() is not None
+    if not can_edit_sample(geo, has_rec):
+        conn.close()
+        flash('Лаборатори хүлээн авсны дараа зөвхөн ахлах засна.'
+              if has_rec else 'Энэ бүртгэлийг засах эрх байхгүй байна.', 'error')
+        return redirect(request.referrer or url_for('analysis'))
     # ── Нэр засах — дээжийн ТООГ мөн дагуулж шинэчилнэ ──
     # Урьд нь зөвхөн нэр шинэчлэгддэг байсан тул "4 дээж бүртгэх байснаа 3
     # бүртгээд" дараа нь дутуу нэрээ нэмэхэд тоо нь 3 хэвээр үлдэж, нэмсэн
@@ -4395,10 +4434,11 @@ def sample_edit(geo_id):
     return redirect(request.referrer or url_for('analysis'))
 
 @app.route('/analysis/sample/<int:geo_id>/delete', methods=['POST'])
-@senior_required
+@login_required
 def sample_delete(geo_id):
-    """Буруу бүртгэсэн дээжийг жагсаалтаас бүрмөсөн устгана (Админ/Ахлах).
+    """Буруу бүртгэсэн дээжийг жагсаалтаас бүрмөсөн устгана.
 
+    Админ/ахлах, эсвэл бүртгэсэн хүн өөрөө (лаб хүлээж авахаас өмнө).
     Хэмжилтийн утга орсон бол устгахгүй — тэр тохиолдолд Архивын устгалыг
     (админ) ашиглана. Буцаах боломжгүй тул устгахын өмнө нөөцөлнө.
     """
@@ -4412,6 +4452,12 @@ def sample_delete(geo_id):
     rec = conn.execute('SELECT id, lab_number FROM sample_receipt WHERE geo_sample_id=?',
                        (geo_id,)).fetchone()
     rid = rec['id'] if rec else None
+
+    if not can_edit_sample(geo, rid is not None):
+        conn.close()
+        flash('Лаборатори хүлээн авсны дараа зөвхөн ахлах устгана.'
+              if rid else 'Энэ бүртгэлийг устгах эрх байхгүй байна.', 'error')
+        return redirect(request.referrer or url_for('analysis'))
 
     if rid:
         # 1. Хэмжилт орсон эсэх — орсон бол устгахгүй

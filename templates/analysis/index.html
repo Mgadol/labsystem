@@ -238,7 +238,9 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
             {% set ps = s['prep_status'] or '' %}
             {% set st = s['status'] or '' %}
             {% set rid = s['receipt_id'] %}
-            {% if current_user['role'] in ('admin','senior') and s['sample_type'] != 'CRM' %}
+            {# Засах/устгах: админ, ахлах — үргэлж. Бүртгэсэн хүн өөрөө
+               (геологич, баяжуулах) — ЗӨВХӨН лаб хүлээж авахаас өмнө. #}
+            {% if can_edit_sample(s, rid) and s['sample_type'] != 'CRM' %}
             <button type="button"
               onclick="openSampleEdit({{ s['id'] }}, this)"
               data-name="{{ s['sample_name']|e }}" data-serial="{{ s['lab_serial'] or '' }}"
