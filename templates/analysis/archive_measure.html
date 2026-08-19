@@ -20,6 +20,8 @@
 /* Хасах тооцоо — хувь хэмжигдэхүүн 0-ээс бага гарах боломжгүй тул улаанаар
    анхааруулна (мөрийн inline өнгийг дарахын тулд !important). */
 .calc-cell.neg{color:#dc2626!important}
+/* Дундаж (үндсэн мөр) / зөрүү Δ (зэрэгцээ мөр) — хэмжилтийн хуудастай ижил */
+.cmid{background:#cfeee2!important;color:#0a4f3c}
 .val{font-family:monospace;font-size:11px}
 .cg-ff.hide,.cg-mt.hide,.cg-dc.hide,.cg-un.hide,
 .cg-db.hide,.cg-gi.hide,.cg-st.hide,.cg-il.hide,.cg-fsi.hide{display:none}
@@ -98,8 +100,8 @@
     <col class="cg-il" style="width:65px"><col class="cg-il" style="width:40px">
     <!-- FSI -->
     <col class="cg-fsi" style="width:40px">
-    <!-- Тооцоо -->
-    <col style="width:50px"><col style="width:50px"><col style="width:50px"><col style="width:50px">
+    <!-- Тооцоо — үзүүлэлт бүрд утга + дундаж (хэмжилтийн хуудастай ижил) -->
+    <col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px">
   </colgroup>
   <thead>
     <tr class="h1">
@@ -117,7 +119,7 @@
       <th class="cg-st">Нийт хүхэр</th>
       <th colspan="2" class="cg-il">Илчлэгийн утга</th>
       <th class="cg-fsi">Чөлөөт<br>хөөлт</th>
-      <th colspan="4">Тооцоо</th>
+      <th colspan="18">Тооцоо</th>
     </tr>
     <tr class="h2">
       <th class="cg-ff gs">Дээжний масс<br>[гр]</th><th class="cg-ff ge">Хатаасан масс<br>[гр]</th>
@@ -129,10 +131,16 @@
       <th class="cg-st gs ge">Sad [%]</th>
       <th class="cg-il gs">Qb,ad [J/g]</th><th class="cg-il ge">Өрөө ⁰C</th>
       <th class="cg-fsi gs ge">CSN</th>
-      <th class="gs">Mad%</th><th>Aad%</th><th>Vad%</th><th>FCad%</th>
+      <th class="gs">TM%</th><th class="cmid" title="Дундаж — үндсэн мөрөнд. Зэрэгцээ мөрөнд дундажид орсон утгуудын зөрүү (Δ).">Дундаж</th><th>Mad%</th><th class="cmid" title="Дундаж — үндсэн мөрөнд. Зэрэгцээ мөрөнд дундажид орсон утгуудын зөрүү (Δ).">Дундаж</th><th>Aad%</th><th class="cmid" title="Дундаж — үндсэн мөрөнд. Зэрэгцээ мөрөнд дундажид орсон утгуудын зөрүү (Δ).">Дундаж</th><th>Vad%</th><th class="cmid" title="Дундаж — үндсэн мөрөнд. Зэрэгцээ мөрөнд дундажид орсон утгуудын зөрүү (Δ).">Дундаж</th><th>FCad%</th><th class="cmid" title="Дундаж — үндсэн мөрөнд. Зэрэгцээ мөрөнд дундажид орсон утгуудын зөрүү (Δ).">Дундаж</th><th>G</th><th class="cmid" title="Дундаж — үндсэн мөрөнд. Зэрэгцээ мөрөнд дундажид орсон утгуудын зөрүү (Δ).">Дундаж</th><th>Sad%</th><th class="cmid" title="Дундаж — үндсэн мөрөнд. Зэрэгцээ мөрөнд дундажид орсон утгуудын зөрүү (Δ).">Дундаж</th><th>Qb,ad</th><th class="cmid" title="Дундаж — үндсэн мөрөнд. Зэрэгцээ мөрөнд дундажид орсон утгуудын зөрүү (Δ).">Дундаж</th><th>CSN</th><th class="cmid" title="Дундаж — үндсэн мөрөнд. Зэрэгцээ мөрөнд дундажид орсон утгуудын зөрүү (Δ).">Дундаж</th>
     </tr>
   </thead>
   <tbody>
+  {# Тооцооны багануудын жагсаалт — app.py-гийн ARCHIVE_CALC_COLS-той ижил
+     дараалалтай байх ёстой (нэр, түлхүүр, хүлцэл, бутархайн орон). #}
+  {% set CALC_COLS = [('TM%','tm',None,1), ('Mad%','mad','Mad',2),
+      ('Aad%','aad','Aad',2), ('Vad%','vad','Vad',2), ('FCad%','fc',None,2),
+      ('G','g','G_index',0), ('Sad%','sad','Stad',2), ('Qb,ad','qb','Qb_ad',1),
+      ('CSN','fsi','FSI',1)] %}
   {% set stype = receipt['sample_type'] %}
   {% for i in range(receipt['quantity'] or 1) %}
   {% set ri = i+1 %}
@@ -183,11 +191,19 @@
     <td class="cg-il ge val">{{ e['cal_temp'] if e and e['cal_temp'] is not none else '—' }}</td>
     <!-- FSI -->
     <td class="cg-fsi gs ge val">{{ e['fsi'] if e and e['fsi'] is not none else '—' }}</td>
-    <!-- Тооцоо -->
-    <td class="calc-cell gs">{{ '%.4f'|format(e['mad']) if e and e['mad'] else '—' }}</td>
-    <td class="calc-cell">{{ '%.4f'|format(e['aad']) if e and e['aad'] else '—' }}</td>
-    <td class="calc-cell">{{ '%.4f'|format(e['vad']) if e and e['vad'] else '—' }}</td>
-    <td class="calc-cell">{{ '%.4f'|format(e['fc']) if e and e['fc'] else '—' }}</td>
+    <!-- Тооцоо — сервер талд бодогдсон (calc), хэмжилтийн хуудастай ижил -->
+    {% set c = calc.get((ri, 0)) or {} %}
+    {% set mn = c.get('mean') or {} %}
+    {% set df = c.get('diff') or {} %}
+    {% for _lbl, k, _p, dp in CALC_COLS %}
+    <td class="calc-cell{{ ' gs' if loop.first }}">
+      {{ ('%.'+dp|string+'f')|format(c[k]) if c.get(k) is not none else '—' }}</td>
+    <td class="calc-cell cmid">
+      {%- if mn.get(k) is not none %}{{ ('%.'+dp|string+'f')|format(mn[k]) }}
+      {%- elif df.get(k) is not none %}Δ {{ ('%.'+dp|string+'f')|format(df[k]) }}
+      {%- else %}—{% endif %}</td>
+    {% endfor %}
+
   </tr>
   {# Зэрэгцээ БА давталтууд (is_duplicate 2,3…). Урьд нь зөвхөн зэрэгцээ
      харагдаж, давталтын хэмжилтүүд архивт нуугдаж байсан. #}
@@ -232,10 +248,19 @@
     <!-- FSI -->
     <td class="cg-fsi gs ge val">{{ de['fsi'] if de['fsi'] is not none else '—' }}</td>
     <!-- Тооцоо -->
-    <td class="calc-cell gs" style="color:#185fa5">{{ '%.4f'|format(de['mad']) if de['mad'] is not none else '—' }}</td>
-    <td class="calc-cell" style="color:#185fa5">{{ '%.4f'|format(de['aad']) if de['aad'] is not none else '—' }}</td>
-    <td class="calc-cell" style="color:#185fa5">{{ '%.4f'|format(de['vad']) if de['vad'] is not none else '—' }}</td>
-    <td class="calc-cell" style="color:#185fa5">{{ '%.4f'|format(de['fc']) if de['fc'] is not none else '—' }}</td>
+    <!-- Тооцоо — сервер талд бодогдсон (calc), хэмжилтийн хуудастай ижил -->
+    {% set c = calc.get((ri, de['is_duplicate'])) or {} %}
+    {% set mn = c.get('mean') or {} %}
+    {% set df = c.get('diff') or {} %}
+    {% for _lbl, k, _p, dp in CALC_COLS %}
+    <td class="calc-cell{{ ' gs' if loop.first }}">
+      {{ ('%.'+dp|string+'f')|format(c[k]) if c.get(k) is not none else '—' }}</td>
+    <td class="calc-cell cmid">
+      {%- if mn.get(k) is not none %}{{ ('%.'+dp|string+'f')|format(mn[k]) }}
+      {%- elif df.get(k) is not none %}Δ {{ ('%.'+dp|string+'f')|format(df[k]) }}
+      {%- else %}—{% endif %}</td>
+    {% endfor %}
+
   </tr>
   {% endif %}
   {% endfor %}

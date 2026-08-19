@@ -1923,10 +1923,11 @@ def archive_measure(receipt_id):
         SELECT * FROM sample_entries WHERE receipt_id=?
         ORDER BY row_num, is_duplicate
     """, (receipt_id,)).fetchall()
+    calc = archive_calc(entries, qc_tolerances(conn))
     conn.close()
     row_names, _n, _sn = sample_names_for(receipt)
     return render_template('analysis/archive_measure.html',
-        receipt=receipt, entries=entries, lang=lang,
+        receipt=receipt, entries=entries, lang=lang, calc=calc,
         data_groups=measured_groups(entries), row_names=row_names)
 
 @app.route('/analysis/find-receipt')
@@ -2322,6 +2323,83 @@ def best_set_mean(values, tol=None):
 def closest_pair_mean(values):
     """Хамгийн ойрхон хоёр утгын дундаж (нэг л утга байвал өөрийг нь)"""
     return best_set_mean(values)[0]
+
+
+# Архивын хэмжилтийн "Тооцоо" хэсэг — хэмжилтийн хуудастай ИЖИЛ 9 үзүүлэлт.
+# (нэр, тооцооны түлхүүр, хүлцлийн параметр, бутархайн орон)
+ARCHIVE_CALC_COLS = [
+    ('TM%',    'tm',  None,       1),
+    ('Mad%',   'mad', 'Mad',      2),
+    ('Aad%',   'aad', 'Aad',      2),
+    ('Vad%',   'vad', 'Vad',      2),
+    ('FCad%',  'fc',  None,       2),
+    ('G',      'g',   'G_index',  0),
+    ('Sad%',   'sad', 'Stad',     2),
+    ('Qb,ad',  'qb',  'Qb_ad',    1),
+    ('CSN',    'fsi', 'FSI',      1),
+]
+
+
+def archive_calc(entries, tols):
+    """Архивын хуудсанд харуулах тооцоо: мөр бүрийн утга + дундаж/зөрүү.
+
+    Архив нь зөвхөн харах хуудас тул JavaScript-ээр бодогддоггүй. Урьд нь
+    зөвхөн DB-д хадгалагдсан Mad/Aad/Vad/FC дөрөв гардаг байсан тул нийт
+    чийг, G, хүхэр, илчлэг, ЧХЗ болон дундаж нь огт харагдахгүй, хэмжилтийн
+    хуудаснаас өөр байдалтай байв.
+
+    Буцаах: {(row_num, is_duplicate): {'tm': ..., 'mad': ..., 'mean': {...},
+                                       'diff': {...}}}
+    Дундаж нь ҮНДСЭН мөрөнд, зөрүү (Δ) нь ЗЭРЭГЦЭЭ мөрөнд гарна —
+    хэмжилтийн хуудастай ижил.
+    """
+    def num(e, k):
+        try:
+            v = e[k]
+            return float(v) if v is not None and v != '' else None
+        except (KeyError, IndexError, TypeError, ValueError):
+            return None
+
+    vals, rows = {}, {}
+    for e in entries:
+        key = (e['row_num'], e['is_duplicate'])
+        d = dict(e)
+        v = {
+            'tm':  total_moisture(d),
+            'mad': num(e, 'mad'),
+            'aad': num(e, 'aad'),
+            'vad': num(e, 'vad'),
+            'fc':  num(e, 'fc'),
+            'g':   num(e, 'g_val'),
+            'sad': num(e, 'sulfur'),
+            'qb':  num(e, 'cal_value'),
+            'fsi': num(e, 'fsi'),
+        }
+        if v['g'] is None:
+            gt, gc = num(e, 'g_tare'), num(e, 'g_coke')
+            g1, g2 = num(e, 'g_sieve1'), num(e, 'g_sieve2')
+            if None not in (gt, gc, g1, g2) and (gc - gt) > 0:
+                v['g'] = 10 + (30 * (g1 - gt) + 70 * (g2 - gt)) / (gc - gt)
+        if v['fc'] is None and None not in (v['mad'], v['aad'], v['vad']):
+            v['fc'] = 100 - v['mad'] - v['aad'] - v['vad']
+        vals[key] = v
+        rows.setdefault(e['row_num'], []).append(e['is_duplicate'])
+
+    out = {k: dict(v) for k, v in vals.items()}
+    for rn, dups in rows.items():
+        if len(dups) < 2:
+            continue
+        mean, diff = {}, {}
+        for _, key, param, _dp in ARCHIVE_CALC_COLS:
+            series = [vals[(rn, d)].get(key) for d in dups]
+            if len([x for x in series if x is not None]) < 2:
+                continue
+            m, df, _n = best_set_mean(series, tols.get(param) if param else None)
+            mean[key], diff[key] = m, df
+        out.setdefault((rn, 0), {})['mean'] = mean
+        if 1 in dups:
+            out.setdefault((rn, 1), {})['diff'] = diff
+    return out
 
 
 def apply_final_results(entries, tol_map=None):
