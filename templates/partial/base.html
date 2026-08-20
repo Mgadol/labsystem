@@ -21,11 +21,15 @@
 body{font-family:'Inter',sans-serif;font-size:14px;color:var(--text);background:#f0ede8;min-height:100vh}
 a{color:inherit;text-decoration:none}
 .topbar{background:var(--navy);color:#fff;padding:0 20px;height:72px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
-.topbar-left{display:flex;align-items:center;gap:12px}
+.topbar-left{display:flex;align-items:center;gap:12px;min-width:0}
 .topbar-logo{font-size:15px;font-weight:600;color:#fff;display:flex;align-items:center;gap:8px}
 .topbar-logo i{font-size:18px;color:#93a8d4}
 .topbar-logo img{width:42px!important;height:64px!important;min-width:42px;max-width:42px;min-height:64px;max-height:64px;object-fit:contain;flex-shrink:0}
-.topbar-nav{display:flex;gap:2px}
+.topbar-nav{display:flex;gap:2px;flex-shrink:0}
+.topbar-nav a{white-space:nowrap}
+.topbar-logo>span{min-width:0}
+.topbar-logo>span>span{overflow:hidden;text-overflow:ellipsis}
+.topbar-right{flex-shrink:0}
 .topbar-nav a{padding:6px 12px;border-radius:6px;font-size:13px;color:#93a8d4;transition:.15s}
 .topbar-nav a:hover,.topbar-nav a.active{background:rgba(255,255,255,.1);color:#fff}
 .topbar-right{display:flex;align-items:center;gap:10px}
@@ -100,7 +104,9 @@ details.fold>summary:hover{color:var(--navy)}
 .nav-toggle{display:none;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
             color:#fff;border-radius:6px;padding:7px 10px;font-size:15px;line-height:1;cursor:pointer}
 
-@media(max-width:640px){
+/* 1100px хүртэл — таблет, "Desktop site" горимд байгаа утас, жижиг цонх.
+   Утас нь дэлгэцээ 980-1200px мэт харуулдаг тул 640px-ийн заагт багтдаггүй. */
+@media(max-width:1200px){
   /* Дээд мөр: лого + нэр багасч, баруун талын хэрэглэгч/гарах товч дэлгэцнээс гарахгүй */
   .topbar{height:56px;padding:0 10px;gap:6px}
   .topbar-left{gap:8px;min-width:0;flex:1 1 auto}
@@ -121,18 +127,22 @@ details.fold>summary:hover{color:var(--navy)}
               box-shadow:0 10px 24px rgba(0,0,0,.35);z-index:99}
   .topbar-nav.open{display:flex}
   .topbar-nav a{padding:12px 14px;font-size:14px;border-radius:7px}
+  /* Өргөн хүснэгт хуудсыг сунгахгүй — картныхаа дотор хажуу тийш гүйнэ */
+  .card,.card-sm{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  /* Таб мөр — олон таб багтахгүй бол хажуу тийш гүйнэ (хуудсыг сунгахгүй) */
+  .tab-nav,div:has(>.tab-btn){overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .tab-btn{white-space:nowrap;flex:0 0 auto}
+}
+
+/* Жинхэнэ гар утасны өргөн */
+@media(max-width:640px){
   .form-grid,.form-row{grid-template-columns:1fr}
   /* iPhone дээр 16px-ээс жижиг талбар дарахад хуудсыг өөрөө томруулж,
      баруун тал нь дэлгэцнээс гарч алга болдог — тиймээс 16px болгоно */
   .form-input,select.form-input,textarea.form-input{font-size:16px}
   .page{padding:12px}
-  /* Өргөн хүснэгт хуудсыг сунгахгүй — картныхаа дотор хажуу тийш гүйнэ */
-  .card,.card-sm{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .stat-grid{grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px}
   .stat-val{font-size:20px}
-  /* Таб мөр — олон таб багтахгүй бол хажуу тийш гүйнэ (хуудсыг сунгахгүй) */
-  .tab-nav,div:has(>.tab-btn){overflow-x:auto;-webkit-overflow-scrolling:touch}
-  .tab-btn{white-space:nowrap;flex:0 0 auto}
 }
 </style>
 {% block extra_head %}{% endblock %}
@@ -229,7 +239,7 @@ window.pinMenu=function(menu,btn){
   if(!menu) return;
   /* Анхны style-г нь хадгална — компьютер дээр яг хэвээр нь сэргээнэ */
   if(menu.dataset.origStyle===undefined) menu.dataset.origStyle=menu.getAttribute('style')||'';
-  if(window.innerWidth>640){
+  if(window.innerWidth>1200){
     var d=menu.style.display;
     menu.setAttribute('style',menu.dataset.origStyle);
     menu.style.display=d;
