@@ -1526,8 +1526,17 @@ def staff_detail(uid):
         if n:
             by_analysis.append({'label': lbl, 'count': n})
     by_analysis.sort(key=lambda x: -x['count'])
-    total_done     = conn.execute("SELECT COUNT(*) FROM sample_entries WHERE done_by=? AND row_status IN ('done','approved')", (uid,)).fetchone()[0]
-    total_approved = conn.execute("SELECT COUNT(*) FROM sample_entries WHERE approved_by=? AND row_status='approved'", (uid,)).fetchone()[0]
+    # "Дуусгасан" ба "Баталгаажуулсан" тоог мөн ДЭЭЖЭЭР тоолно.
+    # Урьд нь COUNT(*) — өөрөөр хэлбэл зэрэгцээ, давталтын мөр тус бүрийг
+    # тоолдог байсан тул "Шинжилсэн дээж 287 / дуусгасан 430" гэх мэт
+    # дээрхээсээ ИХ тоо гарч, ойлгомжгүй болдог байв. Одоо гурвуулаа
+    # "хэдэн дээж" гэсэн нэг суурьтай.
+    total_done     = conn.execute(
+        "SELECT COUNT(DISTINCT receipt_id || '-' || row_num) FROM sample_entries "
+        "WHERE done_by=? AND row_status IN ('done','approved')", (uid,)).fetchone()[0]
+    total_approved = conn.execute(
+        "SELECT COUNT(DISTINCT receipt_id || '-' || row_num) FROM sample_entries "
+        "WHERE approved_by=? AND row_status='approved'", (uid,)).fetchone()[0]
     total_hours    = conn.execute("SELECT COALESCE(SUM(duration_hours),0) FROM usage_logs WHERE user_id=? AND end_time IS NOT NULL", (uid,)).fetchone()[0]
     # QC radar
     qc_rows = conn.execute("""

@@ -63,7 +63,7 @@
       <!-- Stat cards -->
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
         <div class="card" style="padding:14px;text-align:center"
-             title="Ямар нэг шинжилгээ хийсэн дээжийн тоо. Дуусгасан гэж тэмдэглэсэн: {{ total_done }}">
+             title="Ямар нэг шинжилгээ хийсэн дээжийн тоо (нэг дээж нэг удаа). «Дуусгасан» нь ✓ тэмдэглэсэн дээжийн тоо — мөн адил нэг дээж нэг удаа.">
           <div style="font-size:28px;font-weight:700;color:var(--navy)">{{ total_analyzed }}</div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Шинжилсэн дээж</div>
           <div style="font-size:10px;color:var(--text-muted);margin-top:2px">
@@ -100,7 +100,9 @@
           {% endfor %}
         </div>
         <div style="font-size:10px;color:var(--text-muted);margin-top:8px">
-          Нэг дээж дээр хийсэн шинжилгээ бүр тусад нь тоологдоно
+          Дээжийг шинжилгээний төрөл тус бүрд нэг удаа тоолно — нэг дээж
+          хэд хэдэн төрөлд орж болно (тиймээс эдгээрийн нийлбэр нь дээрх
+          «Шинжилсэн дээж»-ээс их байна)
         </div>
       </div>
       {% endif %}
