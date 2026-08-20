@@ -25,6 +25,35 @@ app = Flask(__name__)
 # буусан эсэхийг батлах боломжтой болгоно.
 VERSION = '1.0.0'
 
+
+def _git_commit():
+    """Ажиллаж буй кодын git дугаар. Шинэчлэлт үнэхээр буусан эсэхийг
+    Тохиргоо хуудаснаас нүдээр шалгах боломж олгоно. git тушаал ажиллуулахгүй,
+    зөвхөн .git фолдероос уншина — суулгац git-гүй бол '—' гэж харагдана."""
+    try:
+        base = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.git')
+        with open(os.path.join(base, 'HEAD'), encoding='utf-8') as f:
+            head = f.read().strip()
+        if not head.startswith('ref: '):
+            return head[:7]
+        ref = head[5:].strip()
+        p = os.path.join(base, *ref.split('/'))
+        if os.path.exists(p):
+            with open(p, encoding='utf-8') as f:
+                return f.read().strip()[:7]
+        pk = os.path.join(base, 'packed-refs')
+        if os.path.exists(pk):
+            with open(pk, encoding='utf-8') as f:
+                for line in f:
+                    if line.rstrip().endswith(' ' + ref):
+                        return line.split()[0][:7]
+    except Exception:
+        pass
+    return '—'
+
+
+GIT_COMMIT = _git_commit()
+
 # ── ХЭЛ ───────────────────────────────────────────────────────
 # Одоогоор зөвхөн монгол. Кодод англи орчуулга үлдсэн тул хожим
 # (жишээ нь гадаад түншид зориулж) энэ тугийг True болгоход л сэргэнэ.
@@ -6280,7 +6309,8 @@ def save_settings(data):
 @app.context_processor
 def inject_settings():
     return dict(settings=get_settings(), weak_admin=WEAK_ADMIN_PASSWORD,
-                weak_users=WEAK_PASSWORD_USERS, app_version=VERSION)
+                weak_users=WEAK_PASSWORD_USERS, app_version=VERSION,
+                app_commit=GIT_COMMIT)
 
 
 # Хуучин суулгацуудад анхдагч 'admin123' хэвээр үлдсэн байж болно.
