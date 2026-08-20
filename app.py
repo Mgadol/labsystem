@@ -1563,8 +1563,12 @@ def staff_detail(uid):
     # Monthly / weekly counts — шинжилсэн ба бэлтгэсэн дээжийн тоо
     def series(fmt, days=None, kind='done'):
         if kind == 'done':
+            # ДЭЭЖЭЭР тоолно — дээрх "Шинжилсэн дээж" картуудтай нэг суурьтай.
+            # Урьд нь COUNT(*) байсан тул зэрэгцээ, давталтын мөр тус бүр
+            # тоологдож, график нь картаас (287) их тоо (430) харуулдаг байв.
             sql = f"""
-                SELECT strftime('{fmt}', se.done_at) as period, COUNT(*) as cnt
+                SELECT strftime('{fmt}', se.done_at) as period,
+                       COUNT(DISTINCT se.receipt_id || '-' || se.row_num) as cnt
                 FROM sample_entries se
                 WHERE se.done_by=? AND se.row_status IN ('done','approved')
                   AND se.done_at IS NOT NULL
