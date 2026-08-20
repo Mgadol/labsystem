@@ -711,6 +711,12 @@ def device_edit(did):
     lang = session.get('lang','mn')
     conn = get_db()
     device = conn.execute("SELECT d.*, dm.manufacturer, dm.model, dm.category FROM devices d LEFT JOIN device_marks dm ON d.mark_id=dm.id WHERE d.id=?", (did,)).fetchone()
+    # Устсан/байхгүй төхөөрөмжийн хаягаар орвол загвар нь device.id-д хандаж
+    # ХУУДАС 500 болдог байв. Одоо ойлгомжтой мессежтэйгээр буцаана.
+    if not device:
+        conn.close()
+        flash('Тоног төхөөрөмж олдсонгүй.', 'error')
+        return redirect(url_for('devices'))
     marks  = conn.execute("SELECT * FROM device_marks").fetchall()
     if request.method == 'POST':
         # Зөвхөн шалгалтын тохиргоо хадгалах (check tab-аас дуудагдана)
@@ -2249,6 +2255,11 @@ def staff_edit(uid):
     lang = session.get('lang','mn')
     conn = get_db()
     target = conn.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
+    # Устсан ажилтны хаягаар орвол загвар нь target-д хандаж 500 болно
+    if not target:
+        conn.close()
+        flash('Ажилтан олдсонгүй.', 'error')
+        return redirect(url_for('staff_list'))
     devices = conn.execute("SELECT * FROM devices ORDER BY name").fetchall()
     perms = [r['device_id'] for r in conn.execute("SELECT device_id FROM staff_device_permissions WHERE user_id=?", (uid,)).fetchall()]
     if request.method == 'POST':
@@ -5643,7 +5654,12 @@ def analysis_result(receipt_id):
         LEFT JOIN users up ON up.id=sr.received_by
         WHERE sr.id=?
     """, (receipt_id,)).fetchone()
-    
+    # Устсан/байхгүй ажлын хаягаар орвол загвар нь receipt-д хандаж 500 болно
+    if not receipt:
+        conn.close()
+        flash('Ажил олдсонгүй.', 'error')
+        return redirect(url_for('analysis'))
+
     entries = conn.execute("""
         SELECT se.*, u1.name as done_name, u2.name as approved_name
         FROM sample_entries se
