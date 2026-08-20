@@ -1943,6 +1943,201 @@ def archive_measure(receipt_id):
         receipt=receipt, entries=entries, lang=lang, calc=calc,
         data_groups=measured_groups(entries), row_names=row_names)
 
+
+# ── Архивын ХЭМЖИЛТИЙН хуудсыг Excel болгож татах ────────────────────────
+# Албан тайлан (analysis_export) нь зөвхөн эцсийн үр дүнг гаргадаг. Түүхий
+# жингүүд буюу хэмжилтийн хуудсыг бүтнээр нь татах арга байгаагүй тул
+# лабораторийн анхдагч бүртгэлийг гадагш гаргах боломжгүй байв.
+# Багана, гарчиг, дараалал нь дэлгэц дээрхтэй ЯГ ИЖИЛ.
+MEASURE_EXPORT_GROUPS = [
+    ('ff',  'Чөлөөт чийг',     [('ff_sample', 'Дээжний масс [гр]'),
+                                ('ff_dried',  'Хатаасан масс [гр]')]),
+    ('mt',  'Нийт чийг',       [('mt_bux',    'Бюкс №'),
+                                ('mt_tare',   'Хоосон бюкс [гр]'),
+                                ('mt_sample', 'Дээж масс [гр]'),
+                                ('mt_dried',  'Хатаалтын дараах масс [гр]')]),
+    ('dc',  'Дотоод чийг',     [('dc_bux',    'Бюкс №'),
+                                ('dc_tare',   'Хоосон бюкс [гр]'),
+                                ('dc_sample', 'Дээж масс [гр]'),
+                                ('dc_dried',  'Хатаалтын дараах масс [гр]')]),
+    ('un',  'Үнс',             [('ash_tav',    'Тэвш №'),
+                                ('ash_tare',   'Хоосон бюкс [гр]'),
+                                ('ash_sample', 'Дээж масс [гр]'),
+                                ('ash_burned', 'Шатаалтын дараах масс [гр]')]),
+    ('db',  'Дэгдэмхий бодис', [('vol_tig',    'Тигель №'),
+                                ('vol_tare',   'Хоосон тигель [гр]'),
+                                ('vol_sample', 'Дээж масс [гр]'),
+                                ('vol_burned', 'Шатаалтын дараах масс [гр]')]),
+    ('gi',  'G-Индекс',        [('g_tig',    'Тигель №'),
+                                ('g_tare',   'Хоосон тигель [гр]'),
+                                ('g_coke',   'Нийт кокс [гр]'),
+                                ('g_sieve1', '1-дэх шигшүүрийн масс [гр]'),
+                                ('g_sieve2', '2-дох шигшүүрийн масс [гр]')]),
+    ('st',  'Нийт хүхэр',      [('sulfur', 'Sad [%]')]),
+    ('il',  'Илчлэгийн утга',  [('cal_value', 'Qb,ad [J/g]'),
+                                ('cal_temp',  'Өрөө ⁰C')]),
+    ('fsi', 'Чөлөөт хөөлт',    [('fsi', 'CSN')]),
+]
+
+
+@app.route('/archive/export/measure/<int:receipt_id>')
+@login_required
+def archive_measure_export(receipt_id):
+    """Хэмжилтийн хуудсыг (түүхий жин + тооцоо) Excel болгож татна."""
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    conn = get_db()
+    receipt = conn.execute("""
+        SELECT sr.*, g.sample_name, g.sample_type, g.quantity, g.collected_date,
+               ug.name AS geo_name,
+               COALESCE(upb.name, up.name, sr.prep_operator) AS prep_name
+          FROM sample_receipt sr
+          JOIN geo_samples g ON g.id = sr.geo_sample_id
+          LEFT JOIN users ug  ON ug.id = g.registered_by
+          LEFT JOIN users up  ON up.id = sr.received_by
+          LEFT JOIN users upb ON upb.id = sr.prep_by
+         WHERE sr.id = ?""", (receipt_id,)).fetchone()
+    if not receipt:
+        conn.close()
+        flash('Бүртгэл олдсонгүй', 'error')
+        return redirect(url_for('archive'))
+    entries = conn.execute("""SELECT * FROM sample_entries WHERE receipt_id=?
+                              ORDER BY row_num, is_duplicate""", (receipt_id,)).fetchall()
+    calc = archive_calc(entries, qc_tolerances(conn))
+    conn.close()
+    row_names, _n, _sn = sample_names_for(receipt)
+    shown = measured_groups(entries)          # дэлгэцтэй ижил — хэмжсэн бүлэг л
+    groups = [g for g in MEASURE_EXPORT_GROUPS if g[0] in shown] or MEASURE_EXPORT_GROUPS
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Хэмжилт'
+    THIN = Side(style='thin', color='B0B0B0')
+    BORD = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
+    HFILL = PatternFill('solid', fgColor='3C3489')
+    SFILL = PatternFill('solid', fgColor='4F46A3')
+    CFILL = PatternFill('solid', fgColor='E8FAF4')
+    MFILL = PatternFill('solid', fgColor='CFEEE2')
+    DFILL = PatternFill('solid', fgColor='EEF5FF')
+    CEN = Alignment(horizontal='center', vertical='center', wrap_text=True)
+
+    # ── Толгойн мэдээлэл ──
+    info = [('Ажлын дугаар', receipt['lab_number']),
+            ('Дээжний нэр',  receipt['sample_name']),
+            ('Төрөл',        receipt['sample_type']),
+            ('Тоо',          receipt['quantity']),
+            ('Огноо',        receipt['collected_date'] or receipt['received_date']),
+            ('Геологи',      receipt['geo_name'] or '—'),
+            ('Дээж бэлтгэгч', receipt['prep_name'] or '—')]
+    for i, (k, v) in enumerate(info):
+        ws.cell(1, 1 + i * 2, k).font = Font(size=9, color='888888')
+        c = ws.cell(2, 1 + i * 2, v)
+        c.font = Font(size=11, bold=True)
+
+    # ── Хүснэгтийн гарчиг (2 мөр) ──
+    FIXED = ['No.', 'Төрөл', 'Лаб.дугаар', 'Дээжний дугаар', 'Масс [кг]']
+    HR1, HR2 = 4, 5
+    col = 1
+    for lbl in FIXED:
+        ws.merge_cells(start_row=HR1, start_column=col, end_row=HR2, end_column=col)
+        c = ws.cell(HR1, col, lbl)
+        c.fill, c.font, c.alignment, c.border = HFILL, Font(bold=True, color='FFFFFF', size=10), CEN, BORD
+        ws.cell(HR2, col).border = BORD
+        col += 1
+    for _key, title, fields in groups:
+        ws.merge_cells(start_row=HR1, start_column=col, end_row=HR1, end_column=col + len(fields) - 1)
+        c = ws.cell(HR1, col, title)
+        c.fill, c.font, c.alignment, c.border = HFILL, Font(bold=True, color='FFFFFF', size=10), CEN, BORD
+        for _f, flbl in fields:
+            c2 = ws.cell(HR2, col, flbl)
+            c2.fill, c2.font, c2.alignment, c2.border = SFILL, Font(color='FFFFFF', size=9), CEN, BORD
+            ws.column_dimensions[get_column_letter(col)].width = 13
+            col += 1
+    calc_start = col
+    ws.merge_cells(start_row=HR1, start_column=col, end_row=HR1,
+                   end_column=col + len(ARCHIVE_CALC_COLS) * 2 - 1)
+    c = ws.cell(HR1, col, 'Тооцоо')
+    c.fill, c.font, c.alignment, c.border = HFILL, Font(bold=True, color='FFFFFF', size=10), CEN, BORD
+    for lbl, _k, _p, _dp in ARCHIVE_CALC_COLS:
+        for sub in (lbl, 'Дундаж'):
+            c2 = ws.cell(HR2, col, sub)
+            c2.fill, c2.font, c2.alignment, c2.border = SFILL, Font(color='FFFFFF', size=9), CEN, BORD
+            ws.column_dimensions[get_column_letter(col)].width = 10
+            col += 1
+    for i, w in enumerate([5, 11, 15, 16, 9], start=1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+    ws.row_dimensions[HR1].height = 20
+    ws.row_dimensions[HR2].height = 34
+
+    # ── Мөрүүд: үндсэн → зэрэгцээ → давталт ──
+    by_row = {}
+    for e in entries:
+        by_row.setdefault(e['row_num'], {})[e['is_duplicate']] = e
+    r = HR2 + 1
+    for ri in range(1, (receipt['quantity'] or 1) + 1):
+        for dup in sorted(by_row.get(ri, {}).keys()) or [0]:
+            e = by_row.get(ri, {}).get(dup)
+            is_main = (dup == 0)
+            name = ((e['sample_name'] if e and e['sample_name'] else None)
+                    or (row_names[ri - 1] if len(row_names) >= ri else '—')) if is_main else (
+                    'зэрэгцээ' if dup == 1 else f'давталт {dup}')
+            fixed = [ri if is_main else '', receipt['sample_type'] if is_main else '',
+                     receipt['lab_number'], name,
+                     (e['mass_kg'] if e and is_main else None)]
+            for i, v in enumerate(fixed, start=1):
+                cc = ws.cell(r, i, v)
+                cc.border, cc.alignment = BORD, CEN
+                if not is_main:
+                    cc.fill = DFILL
+            cix = len(FIXED) + 1
+            for _key, _title, fields in groups:
+                for f, _lbl in fields:
+                    v = None
+                    try:
+                        v = e[f] if e else None
+                    except (KeyError, IndexError):
+                        v = None
+                    cc = ws.cell(r, cix, v)
+                    cc.border, cc.alignment = BORD, CEN
+                    if isinstance(v, float):
+                        cc.number_format = '0.0000'
+                    if not is_main:
+                        cc.fill = DFILL
+                    cix += 1
+            cv = calc.get((ri, dup)) or {}
+            mean = cv.get('mean') or {}
+            diff = cv.get('diff') or {}
+            for _lbl, k, _p, dp in ARCHIVE_CALC_COLS:
+                c1 = ws.cell(r, cix, cv.get(k))
+                c1.border, c1.alignment, c1.fill = BORD, CEN, CFILL
+                c1.number_format = '0.' + '0' * dp if dp else '0'
+                c1.font = Font(bold=True, color='0A6E3F', size=10)
+                cix += 1
+                mv = mean.get(k)
+                dv = diff.get(k)
+                c2 = ws.cell(r, cix, mv if mv is not None else
+                             (f'Δ {dv:.{dp}f}' if dv is not None else None))
+                c2.border, c2.alignment, c2.fill = BORD, CEN, MFILL
+                if mv is not None:
+                    c2.number_format = '0.' + '0' * dp if dp else '0'
+                c2.font = Font(color='0A4F3C', size=10)
+                cix += 1
+            r += 1
+
+    ws.freeze_panes = ws.cell(HR2 + 1, len(FIXED) + 1)
+    ws.print_area = f'A1:{get_column_letter(cix - 1)}{r - 1}'
+    ws.page_setup.orientation = 'landscape'
+
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+    fn = f"measure_{(receipt['lab_number'] or receipt_id)}.xlsx".replace(' ', '_')
+    return send_file(out, as_attachment=True, download_name=fn,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+
 @app.route('/analysis/find-receipt')
 @admin_required
 def analysis_find_receipt():

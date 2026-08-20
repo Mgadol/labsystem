@@ -57,6 +57,9 @@ thead .cmid{background:#5b52b8!important;color:#fff}
   <div><div style="font-size:9px;color:#c7d2fe">Дээж бэлтгэгч</div><div>{{ receipt['prep_name'] or '—' }}</div></div>
   <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
     <span style="font-size:11px;background:#4f46a3;padding:3px 10px;border-radius:10px;color:#c7d2fe">📦 Архивласан — зөвхөн харах</span>
+    <a href="{{ url_for('archive_measure_export', receipt_id=receipt['id']) }}"
+       class="btn btn-sm" title="Хэмжилтийн хуудсыг бүтнээр нь Excel-ээр татах"
+       style="background:#0f6e56;color:#fff;border:none">⬇ Excel татах</a>
     <a href="{{ url_for('archive_result', receipt_id=receipt['id']) }}" class="btn btn-ghost btn-sm" style="color:#c7d2fe;border-color:#4f46a3">← Буцах</a>
   </div>
 </div>
