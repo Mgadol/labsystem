@@ -1436,6 +1436,12 @@ def staff_detail(uid):
         conn.close()
         return redirect(url_for('staff_list'))
 
+    # Цэцэгтэй хүрээ — зөвхөн тухайн хүн ӨӨРӨӨ болон админ хардаг.
+    # Бусад ажилтан (ахлах ч гэсэн) энэ хуудсыг нээхэд ердийн хүрээтэй.
+    flower_frame = ('оюунбилэг' in (target['name'] or '').lower()
+                    and (session.get('role') == 'admin'
+                         or session.get('user_id') == target['id']))
+
     # ── ХАРИЛЦАГЧ (геологи + баяжуулах): зөвхөн дээж бүртгэлийн мэдээлэл ──
     if target['role'] in ('geologist', 'bayjuulach'):
         # Тоолол нь АЖЛААР биш ДЭЭЖЭЭР явна: нэг ажилд quantity дээж байдаг
@@ -1595,7 +1601,7 @@ def staff_detail(uid):
     prep_weekly  = series('%Y-W%W', days=182, kind='prep')
     conn.close()
     return render_template('staff/detail.html', target=target, logs=logs, my_devices=my_devs,
-                           device_usage=device_usage, lang=lang,
+                           device_usage=device_usage, lang=lang, flower_frame=flower_frame,
                            total_done=total_done, total_approved=total_approved, total_hours=total_hours,
                            total_analyzed=total_analyzed, by_analysis=by_analysis,
                            total_prepared=total_prepared,

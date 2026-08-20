@@ -1,5 +1,29 @@
 {% extends "partial/base.html" %}
 {% block title %}{{ target['name'] }}{% endblock %}
+{% block extra_head %}
+<style>
+/* Цэцэгтэй хүрээ — баярын чимэглэл. Зөвхөн эзэн нь болон админд гарна. */
+.flower-frame{position:relative;width:150px;margin:0 auto 12px;padding:5px;
+  border-radius:15px;
+  background:linear-gradient(135deg,#ffd9e8 0%,#fff1c9 35%,#d9f6e6 68%,#e9dcff 100%);
+  box-shadow:0 3px 12px rgba(236,72,153,.20)}
+.flower-frame img,.flower-frame .ph{display:block;width:140px;height:160px;
+  border-radius:11px;object-fit:cover;object-position:top center;margin:0}
+.flower-frame .ph{background:var(--navy);color:#93a8d4;display:flex;
+  align-items:center;justify-content:center;font-size:32px;font-weight:600}
+.flower-frame .fl{position:absolute;font-size:18px;line-height:1;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.18));animation:flsway 4.5s ease-in-out infinite}
+.flower-frame .fl.tl{top:-10px;left:-8px;--r:-16deg;animation-delay:0s}
+.flower-frame .fl.tr{top:-10px;right:-8px;--r:14deg;animation-delay:.6s}
+.flower-frame .fl.bl{bottom:-10px;left:-7px;--r:12deg;animation-delay:1.2s}
+.flower-frame .fl.br{bottom:-10px;right:-7px;--r:-13deg;animation-delay:1.8s}
+@keyframes flsway{
+  0%,100%{transform:translateY(0) rotate(var(--r,0deg))}
+  50%    {transform:translateY(-3px) rotate(calc(var(--r,0deg) + 8deg))}}
+/* Хөдөлгөөн багасгах тохиргоотой хэрэглэгчид зөвхөн хүрээ нь үлдэнэ */
+@media (prefers-reduced-motion: reduce){.flower-frame .fl{animation:none}}
+</style>
+{% endblock %}
 {% block content %}
 <div class="page">
   <div style="margin-bottom:16px;display:flex;align-items:flex-start;justify-content:space-between">
@@ -19,7 +43,19 @@
     <!-- Зүүн багана: профайл -->
     <div>
       <div class="card" style="padding:14px;text-align:center;margin-bottom:12px">
-        {% if target['photo'] %}
+        {# Цэцэгтэй хүрээ — зөвхөн тухайн хүн өөрөө болон админд харагдана
+           (эрхийг сервер талд flower_frame-ээр шийднэ). #}
+        {% if flower_frame %}
+        <div class="flower-frame">
+          <span class="fl tl">🌸</span><span class="fl tr">🌷</span>
+          <span class="fl bl">🌼</span><span class="fl br">🌺</span>
+          {% if target['photo'] %}
+          <img src="{{ url_for('static',filename='uploads/'+target['photo']) }}" alt="">
+          {% else %}
+          <div class="ph">{{ target['name'][:2] }}</div>
+          {% endif %}
+        </div>
+        {% elif target['photo'] %}
         <img src="{{ url_for('static',filename='uploads/'+target['photo']) }}" style="width:140px;height:160px;border-radius:10px;object-fit:cover;object-position:top center;margin:0 auto 10px;display:block">
         {% else %}
         <div style="width:140px;height:160px;border-radius:10px;background:var(--navy);color:#93a8d4;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:600;margin:0 auto 10px">{{ target['name'][:2] }}</div>
