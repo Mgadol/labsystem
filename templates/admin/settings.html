@@ -686,6 +686,7 @@ function toggleCrmMenu(id){
   var isOpen = el.style.display !== 'none';
   document.querySelectorAll('[id^="crm-menu-"]').forEach(function(m){ m.style.display='none'; });
   el.style.display = isOpen ? 'none' : 'block';
+  if(!isOpen && window.pinMenu) window.pinMenu(el);
 }
 document.addEventListener('click', function(e){
   if(!e.target.closest('[id^="crm-wrap-"]')) {

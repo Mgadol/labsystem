@@ -33,7 +33,7 @@
   {% set bayj_n = users_none|selectattr('role','eq','bayjuulach')|list %}
   {% set bayj_count = (bayj_a|length) + (bayj_b|length) + (bayj_n|length) %}
   {% set labonly_count = lab_count - geo_count - bayj_count %}
-  <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:16px">
+  <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:16px;overflow-x:auto;-webkit-overflow-scrolling:touch">
     <button class="tab-btn active" id="tab-lab" onclick="switchTab('lab')">
       🔬 Лабораторийн ажилтан
       <span style="background:#e6f1fb;color:#185fa5;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px">{{ labonly_count }}</span>

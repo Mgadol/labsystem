@@ -22,6 +22,16 @@
   50%    {transform:translateY(-3px) rotate(calc(var(--r,0deg) + 8deg))}}
 /* Хөдөлгөөн багасгах тохиргоотой хэрэглэгчид зөвхөн хүрээ нь үлдэнэ */
 @media (prefers-reduced-motion: reduce){.flower-frame .fl{animation:none}}
+/* Багана — гар утсан дээр дээрээс доош нэг баганаар эрэмбэлэгдэнэ */
+.sd-side{grid-template-columns:220px 1fr}
+.sd-4{grid-template-columns:repeat(4,1fr)}
+.sd-2{grid-template-columns:1fr 1fr}
+.sd-lbl{grid-template-columns:200px 1fr}
+@media(max-width:640px){
+  .sd-side,.sd-2,.sd-lbl{grid-template-columns:minmax(0,1fr)}
+  .sd-4{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .sd-4>*{min-width:0;overflow-wrap:anywhere}
+}
 </style>
 {% endblock %}
 {% block content %}
@@ -38,7 +48,7 @@
     {% endif %}
   </div>
 
-  <div style="display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:start">
+  <div class="sd-side" style="display:grid;gap:16px;align-items:start">
 
     <!-- Зүүн багана: профайл -->
     <div>
@@ -97,7 +107,7 @@
     <div>
 
       <!-- Stat cards -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+      <div class="sd-4" style="display:grid;gap:12px;margin-bottom:16px">
         <div class="card" style="padding:14px;text-align:center"
              title="Ямар нэг шинжилгээ хийсэн дээжийн тоо (нэг дээж нэг удаа). «Дуусгасан» нь ✓ тэмдэглэсэн дээжийн тоо — мөн адил нэг дээж нэг удаа.">
           <div style="font-size:28px;font-weight:700;color:var(--navy)">{{ total_analyzed }}</div>
@@ -144,7 +154,7 @@
       {% endif %}
 
       <!-- Графикууд -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div class="sd-2" style="display:grid;gap:16px;margin-bottom:16px">
 
         <!-- Radar: QC тэнцсэн хувь -->
         <div class="card" style="padding:16px">
@@ -212,7 +222,7 @@
     {% if device_usage %}
     <div class="card" style="margin-top:16px;padding:16px">
       <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:12px">🔧 Тоног төхөөрөмжийн ашиглалт</div>
-      <div style="display:grid;grid-template-columns:200px 1fr;gap:16px;align-items:center;margin-bottom:14px">
+      <div class="sd-lbl" style="display:grid;gap:16px;align-items:center;margin-bottom:14px">
         <div style="position:relative;height:180px"><canvas id="deviceDonut"></canvas></div>
         <div>
           {% for d in device_usage %}

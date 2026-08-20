@@ -96,10 +96,43 @@ details.fold>summary:hover{color:var(--navy)}
         letter-spacing:0;text-transform:none}
 .fold-body{margin-top:12px;max-height:420px;overflow:auto}
 
+/* Гар утасны цэсний товч — зөвхөн нарийн дэлгэц дээр гарна */
+.nav-toggle{display:none;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+            color:#fff;border-radius:6px;padding:7px 10px;font-size:15px;line-height:1;cursor:pointer}
+
 @media(max-width:640px){
-  .topbar-nav{display:none}
+  /* Дээд мөр: лого + нэр багасч, баруун талын хэрэглэгч/гарах товч дэлгэцнээс гарахгүй */
+  .topbar{height:56px;padding:0 10px;gap:6px}
+  .topbar-left{gap:8px;min-width:0;flex:1 1 auto}
+  .topbar-logo{gap:6px;min-width:0}
+  .topbar-logo img{width:26px!important;height:40px!important;
+                   min-width:26px;max-width:26px;min-height:40px;max-height:40px}
+  .topbar-logo>span{min-width:0}
+  .topbar-logo>span>span{white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;display:block}
+  .topbar-right{gap:6px;flex:0 0 auto}
+  .user-chip{padding:3px;gap:0;font-size:0;background:none}
+  .user-chip .badge{display:none}
+  .logout-btn{padding:7px 9px!important}
+  .logout-btn .lo-txt{display:none}
+  /* Цэс — товч дарахад дээрээс буух жагсаалт болно (өмнө нь бүрмөсөн алга болдог байсан) */
+  .nav-toggle{display:block}
+  .topbar-nav{display:none;position:absolute;top:100%;left:0;right:0;
+              flex-direction:column;gap:2px;padding:8px;background:var(--navy-dark);
+              box-shadow:0 10px 24px rgba(0,0,0,.35);z-index:99}
+  .topbar-nav.open{display:flex}
+  .topbar-nav a{padding:12px 14px;font-size:14px;border-radius:7px}
   .form-grid,.form-row{grid-template-columns:1fr}
+  /* iPhone дээр 16px-ээс жижиг талбар дарахад хуудсыг өөрөө томруулж,
+     баруун тал нь дэлгэцнээс гарч алга болдог — тиймээс 16px болгоно */
+  .form-input,select.form-input,textarea.form-input{font-size:16px}
   .page{padding:12px}
+  /* Өргөн хүснэгт хуудсыг сунгахгүй — картныхаа дотор хажуу тийш гүйнэ */
+  .card,.card-sm{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .stat-grid{grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px}
+  .stat-val{font-size:20px}
+  /* Таб мөр — олон таб багтахгүй бол хажуу тийш гүйнэ (хуудсыг сунгахгүй) */
+  .tab-nav,div:has(>.tab-btn){overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .tab-btn{white-space:nowrap;flex:0 0 auto}
 }
 </style>
 {% block extra_head %}{% endblock %}
@@ -117,7 +150,8 @@ details.fold>summary:hover{color:var(--navy)}
         <span style="font-size:10px;color:#93a8d4;font-weight:400;text-align:center">{{ settings.lab_subtitle }}</span>
       </span>
     </a>
-    <div class="topbar-nav">
+    <button type="button" class="nav-toggle" id="navToggle" aria-label="Цэс" aria-expanded="false">☰</button>
+    <div class="topbar-nav" id="topNav">
       <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint=='dashboard' %}active{% endif %}">Нүүр</a>
       <a href="{{ url_for('staff_list') }}" class="{% if 'staff' in request.endpoint %}active{% endif %}">Ажилтан</a>
       <a href="{{ url_for('analysis') }}" class="{% if 'analysis' in request.endpoint and 'internal_qc' not in request.endpoint %}active{% endif %}">Шинжилгээ</a>
@@ -157,7 +191,7 @@ details.fold>summary:hover{color:var(--navy)}
         <polyline points="16 17 21 12 16 7"/>
         <line x1="21" y1="12" x2="9" y2="12"/>
       </svg>
-      {{ 'Гарах' if session.get('lang','mn')=='mn' else 'Logout' }}
+      <span class="lo-txt">{{ 'Гарах' if session.get('lang','mn')=='mn' else 'Logout' }}</span>
     </a>
   </div>
 </nav>
@@ -188,6 +222,44 @@ details.fold>summary:hover{color:var(--navy)}
 {% endwith %}
 {% block content %}{% endblock %}
 </main>
+<script>
+/* Нарийн дэлгэц дээр карт хажуу тийш гүйдэг тул дотор нь байрлах унждаг цэс
+   таслагдана — тиймээс нээхдээ дэлгэцэд бэхлэнэ (position:fixed). */
+window.pinMenu=function(menu,btn){
+  if(!menu) return;
+  /* Анхны style-г нь хадгална — компьютер дээр яг хэвээр нь сэргээнэ */
+  if(menu.dataset.origStyle===undefined) menu.dataset.origStyle=menu.getAttribute('style')||'';
+  if(window.innerWidth>640){
+    var d=menu.style.display;
+    menu.setAttribute('style',menu.dataset.origStyle);
+    menu.style.display=d;
+    return;
+  }
+  btn=btn||menu.previousElementSibling;
+  if(!btn) return;
+  var r=btn.getBoundingClientRect();
+  menu.style.position='fixed';
+  menu.style.top=(r.bottom+4)+'px';
+  menu.style.left='auto';
+  menu.style.right=Math.max(6,window.innerWidth-r.right)+'px';
+};
+/* Гар утасны цэс — ☰ товч дарахад нээгдэж, гадуур дарахад хаагдана */
+(function(){
+  var t=document.getElementById('navToggle'), n=document.getElementById('topNav');
+  if(!t||!n) return;
+  t.addEventListener('click',function(e){
+    e.stopPropagation();
+    var open=n.classList.toggle('open');
+    t.setAttribute('aria-expanded',open?'true':'false');
+    t.textContent=open?'✕':'☰';
+  });
+  document.addEventListener('click',function(e){
+    if(!n.classList.contains('open')) return;
+    if(n.contains(e.target)||t.contains(e.target)) return;
+    n.classList.remove('open'); t.setAttribute('aria-expanded','false'); t.textContent='☰';
+  });
+})();
+</script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

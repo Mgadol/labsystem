@@ -235,6 +235,7 @@ function toggleArchMenu(id){
     if(m.id!=='arch-menu-'+id) m.style.display='none';
   });
   menu.style.display = menu.style.display==='none'?'block':'none';
+  if(menu.style.display==='block' && window.pinMenu) window.pinMenu(menu);
 }
 document.addEventListener('click', function(e){
   if(!e.target.closest('[id^=arch-wrap-]')){
