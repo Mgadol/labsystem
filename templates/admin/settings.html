@@ -420,7 +420,7 @@
                 <a href="{{ url_for('crm_edit', mid=c['id']) }}" style="display:block;padding:8px 12px;font-size:13px;color:var(--text);text-decoration:none;border-bottom:1px solid var(--border)">
                   ✏️ Засах
                 </a>
-                <form method="POST" action="/lab-settings/crm" onsubmit="return confirm('Дуусгах уу? Жагсаалтаас алга болно.')">
+                <form method="POST" action="/lab-settings/crm" onsubmit="return confirm('Ашиглаж дууссан гэж тэмдэглэх үү? Энэ жагсаалтаас гарч, Нэгдсэн архив → «Стандарт дээж» хэсэгт орно.')">
                   <input type="hidden" name="action" value="deactivate">
                   <input type="hidden" name="id" value="{{ c['id'] }}">
                   <button type="submit" style="width:100%;text-align:left;padding:8px 12px;font-size:13px;background:none;border:none;cursor:pointer;color:#0f6e56;border-bottom:1px solid var(--border)">

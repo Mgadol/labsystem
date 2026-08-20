@@ -1871,12 +1871,21 @@ def archive():
         WHERE iq.status='done'
         ORDER BY iq.triggered_date DESC LIMIT 200
     """).fetchall()
+    # Ашиглаж дууссан стандарт дээж (CRM). Тохиргооны жагсаалтаас гарч,
+    # энд түүх болон үлдэнэ — сертификатын утга нь хожмын шалгалтад хэрэгтэй.
+    try:
+        archived_crm = conn.execute(
+            "SELECT * FROM crm_materials WHERE is_active=0 "
+            "ORDER BY COALESCE(finished_at,'') DESC, crm_name").fetchall()
+    except Exception:
+        archived_crm = []
     # Харилцагч (геологч, баяжуулагч) нар зөвхөн шинжилгээ харна — бусдыг хоослоно
     if session.get('role') in ('geologist', 'bayjuulach'):
         archived_devices = []
         archived_staff = []
         completed_repairs = []
         done_qc = []
+        archived_crm = []
     conn.close()
     return render_template('admin/archive.html',
         archived_devices=archived_devices,
@@ -1884,6 +1893,7 @@ def archive():
         completed_repairs=completed_repairs,
         done_samples=completed_samples,
         done_qc=done_qc,
+        archived_crm=archived_crm,
         lang=lang)
 
 @app.route('/archive/result/<int:receipt_id>')
@@ -3021,6 +3031,7 @@ def ensure_tables():
         expires_at TEXT NOT NULL
     )""")
     for col in ['manufacture_date TEXT', 'expiry_date TEXT', 'open_date TEXT', 'g_cert REAL', 'g_unc REAL', 'standard TEXT',
+                'finished_at TEXT',
                 'mad_cert REAL', 'mad_unc REAL',
                 'aad_cert REAL', 'aad_unc REAL', 'vad_cert REAL', 'vad_unc REAL',
                 'sulfur_cert REAL', 'sulfur_unc REAL', 'cal_cert REAL', 'cal_unc REAL']:
@@ -6418,7 +6429,10 @@ def lab_settings():
 
     conn.close()
     _crm_conn = get_db()
-    crm_materials = _crm_conn.execute("SELECT * FROM crm_materials ORDER BY crm_name").fetchall()
+    # Дууссан (is_active=0) CRM нь Нэгдсэн архивын «Стандарт дээж» хэсэгт харагдана,
+    # тиймээс тохиргооны жагсаалтад зөвхөн ашиглагдаж байгааг нь үлдээнэ.
+    crm_materials = _crm_conn.execute(
+        "SELECT * FROM crm_materials WHERE is_active=1 ORDER BY crm_name").fetchall()
     now = datetime.now().isoformat()
     _crm_conn.execute("DELETE FROM guest_tokens WHERE expires_at < ?", (now,))
     _crm_conn.commit()
@@ -6472,11 +6486,21 @@ def lab_settings_crm():
             flash('CRM материал устгагдлаа', 'success')
         elif action == 'deactivate':
             mid = request.form.get('id')
-            conn.execute("UPDATE crm_materials SET is_active=0 WHERE id=?", (mid,))
+            conn.execute("UPDATE crm_materials SET is_active=0, finished_at=? WHERE id=?",
+                         (datetime.now().isoformat(), mid))
             conn.commit()
-            flash('CRM материал дуусгагдлаа', 'success')
+            flash('CRM материал дууслаа — Нэгдсэн архивын «Стандарт дээж» хэсэгт орлоо',
+                  'success')
+        elif action == 'activate':
+            # Архиваас буцаан идэвхжүүлнэ — андуурч дуусгасан тохиолдолд
+            mid = request.form.get('id')
+            conn.execute("UPDATE crm_materials SET is_active=1, finished_at=NULL WHERE id=?", (mid,))
+            conn.commit()
+            flash('CRM материал дахин идэвхжлээ', 'success')
     finally:
         conn.close()
+    if request.form.get('back') == 'archive':
+        return redirect(url_for('archive') + '#tab-crm')
     return redirect(url_for('lab_settings') + '?tab=crm')
 
 @app.route('/lab-settings/crm/<int:mid>/edit', methods=['GET','POST'])

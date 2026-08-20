@@ -23,6 +23,10 @@
       <span style="background:#eee;color:#888;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px">{{ (done_samples|length) + (done_qc|length) }}</span>
     </button>
     {% if not is_client %}
+    <button class="tab-btn" data-tab="tab-crm" onclick="switchTab(this,'tab-crm')">
+      🧬 {{ 'Стандарт дээж' if lang=='mn' else 'CRM' }}
+      <span style="background:#eee;color:#888;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px">{{ archived_crm|length }}</span>
+    </button>
     <button class="tab-btn" data-tab="tab-repair" onclick="switchTab(this,'tab-repair')">
       🔧 {{ 'Засвар' if lang=='mn' else 'Repairs' }}
     </button>
@@ -225,6 +229,86 @@
       {% else %}
       <div style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px">
         🧪 {{ 'Дууссан шинжилгээ байхгүй байна' if lang=='mn' else 'No completed analyses' }}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Ашиглаж дууссан стандарт дээж (CRM) -->
+  <div id="tab-crm" class="tab-pane">
+    <div class="card">
+      <div class="section-title" style="margin-bottom:12px">
+        {{ 'Ашиглаж дууссан стандарт дээж' if lang=='mn' else 'Used-up CRM materials' }}
+      </div>
+      {% if archived_crm %}
+      <table class="table">
+        <thead><tr>
+          <th>{{ 'Нэр' if lang=='mn' else 'Name' }}</th>
+          <th>{{ 'Стандарт' if lang=='mn' else 'Standard' }}</th>
+          <th style="text-align:center">Ad</th>
+          <th style="text-align:center">Vd</th>
+          <th style="text-align:center">St</th>
+          <th style="text-align:center">Q</th>
+          <th style="text-align:center">G</th>
+          <th>{{ 'Огноонууд' if lang=='mn' else 'Dates' }}</th>
+          <th>{{ 'Дууссан' if lang=='mn' else 'Finished' }}</th>
+          <th></th>
+        </tr></thead>
+        <tbody>
+        {% for c in archived_crm %}
+        <tr>
+          <td><strong>{{ c['crm_name'] }}</strong>
+            {% if c['notes'] %}<div style="font-size:11px;color:var(--text-muted)">{{ c['notes'] }}</div>{% endif %}
+          </td>
+          <td style="font-size:12px;color:var(--text-muted)">{{ c['standard'] or '—' }}</td>
+          <td style="text-align:center;font-size:12px">{% if c['aad_cert'] %}{{ '%.4f'|format(c['aad_cert']) }}{% else %}—{% endif %}</td>
+          <td style="text-align:center;font-size:12px">{% if c['vad_cert'] %}{{ '%.4f'|format(c['vad_cert']) }}{% else %}—{% endif %}</td>
+          <td style="text-align:center;font-size:12px">{% if c['sulfur_cert'] %}{{ '%.4f'|format(c['sulfur_cert']) }}{% else %}—{% endif %}</td>
+          <td style="text-align:center;font-size:12px">{% if c['cal_cert'] %}{{ '%.3f'|format(c['cal_cert']) }}{% else %}—{% endif %}</td>
+          <td style="text-align:center;font-size:12px">{% if c['g_cert'] %}{{ '%.2f'|format(c['g_cert']) }}{% else %}—{% endif %}</td>
+          <td style="font-size:11px;color:var(--text-muted)">
+            {% if c['manufacture_date'] %}<div>Үйлдвэр: {{ c['manufacture_date'] }}</div>{% endif %}
+            {% if c['open_date'] %}<div>Нээсэн: {{ c['open_date'] }}</div>{% endif %}
+            {% if c['expiry_date'] %}<div>Дуусах: {{ c['expiry_date'] }}</div>{% endif %}
+          </td>
+          <td style="font-size:12px">
+            <span class="badge" style="background:#eee;color:#888">
+              ✅ {{ (c['finished_at'] or '')[:10] or '—' }}
+            </span>
+          </td>
+          <td>
+            {% if current_user and current_user['role'] == 'admin' %}
+            <div style="display:flex;gap:6px">
+              <form method="POST" action="/lab-settings/crm">
+                <input type="hidden" name="action" value="activate">
+                <input type="hidden" name="id" value="{{ c['id'] }}">
+                <input type="hidden" name="back" value="archive">
+                <button type="submit" class="btn btn-sm" style="background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb">
+                  🔄 {{ 'Сэргээх' if lang=='mn' else 'Restore' }}
+                </button>
+              </form>
+              <form method="POST" action="/lab-settings/crm"
+                    onsubmit="return confirm('{{ c['crm_name'] }} — БҮРМӨСӨН устгах уу? Сертификатын утга нь бүрэн алга болно.')">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="id" value="{{ c['id'] }}">
+                <input type="hidden" name="back" value="archive">
+                <button type="submit" class="btn btn-sm" style="background:#faece7;color:#b91c1c;border:1px solid #f5c4b3">
+                  🗑 {{ 'Бүрмөсөн устгах' if lang=='mn' else 'Delete' }}
+                </button>
+              </form>
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px">
+        🧬 {{ 'Ашиглаж дууссан стандарт дээж байхгүй байна' if lang=='mn' else 'No used-up CRM materials' }}
+        <div style="font-size:12px;margin-top:6px">
+          Тохиргоо → CRM хэсгээс «✅ Дуусгах» дарсан дээж энд ирнэ.
+        </div>
       </div>
       {% endif %}
     </div>
