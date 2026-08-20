@@ -2601,6 +2601,23 @@ COLUMN_GROUPS = {
 }
 
 
+
+def conn2_analysed_date(entries):
+    """Шинжилгээ дууссан хамгийн сүүлийн огноо (албан тайлангийн H13).
+
+    Дээж бэлтгэлийн огноо БИШ — мөр бүрийн done_at/approved_at-аас сонгоно.
+    """
+    best = None
+    for e in entries:
+        for f in ('approved_at', 'done_at'):
+            try:
+                v = e[f]
+            except (KeyError, IndexError):
+                v = None
+            if v and (best is None or str(v) > best):
+                best = str(v)
+    return best
+
 def sample_names_for(receipt):
     """Ажлын дээж бүрийн нэрийг гаргана — (нэрсийн жагсаалт, нэр авах функц).
 
@@ -5626,10 +5643,28 @@ def analysis_export(receipt_id):
     entries = conn.execute("""
         SELECT * FROM sample_entries WHERE receipt_id=? ORDER BY row_num, is_duplicate
     """, (receipt_id,)).fetchall()
-    # Гарын үсгийн блокт зориулж: шинжилсэн химич, баталсан хүмүүсийн нэр
-    chemist_names = [r['name'] for r in conn.execute("""
-        SELECT DISTINCT u.name FROM sample_entries se JOIN users u ON u.id=se.done_by
-        WHERE se.receipt_id=? AND se.done_by IS NOT NULL ORDER BY u.name""", (receipt_id,)).fetchall()]
+    # ── Гарын үсгийн блок: ЖИНХЭНЭ гүйцэтгэгчид ────────────────────────
+    # Урьд нь зөвхөн done_by (мөрийг "дууслаа" гэж дарсан хүн) уншигддаг
+    # байсан тул шинжилгээг үнэхээр хийсэн химичүүд албан тайланд ОРОХГҮЙ,
+    # оронд нь ✓ дарсан ганц хүн (заримдаа админ) бичигддэг байв.
+    # Одоо шинжилгээ тус бүрийн гүйцэтгэгчээс (op_mt, op_mad …) цуглуулна.
+    _op_cols = [c for c, _l, _f in ANALYSIS_OPS]
+    _who = {}
+    for _c in _op_cols:
+        for r in conn.execute(f"""SELECT DISTINCT u.name, u.role
+                                    FROM sample_entries se JOIN users u ON u.id=se.{_c}
+                                   WHERE se.receipt_id=? AND se.{_c} IS NOT NULL""",
+                              (receipt_id,)):
+            _who[r['name']] = r['role']
+    if not _who:      # хуучин бичлэгт гүйцэтгэгч тэмдэглэгдээгүй бол
+        for r in conn.execute("""SELECT DISTINCT u.name, u.role
+                                   FROM sample_entries se JOIN users u ON u.id=se.done_by
+                                  WHERE se.receipt_id=? AND se.done_by IS NOT NULL""",
+                              (receipt_id,)):
+            _who[r['name']] = r['role']
+    # Химич ба ахлах химичийг албан тушаалаар нь салгана
+    chemist_names = sorted(n for n, ro in _who.items() if ro not in ('senior', 'admin'))
+    senior_names  = sorted(n for n, ro in _who.items() if ro in ('senior', 'admin'))
     approver_names = [r['name'] for r in conn.execute("""
         SELECT DISTINCT u.name FROM sample_entries se JOIN users u ON u.id=se.approved_by
         WHERE se.receipt_id=? AND se.approved_by IS NOT NULL ORDER BY u.name""", (receipt_id,)).fetchall()]
@@ -5672,16 +5707,20 @@ def analysis_export(receipt_id):
     # C13: дээжний төрөл
     ws['C13'] = TYPE_DISPLAY.get(receipt['sample_type'], receipt['sample_type'])
 
-    # H13: шинжилгээ хийсэн огноо
-    analysed = receipt['prep_done_at'] or ''
-    if analysed and 'T' in str(analysed):
-        analysed = str(analysed).split('T')[0]
-    ws['H13'] = analysed
+    # H13: шинжилгээ хийсэн огноо.
+    # Урьд нь prep_done_at (ДЭЭЖ БЭЛТГЭЛ дууссан огноо) бичигддэг тул
+    # "DATE SAMPLES ANALYSED" нь хүлээн авсан огноотой ижил гарч байв.
+    # Одоо мөрүүдийн шинжилгээ дууссан хамгийн сүүлийн огноог авна.
+    _an = conn2_analysed_date(entries) or receipt['prep_done_at'] or ''
+    if _an and 'T' in str(_an):
+        _an = str(_an).split('T')[0]
+    ws['H13'] = str(_an)[:10]
 
     # H14: тайлан хэвлэсэн огноо
     ws['H14'] = datetime.now().strftime('%Y-%m-%d')
 
     # ── Өгөгдлийн мөрүүд (20-р мөрөөс) ─────────────────────
+    _row_names, _, _ = sample_names_for(receipt)
     _rows = [dict(e) for e in entries]
     row_map = {(e['row_num'], e['is_duplicate']): e for e in _rows}
 
@@ -5752,7 +5791,12 @@ def analysis_export(receipt_id):
                 qnet_ar = ((qgr_ad_jg - 206 * had) * ((100 - mt) / (100 - mad))
                            - 23 * mt) / 4.1868
 
-        vals = {1: ri, 2: safe(e,'sample_name') or f'Дээж {ri}', 3: safe(e,'mass_kg'),
+        # Дээжийн нэр: sample_entries-д NULL байвал geo_samples-ийн жагсаалт
+        # /муж-аас сэргээнэ. Урьд нь "Дээж 1, Дээж 2…" гэсэн утгагүй нэр
+        # албан тайланд бичигддэг байв.
+        _nm = safe(e, 'sample_name') or (
+            _row_names[ri - 1] if len(_row_names) >= ri else None) or f'Дээж {ri}'
+        vals = {1: ri, 2: _nm, 3: safe(e,'mass_kg'),
                 4: mt, 5: safe(e,'mad'), 6: safe(e,'aad'), 7: adb, 8: safe(e,'vad'),
                 9: vdb, 10: vdaf, 11: safe(e,'fc'), 12: safe(e,'sulfur'), 13: sdb,
                 14: qb_ad, 15: qnet_ar, 16: calc_g(e), 17: safe(e,'fsi')}
@@ -5772,6 +5816,10 @@ def analysis_export(receipt_id):
     for i, name in enumerate(preparers[:2]):
         ws.cell(196 + i, 16, f'/{name}/')
     ws['B199'] = 'Шинжилгээ хийсэн: Ахлах химич\n/Analysed: Senior Chemist/'
+    # Ахлах химичийн нэр урьд нь ХААНА ч бичигддэггүй байсан тул тэр мөр
+    # хоосон үлдэж, баруун талын "Хянсан"-ы нэр ахлах химич мэт харагддаг байв.
+    for i, name in enumerate(senior_names[:2]):
+        ws.cell(199 + i, 7, f'/{name}/')
     ws['J199'] = 'Хянсан: Лаборатори хариуцсан ахлах мэргэжилтэн\n/Checked: Senior Laboratory Specialist/ '
     if approver_names:
         ws['P199'] = f'/{approver_names[0]}/'
