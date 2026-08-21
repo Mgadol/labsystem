@@ -14,9 +14,17 @@ import sys
 DB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                   'instance', 'lab.db')
 
-OPS = [('op_mt', 'Нийт чийг'), ('op_mad', 'Дотоод чийг'), ('op_aad', 'Үнслэг'),
-       ('op_vad', 'Дэгдэмхий'), ('op_g', 'G индекс'), ('op_st', 'Нийт хүхэр'),
-       ('op_q', 'Илчлэг'), ('op_fsi', 'Чөлөөт хөөлт')]
+OPS = [
+    ('op_mt', 'Нийт чийг', ['ff_sample', 'ff_dried', 'mt_bux', 'mt_tare',
+                            'mt_sample', 'mt_dried']),
+    ('op_mad', 'Дотоод чийг', ['dc_bux', 'dc_tare', 'dc_sample', 'dc_dried']),
+    ('op_aad', 'Үнслэг', ['ash_tav', 'ash_tare', 'ash_sample', 'ash_burned']),
+    ('op_vad', 'Дэгдэмхий', ['vol_tig', 'vol_tare', 'vol_sample', 'vol_burned']),
+    ('op_g', 'G индекс', ['g_tig', 'g_tare', 'g_coke', 'g_sieve1', 'g_sieve2']),
+    ('op_st', 'Нийт хүхэр', ['sulfur']),
+    ('op_q', 'Илчлэг', ['cal_value', 'cal_temp']),
+    ('op_fsi', 'Чөлөөт хөөлт', ['fsi']),
+]
 
 STATUS_MN = {'empty': 'хоосон — ✓ дараагүй', 'done': 'дууссан', 'approved': 'баталгаажсан'}
 
@@ -27,11 +35,19 @@ def main():
     conn.row_factory = sqlite3.Row
 
     have = {r[1] for r in conn.execute('PRAGMA table_info(sample_entries)')}
-    ops = [(o, l) for o, l in OPS if o in have]
+    ops = [(o, l, [f for f in fs if f in have]) for o, l, fs in OPS if o in have]
+    ops = [(o, l, fs) for o, l, fs in ops if fs]
     if not ops:
         print('op_* багана байхгүй — программаа шинэчилнэ үү.')
         return 1
-    any_op = ' OR '.join(f'se.{o}=?' for o, _ in ops)
+    # Гүйцэтгэгчийн тэмдэгтэй БӨГӨӨД утга нь үлдсэн мөр (программтай ижил дүрэм)
+    any_op = ' OR '.join(
+        f'(se.{o}=? AND (' + ' OR '.join(f'se.{f} IS NOT NULL' for f in fs) + '))'
+        for o, _l, fs in ops)
+    # Зөвхөн тэмдэг нь үлдсэн, утга нь АРИЛСАН мөр — "сүүдэр" мөр
+    ghost_op = ' OR '.join(
+        f'(se.{o}=? AND NOT (' + ' OR '.join(f'se.{f} IS NOT NULL' for f in fs) + '))'
+        for o, _l, fs in ops)
 
     q = 'SELECT id, name, role FROM users WHERE is_active=1'
     args = []
@@ -56,10 +72,29 @@ def main():
                                      AND p.row_num=se.row_num AND p.is_duplicate=0
                 WHERE ({any_op}) AND p.row_status IN ('done','approved')""",
             n_ops).fetchone()[0]
-        if not analysed:
+        ghosts = conn.execute(
+            f"""SELECT DISTINCT se.receipt_id, se.row_num, sr.lab_number,
+                       g.sample_name, g.sample_type
+                FROM sample_entries se
+                LEFT JOIN sample_receipt sr ON sr.id=se.receipt_id
+                LEFT JOIN geo_samples g ON g.id=sr.geo_sample_id
+                WHERE ({ghost_op})
+                  AND se.receipt_id || '-' || se.row_num NOT IN (
+                      SELECT s2.receipt_id || '-' || s2.row_num
+                      FROM sample_entries s2 WHERE {any_op.replace('se.', 's2.')})
+                ORDER BY sr.lab_number, se.row_num""", n_ops + n_ops).fetchall()
+        if not analysed and not ghosts:
             continue
         print(f'\n═══ {u["name"]} ({u["role"]}) ═══')
         print(f'  Шинжилсэн дээж: {analysed}   дуусгасан: {done}   ЗӨРҮҮ: {analysed - done}')
+        if ghosts:
+            print(f'\n  ⚠ Утга нь арилсан «сүүдэр» мөр: {len(ghosts)} '
+                  f'(тоологдохгүй — утга шивээд буцаагаад арилгасан байна)')
+            for r in ghosts:
+                print(f'    {r["lab_number"] or "?":18} мөр {r["row_num"]:>3}  '
+                      f'{r["sample_type"] or "—":10} {(r["sample_name"] or "")[:30]}')
+            print('    Хэрэв энэ утга САНАМСАРГҮЙ арилсан бол:')
+            print('      tools/check_audit.py --cleared   ← хэзээ, хэн арилгасныг харна')
         if analysed == done:
             print('  ✓ Зөрүүгүй — бүх дээж нь дууссан.')
             continue

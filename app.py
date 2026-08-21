@@ -1552,7 +1552,7 @@ def staff_detail(uid):
     # ── Шинжилсэн дээж — ШИНЖИЛГЭЭ ХИЙСНЭЭР тоолно ────────────────────
     # Урьд нь зөвхөн "Дууслаа" ✓ товч дарсан мөрийг тоолдог байсан тул
     # хэмжилт хийсэн ч ✓ дараагүй ажил тоологдохгүй байв.
-    _op_any = ' OR '.join(f'{op}=?' for op, _l, _f in ANALYSIS_OPS)
+    _op_any = op_done_cond()
     _op_args = tuple(uid for _ in ANALYSIS_OPS)
     # Нийт оролцсон дээж — нэг дээж дээр хэдэн ч шинжилгээ хийсэн нэг л удаа
     total_analyzed = conn.execute(
@@ -1563,7 +1563,8 @@ def staff_detail(uid):
     for op, lbl, _f in ANALYSIS_OPS:
         n = conn.execute(
             f"SELECT COUNT(DISTINCT receipt_id || '-' || row_num) "
-            f"FROM sample_entries WHERE {op}=?", (uid,)).fetchone()[0]
+            f"FROM sample_entries WHERE {op}=? AND ({OP_HAS_VALUE[op]})",
+            (uid,)).fetchone()[0]
         if n:
             by_analysis.append({'label': lbl, 'count': n})
     by_analysis.sort(key=lambda x: -x['count'])
@@ -1576,7 +1577,7 @@ def staff_detail(uid):
     # ✓-г ихэвчлэн ахлах химич бүх мөрөнд дардаг тул урьд нь химичийн хувьд
     # "Шинжилсэн 24 / дуусгасан 4" гэх мэт зөрүү гардаг байв. Одоо: тухайн хүн
     # шинжилгээ хийсэн бөгөөд үндсэн мөр нь дууссан/баталгаажсан дээжийг тоолно.
-    _op_any_se = ' OR '.join(f'se.{op}=?' for op, _l, _f in ANALYSIS_OPS)
+    _op_any_se = op_done_cond('se.')
     DONE_JOIN = f"""
         FROM sample_entries se
         JOIN sample_entries p ON p.receipt_id = se.receipt_id
@@ -2977,6 +2978,24 @@ OP_HAS_VALUE = {op: ' OR '.join(f'{f} IS NOT NULL' for f in fields)
                 for op, _lbl, fields in ANALYSIS_OPS}
 
 
+def op_done_cond(prefix=''):
+    """«Энэ хүн энэ дээж дээр шинжилгээ хийсэн» гэсэн SQL нөхцөл.
+
+    Зөвхөн гүйцэтгэгчийн тэмдэг (op_*) байхад тоолох нь ХАНГАЛТГҮЙ:
+    буруу мөрөнд утга шивээд буцаагаад арилгахад тэмдэг нь үлддэг тул
+    хоосон мөр «шинжилсэн дээж» болж тоологдож, ажилтны хуудсанд бодит
+    дээжийн тооноос ИХ тоо гардаг байв (24 дээж дээр 28 гэх мэт).
+    Тиймээс тэмдэгтэй бөгөөд тухайн шинжилгээний утга нь ҮНЭХЭЭР
+    үлдсэн мөрийг л тоолно.
+
+    Параметр: ANALYSIS_OPS-ын тоогоор user_id дамжуулна.
+    """
+    return ' OR '.join(
+        f"({prefix}{op}=? AND ("
+        + ' OR '.join(f'{prefix}{f} IS NOT NULL' for f in fields) + '))'
+        for op, _lbl, fields in ANALYSIS_OPS)
+
+
 # ── DB MIGRATION (called once at startup) ───────────────
 # ── Шилжилтийн алдааны бүртгэл ──────────────────────────────────────────
 # ensure_tables доторх ALTER TABLE / CREATE TABLE нь хоёр дахь удаагаа
@@ -4093,7 +4112,7 @@ def lab_report_export():
     rows = lab_report_rows(conn, d0s, d1s)
     SW = "sr.received_date BETWEEN ? AND ?"          # дээж хүлээн авсан хугацаа
     AW = "substr(se.done_at,1,10) BETWEEN ? AND ?"   # шинжилгээ хийсэн хугацаа
-    _REP_OP_ANY = ' OR '.join(f'se.{op}=?' for op, _l, _f in ANALYSIS_OPS)
+    _REP_OP_ANY = op_done_cond('se.')
     P = (d0s, d1s)
 
     def one(sql, args=P):
