@@ -17,7 +17,14 @@
 .dup-row td{background:#eef5ff}
 /* Lot ялгах зураас */
 .lot-sep td{background:#1e3a5f!important;height:4px!important;padding:0!important;border:none!important}
-.lot-label td{background:#1e3a5f!important;font-weight:600;font-size:12px;color:#4ade80}
+/* Лотын заагч зурвас. Бичвэрийг ҮНЭМЛЭХҮЙ байрлуулсан тул нүдний өргөнд
+   нөлөөлөхгүй — эс бөгөөс урт нэр хүснэгтийг сунгаж, зурвас нь өгөгдлийн
+   баганаас баруун тийш цухуйдаг. */
+.lot-label td{background:#1e3a5f!important;font-weight:600;font-size:12px;color:#4ade80;
+              position:relative;overflow:hidden!important;height:20px}
+.lot-label .lot-inner{position:absolute;left:10px;right:4px;top:0;bottom:0;
+                      display:flex;align-items:center;white-space:nowrap;
+                      overflow:hidden;text-overflow:ellipsis}
 .gs{border-left:2.5px double #888!important}
 .ge{border-right:2.5px double #888!important}
 .calc-cell{font-weight:600;font-family:monospace;color:#0a6e3f;background:#e8faf4!important}
@@ -125,7 +132,18 @@
     <col class="cg-st" style="width:50px">
     <col class="cg-il" style="width:65px"><col class="cg-il" style="width:40px">
     <col class="cg-fsi" style="width:40px">
-    <col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px"><col style="width:50px"><col style="width:52px">
+    {# Тооцооны багана. data-cg нь толгой/нүдтэйгээ ижил байх ёстой — эс бөгөөс
+       бүлгийг нууход нүд нь алга болох ч БАГАНА нь өргөнөө эзэлсээр үлдэж,
+       хүснэгтийн баруун талд хоосон зай (лотын зурвас цухуйсан мэт) үлддэг. #}
+    <col class="calc-col" data-cg="ff,mt" style="width:50px"><col class="calc-col" data-cg="ff,mt" style="width:52px">
+    <col class="calc-col" data-cg="dc" style="width:50px"><col class="calc-col" data-cg="dc" style="width:52px">
+    <col class="calc-col" data-cg="un" style="width:50px"><col class="calc-col" data-cg="un" style="width:52px">
+    <col class="calc-col" data-cg="db" style="width:50px"><col class="calc-col" data-cg="db" style="width:52px">
+    <col class="calc-col" data-cg="dc,un,db" style="width:50px"><col class="calc-col" data-cg="dc,un,db" style="width:52px">
+    <col class="calc-col" data-cg="gi" style="width:50px"><col class="calc-col" data-cg="gi" style="width:52px">
+    <col class="calc-col" data-cg="st" style="width:50px"><col class="calc-col" data-cg="st" style="width:52px">
+    <col class="calc-col" data-cg="il" style="width:50px"><col class="calc-col" data-cg="il" style="width:52px">
+    <col class="calc-col" data-cg="fsi" style="width:50px"><col class="calc-col" data-cg="fsi" style="width:52px">
   </colgroup>
   <thead>
     <tr class="h1">
@@ -160,8 +178,8 @@
   {% set ns_qc = namespace(idx=0) %}
   {% if qc_row_map %}
   <tr class="lot-label">
-    <td colspan="41" style="text-align:left;padding-left:10px;background:#0d4f47;color:#4ade80;font-family:monospace;font-size:11px;height:20px;padding-top:2px;padding-bottom:2px">
-      🔁 Дотоод QC &nbsp;·&nbsp; <span style="color:#fbbf24">QC</span> &nbsp;·&nbsp; {{ qc_row_map|length }} дээж
+    <td colspan="51" style="text-align:left;background:#0d4f47;color:#4ade80;font-family:monospace;font-size:11px;height:20px;padding:0">
+      <div class="lot-inner">🔁 Дотоод QC &nbsp;·&nbsp; <span style="color:#fbbf24">QC</span> &nbsp;·&nbsp; {{ qc_row_map|length }} дээж</div>
     </td>
   </tr>
   {% endif %}
@@ -179,11 +197,11 @@
        харуулж, бүтнийг нь tooltip-д үлдээв. #}
     {% set _names = receipt['sample_name'] or '' %}
     {% set _parts = _names.split(';') if ';' in _names else [_names] %}
-    <td colspan="42" title="{{ _names }}" style="text-align:left;padding-left:10px;background:#1e3a5f;color:#4ade80;font-family:monospace;font-size:11px;height:20px;padding-top:2px;padding-bottom:2px">
-      📋 {{ receipt['lab_number'] }}
+    <td colspan="51" title="{{ _names }}" style="text-align:left;background:#1e3a5f;color:#4ade80;font-family:monospace;font-size:11px;height:20px;padding:0">
+      <div class="lot-inner">📋 {{ receipt['lab_number'] }}
       {%- if _parts|length > 2 %} — {{ _parts[0]|trim }} … {{ _parts[-1]|trim }}
       {%- elif _names %} — {{ _names }}{% endif %}
-      &nbsp;·&nbsp; <span style="color:#fbbf24">{{ receipt['sample_type'] }}</span> &nbsp;·&nbsp; {{ receipt['quantity'] }} дээж
+      &nbsp;·&nbsp; <span style="color:#fbbf24">{{ receipt['sample_type'] }}</span> &nbsp;·&nbsp; {{ receipt['quantity'] }} дээж</div>
     </td>
   </tr>
   {% endif %}
@@ -846,16 +864,20 @@ function syncCalcCols(){
   syncLotLabels();
 }
 
-// Лотын заагч зурвас нь хүснэгтийн ХАРАГДАЖ буй багануудын хэрээр л сунана.
-// Урьд нь colspan нь тогтмол (41/42) байсан тул бүлэг нуухад хүснэгт хураагдаж,
-// зурвас нь хуучин өргөнөөрөө үлдэж баруун тийш цухуйдаг байв.
+// Лотын заагч зурвас нь хүснэгтийн БҮХ баганыг дуустал сунана.
+//
+// Урьд нь "харагдаж буй нүдний тоо"-гоор colspan тавьдаг байсан нь буруу:
+// <colgroup>-ийн улмаас нуусан багана сүлжээнээс арилдаггүй, зөвхөн өргөн нь
+// 0 болдог. Тиймээс 14 нүд харагдаж байхад colspan=14 нь сүлжээний эхний 14
+// баганыг (үүний ихэнх нь 0 өргөнтэй нуугдсан) л хамардаг байв — зурвас
+// богиноссон эсвэл эсрэгээрээ цухуйсан. Бүх баганыг хамруулбал нуугдсан
+// багана 0 өргөнтэй тул зурвас яг хүснэгтийн өргөнтэй тэнцэнэ.
 function syncLotLabels(){
-  var mr=document.querySelector('#tbody tr.main-row');
-  if(!mr) return;
-  var vis=Array.prototype.filter.call(mr.children,function(c){
-    return c.offsetParent!==null;}).length;
-  if(!vis) return;
-  document.querySelectorAll('.lot-label td').forEach(function(td){ td.colSpan=vis; });
+  var t=document.getElementById('mainTbl');
+  if(!t) return;
+  var n=t.querySelectorAll('colgroup col').length;
+  if(!n) return;
+  document.querySelectorAll('.lot-label td,.lot-sep td').forEach(function(td){ td.colSpan=n; });
 }
 
 // Өгөгдөл ачаалах
