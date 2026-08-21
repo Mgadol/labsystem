@@ -1572,9 +1572,21 @@ def staff_detail(uid):
     # тоолдог байсан тул "Шинжилсэн дээж 287 / дуусгасан 430" гэх мэт
     # дээрхээсээ ИХ тоо гарч, ойлгомжгүй болдог байв. Одоо гурвуулаа
     # "хэдэн дээж" гэсэн нэг суурьтай.
+    # "Дуусгасан" нь ХИЙСЭН шинжилгээгээр тоологдоно, ✓ товч дарсан хүнээр биш.
+    # ✓-г ихэвчлэн ахлах химич бүх мөрөнд дардаг тул урьд нь химичийн хувьд
+    # "Шинжилсэн 24 / дуусгасан 4" гэх мэт зөрүү гардаг байв. Одоо: тухайн хүн
+    # шинжилгээ хийсэн бөгөөд үндсэн мөр нь дууссан/баталгаажсан дээжийг тоолно.
+    _op_any_se = ' OR '.join(f'se.{op}=?' for op, _l, _f in ANALYSIS_OPS)
+    DONE_JOIN = f"""
+        FROM sample_entries se
+        JOIN sample_entries p ON p.receipt_id = se.receipt_id
+                             AND p.row_num    = se.row_num
+                             AND p.is_duplicate = 0
+        WHERE ({_op_any_se}) AND p.row_status IN ('done','approved')
+    """
     total_done     = conn.execute(
-        "SELECT COUNT(DISTINCT receipt_id || '-' || row_num) FROM sample_entries "
-        "WHERE done_by=? AND row_status IN ('done','approved')", (uid,)).fetchone()[0]
+        f"SELECT COUNT(DISTINCT se.receipt_id || '-' || se.row_num) {DONE_JOIN}",
+        _op_args).fetchone()[0]
     total_approved = conn.execute(
         "SELECT COUNT(DISTINCT receipt_id || '-' || row_num) FROM sample_entries "
         "WHERE approved_by=? AND row_status='approved'", (uid,)).fetchone()[0]
@@ -1607,16 +1619,22 @@ def staff_detail(uid):
             # ДЭЭЖЭЭР тоолно — дээрх "Шинжилсэн дээж" картуудтай нэг суурьтай.
             # Урьд нь COUNT(*) байсан тул зэрэгцээ, давталтын мөр тус бүр
             # тоологдож, график нь картаас (287) их тоо (430) харуулдаг байв.
+            # Мөн "хэн ✓ дарав"-аар биш "хэн шинжилгээг хийв"-ээр тоолно —
+            # ✓-г ахлах химич дардаг тул график хоосон гарч байв. Огноог нь
+            # үндсэн мөрийн дууссан огноогоор авна (зэрэгцээ мөрөнд ✓ байхгүй).
             sql = f"""
-                SELECT strftime('{fmt}', se.done_at) as period,
+                SELECT strftime('{fmt}', p.done_at) as period,
                        COUNT(DISTINCT se.receipt_id || '-' || se.row_num) as cnt
                 FROM sample_entries se
-                WHERE se.done_by=? AND se.row_status IN ('done','approved')
-                  AND se.done_at IS NOT NULL
-                  {"AND date(se.done_at) >= date('now', ?)" if days else ""}
+                JOIN sample_entries p ON p.receipt_id = se.receipt_id
+                                     AND p.row_num    = se.row_num
+                                     AND p.is_duplicate = 0
+                WHERE ({_op_any_se}) AND p.row_status IN ('done','approved')
+                  AND p.done_at IS NOT NULL
+                  {"AND date(p.done_at) >= date('now', ?)" if days else ""}
                 GROUP BY period ORDER BY period
             """
-            args = (uid, f'-{days} days') if days else (uid,)
+            args = _op_args + ((f'-{days} days',) if days else ())
         else:
             sql = f"""
                 SELECT strftime('{fmt}', sr.prep_done_at) as period,
