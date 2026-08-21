@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Тохиргоо</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#1a2744;--navy-light:#253561;--navy-dark:#111c35;
+  --teal:#0f6e56;--teal-light:#e1f5ee;
+  --coral:#993c1d;--coral-light:#faece7;
+  --amber:#854f0b;--amber-light:#faeeda;
+  --purple:#3c3489;--purple-light:#eeedfe;
+  --gray:#f7f7f5;--border:#e5e4e0;
+  --text:#1a1a18;--text-muted:#6b6b67;
+  --white:#ffffff;
+  --radius:10px;--shadow:0 1px 3px rgba(0,0,0,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;font-size:14px;color:var(--text);background:#f0ede8;min-height:100vh}
+a{color:inherit;text-decoration:none}
+.topbar{background:var(--navy);color:#fff;padding:0 20px;height:72px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar-left{display:flex;align-items:center;gap:12px;min-width:0}
+.topbar-logo{font-size:15px;font-weight:600;color:#fff;display:flex;align-items:center;gap:8px}
+.topbar-logo i{font-size:18px;color:#93a8d4}
+.topbar-logo img{width:42px!important;height:64px!important;min-width:42px;max-width:42px;min-height:64px;max-height:64px;object-fit:contain;flex-shrink:0}
+.topbar-nav{display:flex;gap:2px;flex-shrink:0}
+.topbar-nav a{white-space:nowrap}
+.topbar-logo>span{min-width:0}
+.topbar-logo>span>span{overflow:hidden;text-overflow:ellipsis}
+.topbar-right{flex-shrink:0}
+.topbar-nav a{padding:6px 12px;border-radius:6px;font-size:13px;color:#93a8d4;transition:.15s}
+.topbar-nav a:hover,.topbar-nav a.active{background:rgba(255,255,255,.1);color:#fff}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.user-chip{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.08);padding:5px 10px;border-radius:20px;font-size:12px;color:#c5cfe8}
+.avatar-sm{width:26px;height:26px;border-radius:50%;object-fit:cover;background:var(--navy-light);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#93a8d4;flex-shrink:0}
+.logout-btn{padding:5px 10px;border-radius:6px;font-size:12px;color:#93a8d4;cursor:pointer;border:1px solid rgba(255,255,255,.15);transition:.15s}
+.logout-btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.page{max-width:1200px;margin:0 auto;padding:20px 16px}
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
+.card-sm{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
+.page-title{font-size:20px;font-weight:600;color:var(--text);margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--text-muted);margin-bottom:20px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:.15s;text-decoration:none}
+.btn-primary{background:var(--navy);color:#fff}.btn-primary:hover{background:var(--navy-light)}
+.btn-teal{background:var(--teal);color:#fff}.btn-teal:hover{opacity:.9}
+.btn-danger{background:var(--coral);color:#fff}.btn-danger:hover{opacity:.9}
+.btn-ghost{background:none;border:1px solid var(--border);color:var(--text)}.btn-ghost:hover{background:var(--gray)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-start{background:#e1f5ee;color:#0f6e56;border:1px solid #9fe1cb}.btn-start:hover{background:#9fe1cb}
+.btn-stop{background:#faece7;color:#993c1d;border:1px solid #f5c4b3}.btn-stop:hover{background:#f5c4b3}
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500}
+.badge-active{background:var(--teal-light);color:var(--teal)}
+.badge-repair{background:var(--amber-light);color:var(--amber)}
+.badge-standby{background:var(--gray);color:var(--text-muted)}
+.badge-passed{background:var(--teal-light);color:var(--teal)}
+.badge-failed{background:var(--coral-light);color:var(--coral)}
+.badge-open{background:var(--coral-light);color:var(--coral)}
+.badge-closed{background:var(--teal-light);color:var(--teal)}
+.badge-admin{background:var(--purple-light);color:var(--purple)}
+.badge-staff{background:var(--gray);color:var(--text-muted)}
+.form-group{margin-bottom:14px}
+.form-label{display:block;font-size:12px;font-weight:500;color:var(--text-muted);margin-bottom:5px}
+.form-input{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;color:var(--text);background:#fff;transition:.15s}
+.form-input:focus{outline:none;border-color:var(--navy)}
+select.form-input{cursor:pointer}
+textarea.form-input{resize:vertical;min-height:80px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.section-title{font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin:20px 0 10px}
+.table{width:100%;border-collapse:collapse}
+.table th{text-align:left;padding:8px 12px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border)}
+.table td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:13px}
+.table tr:last-child td{border-bottom:none}
+.table tr:hover td{background:var(--gray)}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px}
+.stat-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
+.stat-val{font-size:24px;font-weight:600;color:var(--text);line-height:1.2}
+.stat-lbl{font-size:12px;color:var(--text-muted);margin-top:3px}
+.alert{padding:10px 14px;border-radius:7px;font-size:13px;margin-bottom:14px}
+.alert-success{background:var(--teal-light);color:var(--teal);border:1px solid #9fe1cb}
+.alert-error{background:var(--coral-light);color:var(--coral);border:1px solid #f5c4b3}
+.divider{height:1px;background:var(--border);margin:20px 0}
+.flex{display:flex;align-items:center}.gap-8{gap:8px}.gap-12{gap:12px}
+.justify-between{justify-content:space-between}
+.device-img{width:60px;height:60px;border-radius:8px;object-fit:cover;background:var(--gray);border:1px solid var(--border)}
+.tab-nav{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px}
+.tab-btn{padding:9px 16px;font-size:13px;font-weight:500;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;transition:.15s;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit}
+.tab-btn.active{color:var(--navy);border-bottom-color:var(--navy)}
+/* Хураах блок — урт түүхийн жагсаалт хуудсыг доошоо сунгахгүй.
+   Нээсэн ч дотроо гүйдэг тул хуудасны урт тогтвортой байна. */
+details.fold>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;margin:0}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::after{content:'⌄';font-size:15px;line-height:1;color:var(--text-muted);transition:transform .15s}
+details.fold[open]>summary::after{transform:rotate(180deg)}
+details.fold>summary:hover{color:var(--navy)}
+.fold-n{font-weight:400;font-size:11px;color:var(--text-muted);background:var(--gray);
+        border:1px solid var(--border);border-radius:20px;padding:1px 8px;margin-left:auto;
+        letter-spacing:0;text-transform:none}
+.fold-body{margin-top:12px;max-height:420px;overflow:auto}
+
+/* Гар утасны цэсний товч — зөвхөн нарийн дэлгэц дээр гарна */
+.nav-toggle{display:none;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+            color:#fff;border-radius:6px;padding:7px 10px;font-size:15px;line-height:1;cursor:pointer}
+
+/* 1100px хүртэл — таблет, "Desktop site" горимд байгаа утас, жижиг цонх.
+   Утас нь дэлгэцээ 980-1200px мэт харуулдаг тул 640px-ийн заагт багтдаггүй. */
+@media(max-width:1200px){
+  /* Дээд мөр: лого + нэр багасч, баруун талын хэрэглэгч/гарах товч дэлгэцнээс гарахгүй */
+  .topbar{height:56px;padding:0 10px;gap:6px}
+  .topbar-left{gap:8px;min-width:0;flex:1 1 auto}
+  .topbar-logo{gap:6px;min-width:0}
+  .topbar-logo img{width:26px!important;height:40px!important;
+                   min-width:26px;max-width:26px;min-height:40px;max-height:40px}
+  .topbar-logo>span{min-width:0}
+  .topbar-logo>span>span{white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;display:block}
+  .topbar-right{gap:6px;flex:0 0 auto}
+  .user-chip{padding:3px;gap:0;font-size:0;background:none}
+  .user-chip .badge{display:none}
+  .logout-btn{padding:7px 9px!important}
+  .logout-btn .lo-txt{display:none}
+  /* Цэс — товч дарахад дээрээс буух жагсаалт болно (өмнө нь бүрмөсөн алга болдог байсан) */
+  .nav-toggle{display:block}
+  .topbar-nav{display:none;position:absolute;top:100%;left:0;right:0;
+              flex-direction:column;gap:2px;padding:8px;background:var(--navy-dark);
+              box-shadow:0 10px 24px rgba(0,0,0,.35);z-index:99}
+  .topbar-nav.open{display:flex}
+  .topbar-nav a{padding:12px 14px;font-size:14px;border-radius:7px}
+  /* Өргөн хүснэгт хуудсыг сунгахгүй — картныхаа дотор хажуу тийш гүйнэ */
+  .card,.card-sm{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  /* Таб мөр — олон таб багтахгүй бол хажуу тийш гүйнэ (хуудсыг сунгахгүй) */
+  .tab-nav,div:has(>.tab-btn){overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .tab-btn{white-space:nowrap;flex:0 0 auto}
+}
+
+/* Жинхэнэ гар утасны өргөн */
+@media(max-width:640px){
+  .form-grid,.form-row{grid-template-columns:1fr}
+  /* iPhone дээр 16px-ээс жижиг талбар дарахад хуудсыг өөрөө томруулж,
+     баруун тал нь дэлгэцнээс гарч алга болдог — тиймээс 16px болгоно */
+  .form-input,select.form-input,textarea.form-input{font-size:16px}
+  .page{padding:12px}
+  .stat-grid{grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px}
+  .stat-val{font-size:20px}
+}
+</style>
+
+</head>
+<body>
+
+
+<nav class="topbar">
+  <div class="topbar-left">
+    <a href="/dashboard" class="topbar-logo">
+      <img src="/static/logo.png" width="42" height="64" style="width:42px;height:64px;object-fit:contain;flex-shrink:0">
+      <span style="display:flex;flex-direction:column;line-height:1.3">
+        
+        <span style="font-size:13px;font-weight:600;color:#fff;white-space:nowrap">Хүрэншанд уурхайн лаборатори</span>
+        <span style="font-size:10px;color:#93a8d4;font-weight:400;text-align:center">LIMS</span>
+      </span>
+    </a>
+    <button type="button" class="nav-toggle" id="navToggle" aria-label="Цэс" aria-expanded="false">☰</button>
+    <div class="topbar-nav" id="topNav">
+      <a href="/dashboard" class="">Нүүр</a>
+      <a href="/staff" class="">Ажилтан</a>
+      <a href="/analysis" class="">Шинжилгээ</a>
+      <a href="/devices" class="">Төхөөрөмж</a>
+      
+      <a href="/reports" class="">Тайлан</a>
+      
+      <a href="/archive" class="">Нэгдсэн архив</a>
+      <a href="/lab-settings" class="active">Тохиргоо</a>
+    </div>
+  </div>
+  <div class="topbar-right">
+
+    <div class="user-chip">
+      
+      <div class="avatar-sm">Те</div>
+      
+      Тест Ахлах Химич
+      
+      <span class="badge" style="background:#253561;color:#4ade80;font-size:10px">Дэд Админ</span>
+      
+    </div>
+    
+    <a href="/logout" class="logout-btn" title="Гарах" style="display:flex;align-items:center;gap:5px;padding:6px 12px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+        <polyline points="16 17 21 12 16 7"/>
+        <line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
+      <span class="lo-txt">Гарах</span>
+    </a>
+  </div>
+</nav>
+
+
+<main>
+
+
+  
+
+
+<style>
+.tab-pane{display:none!important}
+.tab-pane.active{display:block!important}
+</style>
+<div class="page" style="max-width:700px">
+  <h1 class="page-title" style="margin-bottom:4px">⚙️ Тохиргоо</h1>
+  <p class="page-sub">Системийн тохиргоо</p>
+
+  
+  
+  <!-- Дэд цэс -->
+  <div class="tab-nav" style="margin-bottom:20px">
+    
+    <button class="tab-btn active" onclick="switchTab(this,'tab-crm')">🔬 CRM материал</button>
+    
+  </div>
+
+  <!-- Лабораторийн мэдээлэл -->
+
+
+  <!-- QC стандарт утга -->
+
+
+  <!-- Профайл -->
+
+
+  <!-- Тоног холбоос -->
+
+
+  <!-- Дээжний төрөл -->
+
+
+  <!-- Нөөцлөлт -->
+  <!-- CRM материал -->
+  <div id="tab-crm" class="tab-pane">
+    <div class="card" style="margin-bottom:16px">
+      <div class="section-title">🔬 CRM материал нэмэх</div>
+      <form method="POST" action="/lab-settings/crm" id="crmAddForm">
+        <input type="hidden" name="action" value="add">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">CRM нэр / код <span style="color:var(--coral)">*</span></label>
+            <input type="text" name="crm_name" class="form-input" placeholder="Жишээ: SARM-18, GBW11107b" required>
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <p style="font-size:12px;color:var(--text-muted);margin:0">Бүх үзүүлэлт агаарт хатаасан дээжийн суурь (ad) дээр байна. Дотоод чийг (Mad) CRM-д байхгүй.</p>
+          </div>
+          <!-- Aad -->
+          <div class="form-group">
+            <label class="form-label">Adb [%] — Баталгаажсан</label>
+            <input type="number" name="aad_cert" class="form-input" step="0.0001" min="0" placeholder="0.0000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Adb ± хязгаар</label>
+            <input type="number" name="aad_unc" class="form-input" step="0.0001" min="0" placeholder="0.0000">
+          </div>
+          <!-- Vad -->
+          <div class="form-group">
+            <label class="form-label">Vdb [%] — Баталгаажсан</label>
+            <input type="number" name="vad_cert" class="form-input" step="0.0001" min="0" placeholder="0.0000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Vdb ± хязгаар</label>
+            <input type="number" name="vad_unc" class="form-input" step="0.0001" min="0" placeholder="0.0000">
+          </div>
+          <!-- Sad -->
+          <div class="form-group">
+            <label class="form-label">Sdb [%] — Баталгаажсан</label>
+            <input type="number" name="sulfur_cert" class="form-input" step="0.0001" min="0" placeholder="0.0000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sdb ± хязгаар</label>
+            <input type="number" name="sulfur_unc" class="form-input" step="0.0001" min="0" placeholder="0.0000">
+          </div>
+          <!-- Qb,d — МЖ/кг -->
+          <div class="form-group">
+            <label class="form-label">Qb,d [МЖ/кг] — Баталгаажсан</label>
+            <input type="number" name="cal_cert" class="form-input" step="0.001" min="0" placeholder="0.000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Qb,d ± хязгаар [МЖ/кг]</label>
+            <input type="number" name="cal_unc" class="form-input" step="0.001" min="0" placeholder="0.000">
+          </div>
+          <!-- G-индекс -->
+          <div class="form-group">
+            <label class="form-label">G-индекс — Баталгаажсан</label>
+            <input type="number" name="g_cert" class="form-input" step="0.01" min="0" placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label class="form-label">G-индекс ± хязгаар</label>
+            <input type="number" name="g_unc" class="form-input" step="0.01" min="0" placeholder="0.00">
+          </div>
+          <!-- Огноонууд -->
+          <div class="form-group">
+            <label class="form-label">Үйлдвэрлэсэн огноо</label>
+            <input type="date" name="manufacture_date" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Хүчинтэй огноо (дуусах)</label>
+            <input type="date" name="expiry_date" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Нээсэн огноо</label>
+            <input type="date" name="open_date" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Тэмдэглэл</label>
+            <input type="text" name="notes" class="form-input" placeholder="Лот дугаар, эх үүсвэр...">
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:8px">
+          <button type="submit" class="btn" style="background:#7C3AED;color:#fff">🔬 Нэмэх</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="section-title">CRM материалын жагсаалт</div>
+      <table class="table" id="crmList">
+        <thead>
+          <tr>
+            <th>Нэр / код</th>
+            <th style="text-align:center">Adb %</th>
+            <th style="text-align:center">Vdb %</th>
+            <th style="text-align:center">Sdb %</th>
+            <th style="text-align:center">Qb,d МЖ/кг</th>
+            <th style="text-align:center">G-индекс</th>
+            <th>Огноонууд</th>
+            <th>Тэмдэглэл</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        
+        <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-muted)">CRM материал байхгүй</td></tr>
+        
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Шалгалтын загвар -->
+
+
+
+
+
+
+  <!-- Зочны код -->
+
+
+</div>
+
+</main>
+<script>
+/* Нарийн дэлгэц дээр карт хажуу тийш гүйдэг тул дотор нь байрлах унждаг цэс
+   таслагдана — тиймээс нээхдээ дэлгэцэд бэхлэнэ (position:fixed). */
+window.pinMenu=function(menu,btn){
+  if(!menu) return;
+  /* Анхны style-г нь хадгална — компьютер дээр яг хэвээр нь сэргээнэ */
+  if(menu.dataset.origStyle===undefined) menu.dataset.origStyle=menu.getAttribute('style')||'';
+  if(window.innerWidth>1200){
+    var d=menu.style.display;
+    menu.setAttribute('style',menu.dataset.origStyle);
+    menu.style.display=d;
+    return;
+  }
+  btn=btn||menu.previousElementSibling;
+  if(!btn) return;
+  var r=btn.getBoundingClientRect();
+  menu.style.position='fixed';
+  menu.style.top=(r.bottom+4)+'px';
+  menu.style.left='auto';
+  menu.style.right=Math.max(6,window.innerWidth-r.right)+'px';
+};
+/* Гар утасны цэс — ☰ товч дарахад нээгдэж, гадуур дарахад хаагдана */
+(function(){
+  var t=document.getElementById('navToggle'), n=document.getElementById('topNav');
+  if(!t||!n) return;
+  t.addEventListener('click',function(e){
+    e.stopPropagation();
+    var open=n.classList.toggle('open');
+    t.setAttribute('aria-expanded',open?'true':'false');
+    t.textContent=open?'✕':'☰';
+  });
+  document.addEventListener('click',function(e){
+    if(!n.classList.contains('open')) return;
+    if(n.contains(e.target)||t.contains(e.target)) return;
+    n.classList.remove('open'); t.setAttribute('aria-expanded','false'); t.textContent='☰';
+  });
+})();
+</script>
+
+<script>
+function toggleCrmMenu(id){
+  var el = document.getElementById('crm-menu-'+id);
+  var isOpen = el.style.display !== 'none';
+  document.querySelectorAll('[id^="crm-menu-"]').forEach(function(m){ m.style.display='none'; });
+  el.style.display = isOpen ? 'none' : 'block';
+  if(!isOpen && window.pinMenu) window.pinMenu(el);
+}
+document.addEventListener('click', function(e){
+  if(!e.target.closest('[id^="crm-wrap-"]')) {
+    document.querySelectorAll('[id^="crm-menu-"]').forEach(function(m){ m.style.display='none'; });
+  }
+});
+function deleteQC(param){
+  if(!confirm(param + ' параметрийг устгах уу?')) return;
+  fetch('/lab-settings/qc-delete', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({parameter: param})
+  }).then(r=>r.json()).then(function(d){
+    if(d.ok) location.reload();
+    else alert(d.error || 'Алдаа гарлаа');
+  });
+}
+function copyGuestUrl(token){
+  var url = window.location.origin + '/guest/' + token;
+  if(navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(url).then(function(){
+      alert('Хаяг хуулагдлаа:\n' + url);
+    }).catch(function(){
+      fallbackCopy(url);
+    });
+  } else {
+    fallbackCopy(url);
+  }
+}
+function fallbackCopy(text){
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try {
+    document.execCommand('copy');
+    alert('Хаяг хуулагдлаа:\n' + text);
+  } catch(e){
+    prompt('Хаягийг гараар хуулна уу:', text);
+  }
+  document.body.removeChild(ta);
+}
+// URL-н ?tab= параметрээр идэвхтэй табыг тохируулна
+document.addEventListener('DOMContentLoaded', function(){
+  var params = new URLSearchParams(window.location.search);
+  var tab = params.get('tab');
+  if(tab){
+    var btn = document.querySelector('.tab-btn[onclick*="tab-'+tab+'"]');
+    if(btn) btn.click();
+  }
+});
+
+function switchTab(btn, tabId){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(function(p){
+    p.classList.remove('active');
+    p.style.display='none';
+  });
+  btn.classList.add('active');
+  var pane = document.getElementById(tabId);
+  if(pane){
+    pane.classList.add('active');
+    pane.style.display='block';
+  }
+  if(tabId==='tab-types') loadTypes();
+  if(tabId==='tab-device-map') loadDeviceMap();
+  history.pushState(null, '', '/lab-settings?tab=' + tabId.replace('tab-',''));
+}
+
+var ANALYSIS_TYPES = [
+  {key:'mt',  name:'🌊 Нийт чийг (Mt)'},
+  {key:'mad', name:'💧 Дотоод чийг (Mad)'},
+  {key:'aad', name:'🔥 Үнс (Aad)'},
+  {key:'vad', name:'💨 Дэгдэмхий (Vad)'},
+  {key:'st',  name:'⚗️ Нийт хүхэр (Sad)'},
+  {key:'q',   name:'🔆 Илчлэг (Qb,d)'},
+  {key:'g',   name:'📊 G индекс'},
+  {key:'fsi', name:'🔵 Чөлөөт хөөлт (CSN)'}
+];
+
+function loadDeviceMap(){
+  fetch('/analysis/device-map').then(r=>r.json()).then(function(data){
+    var devices = data.devices;
+    var mapping = data.mapping;
+    var html = '';
+    ANALYSIS_TYPES.forEach(function(at){
+      var mapped = mapping[at.key] || [];
+      var boxes = '';
+      if(devices.length === 0){
+        boxes = '<span style="color:var(--text-muted);font-size:12px">Идэвхтэй тоног байхгүй</span>';
+      } else {
+        devices.forEach(function(d){
+          var chk = mapped.indexOf(d.id) >= 0 ? 'checked' : '';
+          boxes += '<label style="display:flex;align-items:center;gap:6px;margin-bottom:4px;cursor:pointer;font-size:13px">';
+          boxes += '<input type="checkbox" value="'+d.id+'" '+chk+' onchange="saveDeviceMap(&quot;'+at.key+'&quot;)">';
+          boxes += d.name+'</label>';
+        });
+      }
+      html += '<tr>';
+      html += '<td style="font-weight:500;vertical-align:top;padding-top:8px">'+at.name+'</td>';
+      html += '<td>'+boxes+'</td>';
+      html += '<td style="color:var(--teal);font-size:12px;vertical-align:top;padding-top:8px" id="dmap_'+at.key+'"></td>';
+      html += '</tr>';
+    });
+    document.getElementById('deviceMapBody').innerHTML = html;
+  });
+}
+
+function saveDeviceMap(analysisType){
+  var row = document.getElementById('dmap_'+analysisType).closest('tr');
+  var checked = row.querySelectorAll('input[type=checkbox]:checked');
+  var fd = new FormData();
+  fd.append('analysis_type', analysisType);
+  checked.forEach(function(cb){ fd.append('device_ids[]', cb.value); });
+  fetch('/analysis/device-map', {method:'POST', body:fd})
+    .then(r=>r.json()).then(function(d){
+      var el = document.getElementById('dmap_'+analysisType);
+      if(el){ el.textContent = '✅ Хадгалагдлаа'; setTimeout(function(){ el.textContent=''; }, 2000); }
+    });
+}
+
+function loadTypes(){
+  fetch('/sample-types').then(r=>r.json()).then(function(types){
+    var html = '';
+    types.forEach(function(t){
+      html += '<tr>';
+      html += '<td style="font-size:18px">'+t.icon+'</td>';
+      html += '<td><strong>'+t.code+'</strong></td>';
+      html += '<td>'+t.name_mn+'</td>';
+      html += '<td style="font-family:monospace;font-size:12px">'+t.serial_from+'-'+t.serial_to+'</td>';
+      html += '<td>'+(t.is_pit?'<span style="color:#0f6e56">✅ PIT</span>':'<span style="color:#185fa5">; нэр</span>')+'</td>';
+      html += '<td><span class="badge '+(t.is_active?'badge-active':'badge-inactive')+'">'+(t.is_active?'Идэвхтэй':'Идэвхгүй')+'</span></td>';
+      html += '<td><div style="display:flex;gap:4px">';
+      html += '<form method="POST" action="/sample-types" style="display:inline"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="'+t.id+'"><button class="btn btn-ghost btn-sm">'+(t.is_active?'Идэвхгүй':'Идэвхтэй')+'</button></form>';
+      if(!['PIT','STOCKPILE','EXPORT','CONTROL','EQ_CONTROL','DP'].includes(t.code)){
+        html += '<form method="POST" action="/sample-types" style="display:inline" onsubmit="return confirm(\'Delete?\')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="'+t.id+'"><button class="btn btn-sm" style="background:#faece7;color:#993c1d">Устгах</button></form>';
+      }
+      html += '</div></td></tr>';
+    });
+    document.getElementById('typesList').innerHTML = html || '<tr><td colspan="7" style="text-align:center;color:var(--text-muted)">Байхгүй</td></tr>';
+  });
+}
+
+// URL-аас tab сонгох — хуудас ачаалахад сэргээх
+document.addEventListener('DOMContentLoaded', function(){
+  var tab = new URLSearchParams(window.location.search).get('tab');
+  if(tab){
+    var btn = document.querySelector('[onclick*="tab-'+tab+'"]');
+    if(btn){ switchTab(btn, 'tab-'+tab); return; }
+  }
+  var firstBtn = document.querySelector('.tab-btn');
+  if(firstBtn) switchTab(firstBtn, 'tab-lab');
+});
+function togglePw(inputId, btnId){
+  var inp = document.getElementById(inputId);
+  inp.type = inp.type==='password' ? 'text' : 'password';
+  document.getElementById(btnId).textContent = inp.type==='password' ? '👁' : '🙈';
+}
+
+function searchReceipt(){
+  var num = document.getElementById('deleteLabNum').value.trim();
+  if(!num){ alert('Ажлын дугаар оруулна уу'); return; }
+  fetch('/analysis/find-receipt?lab_number='+encodeURIComponent(num))
+    .then(r=>r.json())
+    .then(function(data){
+      var el = document.getElementById('deleteResult');
+      if(!data.id){
+        el.innerHTML='<div style="color:#888;font-size:13px">Бүртгэл олдсонгүй</div>';
+        return;
+      }
+      el.innerHTML='<div style="background:#fff8f8;border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:12px;font-size:13px">'
+        +'<div style="font-weight:600;margin-bottom:6px">'+data.lab_number+' — '+data.sample_name+'</div>'
+        +'<div style="color:#666;margin-bottom:10px">Огноо: '+data.received_date+' | Тоо: '+data.quantity+'</div>'
+        +'<form method="POST" action="/analysis/delete/'+data.id+'" onsubmit="return confirm(\''+data.lab_number+' ажлыг устгах уу? Буцаах боломжгүй!\')">'
+        +'<button type="submit" class="btn btn-danger">🗑 Устгах</button>'
+        +'</form></div>';
+    });
+}
+
+function loadTpls(){
+  fetch('/check-templates').then(r=>r.json()).then(function(rows){
+    var el = document.getElementById('tplList');
+    if(!rows.length){el.innerHTML='<div style="text-align:center;padding:16px;color:var(--text-muted);font-size:13px">Загвар байхгүй байна</div>';return;}
+    var h='<table class="table" style="font-size:12px"><thead><tr><th>Нэр</th><th>П1</th><th>П2</th><th>П3</th><th>П4</th><th></th></tr></thead><tbody>';
+    rows.forEach(function(r){
+      h+='<tr><td style="font-weight:600">'+r.name+'</td>'
+        +'<td>'+(r.param1||'—')+'</td><td>'+(r.param2||'—')+'</td>'
+        +'<td>'+(r.param3||'—')+'</td><td>'+(r.param4||'—')+'</td>'
+        +'<td><button onclick="delTpl('+r.id+')" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">🗑</button></td></tr>';
+    });
+    h+='</tbody></table>';
+    el.innerHTML=h;
+  });
+}
+function saveTpl(){
+  var name=document.getElementById('tpl_name').value.trim();
+  if(!name){alert('Загварын нэр оруулна уу');return;}
+  var data={name:name};
+  for(var i=1;i<=4;i++){
+    data['param'+i]=document.getElementById('tp'+i).value.trim();
+    data['standard'+i]=document.getElementById('ts'+i).value.trim();
+    data['tolerance'+i]=document.getElementById('tt'+i).value.trim();
+  }
+  fetch('/check-templates/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
+    .then(r=>r.json()).then(function(d){
+      if(d.ok){
+        document.getElementById('tpl_name').value='';
+        for(var i=1;i<=4;i++){document.getElementById('tp'+i).value='';document.getElementById('ts'+i).value='';document.getElementById('tt'+i).value='';}
+        loadTpls();
+      }
+    });
+}
+function delTpl(id){
+  if(!confirm('Энэ загварыг устгах уу?'))return;
+  fetch('/check-templates/'+id+'/delete',{method:'POST'}).then(r=>r.json()).then(function(d){if(d.ok)loadTpls();});
+}
+document.addEventListener('DOMContentLoaded',function(){
+  var btn=document.querySelector('[onclick*="tab-chktpl"]');
+  if(btn)btn.addEventListener('click',function(){setTimeout(loadTpls,100);});
+});
+
+function fmtSize(b){
+  if(b>1024*1024) return (b/1024/1024).toFixed(1)+' MB';
+  return (b/1024).toFixed(0)+' KB';
+}
+function loadBackups(){
+  fetch('/backup/list').then(r=>r.json()).then(function(files){
+    var el = document.getElementById('backupList');
+    if(!files.length){ el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Backup файл байхгүй байна</div>'; return; }
+    var html = '<table class="table" style="font-size:13px"><thead><tr><th>Файлын нэр</th><th>Хэмжээ</th><th>Огноо</th><th></th></tr></thead><tbody>';
+    files.forEach(function(f){
+      html += '<tr>'
+        +'<td style="font-family:monospace;font-size:12px">'+f.name+'</td>'
+        +'<td>'+fmtSize(f.size)+'</td>'
+        +'<td style="color:var(--text-muted)">'+f.mtime+'</td>'
+        +'<td><div style="display:flex;gap:6px">'
+        +'<a href="/backup/download/'+encodeURIComponent(f.name)+'" class="btn btn-ghost btn-sm">⬇️ Татах</a>'
+        +'<button onclick="deleteBackup(\''+f.name+'\')" class="btn btn-sm" style="background:#faece7;color:#993c1d;border:1px solid #f5c4b3">🗑 Устгах</button>'
+        +'</div></td></tr>';
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  });
+}
+function createBackup(){
+  var btn = document.getElementById('createBtn');
+  btn.disabled = true; btn.textContent = 'Хийж байна...';
+  fetch('/backup/create', {method:'POST'}).then(r=>r.json()).then(function(d){
+    btn.disabled = false; btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v14a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Одоо Backup хийх';
+    if(d.ok){ loadBackups(); }
+  });
+}
+function deleteBackup(name){
+  if(!confirm(name+'\nЭнэ backup-ийг устгах уу?')) return;
+  fetch('/backup/delete/'+encodeURIComponent(name), {method:'POST'}).then(r=>r.json()).then(function(d){
+    if(d.ok) loadBackups();
+  });
+}
+// backup tab нээгдэхэд автоматаар ачаалах
+document.addEventListener('DOMContentLoaded', function(){
+  var btn = document.querySelector('[onclick*="tab-backup"]');
+  if(btn) btn.addEventListener('click', function(){ setTimeout(loadBackups, 100); });
+});
+</script>
+
+</body>
+</html>

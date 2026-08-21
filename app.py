@@ -6414,8 +6414,12 @@ def _check_weak_admin():
         app.logger.exception('Нууц үгийн шалгалт амжилтгүй')
 
 @app.route('/lab-settings', methods=['GET','POST'])
-@admin_required
+@senior_required
 def lab_settings():
+    # Ахлах химич энэ хуудсыг зөвхөн CRM материал удирдахаар нээнэ.
+    # Бусад таб нь HTML-д ч ирэхгүй (settings.html доторх is_admin шалгалт),
+    # POST нь мөн доор хаагдана.
+    is_admin = session.get('role') == 'admin'
     lang = session.get('lang','mn')
     s = get_settings()
     conn = get_db()
@@ -6423,6 +6427,10 @@ def lab_settings():
 
     if request.method == 'POST':
         action = request.form.get('action','lab_info')
+        if not is_admin:
+            conn.close()
+            flash('Энэ тохиргоог зөвхөн админ өөрчилнө', 'error')
+            return redirect(url_for('lab_settings') + '?tab=crm')
 
         if action == 'lab_info':
             s['lab_name']     = request.form.get('lab_name', s['lab_name'])
@@ -6496,7 +6504,9 @@ def lab_settings():
     now = datetime.now().isoformat()
     _crm_conn.execute("DELETE FROM guest_tokens WHERE expires_at < ?", (now,))
     _crm_conn.commit()
-    guest_tokens = _crm_conn.execute("SELECT * FROM guest_tokens ORDER BY created_at DESC").fetchall()
+    guest_tokens = (_crm_conn.execute(
+        "SELECT * FROM guest_tokens ORDER BY created_at DESC").fetchall()
+        if is_admin else [])
     _crm_conn.close()
     _envconn = get_db()
     env_rooms = _envconn.execute(
@@ -6508,9 +6518,15 @@ def lab_settings():
                            env_rooms=env_rooms, env_lim=env_limits())
 
 @app.route('/lab-settings/crm', methods=['POST'])
-@admin_required
+@senior_required
 def lab_settings_crm():
     action = request.form.get('action')
+    # Бүрмөсөн устгах нь сертификатын түүхийг үгүй хийдэг тул зөвхөн админ.
+    # Ахлах химич нэмэх / засах / дуусгах / сэргээх эрхтэй.
+    if action == 'delete' and session.get('role') != 'admin':
+        flash('CRM-ийг бүрмөсөн устгах эрх зөвхөн админд байна. '
+              'Ашиглаж дууссан бол «✅ Дуусгах» дарна уу — архивт хадгалагдана.', 'error')
+        return redirect(url_for('lab_settings') + '?tab=crm')
     conn = get_db()
     try:
         if action == 'add':
@@ -6564,7 +6580,7 @@ def lab_settings_crm():
     return redirect(url_for('lab_settings') + '?tab=crm')
 
 @app.route('/lab-settings/crm/<int:mid>/edit', methods=['GET','POST'])
-@admin_required
+@senior_required
 def crm_edit(mid):
     conn = get_db()
     mat = conn.execute("SELECT * FROM crm_materials WHERE id=?", (mid,)).fetchone()

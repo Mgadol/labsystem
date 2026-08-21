@@ -277,7 +277,7 @@
             </span>
           </td>
           <td>
-            {% if current_user and current_user['role'] == 'admin' %}
+            {% if current_user and current_user['role'] in ('admin','senior') %}
             <div style="display:flex;gap:6px">
               <form method="POST" action="/lab-settings/crm">
                 <input type="hidden" name="action" value="activate">
@@ -287,6 +287,7 @@
                   🔄 {{ 'Сэргээх' if lang=='mn' else 'Restore' }}
                 </button>
               </form>
+              {% if current_user['role'] == 'admin' %}
               <form method="POST" action="/lab-settings/crm"
                     onsubmit="return confirm('{{ c['crm_name'] }} — БҮРМӨСӨН устгах уу? Сертификатын утга нь бүрэн алга болно.')">
                 <input type="hidden" name="action" value="delete">
@@ -296,6 +297,7 @@
                   🗑 {{ 'Бүрмөсөн устгах' if lang=='mn' else 'Delete' }}
                 </button>
               </form>
+              {% endif %}
             </div>
             {% endif %}
           </td>

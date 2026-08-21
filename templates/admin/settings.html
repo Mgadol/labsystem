@@ -9,21 +9,29 @@
   <h1 class="page-title" style="margin-bottom:4px">⚙️ Тохиргоо</h1>
   <p class="page-sub">Системийн тохиргоо</p>
 
+  {# Ахлах химич зөвхөн CRM материалыг удирдана — бусад тохиргоо админых.
+     Тэдгээр таб нь HTML-д ч ороход ирэхгүй (зөвхөн нуугдах биш). #}
+  {% set is_admin = current_user and current_user['role'] == 'admin' %}
   <!-- Дэд цэс -->
   <div class="tab-nav" style="margin-bottom:20px">
+    {% if is_admin %}
     <button class="tab-btn active" onclick="switchTab(this,'tab-lab')">🏢 Лабораторийн мэдээлэл</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-qc')">📊 QC стандарт</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-types')">🧪 Дээжний төрөл</button>
-    <button class="tab-btn" onclick="switchTab(this,'tab-crm')">🔬 CRM материал</button>
+    {% endif %}
+    <button class="tab-btn{% if not is_admin %} active{% endif %}" onclick="switchTab(this,'tab-crm')">🔬 CRM материал</button>
+    {% if is_admin %}
     <button class="tab-btn" onclick="switchTab(this,'tab-device-map')">🔧 Тоног холбоос</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-profile')">👤 Профайл</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-chktpl')">📋 Шалгалтын загвар</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-env')">🌡 Орчны хяналт</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-backup')">💾 Нөөцлөлт</button>
     <button class="tab-btn" onclick="switchTab(this,'tab-guest')">👁 Зочны код</button>
+    {% endif %}
   </div>
 
   <!-- Лабораторийн мэдээлэл -->
+{% if is_admin %}
   <div id="tab-lab" class="tab-pane active">
     <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
       <div>
@@ -82,8 +90,10 @@
       </form>
     </div>
   </div>
+{% endif %}
 
   <!-- QC стандарт утга -->
+{% if is_admin %}
   <div id="tab-qc" class="tab-pane">
     <div class="card">
       <div class="section-title">QC зөвшөөрөгдөх зөрүү</div>
@@ -143,8 +153,10 @@
       </form>
     </div>
   </div>
+{% endif %}
 
   <!-- Профайл -->
+{% if is_admin %}
   <div id="tab-profile" class="tab-pane">
     <div class="card" style="margin-bottom:12px">
       <div class="section-title">Мэдээлэл засах</div>
@@ -198,8 +210,10 @@
       </form>
     </div>
   </div>
+{% endif %}
 
   <!-- Тоног холбоос -->
+{% if is_admin %}
   <div id="tab-device-map" class="tab-pane">
     <div class="card">
       <div class="section-title">🔧 Шинжилгээний төрөл → Тоног төхөөрөмж</div>
@@ -218,8 +232,10 @@
       </table>
     </div>
   </div>
+{% endif %}
 
   <!-- Дээжний төрөл -->
+{% if is_admin %}
   <div id="tab-types" class="tab-pane">
     <div class="card" style="margin-bottom:12px">
       <div class="section-title">Одоогийн дээжний төрлүүд</div>
@@ -287,6 +303,7 @@
       </form>
     </div>
   </div>
+{% endif %}
 
   <!-- Нөөцлөлт -->
   <!-- CRM материал -->
@@ -427,6 +444,9 @@
                     ✅ Дуусгах
                   </button>
                 </form>
+                {# Бүрмөсөн устгах нь сертификатын түүхийг үгүй хийнэ — зөвхөн админ.
+                   Ахлах химич «✅ Дуусгах» ашиглана (архивт хадгалагдана). #}
+                {% if is_admin %}
                 <form method="POST" action="/lab-settings/crm" onsubmit="return confirm('Бүрэн устгах уу?')">
                   <input type="hidden" name="action" value="delete">
                   <input type="hidden" name="id" value="{{ c['id'] }}">
@@ -434,6 +454,7 @@
                     🗑 Устгах
                   </button>
                 </form>
+                {% endif %}
               </div>
             </div>
           </td>
@@ -447,6 +468,7 @@
   </div>
 
   <!-- Шалгалтын загвар -->
+{% if is_admin %}
   <div id="tab-chktpl" class="tab-pane">
     <div class="card">
       <div class="section-title">📋 Дотоод шалгалтын загварууд</div>
@@ -488,7 +510,9 @@
       <div id="tplList"><div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Уншиж байна...</div></div>
     </div>
   </div>
+{% endif %}
 
+{% if is_admin %}
   <div id="tab-env" class="tab-pane">
     <div class="card" style="margin-bottom:16px">
       <div class="section-title">🌡 Зөвшөөрөгдөх орчны хязгаар</div>
@@ -555,7 +579,9 @@
       </form>
     </div>
   </div>
+{% endif %}
 
+{% if is_admin %}
   <div id="tab-backup" class="tab-pane">
     <div class="card" style="margin-bottom:16px">
       <div class="section-title">🖥️ Системийн Backup</div>
@@ -612,8 +638,10 @@
       <div id="deleteResult"></div>
     </div>
   </div>
+{% endif %}
 
   <!-- Зочны код -->
+{% if is_admin %}
   <div id="tab-guest" class="tab-pane">
     <div class="card" style="margin-bottom:16px">
       <div class="section-title">👁 Нэг удаагийн зочны код үүсгэх</div>
@@ -681,6 +709,7 @@
       {% endif %}
     </div>
   </div>
+{% endif %}
 
 </div>
 {% endblock %}
