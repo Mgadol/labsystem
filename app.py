@@ -1604,12 +1604,11 @@ def staff_detail(uid):
     qc_radar = {}
     # ── Бэлтгэсэн дээж (ажлаар биш дээжээр) ──────────────
     # prep_by шинэ багана. Хуучин бичлэгт байхгүй тул нэрээр нөхөж тооцно.
-    PREP_WHERE = """
+    PREP_WHERE = f"""
         FROM sample_receipt sr JOIN geo_samples g ON g.id=sr.geo_sample_id
-        WHERE sr.prep_done_at IS NOT NULL
-          AND (sr.prep_by=? OR (sr.prep_by IS NULL AND sr.prep_operator=?))
+        WHERE sr.prep_done_at IS NOT NULL AND {PREP_PERSON}
     """
-    prep_args = (uid, target['name'])
+    prep_args = (target['name'], uid)
     total_prepared = conn.execute(
         f"SELECT COALESCE(SUM(COALESCE(g.quantity,1)),0) {PREP_WHERE}", prep_args).fetchone()[0]
 
@@ -2943,6 +2942,23 @@ def measured_groups(entries):
 # Урьд нь sample_entries-д зөвхөн updated_by (хамгийн сүүлд бичсэн хүн) байсан
 # тул нэг дээж дээр хоёр химич өөр өөр шинжилгээ хийвэл зөвхөн сүүлчийнх нь
 # тоологддог байв. Одоо шинжилгээний төрөл бүрд гүйцэтгэгчийг тусад нь бичнэ.
+# ── Дээж БЭЛТГЭСЭН хүнийг тодорхойлох дүрэм ───────────────────────────
+# «Дууслаа» товчийг ахлах/админ дарж, «Бэлтгэгч → Нэр» талбарт бодит
+# бэлтгэгчийг бичсэн байж болно. Тийм үед бэлтгэсэн хүн нь ТЭР — товч
+# дарсан хүн биш. Урьд нь prep_by (товч дарсан хүн) л тоологддог байсан
+# тул бэлтгэгчийн хуудсанд 0 гардаг байв.
+#   1) Бичсэн нэр нь ажилтантай таарвал → тэр хүнд тоологдоно
+#   2) Нэр хоосон, эсвэл ямар ч ажилтантай таарахгүй бол → товч дарсан хүнд
+# Ингэснээр нэг ажил хоёр хүнд давхар тоологдохгүй.
+# Параметрийн дараалал: (нэр, хэрэглэгчийн id)
+PREP_PERSON = """
+    ( TRIM(COALESCE(sr.prep_operator,'')) = ?
+      OR ( sr.prep_by = ?
+           AND ( TRIM(COALESCE(sr.prep_operator,'')) = ''
+                 OR NOT EXISTS (SELECT 1 FROM users u2
+                                WHERE u2.name = TRIM(sr.prep_operator)) ) ) )
+"""
+
 ANALYSIS_OPS = [
     ('op_mt',  'Нийт чийг',   ['ff_sample', 'ff_dried',
                                'mt_bux', 'mt_tare', 'mt_sample', 'mt_dried']),
@@ -4077,6 +4093,7 @@ def lab_report_export():
     rows = lab_report_rows(conn, d0s, d1s)
     SW = "sr.received_date BETWEEN ? AND ?"          # дээж хүлээн авсан хугацаа
     AW = "substr(se.done_at,1,10) BETWEEN ? AND ?"   # шинжилгээ хийсэн хугацаа
+    _REP_OP_ANY = ' OR '.join(f'se.{op}=?' for op, _l, _f in ANALYSIS_OPS)
     P = (d0s, d1s)
 
     def one(sql, args=P):
@@ -4213,12 +4230,18 @@ def lab_report_export():
             WHERE {SW} AND g.registered_by=?''', P + (u['id'],))
         prep = one(f'''SELECT COALESCE(SUM(COALESCE(g.quantity,1)),0)
             FROM sample_receipt sr JOIN geo_samples g ON g.id=sr.geo_sample_id
-            WHERE {SW} AND sr.prep_done_at IS NOT NULL
-              AND (sr.prep_by=? OR (sr.prep_by IS NULL AND sr.prep_operator=?))''',
-            P + (u['id'], u['name']))
-        done = one(f'''SELECT COUNT(*) FROM sample_entries se
-            WHERE se.done_by=? AND se.row_status IN ('done','approved') AND {AW}''',
-            (u['id'],) + P)
+            WHERE {SW} AND sr.prep_done_at IS NOT NULL AND {PREP_PERSON}''',
+            P + (u['name'], u['id']))
+        # «Шинжилсэн» — ажилтны хуудастай нэг дүрмээр: ✓ товчийг хэн дарснаар
+        # биш, шинжилгээг хэн хийснээр (op_*), дээжээр тоолно.
+        done = one(f'''SELECT COUNT(DISTINCT se.receipt_id || '-' || se.row_num)
+            FROM sample_entries se
+            JOIN sample_entries p ON p.receipt_id = se.receipt_id
+                                 AND p.row_num    = se.row_num
+                                 AND p.is_duplicate = 0
+            WHERE ({_REP_OP_ANY}) AND p.row_status IN ('done','approved')
+              AND substr(p.done_at,1,10) BETWEEN ? AND ?''',
+            tuple(u['id'] for _ in ANALYSIS_OPS) + P)
         appr = one(f'''SELECT COUNT(*) FROM sample_entries se
             WHERE se.approved_by=? AND se.row_status='approved' AND {AW}''',
             (u['id'],) + P)
