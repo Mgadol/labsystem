@@ -842,6 +842,32 @@ function markAllDone(){
 }
 
 // Багана нуух
+// ── Харуулах баганын сонголтыг САНАНА ────────────────────────────────
+// Урьд нь хуудас дахин ачаалах бүрд бүх бүлэг нуугдаж, химич сонголтоо
+// дахин дардаг байв ("тохиргоо алдагдаж байна" гэдгийн нэг шалтгаан).
+// Сонголт нь тухайн хөтөч дээр л хадгалагдана — DB-д нөлөөлөхгүй.
+var COLS_KEY = 'labcols_v1';
+function saveCols(){
+  try{
+    var on = [];
+    document.querySelectorAll('.ct').forEach(function(cb){ if(cb.checked) on.push(cb.dataset.g); });
+    localStorage.setItem(COLS_KEY, JSON.stringify(on));
+  }catch(e){}
+}
+function restoreCols(){
+  var on = null;
+  try{ on = JSON.parse(localStorage.getItem(COLS_KEY) || 'null'); }catch(e){}
+  if(!Array.isArray(on)) return false;      // хадгалсан сонголт байхгүй
+  document.querySelectorAll('.ct').forEach(function(cb){
+    var want = on.indexOf(cb.dataset.g) >= 0;
+    cb.checked = want;
+    document.querySelectorAll('.cg-' + cb.dataset.g).forEach(function(el){
+      el.classList.toggle('hide', !want);
+    });
+  });
+  return true;
+}
+
 function toggleG(cb,g){
   var show=cb.checked;
   document.querySelectorAll('.cg-'+g).forEach(function(el){
@@ -849,6 +875,7 @@ function toggleG(cb,g){
     else el.classList.add('hide');
   });
   syncCalcCols();
+  saveCols();
 }
 
 // ── Тооцооны багана нь харуулж буй бүлэгтэй уялдана ─────────────────
@@ -1092,6 +1119,7 @@ document.addEventListener('DOMContentLoaded',function(){
   ['ff','mt','dc','un','db','gi','st','il','fsi'].forEach(function(g){
     document.querySelectorAll('.cg-'+g).forEach(function(el){el.classList.add('hide');});
   });
+  restoreCols();    // өмнөх сонголт байвал сэргээнэ
   syncCalcCols();   // нуусан бүлгийн тооцооны багана мөн нуугдана
   loadAllData();
   // Анхдагчаар түгжээтэй — "Засах" дарж л засна
