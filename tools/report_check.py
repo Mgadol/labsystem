@@ -82,6 +82,32 @@ def main():
         print('      (Эдгээр нь өмнө нь дээжийн тоог хиймлээр өсгөж байсан.')
         print('       Утга нь санамсаргүй арилсан бол: tools/check_audit.py --cleared)')
 
+    # ── Энэ хугацаанд баталгаажсан ч ДУУССАН ОГНОО нь гадна байгаа мөр ──
+    # Жишээ: химич өчигдөр 24 дээж хэмжсэн ч 2 мөрийнх нь ✓ товч өнөөдөр
+    # дарагдвал тэр 2 нь ӨНӨӨДРИЙН тоонд очно (тоолол done_at-аар явдаг).
+    late = conn.execute(
+        f"""SELECT sr.lab_number, se.row_num, g.sample_type,
+                   substr(se.done_at,1,10) d, substr(se.approved_at,1,10) a
+            FROM sample_entries se {NOCRM}
+            JOIN sample_receipt sr ON sr.id=se.receipt_id
+            JOIN geo_samples g ON g.id=sr.geo_sample_id
+            WHERE se.is_duplicate=0 AND g0.sample_type<>'CRM'
+              AND se.row_status='approved' AND {HAS_MEASURE}
+              AND substr(se.approved_at,1,10) BETWEEN ? AND ?
+              AND (se.done_at IS NULL
+                   OR substr(se.done_at,1,10) NOT BETWEEN ? AND ?)
+            ORDER BY sr.lab_serial, se.row_num""",
+        (d0, d1, d0, d1)).fetchall()
+    if late:
+        print(f'\n  ⓘ Энэ хугацаанд баталгаажсан ч ДУУССАН ОГНОО нь гадна '
+              f'байгаа {len(late)} мөр — өөр өдрийн тоонд орсон:')
+        for r in late:
+            print(f'      {r["lab_number"]:22} мөр {r["row_num"]:>3}  '
+                  f'{r["sample_type"] or "—":10} дууссан {r["d"] or "—"} · '
+                  f'баталгаажсан {r["a"] or "—"}')
+        print('      (Тоолол «дууссан огноо»-гоор явна. Хэмжилтээ хийсэн '
+              'өдрөө ✓ дарвал зөрөхгүй.)')
+
     # ── Үзүүлэлт бүрийн тоо ──
     FIELDS = [('mt_dried', 'Нийт чийг'), ('mad', 'Дотоод чийг'), ('aad', 'Үнслэг'),
               ('vad', 'Дэгдэмхий'), ('sulfur', 'Хүхэр'), ('cal_value', 'Илчлэг'),
