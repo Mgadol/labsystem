@@ -4892,23 +4892,48 @@ def sample_edit(geo_id):
                          (new_qty, geo_id))
         conn.execute("UPDATE geo_samples SET sample_name=?, quantity=? WHERE id=?",
                      (new_name, new_qty, geo_id))
-    # Ажлын дугаар засах (receipt байвал)
-    if new_serial and new_serial.isdigit():
-        new_serial = int(new_serial)
-        receipt = conn.execute("SELECT * FROM sample_receipt WHERE geo_sample_id=?", (geo_id,)).fetchone()
-        if receipt:
+    # ── Ажлын дугаар ба ОГНОО засах (receipt байвал) ──────────────────
+    # Ажлын дугаар нь "дугаар-ОНСАРӨДӨР" (ж: 1046-20260605). Огноо нь
+    # хүлээн авсан огноогоор бүрддэг тул буруу орсон бол энд засна.
+    new_date = (request.form.get('lab_date') or '').strip()
+    if new_date:
+        try:
+            datetime.strptime(new_date, '%Y-%m-%d')
+        except ValueError:
+            conn.close()
+            flash('Огноог ЖЖЖЖ-СС-ӨӨ хэлбэрээр оруулна уу.', 'error')
+            return redirect(request.referrer or url_for('analysis'))
+    if (new_serial and new_serial.isdigit()) or new_date:
+        receipt = conn.execute("SELECT * FROM sample_receipt WHERE geo_sample_id=?",
+                               (geo_id,)).fetchone()
+        if not receipt:
+            conn.close()
+            flash('Энэ дээжийг лаборатори хүлээж аваагүй тул ажлын дугаар байхгүй.',
+                  'error')
+            return redirect(request.referrer or url_for('analysis'))
+        serial = int(new_serial) if (new_serial and new_serial.isdigit()) \
+            else receipt['lab_serial']
+        if new_serial and new_serial.isdigit():
             # Давхцал шалгах (өөр дээж дээр ижил дугаар байвал болохгүй)
             dup = conn.execute(
                 "SELECT id FROM sample_receipt WHERE lab_serial=? AND id!=?",
-                (new_serial, receipt['id'])).fetchone()
+                (serial, receipt['id'])).fetchone()
             if dup:
                 conn.close()
-                flash(f'{new_serial} дугаар өөр ажилд бүртгэгдсэн байна.', 'error')
+                flash(f'{serial} дугаар өөр ажилд бүртгэгдсэн байна.', 'error')
                 return redirect(request.referrer or url_for('analysis'))
-            date_str = (receipt['received_date'] or '').replace('-','')
-            new_labnum = f"{new_serial}-{date_str}" if date_str else str(new_serial)
-            conn.execute("UPDATE sample_receipt SET lab_serial=?, lab_number=? WHERE id=?",
-                         (new_serial, new_labnum, receipt['id']))
+        rec_date = new_date or (receipt['received_date'] or '')
+        date_str = rec_date.replace('-', '')
+        new_labnum = f"{serial}-{date_str}" if (serial and date_str) else str(serial or '')
+        # Шинэ ажлын дугаар өөр ажилтай давхцах ёсгүй
+        dup2 = conn.execute("SELECT id FROM sample_receipt WHERE lab_number=? AND id!=?",
+                            (new_labnum, receipt['id'])).fetchone()
+        if dup2:
+            conn.close()
+            flash(f'{new_labnum} ажлын дугаар өөр ажилд бүртгэгдсэн байна.', 'error')
+            return redirect(request.referrer or url_for('analysis'))
+        conn.execute("UPDATE sample_receipt SET lab_serial=?, lab_number=?, received_date=? "
+                     "WHERE id=?", (serial, new_labnum, rec_date, receipt['id']))
     conn.commit()
     conn.close()
     if new_name and new_qty != cur_qty:

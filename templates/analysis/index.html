@@ -245,6 +245,7 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
               onclick="openSampleEdit({{ s['id'] }}, this)"
               data-name="{{ s['sample_name']|e }}" data-serial="{{ s['lab_serial'] or '' }}"
               data-qty="{{ s['quantity'] or 1 }}"
+              data-date="{{ s['received_date'] or '' }}" data-labnum="{{ s['lab_number'] or '' }}"
               class="btn btn-ghost btn-sm" title="Нэр/дугаар засах" style="padding:3px 8px">✏️</button>
             {# Буруу бүртгэсэн ажлыг жагсаалтаас шууд устгах. Хэмжилтийн утга
                орсон бол сервер зөвшөөрөхгүй — санамсаргүй устгалаас сэргийлнэ. #}
@@ -333,10 +334,21 @@ input[type=checkbox]{width:15px!important;height:15px!important;cursor:pointer}
         <label class="form-label">Дээжийн тоо</label>
         <input type="number" min="1" name="quantity" id="seQty" class="form-input">
       </div>
-      <div class="form-group" style="margin-bottom:6px">
+      <div class="form-group" style="margin-bottom:12px">
         <label class="form-label">Ажлын дугаар (serial)</label>
         <input type="number" name="lab_serial" id="seSerial" class="form-input" placeholder="Ж: 1046">
-        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Хоосон бол дугаар өөрчлөгдөхгүй. Огноо хэвээр үлдэнэ.</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Хоосон бол дугаар өөрчлөгдөхгүй.</div>
+      </div>
+      {# Ажлын дугаарын он-сар-өдөр нь хүлээн авсан огноогоор бүрддэг.
+         Буруу орсон бол эндээс засна — дугаар шинэ огноогоор дахин бүрдэнэ. #}
+      <div class="form-group" style="margin-bottom:6px">
+        <label class="form-label">Ажлын дугаарын огноо</label>
+        <input type="date" name="lab_date" id="seDate" class="form-input">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">
+          Одоогийн дугаар: <b id="seLabNum" style="font-family:monospace">—</b>.
+          Огноог өөрчилвөл дугаар нь <span style="font-family:monospace">дугаар-ОНСАРӨДӨР</span>
+          хэлбэрээр дахин бүрдэнэ. Хоосон бол огноо хэвээр.
+        </div>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
         <button type="button" onclick="closeSampleEdit()" class="btn btn-ghost">Болих</button>
@@ -432,6 +444,8 @@ function openSampleEdit(geoId, btn){
   document.getElementById('seName').value = btn.dataset.name || '';
   document.getElementById('seSerial').value = btn.dataset.serial || '';
   document.getElementById('seQty').value = btn.dataset.qty || '';
+  document.getElementById('seDate').value = btn.dataset.date || '';
+  document.getElementById('seLabNum').textContent = btn.dataset.labnum || '—';
   document.getElementById('sampleEditModal').style.display = 'flex';
 }
 function closeSampleEdit(){ document.getElementById('sampleEditModal').style.display='none'; }
