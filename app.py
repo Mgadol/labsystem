@@ -5882,9 +5882,20 @@ def analysis_result(receipt_id):
     if qc_row:
         entries_list = [e for e in entries_list if e['row_num'] == qc_row]
     pending_approve = [e for e in entries_list if e['row_status'] == 'done' and e['is_duplicate'] == 0]
+    # ── Хэмжигдсэн ч ✓ ДАРАГДААГҮЙ мөр ────────────────────────────────
+    # Ийм мөр «баталгаажуулах боломжтой» жагсаалтад ОРДОГГҮЙ тул
+    # «Бүгдийг баталгаажуулах» дарсан ч үлддэг. Урьд нь энэ хуудас
+    # «🟢 Бүгд баталгаажсан» гэж ХУДЛАА ногоон бичиг гаргадаг байсан тул
+    # ахлах химич анзаарахгүй өнгөрч, тэр дээж тоонд ордоггүй байв.
+    pending_done = [e for e in entries_list
+                    if e['is_duplicate'] == 0
+                    and (e['row_status'] or 'empty') not in ('done', 'approved')
+                    and any(e[c] is not None for c in MEASURE_VALUE_COLS
+                            if c in e.keys())]
     return render_template('analysis/result.html',
         receipt=receipt, entries=entries_list, lang=lang, role=role, crm_cert=crm_cert,
-        pending_approve=pending_approve, qc_row=qc_row, qc_id=qc_id, row_names=row_names)
+        pending_approve=pending_approve, pending_done=pending_done,
+        qc_row=qc_row, qc_id=qc_id, row_names=row_names)
 
 
 def _restore_template_images(tmpl_path, buf):
