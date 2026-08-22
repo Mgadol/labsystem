@@ -47,8 +47,9 @@ def main():
     have = {r[1] for r in conn.execute('PRAGMA table_info(sample_entries)')}
     MEASURE_COLS = [c for c in MEASURE_COLS if c in have]
     HAS_MEASURE = '(' + ' OR '.join(f'se.{c} IS NOT NULL' for c in MEASURE_COLS) + ')'
+    # «Шинжилгээ дууссан» = БАТАЛГААЖСАН (app.py-тай ижил дүрэм)
     DONE_BASE = """se.is_duplicate=0 AND g0.sample_type<>'CRM'
-                AND se.row_status IN ('done','approved')
+                AND se.row_status='approved'
                 AND substr(se.done_at,1,10) BETWEEN ? AND ?"""
     DONE_W = DONE_BASE + ' AND ' + HAS_MEASURE
     base = conn.execute(
@@ -94,7 +95,7 @@ def main():
     JOIN_P = """JOIN sample_entries p ON p.receipt_id=se.receipt_id
                                      AND p.row_num=se.row_num
                                      AND p.is_duplicate=0
-                WHERE p.row_status IN ('done','approved')
+                WHERE p.row_status='approved'
                   AND substr(p.done_at,1,10) BETWEEN ? AND ?"""
     for col, name in FIELDS:
         c = col if '(' in col else f'se.{col}'
@@ -140,12 +141,13 @@ def main():
     # ── ✓ дараагүй тул тоологдоогүй мөр ──
     pend = conn.execute(
         """SELECT COUNT(*) n FROM sample_entries se
-           WHERE se.is_duplicate=0 AND se.row_status NOT IN ('done','approved')
+           WHERE se.is_duplicate=0 AND COALESCE(se.row_status,'')<>'approved'
              AND se.updated_at IS NOT NULL
              AND substr(se.updated_at,1,10) BETWEEN ? AND ?""", (d0, d1)).fetchone()['n']
     if pend:
-        print(f'\n⚠ {pend} дээжид утга орсон ч мөр нь ✓ хийгдээгүй (дуусаагүй) тул')
-        print('  энэ хугацааны тоонд ОРООГҮЙ. Дуусахаараа тухайн өдрийнхөө тоонд орно.')
+        print(f'\n⚠ {pend} дээжид утга орсон ч хараахан БАТАЛГААЖААГҮЙ тул')
+        print('  энэ хугацааны тоонд ОРООГҮЙ. Ахлах химич баталгаажуулмагц')
+        print('  тухайн мөрийн дууссан өдрийнхөө тоонд нэмэгдэнэ.')
 
     # ── done_at огноогүй мөр ──
     nodate = conn.execute(

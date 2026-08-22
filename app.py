@@ -1568,6 +1568,8 @@ def staff_detail(uid):
         if n:
             by_analysis.append({'label': lbl, 'count': n})
     by_analysis.sort(key=lambda x: -x['count'])
+    # "Дуусгасан" = шинжилгээ нь БАТАЛГААЖСАН дээж. "Баталгаажуулсан" нь
+    # харин тухайн хүн ӨӨРӨӨ баталгаажуулсан дээжийн тоо (ахлахын үйлдэл).
     # "Дуусгасан" ба "Баталгаажуулсан" тоог мөн ДЭЭЖЭЭР тоолно.
     # Урьд нь COUNT(*) — өөрөөр хэлбэл зэрэгцээ, давталтын мөр тус бүрийг
     # тоолдог байсан тул "Шинжилсэн дээж 287 / дуусгасан 430" гэх мэт
@@ -1583,7 +1585,7 @@ def staff_detail(uid):
         JOIN sample_entries p ON p.receipt_id = se.receipt_id
                              AND p.row_num    = se.row_num
                              AND p.is_duplicate = 0
-        WHERE ({_op_any_se}) AND p.row_status IN ('done','approved')
+        WHERE ({_op_any_se}) AND p.row_status = 'approved'
     """
     total_done     = conn.execute(
         f"SELECT COUNT(DISTINCT se.receipt_id || '-' || se.row_num) {DONE_JOIN}",
@@ -1629,7 +1631,7 @@ def staff_detail(uid):
                 JOIN sample_entries p ON p.receipt_id = se.receipt_id
                                      AND p.row_num    = se.row_num
                                      AND p.is_duplicate = 0
-                WHERE ({_op_any_se}) AND p.row_status IN ('done','approved')
+                WHERE ({_op_any_se}) AND p.row_status = 'approved'
                   AND p.done_at IS NOT NULL
                   {"AND date(p.done_at) >= date('now', ?)" if days else ""}
                 GROUP BY period ORDER BY period
@@ -3476,7 +3478,7 @@ ANALYSIS_COUNT_SQL = '''SELECT COUNT(*) FROM sample_entries se
                          AND p.row_num       = se.row_num
                          AND p.is_duplicate  = 0
     WHERE {col} IS NOT NULL
-      AND p.row_status IN ('done','approved')
+      AND p.row_status = 'approved'
       AND substr(p.done_at,1,10) BETWEEN ? AND ?'''
 # Анхаар: CRM-ийн хэмжилт ЭНД тоологдоно. CRM бол чанарын хяналтын ажил
 # бөгөөд лаборатори үнэхээр хэмжилт хийсэн тул үзүүлэлтийн тоонд орно.
@@ -3488,6 +3490,10 @@ def analysis_count_sql(field):
     return ANALYSIS_COUNT_SQL.format(col=ANALYSIS_COUNT_COL.get(field, f'se.{field}'))
 
 # ── Графикийн "Дээж" шугам — ШИНЖИЛГЭЭ БҮРЭН ДУУССАН дээжийн тоо ─────────
+# «Дууссан» гэдэг нь БАТАЛГААЖСАН (row_status='approved') гэсэн үг. Ахлах
+# химич баталгаажуулаагүй байхад шинжилгээ дуусаагүйд тооцно — ✓ дарсан
+# боловч хянагдаагүй мөр тоонд орохгүй. Үзүүлэлтийн багана (ANALYSIS_COUNT_SQL)
+# мөн ижил багцаас тоологдоно, эс бөгөөс багана шугамтай зөрнө.
 # Тулгуур огноо нь бэлтгэлийн огноо БИШ, мөр бүрийн шинжилгээ дууссан огноо
 # (se.done_at). Ж: 100 дээжтэй ажлын бэлтгэл өмнөх долоо хоногт хийгдсэн ч
 # тэр долоо хоногт зөвхөн 40 дээжийн шинжилгээ бүрэн дууссан бол 40 гэж
@@ -3523,7 +3529,7 @@ SAMPLE_DONE_SQL = f'''SELECT COUNT(*) FROM sample_entries se
                      JOIN geo_samples   g  ON g.id  = sr.geo_sample_id
                      WHERE se.is_duplicate = 0
                        AND g.sample_type <> 'CRM'
-                       AND se.row_status IN ('done', 'approved')
+                       AND se.row_status = 'approved'
                        AND {ROW_HAS_MEASURE}
                        AND substr(se.done_at, 1, 10) BETWEEN ? AND ?'''
 
@@ -3636,7 +3642,7 @@ def reports_chart_data():
                   JOIN geo_samples g ON g.id = sr.geo_sample_id
                  WHERE se.is_duplicate = 0
                    AND g.sample_type <> 'CRM'
-                   AND se.row_status IN ('done','approved')
+                   AND se.row_status = 'approved'
                    AND substr(se.done_at,1,10) BETWEEN ? AND ?
                    AND {col} IS NULL
                  GROUP BY g.sample_type ORDER BY n DESC""", (d0s, d1s)).fetchall()
@@ -4283,7 +4289,7 @@ def lab_report_export():
             JOIN sample_entries p ON p.receipt_id = se.receipt_id
                                  AND p.row_num    = se.row_num
                                  AND p.is_duplicate = 0
-            WHERE ({_REP_OP_ANY}) AND p.row_status IN ('done','approved')
+            WHERE ({_REP_OP_ANY}) AND p.row_status = 'approved'
               AND substr(p.done_at,1,10) BETWEEN ? AND ?''',
             tuple(u['id'] for _ in ANALYSIS_OPS) + P)
         appr = one(f'''SELECT COUNT(*) FROM sample_entries se
@@ -4328,7 +4334,7 @@ def lab_report_export():
     ana = dict(conn.execute(f'''
         SELECT substr(se.done_at,1,{cut}) as p, COUNT(*)
         FROM sample_entries se
-        WHERE se.is_duplicate=0 AND se.row_status IN ('done','approved') AND {AW}
+        WHERE se.is_duplicate=0 AND se.row_status='approved' AND {AW}
         GROUP BY p''', P).fetchall())
     buckets = sorted(set(smp) | set(ana))
     for ri, b in enumerate(buckets, 3):

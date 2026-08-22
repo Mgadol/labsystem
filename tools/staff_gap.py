@@ -26,7 +26,8 @@ OPS = [
     ('op_fsi', 'Чөлөөт хөөлт', ['fsi']),
 ]
 
-STATUS_MN = {'empty': 'хоосон — ✓ дараагүй', 'done': 'дууссан', 'approved': 'баталгаажсан'}
+STATUS_MN = {'empty': 'хоосон — ✓ дараагүй',
+             'done': '✓ дарсан — БАТАЛГААЖААГҮЙ', 'approved': 'баталгаажсан'}
 
 
 def main():
@@ -70,7 +71,7 @@ def main():
                 FROM sample_entries se
                 JOIN sample_entries p ON p.receipt_id=se.receipt_id
                                      AND p.row_num=se.row_num AND p.is_duplicate=0
-                WHERE ({any_op}) AND p.row_status IN ('done','approved')""",
+                WHERE ({any_op}) AND p.row_status='approved'""",
             n_ops).fetchone()[0]
         ghosts = conn.execute(
             f"""SELECT DISTINCT se.receipt_id, se.row_num, sr.lab_number,
@@ -109,7 +110,7 @@ def main():
                 LEFT JOIN sample_receipt sr ON sr.id=se.receipt_id
                 LEFT JOIN geo_samples g ON g.id=sr.geo_sample_id
                 WHERE ({any_op}) AND (p.row_status IS NULL
-                                      OR p.row_status NOT IN ('done','approved'))
+                                      OR p.row_status<>'approved')
                 ORDER BY sr.lab_number, se.row_num""", n_ops).fetchall()
         print(f'\n  Дуусаагүй тул тоологдоогүй {len(rows)} дээж:')
         print(f'    {"Ажлын дугаар":18} {"мөр":>4}  {"төрөл":10} {"мөрийн байдал":22} дээжийн нэр')
@@ -117,9 +118,10 @@ def main():
             st = STATUS_MN.get(r['row_status'], r['row_status'] or 'мөр алга')
             print(f'    {r["lab_number"] or "?":18} {r["row_num"]:>4}  '
                   f'{r["sample_type"] or "—":10} {st:22} {(r["sample_name"] or "")[:30]}')
-        print('\n  Тайлбар: эдгээр дээж дээр шинжилгээ хийгдсэн ч үндсэн мөрөнд нь')
-        print('  «Дууслаа» (✓) товч хараахан дарагдаагүй байна. ✓ дармагц')
-        print('  «дуусгасан» тоо нь «Шинжилсэн дээж»-тэй тэнцэнэ.')
+        print('\n  Тайлбар: эдгээр дээж дээр шинжилгээ хийгдсэн ч хараахан')
+        print('  БАТАЛГААЖААГҮЙ байна (ахлах химич баталгаажуулаагүй, эсвэл')
+        print('  ✓ товч дарагдаагүй). Баталгаажмагц «дуусгасан» тоо нь')
+        print('  «Шинжилсэн дээж»-тэй тэнцэнэ.')
     conn.close()
     return 0
 
