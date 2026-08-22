@@ -36,9 +36,21 @@ def main():
     # үзүүлэлтийг үзүүлдэггүй тул тоонд оруулахгүй (app.py-тай ижил дүрэм).
     NOCRM = """JOIN sample_receipt sr0 ON sr0.id=se.receipt_id
                 JOIN geo_samples g0 ON g0.id=sr0.geo_sample_id"""
-    DONE_W = """se.is_duplicate=0 AND g0.sample_type<>'CRM'
+    # Хэмжилтийн утга үлдээгүй мөр нь дээж гэж тоологдохгүй (app.py-тай ижил)
+    MEASURE_COLS = ['ff_sample', 'ff_dried', 'mt_tare', 'mt_sample', 'mt_dried',
+                    'dc_tare', 'dc_sample', 'dc_dried',
+                    'ash_tare', 'ash_sample', 'ash_burned',
+                    'vol_tare', 'vol_sample', 'vol_burned',
+                    'g_tare', 'g_coke', 'g_sieve1', 'g_sieve2',
+                    'sulfur', 'cal_value', 'fsi',
+                    'mad', 'aad', 'vad', 'fc', 'g_val']
+    have = {r[1] for r in conn.execute('PRAGMA table_info(sample_entries)')}
+    MEASURE_COLS = [c for c in MEASURE_COLS if c in have]
+    HAS_MEASURE = '(' + ' OR '.join(f'se.{c} IS NOT NULL' for c in MEASURE_COLS) + ')'
+    DONE_BASE = """se.is_duplicate=0 AND g0.sample_type<>'CRM'
                 AND se.row_status IN ('done','approved')
                 AND substr(se.done_at,1,10) BETWEEN ? AND ?"""
+    DONE_W = DONE_BASE + ' AND ' + HAS_MEASURE
     base = conn.execute(
         f'SELECT COUNT(*) n FROM sample_entries se {NOCRM} WHERE {DONE_W}',
         (d0, d1)).fetchone()['n']
@@ -51,6 +63,23 @@ def main():
                 WHERE {DONE_W} GROUP BY sr.id ORDER BY sr.lab_serial""", (d0, d1)):
         part = '' if r['n'] == r['qty'] else f'   (ажлын {r["qty"]} дээжээс)'
         print(f'    {r["lab_number"]:22} {r["n"]:>4} дээж дууссан{part}')
+
+    # ── «Дууссан» гэж тэмдэглэгдсэн ч ямар ч хэмжилтгүй мөр ──
+    ghosts = conn.execute(
+        f"""SELECT sr.lab_number, se.row_num, g.sample_type, g.sample_name,
+                   substr(se.done_at,1,10) d
+            FROM sample_entries se {NOCRM}
+            JOIN sample_receipt sr ON sr.id=se.receipt_id
+            JOIN geo_samples g ON g.id=sr.geo_sample_id
+            WHERE {DONE_BASE} AND NOT {HAS_MEASURE}
+            ORDER BY sr.lab_serial, se.row_num""", (d0, d1)).fetchall()
+    if ghosts:
+        print(f'\n  ⚠ ✓ дарагдсан ч ХЭМЖИЛТГҮЙ {len(ghosts)} мөр — тоонд ОРООГҮЙ:')
+        for r in ghosts:
+            print(f'      {r["lab_number"]:22} мөр {r["row_num"]:>3}  '
+                  f'{r["sample_type"] or "—":10} {(r["sample_name"] or "")[:26]}  {r["d"]}')
+        print('      (Эдгээр нь өмнө нь дээжийн тоог хиймлээр өсгөж байсан.')
+        print('       Утга нь санамсаргүй арилсан бол: tools/check_audit.py --cleared)')
 
     # ── Үзүүлэлт бүрийн тоо ──
     FIELDS = [('mt_dried', 'Нийт чийг'), ('mad', 'Дотоод чийг'), ('aad', 'Үнслэг'),

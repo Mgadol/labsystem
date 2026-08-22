@@ -3502,12 +3502,29 @@ def analysis_count_sql(field):
 # доогуур унасан мэт харагддаг тул ЭНД хасагдана.
 # Харин CRM дээр хийсэн ХЭМЖИЛТ нь үзүүлэлтийн тоонд хэвээр орно —
 # лаборатори тэр ажлыг үнэхээр хийсэн (ANALYSIS_COUNT_SQL үзнэ үү).
-SAMPLE_DONE_SQL = '''SELECT COUNT(*) FROM sample_entries se
+# «Дууссан» гэж тэмдэглэгдсэн ч ямар ч хэмжилтийн утга үлдээгүй мөр
+# (алдаатай ✓, эсвэл утга нь буцаагаад арилсан) нь ДЭЭЖ гэж тоологдох
+# ёсгүй — эс бөгөөс жишиг шугам бодит дээжийн тооноос их гарна
+# (24 дээж дээр 28 гэх мэт).
+MEASURE_VALUE_COLS = [
+    'ff_sample', 'ff_dried', 'mt_tare', 'mt_sample', 'mt_dried',
+    'dc_tare', 'dc_sample', 'dc_dried',
+    'ash_tare', 'ash_sample', 'ash_burned',
+    'vol_tare', 'vol_sample', 'vol_burned',
+    'g_tare', 'g_coke', 'g_sieve1', 'g_sieve2',
+    'sulfur', 'cal_value', 'fsi',
+    'mad', 'aad', 'vad', 'fc', 'g_val',
+]
+ROW_HAS_MEASURE = '(' + ' OR '.join(
+    f'se.{c} IS NOT NULL' for c in MEASURE_VALUE_COLS) + ')'
+
+SAMPLE_DONE_SQL = f'''SELECT COUNT(*) FROM sample_entries se
                      JOIN sample_receipt sr ON sr.id = se.receipt_id
                      JOIN geo_samples   g  ON g.id  = sr.geo_sample_id
                      WHERE se.is_duplicate = 0
                        AND g.sample_type <> 'CRM'
                        AND se.row_status IN ('done', 'approved')
+                       AND {ROW_HAS_MEASURE}
                        AND substr(se.done_at, 1, 10) BETWEEN ? AND ?'''
 
 
