@@ -1070,13 +1070,25 @@ document.addEventListener('keydown',function(e){
   }
 });
 
+// ── Хулгана чирэхэд фокус дагах — ЗӨВХӨН НЭГ МӨРИЙН ДОТОР ───────────
+// Товч дарсан хэвээр хулгана хөдөлгөхөд фокус нүднээс нүд рүү үсэрч,
+// агуулгыг нь СОНГОДОГ. Өөр МӨР рүү үсэрвэл дараагийн товчлуур (эсвэл
+// жингээс ирэх утга) буруу мөрөнд бичигдэж, «дээд мөрийн жин доод мөрөнд
+// хуулагдсан» мэт болно. Тиймээс мөр солих чирэлтийг хүлээж авахгүй —
+// нэг мөрийн дотор багана дамжих нь хэвээр.
+function sameRow(a, b){
+  return a && b && a.dataset.row === b.dataset.row
+      && a.dataset.dup === b.dataset.dup
+      && (a.dataset.rid || '') === (b.dataset.rid || '');
+}
 document.querySelectorAll('.tbl input').forEach(function(i){
   i.addEventListener('focus',function(){this.select();markPrev(this);});
   i.addEventListener('mousemove', function(e){
-    if(e.buttons === 1){
-      this.focus();
-      this.select();
-    }
+    if(e.buttons !== 1) return;
+    var cur = document.activeElement;
+    if(cur && cur.matches('.tbl input') && !sameRow(cur, this)) return;
+    this.focus();
+    this.select();
   });
 });
 
@@ -1148,10 +1160,12 @@ document.addEventListener('DOMContentLoaded',function(){
     var td = e.target.closest('td');
     if(!td) return;
     var inp = td.querySelector('input');
-    if(inp && inp !== document.activeElement){
-      inp.focus();
-      inp.select();
-    }
+    if(!inp || inp === document.activeElement) return;
+    // Өөр мөр рүү үсрэхийг хориглоно (дээрх sameRow-ийн тайлбар үзнэ үү)
+    var cur = document.activeElement;
+    if(cur && cur.matches && cur.matches('.tbl input') && !sameRow(cur, inp)) return;
+    inp.focus();
+    inp.select();
   });
 });
 </script>
