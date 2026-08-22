@@ -2978,6 +2978,14 @@ OP_HAS_VALUE = {op: ' OR '.join(f'{f} IS NOT NULL' for f in fields)
                 for op, _lbl, fields in ANALYSIS_OPS}
 
 
+# Сохор давталтад ДАМЖИХ талбарууд. Бусад бүх хэмжилт нуугдана.
+# Масс, дээжийн нэр нь дээжийн өөрийнх; чөлөөт/нийт чийг нь бэлтгэлийн
+# үе шатных бөгөөд давтан хэмждэггүй тул харагдаж болно.
+QC_BLIND_CARRY = {'sample_name', 'mass_kg',
+                  'ff_sample', 'ff_dried',
+                  'mt_bux', 'mt_tare', 'mt_sample', 'mt_dried'}
+
+
 def op_done_cond(prefix=''):
     """«Энэ хүн энэ дээж дээр шинжилгээ хийсэн» гэсэн SQL нөхцөл.
 
@@ -5331,7 +5339,17 @@ def analysis_autosave_calc():
 @app.route('/analysis/load/<int:receipt_id>')
 @lab_required
 def analysis_load(receipt_id):
-    """Хадгалагдсан өгөгдлийг ачаална"""
+    """Хадгалагдсан өгөгдлийг ачаална.
+
+    Дотоод QC-ийн СОХОР ДАВТАЛТ (blind): ?qc_row=<мөр>&qc_dup=<давталт> өгвөл
+    эх хэмжилтийн утгыг БҮРЭН нууна — химич хариуг нь хараад хэмжих
+    боломжгүй болно. Зөвхөн дараах нь дамжина:
+      · дээжийн нэр, масс — дээжийн өөрийн мэдээлэл, давтагддаггүй
+      · нийт чийг (ЧЧ, НЧ) — бэлтгэлийн үе шатных, давтан хэмжигддэггүй
+    """
+    qc_row = request.args.get('qc_row', type=int)
+    qc_dup = request.args.get('qc_dup', type=int)
+    blind = bool(qc_row and qc_dup and qc_dup >= 2)
     conn = get_db()
     entries = conn.execute(
         "SELECT * FROM sample_entries WHERE receipt_id=? ORDER BY row_num, is_duplicate",
@@ -5339,6 +5357,20 @@ def analysis_load(receipt_id):
     ).fetchall()
     conn.close()
     result = {}
+    if blind:
+        # Давталтын мөрөнд аль хэдийн шивсэн утга нь бүтнээрээ буцна
+        own = next((dict(e) for e in entries
+                    if e['row_num'] == qc_row and e['is_duplicate'] == qc_dup), None)
+        orig = next((dict(e) for e in entries
+                     if e['row_num'] == qc_row and e['is_duplicate'] == 0), None)
+        merged = {}
+        if orig:
+            merged = {k: v for k, v in orig.items() if k in QC_BLIND_CARRY}
+        if own:
+            merged.update({k: v for k, v in own.items() if v is not None})
+        merged.update({'row_num': qc_row, 'is_duplicate': qc_dup})
+        result[f'{qc_row}_{qc_dup}'] = merged
+        return jsonify(result)
     for e in entries:
         key = f"{e['row_num']}_{e['is_duplicate']}"
         result[key] = dict(e)
@@ -6336,6 +6368,19 @@ def analysis_measure_multi():
 
     qc_receipt_ids = [str(k) for k in qc_row_map.keys()]
     qc_id = request.args.get('qc_id', type=int)
+    # ── Дотоод QC: СОХОР ДАВТАЛТ ──────────────────────────────────────
+    # Давтан хэмжилтийг ҮНДСЭН мөр дээр хийвэл (а) химич эх хариуг хараад
+    # хэмждэг тул QC утгагүй болно, (б) шивсэн утга нь эх хэмжилтийг дарж
+    # бичнэ. Тиймээс шинэ давталтын дугаар (2, 3, ...) дээр хийнэ.
+    qc_dup_map = {}
+    if qc_id and qc_row_map:
+        conn3 = get_db()
+        for rid_, row_ in qc_row_map.items():
+            mx = conn3.execute(
+                "SELECT COALESCE(MAX(is_duplicate),1) FROM sample_entries "
+                "WHERE receipt_id=? AND row_num=?", (rid_, row_)).fetchone()[0]
+            qc_dup_map[rid_] = max(2, (mx or 1) + 1)
+        conn3.close()
     # QC хүлцэл — measure.html-тэй ижил эх сурвалжаас. Урьд нь энэ хуудсанд
     # утга нь кодод бэхлэгдсэн байсан тул тохиргооны өөрчлөлт хүчин төгөлдөр
     # болдоггүй, зөвхөн Mad/Aad/Vad шалгагддаг байв.
@@ -6345,7 +6390,8 @@ def analysis_measure_multi():
     conn2.close()
     return render_template('analysis/measure_multi.html',
         receipts=receipts, lang=lang, qc_map=qc_map,
-        ids=ids_str, qc_row_map=qc_row_map, qc_receipt_ids=qc_receipt_ids, qc_id=qc_id)
+        ids=ids_str, qc_row_map=qc_row_map, qc_receipt_ids=qc_receipt_ids, qc_id=qc_id,
+        qc_dup_map=qc_dup_map)
 
 # ── LAB SETTINGS ────────────────────────────────────────
 import json as _json

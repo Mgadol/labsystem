@@ -179,7 +179,9 @@
   {% if qc_row_map %}
   <tr class="lot-label">
     <td colspan="51" style="text-align:left;background:#0d4f47;color:#4ade80;font-family:monospace;font-size:11px;height:20px;padding:0">
-      <div class="lot-inner">🔁 Дотоод QC &nbsp;·&nbsp; <span style="color:#fbbf24">QC</span> &nbsp;·&nbsp; {{ qc_row_map|length }} дээж</div>
+      <div class="lot-inner">🔁 Дотоод QC — СОХОР ДАВТАЛТ &nbsp;·&nbsp;
+        <span style="color:#fbbf24">эх хэмжилт харагдахгүй</span> &nbsp;·&nbsp;
+        масс ба нийт чийг нь эх дээжийнхээр орсон &nbsp;·&nbsp; {{ qc_row_map|length }} дээж</div>
     </td>
   </tr>
   {% endif %}
@@ -210,6 +212,11 @@
   {% set ri = i+1 %}
   {% if qc_row_map and rid in qc_row_map and qc_row_map[rid] != ri %}{% else %}
   {% set uid = rid|string + '_' + ri|string %}
+  {# Дотоод QC — СОХОР ДАВТАЛТ. Мөр нь үндсэн (0) биш, шинэ давталтын
+     дугаартай тул эх хэмжилт хэзээ ч дарагдахгүй. Эх утга нь серверээс ч
+     ирэхгүй (analysis_load дахь blind горим) — зөвхөн масс ба нийт чийг
+     дамжина, учир нь тэдгээр нь дээжийн өөрийнх бөгөөд давтагддаггүй. #}
+  {% set dup0 = qc_dup_map.get(rid, 0) if (qc_id and rid in qc_row_map) else 0 %}
   <tr class="main-row" id="mr{{ uid }}">
     <td style="font-size:10px;color:#666;padding:0 2px">
       <button class="dup-btn" id="db{{ uid }}" onclick="toggleDup('{{ uid }}')">+</button>
@@ -222,36 +229,36 @@
       {% elif stype=='EXPORT' %}#3c3489{% elif stype=='CONTROL' %}#854f0b
       {% elif stype=='EQ_CONTROL' %}#993c1d{% else %}#555{% endif %}">{{ 'QC' if (qc_row_map and rid in qc_row_map) else stype }}</td>
     <td style="font-family:monospace;font-size:10px;color:#555">{% if rid in qc_row_map %}QC{{ ns_qc.idx }}-{% endif %}{{ receipt['lab_number'] }}</td>
-    <td><div class="name-cell"><input class="name-inp" type="text" id="n{{ uid }}" data-field="sample_name" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></div></td>
-    <td><input type="number" min="0" step="0.1" data-field="mass_kg" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
-    <td style="padding:2px"><button class="done-btn" id="dnbtn{{ uid }}_0" onclick="markDone('{{ rid }}','{{ ri }}',0)" title="Дууслаа">○</button></td>
-    <td class="cg-ff gs"><input type="number" min="0" step="0.0001" data-field="ff_sample" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-ff ge"><input type="number" min="0" step="0.0001" data-field="ff_dried" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-mt gs"><input type="text" data-field="mt_bux" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
-    <td class="cg-mt"><input type="number" min="0" step="0.0001" data-field="mt_tare" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-mt"><input type="number" min="0" step="0.0001" data-field="mt_sample" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-mt ge"><input type="number" min="0" step="0.0001" data-field="mt_dried" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-dc gs"><input type="text" data-field="dc_bux" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
-    <td class="cg-dc"><input type="number" min="0" step="0.0001" data-field="dc_tare" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-dc"><input type="number" min="0" step="0.0001" data-field="dc_sample" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-dc ge"><input type="number" min="0" step="0.0001" data-field="dc_dried" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-un gs"><input type="text" data-field="ash_tav" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
-    <td class="cg-un"><input type="number" min="0" step="0.0001" data-field="ash_tare" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-un"><input type="number" min="0" step="0.0001" data-field="ash_sample" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-un ge"><input type="number" min="0" step="0.0001" data-field="ash_burned" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-db gs"><input type="text" data-field="vol_tig" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
-    <td class="cg-db"><input type="number" min="0" step="0.0001" data-field="vol_tare" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-db"><input type="number" min="0" step="0.0001" data-field="vol_sample" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-db ge"><input type="number" min="0" step="0.0001" data-field="vol_burned" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-gi gs"><input type="text" data-field="g_tig" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
-    <td class="cg-gi"><input type="number" min="0" step="0.0001" data-field="g_tare" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-gi"><input type="number" min="0" step="0.0001" data-field="g_coke" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-gi"><input type="number" min="0" step="0.0001" data-field="g_sieve1" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-gi ge"><input type="number" min="0" step="0.0001" data-field="g_sieve2" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-st gs ge"><input type="number" min="0" step="0.001" data-field="sulfur" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-il gs"><input type="number" min="0" step="0.01" data-field="cal_value" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',0,'{{ rid }}','{{ ri }}')"></td>
-    <td class="cg-il ge"><input type="number" min="0" step="0.1" data-field="cal_temp" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
-    <td class="cg-fsi gs ge"><input type="number" min="0" step="0.5" data-field="fsi" data-row="{{ ri }}" data-dup="0" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td><div class="name-cell"><input class="name-inp" type="text" id="n{{ uid }}" data-field="sample_name" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)"></div></td>
+    <td><input type="number" min="0" step="0.1" data-field="mass_kg" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td style="padding:2px"><button class="done-btn" id="dnbtn{{ uid }}_{{ dup0 }}" onclick="markDone('{{ rid }}','{{ ri }}',{{ dup0 }})" title="Дууслаа">○</button></td>
+    <td class="cg-ff gs"><input type="number" min="0" step="0.0001" data-field="ff_sample" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',{{ dup0 }},'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-ff ge"><input type="number" min="0" step="0.0001" data-field="ff_dried" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',{{ dup0 }},'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-mt gs"><input type="text" data-field="mt_bux" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-mt"><input type="number" min="0" step="0.0001" data-field="mt_tare" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',{{ dup0 }},'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-mt"><input type="number" min="0" step="0.0001" data-field="mt_sample" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',{{ dup0 }},'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-mt ge"><input type="number" min="0" step="0.0001" data-field="mt_dried" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',{{ dup0 }},'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-dc gs"><input type="text" data-field="dc_bux" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-dc"><input type="number" min="0" step="0.0001" data-field="dc_tare" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',{{ dup0 }},'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-dc"><input type="number" min="0" step="0.0001" data-field="dc_sample" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',{{ dup0 }},'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-dc ge"><input type="number" min="0" step="0.0001" data-field="dc_dried" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',{{ dup0 }},'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-un gs"><input type="text" data-field="ash_tav" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-un"><input type="number" min="0" step="0.0001" data-field="ash_tare" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',{{ dup0 }},'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-un"><input type="number" min="0" step="0.0001" data-field="ash_sample" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',{{ dup0 }},'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-un ge"><input type="number" min="0" step="0.0001" data-field="ash_burned" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',{{ dup0 }},'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-db gs"><input type="text" data-field="vol_tig" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-db"><input type="number" min="0" step="0.0001" data-field="vol_tare" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',{{ dup0 }},'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-db"><input type="number" min="0" step="0.0001" data-field="vol_sample" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',{{ dup0 }},'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-db ge"><input type="number" min="0" step="0.0001" data-field="vol_burned" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',{{ dup0 }},'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-gi gs"><input type="text" data-field="g_tig" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-gi"><input type="number" min="0" step="0.0001" data-field="g_tare" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',{{ dup0 }},'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-gi"><input type="number" min="0" step="0.0001" data-field="g_coke" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',{{ dup0 }},'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-gi"><input type="number" min="0" step="0.0001" data-field="g_sieve1" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',{{ dup0 }},'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-gi ge"><input type="number" min="0" step="0.0001" data-field="g_sieve2" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',{{ dup0 }},'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-st gs ge"><input type="number" min="0" step="0.001" data-field="sulfur" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',{{ dup0 }},'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-il gs"><input type="number" min="0" step="0.01" data-field="cal_value" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)" oninput="calc('{{ uid }}',{{ dup0 }},'{{ rid }}','{{ ri }}')"></td>
+    <td class="cg-il ge"><input type="number" min="0" step="0.1" data-field="cal_temp" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
+    <td class="cg-fsi gs ge"><input type="number" min="0" step="0.5" data-field="fsi" data-row="{{ ri }}" data-dup="{{ dup0 }}" data-rid="{{ rid }}" onblur="autoSave(this)"></td>
     <td class="calc-cell gs" id="r{{ uid }}_tm" data-cg="ff,mt">—</td><td class="calc-cell cmid" id="r{{ uid }}_tmm" data-cg="ff,mt">—</td>
     <td class="calc-cell" id="r{{ uid }}_mad" data-cg="dc">—</td><td class="calc-cell cmid" id="r{{ uid }}_madm" data-cg="dc">—</td>
     <td class="calc-cell" id="r{{ uid }}_aad" data-cg="un">—</td><td class="calc-cell cmid" id="r{{ uid }}_aadm" data-cg="un">—</td>
@@ -925,13 +932,20 @@ function loadFailedNotice(err){
 }
 function loadAllData(){
   {% for receipt in receipts %}
-  fetch('/analysis/load/{{ receipt["id"] }}')
+  {# QC-ийн сохор давталт үед эх утга серверээс ирэхгүй #}
+  fetch('/analysis/load/{{ receipt["id"] }}'
+    {%- if qc_id and receipt['id'] in qc_dup_map %}
+    + '?qc_row={{ qc_row_map[receipt["id"]] }}&qc_dup={{ qc_dup_map[receipt["id"]] }}'
+    {%- endif %})
    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
    .then(function(data){
     Object.keys(data).forEach(function(key){
       var p=key.split('_'),row=p[0],dup=p[1],e=data[key];
       var uid='{{ receipt["id"] }}_'+row;
-      if(+dup>=2) ensureRepeat(uid,'{{ receipt["id"] }}',row,+dup);  // давталтыг сэргээнэ
+      // давталтыг сэргээнэ. QC-ийн сохор давталт нь ҮНДСЭН мөр дээрээ
+      // байгаа тул дахин мөр үүсгэхгүй.
+      var qcDup = {{ qc_dup_map.get(receipt['id'], 0) if qc_id else 0 }};
+      if(+dup>=2 && +dup!==qcDup) ensureRepeat(uid,'{{ receipt["id"] }}',row,+dup);
       Object.keys(e).forEach(function(f){
         if(['id','receipt_id','row_num','is_duplicate','created_at','updated_at','updated_by'].includes(f)) return;
         var inp=document.querySelector('[data-rid="{{ receipt["id"] }}"][data-row="'+row+'"][data-dup="'+dup+'"][data-field="'+f+'"]');
